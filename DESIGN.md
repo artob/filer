@@ -1,9 +1,10 @@
 # Filer.rs design
 
-**Status:** draft design, no implementation yet (revised 2026-10-31).
+**Status:** draft design; empty crate skeletons only (revised 2026-10-31).
 **Crates:** `filer-api` for the core abstractions, and `filer-*` crates for
 individual drivers, middleware, adapters, and tools (for example
-`filer-posix`, the `rustix`-based POSIX driver).
+`filer-posix`, the `rustix`-based POSIX driver, and `filer-cli`, the
+`filer` command).
 
 This document records *why* Filer.rs is shaped the way it is. It is written
 for whoever implements it, very likely a future session of the model that
@@ -141,7 +142,12 @@ windows; this section holds the rationale.
 - A `VERSION` file holds the single project version. Package versions and
   internal dependency versions stay aligned with it; internal dependencies
   keep default features disabled.
+- Versions start at 0.0.0. Releases stay at 0.0.x while the API is
+  extremely experimental and unstable: under Cargo's rules every 0.0.x
+  release is incompatible with every other, which states that honestly
+  (D29). 0.1.0 waits for the criteria at the end of `TODO.md`.
 - License: Unlicense, as in Dogma.rs (carried over; see Q10).
+- Repository: <https://github.com/artob/filer> (D31).
 - Root files: `AGENTS.md`, `README.md`, `CHANGES.md` (Keep a Changelog,
   Semantic Versioning, **Breaking** markers), `TODO.md`, `DESIGN.md`,
   `VERSION`, `UNLICENSE`, `AUTHORS`, `CREDITS.md`, `.rustfmt.toml` (same
@@ -153,16 +159,20 @@ windows; this section holds the rationale.
   `std` feature. Crates that cannot do anything useful without allocation
   (all of them, in practice) use `extern crate alloc` unconditionally and
   have no `alloc` feature. `extern crate std` appears only under `std`.
-- OS driver crates (`filer-posix`, `filer-windows`, `filer-uring`) export
-  nothing without `std`, and nothing on targets they do not support. They
-  still build there, as empty shells, so workspace-wide feature checks stay
-  uniform.
+- OS driver crates (`filer-posix`, `filer-wasi`, `filer-windows`,
+  `filer-uring`) export nothing without `std`, and nothing on targets they
+  do not support (`cfg(unix)`, `cfg(target_os = "wasi")`, `cfg(windows)`,
+  Linux). They still build there, as empty shells, so workspace-wide
+  feature checks stay uniform. Note that WASI targets are not `cfg(unix)`.
+- `filer-cli` is the one binary crate. Its `[[bin]]` has
+  `required-features = ["std"]`, so `no_std` builds of the package skip it,
+  and it depends on each OS driver only under that driver's `cfg`.
 - `[features]` starts with `default = ["all", "std"]`. `all` collects the
   default non-`std` features and must build for `thumbv7em-none-eabihf` in
   every crate. Every feature must build alone on the host. All features
-  must build for `wasm32-unknown-unknown`, so OS dependencies are
-  target-gated (`[target.'cfg(...)'.dependencies]`) and OS modules are
-  `cfg`'d out.
+  must build for `wasm32-unknown-unknown`, `wasm32-wasip1`, and
+  `wasm32-wasip2`, so OS dependencies are target-gated
+  (`[target.'cfg(...)'.dependencies]`) and OS modules are `cfg`'d out.
 - APIs exempt from semver guarantees go behind an `unstable` feature;
   whole experimental crates use `publish = false` until their gates pass
   (D16).
@@ -172,13 +182,14 @@ windows; this section holds the rationale.
 - The workspace lint table sets `unsafe_code = "deny"`,
   `unsafe_op_in_unsafe_fn = "deny"`, and Clippy's
   `undocumented_unsafe_blocks = "deny"`.
-- Crates without `unsafe` (`filer-api` and everything that is not an OS
-  driver) also declare `#![forbid(unsafe_code)]` at the crate root, marking
-  them unsafe-free in a way no module can override.
-- A driver crate that needs `unsafe` (`filer-windows`, `filer-uring`, and
-  `filer-posix` only for gaps in `rustix`, see §17.1) keeps the crate-level
-  `deny` and confines all `unsafe` to one private `sys` module (or a small
-  `sys/` tree) carrying `#[allow(unsafe_code)]`. Every `unsafe` block has a
+- Every crate without `unsafe` (currently all of them, including the empty
+  OS driver shells) also declares `#![forbid(unsafe_code)]` at the crate
+  root, marking it unsafe-free in a way no module can override.
+- A driver crate that comes to need `unsafe` (expected: `filer-windows`,
+  `filer-uring`, and `filer-posix` only for gaps in `rustix`, see §17.1)
+  switches its crate root from `forbid` to `deny` in the same change and
+  confines all `unsafe` to one private `sys` module (or a small `sys/`
+  tree) carrying `#[allow(unsafe_code)]`. Every `unsafe` block has a
   `// SAFETY:` comment; every `unsafe fn` documents its contract. The rest
   of the crate is safe code over `sys`'s safe wrappers.
 - The README lists which crates contain `unsafe` and why.
@@ -234,13 +245,15 @@ direct dependency versions; build and test on Ubuntu and Windows at MSRV and
 stable.
 
 New for Filer.rs: a macOS job (APFS clones, `F_FULLFSYNC`, no `openat2`),
-filesystem fixtures on Linux (§24), and the conformance suite run against
-every driver.
+all-feature checks on `wasm32-wasip1` and `wasm32-wasip2` (for
+`filer-wasi`), filesystem fixtures on Linux (§24), and the conformance
+suite run against every driver. The packaged-doctest job skips `filer-cli`,
+which has no library and so no doctests.
 
 ### 3.7 The umbrella crate
 
 Following Dogma.rs, an umbrella crate re-exports `filer-api` at the top
-level and component crates as modules (`posix`, `windows`, `memory`, ...),
+level and component crates as modules (`posix`, `windows`, `heap`, ...),
 forwarding features; component crates never depend on it, and umbrella
 tests only check re-exports and forwarding. Its name is open: `filer` on
 crates.io is an unrelated 0.0.0 placeholder (Q11).
@@ -268,7 +281,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
                    |
   +----------------v-----------------+
   | Concrete drivers                 |  filer-posix, filer-windows,
-  |                                  |  filer-uring, filer-memory,
+  |                                  |  filer-uring, filer-heap,
   |                                  |  filer-archive
   +----------------------------------+
 ```
@@ -292,9 +305,10 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | --- | --- | --- |
 | `filer-api` | types, paths, `Op`, `Driver`, frontend, algorithms | no |
 | `filer-posix` | `rustix` driver: Linux, macOS, BSDs | stopgaps only |
+| `filer-wasi` | WASI driver over preopens | no (§17.8) |
 | `filer-windows` | `windows-sys` driver | yes, in `sys` |
 | `filer-uring` | io_uring driver over `filer-posix` | yes, in `sys` |
-| `filer-memory` | in-memory driver with a crash model | no |
+| `filer-heap` | in-memory driver with a crash model | no |
 | `filer-vfs` | mount-table routing driver | no |
 | `filer-overlay` | overlay routing driver | no |
 | `filer-archive` | read-only zip and tar driver | no |
@@ -306,7 +320,12 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-tokio` | Tokio spawner and I/O trait adapters | no |
 | `filer-conformance` | driver conformance suite, as a library | no |
 | `filer-fuse` | FUSE export of any driver | no |
+| `filer-cli` | the `filer` binary over the native driver | no |
 | umbrella (Q11) | re-exports and feature forwarding | no |
+
+Existing so far, as empty skeletons: `filer-api`, `filer-posix`,
+`filer-wasi`, `filer-windows`, and `filer-cli` (D30). The rest are created
+when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
 that perform no I/O and hold no filesystem state (`DynDriver`, `Hybrid`,
@@ -316,24 +335,29 @@ userspace resolver). Anything with its own semantics, state, or I/O is its
 own crate.
 
 Main type per crate: `filer_posix::Posix`, `filer_windows::Windows`,
-`filer_uring::Uring`, `filer_memory::Memory`, `filer_vfs::Vfs`,
+`filer_uring::Uring`, `filer_heap::Heap`, `filer_vfs::Vfs`,
 `filer_overlay::Overlay`, `filer_archive::Archive`.
 
 ### 4.2 Dependency graph
 
 ```text
 filer-api <--+-- filer-posix <---- filer-uring
+             +-- filer-wasi
              +-- filer-windows
-             +-- filer-memory
+             +-- filer-heap
              +-- filer-vfs, filer-overlay, filer-archive
              +-- filer-tracing, filer-faults, filer-quota, filer-replay
              +-- filer-tx, filer-tokio, filer-fuse
              +-- filer-conformance   (dev-dependency of every driver)
 ```
 
+`filer-cli` depends on `filer-api` and on `filer-posix`, `filer-wasi`, and
+`filer-windows`, each under its own target `cfg`; it is a leaf that nothing
+depends on, and unlike the umbrella it is a tool, not a library.
+
 `filer-uring` depends on `filer-posix` because it reuses its handle payloads
 and falls back to it for operations io_uring cannot do (§16.5).
-`filer-memory` is a dev-dependency of crates whose tests need a crash model
+`filer-heap` is a dev-dependency of crates whose tests need a crash model
 (`filer-tx`, `filer-replay`).
 
 ## 5. Names and paths
@@ -458,7 +482,7 @@ Rules:
 - `Display` is an escaped, lossy rendering (`\xNN` for invalid bytes),
   documented as non-round-trippable.
 - No `serde` implementation. Persisting a foreign name is out of scope.
-- Test-only construction is offered by `filer-memory`, not by the type.
+- Test-only construction is offered by `filer-heap`, not by the type.
 
 With Dogma.rs interop (§5.7), `EntryName` would implement
 `dogma_traits::MaybeNamed`, returning the UTF-8 name or `None` for foreign
@@ -794,7 +818,7 @@ Completion is signaled through a small internal oneshot channel in
 
 `core::future::Future`, `core::task`, and `alloc` are enough for the types,
 the `Op` enum, the `Driver` trait, the frontend, the generic algorithms,
-`filer-memory`, the routing drivers, and most middleware. Only OS drivers,
+`filer-heap`, the routing drivers, and most middleware. Only OS drivers,
 `AmbientAuthority` constructors, `DefaultPool`, and `std::io::Error`
 interop require `std`.
 
@@ -802,7 +826,7 @@ interop require `std`.
 
 Two different needs, two different tools (D21):
 
-- **State locks that are never held across an `.await`.** `filer-memory`'s
+- **State locks that are never held across an `.await`.** `filer-heap`'s
   inode table, driver caches (features per mount), handle tables. These
   guard short, synchronous critical sections, for which a synchronous mutex
   is both correct and fastest: `std::sync::Mutex` under `std`,
@@ -1178,7 +1202,7 @@ state, and retrying does not help.
 So a `File` **poisons itself** on sync failure: every later `sync` on that
 handle (and on clones of it) returns the original error, with
 `ErrorKind::Poisoned` wrapping the cause. The error's documentation says
-"recover from your own copy or log", not "try again". `filer-memory`
+"recover from your own copy or log", not "try again". `filer-heap`
 models the kernel behavior (drop pages, report clean) so this path is
 tested.
 
@@ -1466,7 +1490,7 @@ enum HandleSlot {
 }
 ```
 
-Drivers downcast the payload (an `OwnedFd`, a memory inode id, a mount
+Drivers downcast the payload (an `OwnedFd`, a heap inode id, a mount
 index) safely with `Any`. A driver receiving a handle minted by a different
 `DriverId` returns `ErrorKind::CrossDriver` (routing drivers translate
 handles explicitly). Dropping the last reference sends the payload to the
@@ -1561,8 +1585,9 @@ targets. `Posix` takes an executor:
   default.
 - `Posix::inline()`: executes each op synchronously inside `poll`. It blocks
   the executor, and its rustdoc says so in the first sentence. Useful for
-  single-threaded tools, WASI without threads, and deterministic tests on a
-  real filesystem. Same syscall layer, so it is nearly free.
+  single-threaded tools and deterministic tests on a real filesystem
+  (`filer-wasi` offers the same for WASI, §17.8). Same syscall layer, so
+  it is nearly free.
 
 `rustix` coverage, audited against `rustix` 1.1.6 source on 2026-10-31:
 
@@ -1679,7 +1704,7 @@ helpers, or depend on it only after its range covers the workspace version.
 - Backend: the `io-uring` crate or `compio-driver`; a spike decides.
   Either way the crate contains `unsafe`, confined to `sys`.
 
-### 17.4 `filer-memory`
+### 17.4 `filer-heap`
 
 An in-memory filesystem: the reference implementation of the driver
 contract and the backbone of the test strategy. `no_std` + `alloc`.
@@ -1735,12 +1760,34 @@ exposed under a quarantine directory or rejected, never resolved outside
 the archive root. Whether to write small readers or reuse existing crates
 is Q7.
 
-### 17.8 Later
+### 17.8 `filer-wasi`
 
-- `filer-wasi`: `Dir`s from preopens on `wasm32-wasip2` and later; a native
-  WASI 0.3 async binding once the ecosystem settles. Until then,
-  `filer-posix`'s inline executor may cover WASI through `rustix`
-  (**VERIFY** `rustix` WASI coverage).
+The WASI driver, gated on `cfg(target_os = "wasi")` (D30); it exists as an
+empty shell. WASI targets are not `cfg(unix)`, so `filer-posix` is empty
+there and cannot be the WASI driver directly.
+
+- `Dir`s come from preopens via `AmbientAuthority` (§6.1). Preopens already
+  behave like capabilities, and WASI resolution is confined by the host, so
+  `Enforcement` is reported per what the host guarantees.
+- Executor: inline (as `Posix::inline()`, §17.1) where threads are
+  unavailable, the shared `Spawner` where they are.
+- Syscall layer: `rustix`'s WASI support if it covers what is needed,
+  otherwise `std`'s WASI extensions or the `wasi` bindings (**VERIFY**
+  `rustix` WASI coverage, VER-02). If that sharing works out, the syscall
+  code may be factored so `filer-posix` and `filer-wasi` share it.
+- Later: a native WASI 0.3 async binding once the ecosystem settles.
+
+### 17.9 `filer-cli`
+
+The `filer` binary, built only with `std` (§3.2). It picks the native
+driver for the target (`filer-posix`, `filer-wasi`, or `filer-windows`),
+obtains roots through `AmbientAuthority`, and exposes the frontend's
+operations as subcommands. It is also a living example and a manual test
+tool for the drivers; it does nothing yet, and its command set is designed
+when the frontend (API items in `TODO.md`) exists.
+
+### 17.10 Later
+
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
   mapping the capability model one to one.
@@ -1766,11 +1813,11 @@ In priority order:
 1. **`filer-tracing`**: one span per op with kind, relative path, bytes,
    duration, fallback taken, and error.
 2. **`filer-faults`**: seeded, deterministic error and latency injection by
-   op kind and path pattern. Complements `filer-memory`'s crash model for
+   op kind and path pattern. Complements `filer-heap`'s crash model for
    drivers that have no durable-state model.
 3. **`filer-quota`**: byte and entry quotas per subtree.
 4. **`filer-replay`**: record the op stream and completions; replay against
-   `filer-memory` to reproduce bugs.
+   `filer-heap` to reproduce bugs.
 
 `filer_api::ReadOnly` is a combinator rather than a crate (no state, no
 I/O): it rejects mutating ops with `ErrorKind::ReadOnly`. It matters when a
@@ -1965,23 +2012,23 @@ to not hydrating; `Open::allow_hydration()` is explicit.
 
 ### 21.7 WebAssembly
 
-- `wasm32-unknown-unknown`: no filesystem; only `filer-memory`,
+- `wasm32-unknown-unknown`: no filesystem; only `filer-heap`,
   `filer-vfs`, `filer-overlay`, and other virtual drivers do anything.
   Every crate and feature must still build there (CI).
 - WASI targets: `std` uses wasi-libc's `openat`-style calls over preopens,
-  which already behave like capabilities. `Dir`s come from preopens via
-  `AmbientAuthority`; use `filer-posix`'s inline executor where threads
-  are unavailable, until `filer-wasi` exists (§17.8).
+  which already behave like capabilities. `filer-wasi` (§17.8) turns
+  preopens into `Dir`s via `AmbientAuthority`; CI checks every crate with
+  all features on `wasm32-wasip1` and `wasm32-wasip2`.
 
 ## 22. Workspace layout and features
 
 ### 22.1 Repository layout
 
 ```text
-filer.rs/
+filer/
   AGENTS.md  AUTHORS  CHANGES.md  CREDITS.md  DESIGN.md  README.md
-  TODO.md  UNLICENSE  VERSION  Cargo.toml  .rustfmt.toml
-  .github/workflows/ci.yaml
+  TODO.md  UNLICENSE  VERSION  Cargo.toml  Makefile  .rustfmt.toml
+  .cargo/config.toml  .github/workflows/ci.yaml
   lib/
     filer-api/
       src/
@@ -2000,9 +2047,11 @@ filer.rs/
         dir.rs  file.rs  open.rs  read_dir.rs  entry.rs
         copy.rs  atomic_writer.rs  walker.rs
     filer-posix/   src/ { lib.rs, executor.rs, ops/, sys/ (stopgaps) }
+    filer-wasi/    src/ { lib.rs, ops/ }
     filer-windows/ src/ { lib.rs, ops/, sys/ }
+    filer-cli/     src/ { main.rs }
     filer-uring/   src/ { lib.rs, ring.rs, sys/ }
-    filer-memory/  src/ { lib.rs, inode.rs, crash.rs, harness.rs, ... }
+    filer-heap/  src/ { lib.rs, inode.rs, crash.rs, harness.rs, ... }
     filer-vfs/  filer-overlay/  filer-archive/
     filer-tracing/  filer-faults/  filer-quota/  filer-replay/
     filer-tx/  filer-tokio/  filer-conformance/  filer-fuse/
@@ -2038,7 +2087,7 @@ unstable = ["filer-api/unstable"]       # RWF_ATOMIC and other experiments
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, optional = true, features = ["fs", "std"] }
 
-# filer-memory
+# filer-heap
 [features]
 default = ["all", "std"]
 all = []
@@ -2047,11 +2096,11 @@ harness = []                            # crash-point enumeration
 ```
 
 The umbrella (Q11) forwards component features: `all` covers the `no_std`
-components (`memory`, `vfs`, `overlay`, `serde`), and its `std` also
-enables the native drivers (`filer-posix` on Unix, `filer-windows` on
-Windows, both target-gated) so that a default build is immediately useful
-(D25). Optional components (`uring`, `tokio`, `tracing`, `faults`, `tx`,
-...) are named features.
+components (`heap`, `vfs`, `overlay`, `serde`), and its `std` also
+enables the native drivers (`filer-posix` on Unix, `filer-wasi` on WASI,
+`filer-windows` on Windows, all target-gated, as `filer-cli` does) so that
+a default build is immediately useful (D25). Optional components
+(`uring`, `tokio`, `tracing`, `faults`, `tx`, ...) are named features.
 
 ## 23. Dependencies
 
@@ -2068,7 +2117,7 @@ only when the first item needs it.
 | `compio-driver` | 0.12 | `filer-uring` | evaluate in a spike |
 | `bitflags` | 2.13 | `filer-api` | `no_std`; optional `serde` |
 | `ref-cast` | 1.0 | `filer-api` | path DSTs (D4) |
-| `spin` | 0.12 | `filer-memory` | `no_std` lock |
+| `spin` | 0.12 | `filer-heap` | `no_std` lock |
 | `async-lock` | 3.4 | `filer-tx`, `filer-quota` | MSRV 1.85; `no_std` |
 | `serde` | 1.0 | several | optional |
 | `bytes` | 1.12 | `filer-api` | optional |
@@ -2110,10 +2159,10 @@ of leverage:
    its tests with `pollster` as the executor; out-of-tree drivers can too
    (D26).
 2. **Differential testing.** Generate random op sequences (proptest) and run
-   them against `filer-memory` and `filer-posix`; compare observable state.
-   Memory personalities let one CI machine imitate case-insensitive, NFD, or
+   them against `filer-heap` and `filer-posix`; compare observable state.
+   Heap personalities let one CI machine imitate case-insensitive, NFD, or
    reflink-less filesystems.
-3. **Crash properties.** `filer-memory`'s `harness` feature enumerates crash
+3. **Crash properties.** `filer-heap`'s `harness` feature enumerates crash
    points. For atomic writes and every transaction strategy: for every crash
    point and every `CrashPolicy`, after recovery the observable state equals
    either the full pre-state or the full post-state. Also: sync failure
@@ -2121,7 +2170,7 @@ of leverage:
    again).
 4. **LazyFS.** An optional Linux CI job mounts LazyFS (a FUSE filesystem
    that drops unsynced data on command, used by Jepsen) and runs the crash
-   properties against `filer-posix`, validating the memory model against a
+   properties against `filer-posix`, validating the heap crash model against a
    real kernel path.
 5. **Platform tests.** Behavior only real systems show: `openat2` `EAGAIN`
    and `ENOSYS` handling, the `O_TMPFILE` fallback (test a filesystem
@@ -2131,7 +2180,7 @@ of leverage:
    clones on the macOS job.
 6. **Fuzzing.** `cargo-fuzz` targets for name and path validation, the
    journal parser, Windows reparse-data parsing, and archive member names.
-7. **Miri.** `filer-api`, `filer-memory`, and the routing drivers run under
+7. **Miri.** `filer-api`, `filer-heap`, and the routing drivers run under
    Miri (no FFI there). The `sys` modules of `unsafe` crates keep their
    pure logic (buffer bookkeeping, reparse parsing) in functions testable
    under Miri.
@@ -2246,6 +2295,9 @@ Record changes here with a date and one line of rationale.
 | D26 | `filer-conformance` is a published library | Proposed |
 | D27 | Unix advisory locks use `flock`; never classic `fcntl` | Proposed |
 | D28 | `rustix` gaps: upstream first, confined stopgaps second | Accepted |
+| D29 | Versions start at 0.0.0; releases are 0.0.x until 0.1.0 | Accepted |
+| D30 | `filer-wasi` and `filer-cli` exist from the start | Accepted |
+| D31 | Repository at `github.com/artob/filer` (resolves Q12) | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
@@ -2254,11 +2306,17 @@ Notes on the 2026-10-31 decisions:
   dependencies makes that move non-breaking.
 - **D4:** Option A, conditional only on the compile test in `TODO.md`.
 - **D11:** crates without `unsafe` declare `#![forbid(unsafe_code)]`; the
-  mechanics are in §3.3.
+  mechanics are in §3.3. Every current crate forbids it, the empty OS
+  driver shells included, until one needs a `sys` module.
 - **D20:** supersedes the earlier single-crate plan.
 - **D21:** the question of Tokio mutexes is answered in §7.7.
 - **D22:** supersedes the earlier plan to use `cap-primitives` on Windows;
   `winx` only if its `windows-sys` range is aligned (§17.2).
+- **D29:** 0.0.x signals that the API is extremely experimental and
+  unstable; supersedes the earlier plan to start at 0.1.0 (§3.1).
+- **D30:** reconciles this document with the bootstrapped workspace, which
+  already had both crates; supersedes the plan to cover WASI through
+  `filer-posix` (§17.8, §17.9).
 
 ## 29. Open questions
 
@@ -2284,8 +2342,6 @@ Notes on the 2026-10-31 decisions:
   owned by an unrelated project (published 2022 by a memflow maintainer,
   checked 2026-10-31). Options: ask the owner to transfer it, or publish
   the umbrella under another name. All `filer-*` names checked were free.
-- **Q12.** Repository location and organization for Filer.rs (needed for
-  workspace metadata, badges, and CI).
 
 ## Appendix A: Glossary
 
@@ -2311,9 +2367,9 @@ Notes on the 2026-10-31 decisions:
   on Windows); opaque, usable only with its originating driver.
 - **Op:** one driver-level operation as a value; `Completion` is its result.
 - **Payload:** the driver-private part of a `Handle` (an `OwnedFd`, a
-  Windows `HANDLE`, a memory inode id).
+  Windows `HANDLE`, a heap inode id).
 - **Pre-image:** the prior state of an entry, retained to allow rollback.
-- **Personality:** a memory-driver configuration imitating a real
+- **Personality:** a heap-driver configuration imitating a real
   filesystem's naming rules, features, and timestamp granularity.
 - **Stopgap:** local `unsafe` covering a gap in a safe dependency until an
   upstream fix lands (§3.3).

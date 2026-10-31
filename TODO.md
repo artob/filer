@@ -8,10 +8,10 @@ later sections assume earlier ones are done.
 
 ## Working method
 
-- Follow `AGENTS.md` (created by BOOT-02). Implement one narrowly scoped,
-  independently verifiable item per request. Items are sized to be one
-  atomic commit; if one turns out bigger, split it here first and implement
-  only the first part. Create commits only when explicitly requested.
+- Follow `AGENTS.md`. Implement one narrowly scoped, independently
+  verifiable item per request. Items are sized to be one atomic commit; if
+  one turns out bigger, split it here first and implement only the first
+  part. Create commits only when explicitly requested.
 - Each item says what "done" means. Add regression coverage alongside
   behavior, in the crate that owns the behavior. After verification, remove
   completed items; for partial work, keep only the remaining substeps.
@@ -33,38 +33,16 @@ later sections assume earlier ones are done.
 
 ## Project bootstrap
 
-- [ ] **BOOT-01: Workspace manifest and version.**
-  Root `Cargo.toml` with `[workspace]` (`members = ["lib/*"]`, resolver 3),
-  `[workspace.package]` (edition 2024, `rust-version = "1.97"`,
-  empty `[workspace.dependencies]`, and
-  `[workspace.lints]` per §3.3 and §3.4 (`unsafe_code`,
-  `unsafe_op_in_unsafe_fn`, `missing_docs`, `rust_2018_idioms`,
-  `clippy::undocumented_unsafe_blocks`, `clippy::must_use_candidate`).
-  `VERSION` starts at `0.1.0`; nothing is published before the release
-  criteria at the end of this file. Done when `cargo metadata` succeeds.
+The workspace, root files, CI, and five empty crates (`filer-api`,
+`filer-posix`, `filer-wasi`, `filer-windows`, `filer-cli`) exist. Versions
+start at 0.0.0 and releases stay 0.0.x until the criteria at the end of
+this file are met (D29).
 
-- [ ] **BOOT-02: Root files.**
-  `AGENTS.md` (a terse restatement of §3 for smaller models: layout, MSRV,
-  features, `no_std`, unsafe policy, qualified names, process, checks),
-  `README.md` (short: status, crate table with an `unsafe` column, MSRV,
-  license), `CHANGES.md` (Keep a Changelog), `UNLICENSE`, `AUTHORS`,
-  `CREDITS.md`, `.rustfmt.toml` (Dogma.rs settings), `.gitignore`,
-  `.gitattributes`. Done when every file exists and wraps at 80 columns.
-
-- [ ] **BOOT-03: `filer-api` skeleton.**
-  `lib/filer-api/` with crate docs, `#![no_std]`, `#![forbid(unsafe_code)]`,
-  `#![cfg_attr(docsrs, feature(doc_cfg))]`, `extern crate alloc`, the
-  `std`-gated `extern crate std`, and `default = ["all", "std"]`. Done when
-  the checks in §3.5 pass.
-
-- [ ] **BOOT-04: CI workflow.**
-  Port Dogma.rs's `ci.yaml` (§3.6): formatting, Clippy, docs, docs.rs
-  settings, packaged doctests with sibling patches, feature checks
-  (including each feature alone, `all` on `thumbv7em-none-eabihf`, all
-  features on `wasm32-unknown-unknown`), minimal versions, Ubuntu and
-  Windows at MSRV and stable. Add a macOS job. Derive the package list from
-  `cargo metadata` instead of hard-coding it. Done when green on the
-  skeleton.
+- [ ] **BOOT-01: Derive CI package lists.**
+  `ci.yaml` hard-codes the package list in the packaged-doctest and
+  feature jobs. Derive it from `cargo metadata` (excluding `filer-cli` from
+  doctests, which has no library). Done when CI is green and adding a crate
+  needs no workflow edit.
 
 ## Questions for the maintainer
 
@@ -88,8 +66,8 @@ Each spike produces findings, not library code: update the matching
   The 2026-10-31 audit is in §17.1. Still open: `F_BARRIERFSYNC`,
   `F_PREALLOCATE`, `FS_IOC_SETFLAGS`, `RWF_ATOMIC` via `pwritev2`, the
   `NOREPLACE` mapping to `RENAME_EXCL` on Apple targets, FreeBSD
-  `extattr_*_fd`, and WASI coverage. Done when §17.1, §21, and Appendix B
-  have no `rustix`-related **VERIFY** left.
+  `extattr_*_fd`, and WASI coverage (for `filer-wasi`, §17.8). Done when
+  §17.1, §21, and Appendix B have no `rustix`-related **VERIFY** left.
 
 - [ ] **VER-03: `linkat` of `O_TMPFILE` files on Linux.**
   Whether `AT_EMPTY_PATH` still requires `CAP_DAC_READ_SEARCH` on current
@@ -148,6 +126,8 @@ All in the self-contained `filer_api::path` module (D3), using `ref-cast`
 (D4, VER-01).
 
 - [ ] **PATH-01: `Name` and `NameBuf`.**
+  Adds `extern crate alloc` (and the `std`-gated `extern crate std`, §3.2)
+  to `filer-api`, which has neither yet.
   Validation per §5.2 with a `#[non_exhaustive]` `NameError` (`Empty`,
   `ContainsSlash`, `ContainsNul`, `DotOrDotDot`). `FromStr`,
   `TryFrom<&str>`, `TryFrom<String>`, `Display`, `AsRef<str>`, `Borrow`,
@@ -267,43 +247,43 @@ No OS access; everything builds without `std` (§7.6).
   written against a small trait of primitives (open one component without
   following, read a link, identify a handle), with `Beneath`, `InRoot`,
   `Deny`, mount crossing, and a hop limit of 40. Done when tests against a
-  toy primitive set cover every escape case; `filer-memory`,
+  toy primitive set cover every escape case; `filer-heap`,
   `filer-posix`, and `filer-windows` reuse it.
 
-## `filer-memory`
+## `filer-heap`
 
 The executable specification and test bed; it comes before any OS driver.
 
-- [ ] **MEM-01: Crate and volatile core.**
-  Create `lib/filer-memory/` (`no_std`, `forbid(unsafe_code)`). Inode table
+- [ ] **HEAP-01: Crate and volatile core.**
+  Create `lib/filer-heap/` (`no_std`, `forbid(unsafe_code)`). Inode table
   and directory maps; open, read, write, close, stat, read-dir, mkdir,
   remove, rename (with flags), link, symlink, readlink; the lock shim
   (§7.7, D21); an injectable `Clock`. Done when it builds on
   `thumbv7em-none-eabihf` and unit tests cover each op.
 
-- [ ] **MEM-02: Resolution through the generic resolver.**
+- [ ] **HEAP-02: Resolution through the generic resolver.**
   Done when escape attempts via absolute targets, `..` in targets, and
   loops fail as specified.
 
-- [ ] **MEM-03: Personalities and foreign names.**
+- [ ] **HEAP-03: Personalities and foreign names.**
   Configurable `NamingRules`, feature toggles, timestamp granularity, and
   test-support insertion of foreign names (§17.4). Done when a
   case-insensitive personality behaves like NTFS defaults.
 
-- [ ] **MEM-04: Durable state and pessimistic crashes.**
+- [ ] **HEAP-04: Durable state and pessimistic crashes.**
   Volatile and durable layers, `Sync` semantics per `Durability` level,
   directory sync, `crash(CrashPolicy::Pessimistic)`. Done when unsynced
   creates, renames, and writes vanish after a crash.
 
-- [ ] **MEM-05: Reordered and torn crashes.**
+- [ ] **HEAP-05: Reordered and torn crashes.**
   Seeded `Reordered` and `Torn` policies. Done when one seed reproduces one
   post-crash state.
 
-- [ ] **MEM-06: Fault hooks.**
+- [ ] **HEAP-06: Fault hooks.**
   `ENOSPC` after N bytes, `EIO` on the Nth sync with fsyncgate semantics,
   short reads and writes, `Busy` on rename. Done when each has a test.
 
-- [ ] **MEM-07: Crash harness feature.**
+- [ ] **HEAP-07: Crash harness feature.**
   `harness` enumerates crash points over an op sequence under each policy
   and reports the first violation with a reproducible seed (§24). Done when
   a deliberately broken atomic-write sequence is caught.
@@ -318,7 +298,7 @@ The executable specification and test bed; it comes before any OS driver.
 - [ ] **API-02: `Open` and `File`.**
   `Open<M>` and `File<M, D>` with `read_at`, `read_exact_at`,
   `write_all_at`, `append`, `set_len`, `metadata`, `close`;
-  regular-files-only default (§8). Done when tests on `filer-memory` cover
+  regular-files-only default (§8). Done when tests on `filer-heap` cover
   every mode, and the docs state the cancellation semantics.
 
 - [ ] **API-03: Directory streams.**
@@ -346,7 +326,7 @@ The executable specification and test bed; it comes before any OS driver.
 
 - [ ] **CONF-01: Crate and runner.**
   Create `lib/filer-conformance/` with `run<D: Driver>(Dir<D>, Profile)`
-  (§24, D26); first consumer is `filer-memory`'s test suite, using
+  (§24, D26); first consumer is `filer-heap`'s test suite, using
   `pollster`. Done when it covers API-01 through API-04.
 
 - [ ] **CONF-02: Confinement cases.**
@@ -356,7 +336,7 @@ The executable specification and test bed; it comes before any OS driver.
 
 - [ ] **CONF-03: Foreign-name cases.**
   Enumerate, open, stat, remove, and rename-from a foreign name; reject it
-  as a destination and across drivers. Done when `filer-memory` passes and
+  as a destination and across drivers. Done when `filer-heap` passes and
   `Profile` lets real drivers skip what the OS cannot create.
 
 - [ ] **CONF-04: Cancellation by drop.**
@@ -370,12 +350,12 @@ The executable specification and test bed; it comes before any OS driver.
 ## `filer-posix`
 
 - [ ] **POSIX-01: Crate, executors, payload.**
-  Create `lib/filer-posix/` with `rustix` as a target-gated optional
-  dependency enabled by `std`; `Posix::thread_pool(spawner)` and
+  In the existing `lib/filer-posix/` shell: `rustix` as a target-gated
+  optional dependency enabled by `std`; `Posix::thread_pool(spawner)` and
   `Posix::inline()`; a public `OwnedFd`-based payload type for
-  `filer-uring`. `#![forbid(unsafe_code)]` until a stopgap is needed
-  (POSIX-10). Done when the crate builds as an empty shell without `std`,
-  on bare metal, and on wasm.
+  `filer-uring`. `#![forbid(unsafe_code)]` stays until a stopgap is needed
+  (POSIX-10). Done when the crate still builds as an empty shell without
+  `std`, on bare metal, on Windows, and on wasm (WASI included).
 
 - [ ] **POSIX-02: Kernel-confined open.**
   `openat2` with each `Resolve` combination; bounded `EAGAIN` retry; the
@@ -422,11 +402,12 @@ The executable specification and test bed; it comes before any OS driver.
 ## `filer-windows`
 
 - [ ] **WIN-01: Crate, payload, ambient roots.**
-  Create `lib/filer-windows/` with target-gated `windows-sys` (features
-  for `Win32_Foundation`, `Win32_Storage_FileSystem`, `Win32_System_IO`,
-  `Win32_System_Ioctl`, `Win32_System_WindowsProgramming`,
-  `Win32_System_SystemServices`, `Wdk_Foundation`,
-  `Wdk_Storage_FileSystem`), a `sys` module holding all `unsafe`, an
+  In the existing `lib/filer-windows/` shell: target-gated `windows-sys`
+  (features for `Win32_Foundation`, `Win32_Storage_FileSystem`,
+  `Win32_System_IO`, `Win32_System_Ioctl`,
+  `Win32_System_WindowsProgramming`, `Win32_System_SystemServices`,
+  `Wdk_Foundation`, `Wdk_Storage_FileSystem`), a `sys` module holding all
+  `unsafe` (the crate root switches from `forbid` to `deny`, §3.3), an
   `OwnedHandle` payload, and `open_ambient` via `CreateFileW` with `\\?\`
   and `FILE_FLAG_BACKUP_SEMANTICS`. Done when it builds as an empty shell
   elsewhere.
@@ -467,7 +448,7 @@ The executable specification and test bed; it comes before any OS driver.
 ## Durability and atomic replacement
 
 - [ ] **DUR-01: `sync` and poisoning.**
-  Per-driver mapping (§13) and poisoning (D23). Done when `filer-memory`'s
+  Per-driver mapping (§13) and poisoning (D23). Done when `filer-heap`'s
   fsyncgate fault shows a second `sync` returning `Poisoned`.
 
 - [ ] **DUR-02: Directory sync and `sync_filesystem`.**
@@ -476,7 +457,7 @@ The executable specification and test bed; it comes before any OS driver.
 
 - [ ] **ATOM-01: `AtomicWriter` in `filer-api`.**
   §14 API with receipts reporting the strategy used, first on
-  `filer-memory`. Done when a pessimistic crash at every step leaves the old
+  `filer-heap`. Done when a pessimistic crash at every step leaves the old
   or the new file.
 
 - [ ] **ATOM-02: Linux path in `filer-posix`.**
@@ -501,7 +482,7 @@ The executable specification and test bed; it comes before any OS driver.
   recorded in §19).
 
 - [ ] **ATOM-07: `sweep_temporaries`.**
-  Done when tested on `filer-memory` after a crash.
+  Done when tested on `filer-heap` after a crash.
 
 ## Metadata, attributes, clones, and sparse files
 
@@ -578,10 +559,10 @@ The executable specification and test bed; it comes before any OS driver.
 
 - [ ] **CRASH-01: Atomic writer properties.**
   Old-or-new after every crash point and policy, for every `Replace` mode,
-  via MEM-07. Done when green.
+  via HEAP-07. Done when green.
 
 - [ ] **CRASH-02: Differential testing.**
-  Proptest op sequences against `filer-memory` and `filer-posix`, comparing
+  Proptest op sequences against `filer-heap` and `filer-posix`, comparing
   observable state. Done when it runs in CI with a bounded case count.
 
 - [ ] **CRASH-03: LazyFS job.**
@@ -636,7 +617,7 @@ Created with `publish = false` (D16).
 ## Virtual drivers
 
 - [ ] **VFS-01: `filer-vfs` mount table.** Done when the conformance suite
-  passes over two `filer-memory` mounts.
+  passes over two `filer-heap` mounts.
 - [ ] **VFS-02: Cross-mount behavior.** Done when component-wise resolution
   and `CrossesDevices` are tested.
 - [ ] **OVL-01: `filer-overlay` reads.** Done when layered lookup and merged
@@ -657,7 +638,7 @@ Created with `publish = false` (D16).
 - [ ] **QUOTA-01: `filer-quota`.** Done when byte and entry limits trigger
   `QuotaExceeded`, with reservations held across awaits via `async-lock`.
 - [ ] **REPLAY-01: `filer-replay`.** Done when a recorded `filer-posix`
-  session replays against `filer-memory` to the same observable state.
+  session replays against `filer-heap` to the same observable state.
 
 ## Adapters
 
@@ -674,15 +655,15 @@ Created with `publish = false` (D16).
 
 - [ ] **PLAT-01: FreeBSD.** At least a cross-check build of `filer-posix`,
   ideally a VM-based CI job. Done when one runs.
-- [ ] **PLAT-02: WASI.** `filer-posix`'s inline executor on `wasm32-wasip2`
-  (VER-02), or a `filer-wasi` crate. Done when a conformance subset passes
-  under Wasmtime.
+- [ ] **PLAT-02: WASI.** Implement the `filer-wasi` shell per §17.8
+  (syscall layer per VER-02). Done when a conformance subset passes under
+  Wasmtime on `wasm32-wasip1` and `wasm32-wasip2`.
 - [ ] **PLAT-03: Landlock helper (idea).** Derive a ruleset from held
   `Dir`s (§6.7). Done when designed in `DESIGN.md`.
-- [ ] **EXP-01: `filer-fuse`.** Done when `filer-memory` mounts and
+- [ ] **EXP-01: `filer-fuse`.** Done when `filer-heap` mounts and
   `ls`/`cat` work in a Linux CI job.
 - [ ] **EXP-02: `filer-wasi-host`.** Done when a WASI 0.3 guest lists a
-  `filer-memory` directory.
+  `filer-heap` directory.
 
 ## Umbrella crate
 
@@ -700,7 +681,7 @@ Blocked on ASK-01.
 - [ ] **CI-01: Filesystem fixtures.** Loopback btrfs or XFS (clones), vfat
   (no `O_TMPFILE`, no symlinks), and tmpfs on Ubuntu. Done when platform
   tests select fixtures by environment variable and skip cleanly without.
-- [ ] **CI-02: Miri.** For `filer-api`, `filer-memory`, routing drivers, and
+- [ ] **CI-02: Miri.** For `filer-api`, `filer-heap`, routing drivers, and
   pure parts of `sys` modules. Done when green.
 - [ ] **CI-03: Fuzz build check.** Done when fuzz targets build in CI.
 - [ ] **CI-04: `cargo-semver-checks`.** Once a release exists, per crate.
@@ -711,11 +692,12 @@ Blocked on ASK-01.
 - [ ] **DOC-03: README crate table.** Keep the `unsafe` column accurate as
   `sys` modules appear or disappear.
 
-## First release criteria
+## 0.1.0 release criteria
 
-Not tasks; check these before proposing a first release:
+Not tasks. Experimental 0.0.x releases need none of these (D29); check
+them before proposing 0.1.0:
 
-- conformance green for `filer-memory` and both `filer-posix` executors on
+- conformance green for `filer-heap` and both `filer-posix` executors on
   Ubuntu and macOS, and for `filer-windows` on Windows, at MSRV and stable;
 - atomic replacement with crash properties green;
 - walker and `remove_tree` with the CVE-2022-21658 regression test;

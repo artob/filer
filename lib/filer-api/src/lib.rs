@@ -8,5 +8,5 @@
 //! need the standard library. `all` currently enables nothing.
 
 #![no_std]
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]

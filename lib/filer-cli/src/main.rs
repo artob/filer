@@ -7,6 +7,6 @@
 //! `filer-windows` on Windows. It requires the `std` feature, enabled by
 //! default. It does nothing yet.
 
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 
 fn main() {}

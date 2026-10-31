@@ -39,13 +39,15 @@
   backend's `cfg`. It has no doctests; CI's packaged-doctest loop omits it.
 - Root `Cargo.toml` owns shared metadata/dependencies. Keep package and internal
   dependency versions aligned with `VERSION`; internal defaults stay disabled.
+  Releases are 0.0.x for now: extremely experimental, any one may break.
 - Backend crates depend on `filer-api`, never the reverse. Move behavior tests
   with their implementation.
 - Gate backend items on `cfg(unix)`, `cfg(target_os = "wasi")`, or
   `cfg(windows)`: each backend must still build, empty, on every other target.
 - Root `[workspace.lints]` holds shared lints; each crate sets
-  `[lints] workspace = true`. Preserve `#![deny(unsafe_code)]`; if a backend
-  ever needs FFI, confine `#[allow(unsafe_code)]` to the smallest scope.
+  `[lints] workspace = true`. Every crate root has `#![forbid(unsafe_code)]`.
+  A backend that needs FFI switches to `#![deny(unsafe_code)]` and confines
+  `#[allow(unsafe_code)]` to a private `sys` module (`DESIGN.md` §3.3).
   Gate filesystem APIs on `std` and optional interop on matching features.
 
 # Checks
