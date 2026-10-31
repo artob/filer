@@ -1,0 +1,45 @@
+[package]
+name = "filer-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Command-line interface for Filer."
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories = ["command-line-utilities", "filesystem"]
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["all", "std"]
+all = []
+std = [
+  "filer-api/std",
+  "filer-posix/std",
+  "filer-wasi/std",
+  "filer-windows/std",
+]
+
+[[bin]]
+name = "filer"
+path = "src/main.rs"
+# A CLI needs `std`; `no_std` builds of this package skip the binary.
+required-features = ["std"]
+
+[dependencies]
+filer-api.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+filer-posix.workspace = true
+
+[target.'cfg(target_os = "wasi")'.dependencies]
+filer-wasi.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+filer-windows.workspace = true

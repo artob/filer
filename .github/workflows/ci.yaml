@@ -1,0 +1,166 @@
+# See: https://docs.github.com/en/actions/writing-workflows
+---
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+  check-clippy:
+    name: Check Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          components: clippy
+      - name: Check Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+  check-docs:
+    name: Check documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.97.0
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --workspace --all-features --no-deps
+  check-docsrs:
+    name: Check docs.rs documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Check documentation with docs.rs settings
+        env:
+          RUSTDOCFLAGS: "--cfg docsrs -D warnings"
+        run: cargo doc --workspace --all-features --no-deps
+  check-package:
+    name: Check packaged doctests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.97.0
+      - name: Package workspace
+        run: cargo package --workspace
+      - name: Test packaged documentation
+        run: |
+          version=$(< VERSION)
+          # Resolve the unpublished API from the extracted package, not checkout.
+          path="$PWD/target/package/filer-api-$version"
+          patches=(--config "patch.crates-io.filer-api.path=\"$path\"")
+          for package in filer-api filer-posix filer-wasi filer-windows; do
+            manifest="target/package/$package-$version/Cargo.toml"
+            args=(--manifest-path "$manifest" --doc)
+            if [[ "$package" != filer-api ]]; then
+              args+=("${patches[@]}")
+            fi
+            cargo test "${args[@]}"
+            cargo test "${args[@]}" --all-features
+            cargo test "${args[@]}" --no-default-features
+            cargo test "${args[@]}" --no-default-features --features all
+          done
+  check-features:
+    name: Check feature combinations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          targets: thumbv7em-none-eabihf, wasm32-unknown-unknown, wasm32-wasip1, wasm32-wasip2
+      - name: Check without default features
+        run: |
+          cargo check --workspace --no-default-features
+          for package in filer-api filer-posix filer-wasi filer-windows filer-cli; do
+            cargo check -p "$package" --no-default-features
+            cargo check -p "$package" --no-default-features --features all
+          done
+      - name: Check each feature alone
+        run: |
+          metadata=$(cargo metadata --no-deps --format-version 1)
+          for package in filer-api filer-posix filer-wasi filer-windows filer-cli; do
+            features=$(jq -r --arg package "$package" '.packages[]
+              | select(.name == $package) | .features | keys[]
+              | select(. != "default")' <<< "$metadata")
+            for feature in $features; do
+              cargo check -p "$package" --no-default-features --features "$feature"
+            done
+          done
+      - name: Check no_std target
+        run: |
+          for package in filer-api filer-posix filer-wasi filer-windows filer-cli; do
+            cargo check -p "$package" --no-default-features --features all \
+              --target thumbv7em-none-eabihf
+          done
+      - name: Check WebAssembly target
+        run: |
+          for target in wasm32-unknown-unknown wasm32-wasip1 wasm32-wasip2; do
+            cargo check --workspace --all-features --target "$target"
+          done
+  check-minimal-versions:
+    name: Check minimal dependency versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Resolve minimal direct dependency versions
+        run: cargo update -Z direct-minimal-versions
+      - name: Run all-feature tests
+        run: cargo test --workspace --all-features
+  build:
+    name: Build on ${{ matrix.os }} (${{ matrix.toolchain }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows checks that `filer-posix` builds, empty, off Unix.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: ["1.97.0", stable]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - name: Build
+        run: cargo build --workspace
+      - name: Build examples
+        run: cargo build --workspace --examples
+      - name: Run tests
+        run: cargo test --workspace
+      - name: Run all-feature tests
+        run: cargo test --workspace --all-features
+      - name: Run no_std tests
+        run: cargo test --workspace --no-default-features --features all

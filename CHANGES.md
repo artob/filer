@@ -1,0 +1,14 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## Unreleased
+### Added
+- `filer-api`: New crate for the platform-independent API, with no items yet.
+- `filer-posix`: New crate for the Unix backend, with no items yet.
+- `filer-wasi`: New crate for the WASI backend, with no items yet.
+- `filer-windows`: New crate for the Windows backend, with no items yet.
+- `filer-cli`: New crate for the `filer` command, which does nothing yet.
