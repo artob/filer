@@ -1051,16 +1051,25 @@ pub struct Timestamp {
 }
 ```
 
+As built (2026-11-01), only the fields a read-only driver needs exist:
+`kind`, `len`, the four timestamps, and `id`, with `MetaMask` bits at the
+values above (others are added with their operations and never renumbered).
+Drivers fill `Metadata::default()` field by field, since the struct is
+`#[non_exhaustive]`. `Timestamp` keeps its fields private behind a
+constructor that rejects `nanos` of a full second or more, and converts to
+`SystemTime` under `std`.
+
 Rationale:
 
 - The mask mirrors `statx`. Metadata is not uniformly cheap: birth time and
   attributes cost differently on different filesystems, and on NFS every
   unneeded field is a round trip or a stale cache. Absent fields are `None`,
   never zero.
-- `FileId` is opaque and 128-bit. `(st_dev, st_ino)` is not reliable:
-  btrfs subvolumes, overlayfs, NFS inode reuse, and ReFS's 128-bit IDs
-  break it. `same_file(&a, &b)` compares open handles, which is the robust
-  check.
+- `FileId` is opaque: a 64-bit volume id plus a 128-bit file id, enough
+  for `(st_dev, st_ino)` and for Windows `FILE_ID_INFO` (a 64-bit volume
+  serial plus ReFS's 128-bit file ids). It is not a perfect identity test:
+  btrfs subvolumes, overlayfs, and NFS inode reuse break it.
+  `same_file(&a, &b)` compares open handles, which is the robust check.
 - `Timestamp::granularity` is reported because FAT has 2-second mtimes and
   change-detection caches are fooled by edits within one tick (git's
   "racily clean" index logic exists for this reason).

@@ -147,11 +147,13 @@ No OS access; everything builds without `std` (§7.6).
   table as rustdoc. Done when attenuation is tested and `serde` works under
   its feature.
 
-- [ ] **CORE-04: Metadata types.**
-  `MetaMask`, `Metadata`, `FileKind`, `FileId`, `Timestamp`, `FileAttrs`,
-  `ChangeToken`, `Permissions`, `DioAlign`, `AtomicWriteUnit`, `MountId`,
-  `Owner` (§10). Done when every item has rustdoc and `serde` derives exist
-  where meaningful (not for values valid only within one driver instance).
+- [ ] **CORE-04: Remaining metadata fields.**
+  `MetaMask`, `Metadata`, `FileKind`, `FileId`, and `Timestamp` exist with
+  kind, length, times, and id. Still missing (§10): `allocated`, `nlink`,
+  `FileAttrs`, `ChangeToken`, `Permissions`, `DioAlign`, `AtomicWriteUnit`,
+  `MountId`, and `Owner`, each added with the operation that needs it. Done
+  when every field exists and `serde` derives exist where meaningful (not
+  for values valid only within one driver instance).
 
 - [ ] **CORE-05: Durability, naming rules, features.**
   `Durability` (§13), `NamingRules` with `collides` (§5.6), `Features` and

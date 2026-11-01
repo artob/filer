@@ -26,4 +26,5 @@ all = []
 std = []
 
 [dependencies]
+bitflags.workspace = true
 ref-cast.workspace = true
