@@ -27,6 +27,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-heap"
+version = "0.0.0"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-posix"
 version = "0.0.0"
 dependencies = [

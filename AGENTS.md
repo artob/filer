@@ -32,8 +32,11 @@
 # Workspace
 - Rust 2024 crates live in `lib/<crate>/`: `filer-api` owns the
   platform-independent API; backends implement it for Unix (`filer-posix`),
-  WASI (`filer-wasi`), and Windows (`filer-windows`); `filer-cli` builds the
+  WASI (`filer-wasi`), and Windows (`filer-windows`); `filer-heap` is the
+  in-memory driver (no OS, builds everywhere); `filer-cli` builds the
   `filer` binary.
+- New crates must also be added to the package lists in
+  `.github/workflows/ci.yaml` and to the README crate table.
 - `filer-cli` is binary-only: its `[[bin]]` has `required-features = ["std"]`,
   so `no_std` builds skip it. It depends on each backend only under that
   backend's `cfg`. It has no doctests; CI's packaged-doctest loop omits it.

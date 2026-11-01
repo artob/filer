@@ -24,6 +24,10 @@ pub enum ErrorKind {
     /// or other special file.
     NotRegularFile,
 
+    /// A symlink was expected, as when reading a link target (`EINVAL`
+    /// from `readlink`).
+    NotASymlink,
+
     /// The directory is not empty (`ENOTEMPTY`).
     DirectoryNotEmpty,
 
@@ -116,6 +120,7 @@ impl core::fmt::Display for ErrorKind {
             Self::NotADirectory => "not a directory",
             Self::IsADirectory => "is a directory",
             Self::NotRegularFile => "not a regular file",
+            Self::NotASymlink => "not a symlink",
             Self::DirectoryNotEmpty => "directory not empty",
             Self::PermissionDenied => "permission denied",
             Self::RightsDenied => "rights denied",
@@ -157,6 +162,7 @@ impl From<ErrorKind> for std::io::ErrorKind {
             ErrorKind::NotADirectory => Io::NotADirectory,
             ErrorKind::IsADirectory => Io::IsADirectory,
             ErrorKind::NotRegularFile => Io::InvalidInput,
+            ErrorKind::NotASymlink => Io::InvalidInput,
             ErrorKind::DirectoryNotEmpty => Io::DirectoryNotEmpty,
             ErrorKind::PermissionDenied => Io::PermissionDenied,
             ErrorKind::RightsDenied => Io::PermissionDenied,

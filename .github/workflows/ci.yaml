@@ -76,7 +76,7 @@ jobs:
           # Resolve the unpublished API from the extracted package, not checkout.
           path="$PWD/target/package/filer-api-$version"
           patches=(--config "patch.crates-io.filer-api.path=\"$path\"")
-          for package in filer-api filer-posix filer-wasi filer-windows; do
+          for package in filer-api filer-heap filer-posix filer-wasi filer-windows; do
             manifest="target/package/$package-$version/Cargo.toml"
             args=(--manifest-path "$manifest" --doc)
             if [[ "$package" != filer-api ]]; then
@@ -100,14 +100,14 @@ jobs:
       - name: Check without default features
         run: |
           cargo check --workspace --no-default-features
-          for package in filer-api filer-posix filer-wasi filer-windows filer-cli; do
+          for package in filer-api filer-heap filer-posix filer-wasi filer-windows filer-cli; do
             cargo check -p "$package" --no-default-features
             cargo check -p "$package" --no-default-features --features all
           done
       - name: Check each feature alone
         run: |
           metadata=$(cargo metadata --no-deps --format-version 1)
-          for package in filer-api filer-posix filer-wasi filer-windows filer-cli; do
+          for package in filer-api filer-heap filer-posix filer-wasi filer-windows filer-cli; do
             features=$(jq -r --arg package "$package" '.packages[]
               | select(.name == $package) | .features | keys[]
               | select(. != "default")' <<< "$metadata")
@@ -117,7 +117,7 @@ jobs:
           done
       - name: Check no_std target
         run: |
-          for package in filer-api filer-posix filer-wasi filer-windows filer-cli; do
+          for package in filer-api filer-heap filer-posix filer-wasi filer-windows filer-cli; do
             cargo check -p "$package" --no-default-features --features all \
               --target thumbv7em-none-eabihf
           done

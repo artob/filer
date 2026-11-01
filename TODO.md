@@ -216,11 +216,11 @@ No OS access; everything builds without `std` (§7.6).
 
 The executable specification and test bed; it comes before any OS driver.
 
-- [ ] **HEAP-01: Crate and volatile core.**
-  Create `lib/filer-heap/` (`no_std`, `forbid(unsafe_code)`). Inode table
-  and directory maps; open, read, write, close, stat, read-dir, mkdir,
-  remove, rename (with flags), link, symlink, readlink; the lock shim
-  (§7.7, D21); an injectable `Clock`. Done when it builds on
+- [ ] **HEAP-01: Mutable state.**
+  `lib/filer-heap/` exists, read-only: `HeapBuilder` and the six read ops.
+  Still missing: mutable state behind the lock shim (§7.7, D21); create,
+  write, mkdir, remove, rename (with flags), link, and symlink ops; an
+  injectable `Clock` and timestamps. Done when it builds on
   `thumbv7em-none-eabihf` and unit tests cover each op.
 
 - [ ] **HEAP-02: Resolution through the generic resolver.**

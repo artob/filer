@@ -32,6 +32,7 @@ undocumented_unsafe_blocks = "deny"
 
 [workspace.dependencies]
 filer-api = { version = "0.0.0", path = "lib/filer-api", default-features = false }
+filer-heap = { version = "0.0.0", path = "lib/filer-heap", default-features = false }
 filer-posix = { version = "0.0.0", path = "lib/filer-posix", default-features = false }
 filer-wasi = { version = "0.0.0", path = "lib/filer-wasi", default-features = false }
 filer-windows = { version = "0.0.0", path = "lib/filer-windows", default-features = false }
@@ -40,6 +41,7 @@ ref-cast = { version = "1.0.27", default-features = false }
 
 [patch.crates-io]
 filer-api = { path = "lib/filer-api" }
+filer-heap = { path = "lib/filer-heap" }
 filer-posix = { path = "lib/filer-posix" }
 filer-wasi = { path = "lib/filer-wasi" }
 filer-windows = { path = "lib/filer-windows" }

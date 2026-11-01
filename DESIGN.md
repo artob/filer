@@ -323,8 +323,9 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-cli` | the `filer` binary over the native driver | no |
 | umbrella (Q11) | re-exports and feature forwarding | no |
 
-Existing so far, as empty skeletons: `filer-api`, `filer-posix`,
-`filer-wasi`, `filer-windows`, and `filer-cli` (D30). The rest are created
+Existing so far: `filer-api` and `filer-heap` (read-only, 2026-11-01), and
+as empty skeletons `filer-posix`, `filer-wasi`, `filer-windows`, and
+`filer-cli` (D30). The rest are created
 when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
@@ -1831,6 +1832,17 @@ contract and the backbone of the test strategy. `no_std` + `alloc`.
   enumeration used by `filer-tx` and application tests (§24).
 - **Locks.** Synchronous mutexes only (§7.7).
 
+As built (2026-11-01), read-only: `HeapBuilder` fixes the contents at
+construction (`dir`, `file`, `symlink`, creating parents like `mkdir -p`,
+panicking on mistakes), and the tree is then immutable behind an `Arc`, so
+no locks are needed yet. Inodes are indexes into a `Vec`; directories map
+raw name bytes to inodes in a `BTreeMap`, so listings are sorted by bytes,
+foreign names will fit, and a `DirCookie` is an entry index. Handle
+payloads are inode numbers; `FileId`s are `(0, inode)`. Until the generic
+resolver exists (DRV-07), a symlink met during resolution fails with
+`SymlinkLoop` under `Symlinks::Deny` and `Unsupported` otherwise.
+`ReadLink` on a non-symlink is the new `ErrorKind::NotASymlink`.
+
 ### 17.5 `filer-vfs`
 
 A mount table mapping `RelPath` prefixes to `(DynDriver, root handle)`
@@ -1943,8 +1955,8 @@ struct Inner {
 #[non_exhaustive]
 pub enum ErrorKind {
     NotFound, AlreadyExists, NotADirectory, IsADirectory, NotRegularFile,
-    DirectoryNotEmpty, PermissionDenied, RightsDenied, EscapeBlocked,
-    SymlinkLoop, NameTooLong, InvalidName, InvalidNameForTarget,
+    NotASymlink, DirectoryNotEmpty, PermissionDenied, RightsDenied,
+    EscapeBlocked, SymlinkLoop, NameTooLong, InvalidName, InvalidNameForTarget,
     ForeignNameMismatch, CrossDriver, CrossesDevices, ReadOnly,
     StorageFull, QuotaExceeded, Unsupported, Busy, Stale, Poisoned,
     Canceled, Interrupted, TimedOut, Moved, Corrupt, Io, Other,
