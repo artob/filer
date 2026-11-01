@@ -169,10 +169,12 @@ No OS access; everything builds without `std` (§7.6).
 
 ## `filer-api`: driver boundary
 
-- [ ] **DRV-01: Handles.**
-  `Handle`, `HandleKind`, the private slot with `Pending` and `Any`
-  payloads, and the background-close hook (§16.2). Done when downcasting
-  and cross-driver rejection are tested.
+- [ ] **DRV-01: Background closer.**
+  `Handle` and `HandleKind` exist (§16.2). Still missing: the
+  background-close hook, so dropping the last clone hands the payload to
+  the driver instead of closing inline (§8.4). Done when a test driver
+  observes the close on its closer. The `Pending` placeholder belongs to
+  DRV-03.
 
 - [ ] **DRV-02: Ops and completions.**
   `Op`, `Target`, `OpenHow`, `RenameFlags`, `Completion`, `Output`, and the
@@ -181,8 +183,9 @@ No OS access; everything builds without `std` (§7.6).
 
 - [ ] **DRV-03: `Driver` and chains.**
   `Driver` with `submit` and a default sequential `submit_chain`; `Chain`
-  with placeholders; cancel-the-rest semantics (§7.3, §16.3). Done when a
-  toy driver in tests exercises a failing chain.
+  with placeholders (a `Pending` handle state, §16.2); cancel-the-rest
+  semantics (§7.3, §16.3). Done when a toy driver in tests exercises a
+  failing chain.
 
 - [ ] **DRV-04: `DynDriver` and `Layer`.**
   `ErasedDriver`, `DynDriver` with a blanket impl, the `Layer` trait, and

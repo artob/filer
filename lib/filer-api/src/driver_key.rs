@@ -1,18 +1,20 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    DriverId, EntryName, ForeignName,
+    DriverId, EntryName, ForeignName, Handle, HandleKind,
     path::{Name, NameBuf, NameError},
 };
+use core::any::Any;
 
 /// The private credential of one driver instance.
 ///
 /// A driver creates one key when it is constructed and keeps it private
 /// (sharing it among clones through an `Arc` if needed). The key fixes the
 /// driver's [`DriverId`] and is the only way to construct a [`ForeignName`]
-/// carrying that id, so code outside the driver cannot forge foreign names
-/// the driver would accept. Anyone may create a key, but names from it
-/// carry an id no other driver has.
+/// or a [`Handle`] carrying that id, or to read a handle's payload, so code
+/// outside the driver cannot forge names or handles the driver would
+/// accept. Anyone may create a key, but what it mints carries an id no
+/// other driver has.
 ///
 /// The key is deliberately neither `Clone` nor `Copy`.
 ///
@@ -77,6 +79,29 @@ impl DriverKey {
         }
         Ok(EntryName::Foreign(ForeignName::new(raw, self.id)))
     }
+
+    /// Mints a handle of `kind` for this driver, owning `payload`.
+    ///
+    /// The payload is the driver's private state for the open file or
+    /// directory; it is dropped when the last clone of the handle is.
+    pub fn handle<P: Any + Send + Sync>(&self, kind: HandleKind, payload: P) -> Handle {
+        Handle::new(self.id, kind, payload)
+    }
+
+    /// Returns the payload of `handle` if this driver minted it with a
+    /// payload of type `P`.
+    ///
+    /// `None` usually means the handle came from another driver instance,
+    /// which drivers report as
+    /// [`ErrorKind::CrossDriver`](crate::ErrorKind::CrossDriver); a payload
+    /// of an unexpected type is a bug in the driver.
+    #[must_use]
+    pub fn payload<'h, P: Any>(&self, handle: &'h Handle) -> Option<&'h P> {
+        if handle.driver() != self.id {
+            return None;
+        }
+        handle.payload()
+    }
 }
 
 impl Default for DriverKey {
@@ -115,6 +140,35 @@ mod tests {
         assert_eq!(name.origin(), key.id());
         assert_eq!(key.entry_name(b"\xFF/"), Err(NameError::ContainsSlash));
         assert_eq!(key.entry_name(b"\xFF\0"), Err(NameError::ContainsNul));
+    }
+
+    #[test]
+    fn mints_handles_with_payloads() {
+        let key = DriverKey::new();
+        let handle = key.handle(HandleKind::File, 7_u32);
+        assert_eq!(handle.kind(), HandleKind::File);
+        assert_eq!(handle.driver(), key.id());
+        assert_eq!(key.payload::<u32>(&handle.clone()), Some(&7));
+        assert_eq!(key.payload::<u64>(&handle), None);
+    }
+
+    #[test]
+    fn rejects_handles_from_other_drivers() {
+        let (a, b) = (DriverKey::new(), DriverKey::new());
+        let handle = a.handle(HandleKind::Dir, 7_u32);
+        assert_eq!(b.payload::<u32>(&handle), None);
+    }
+
+    #[test]
+    fn drops_the_payload_with_the_last_clone() {
+        let key = DriverKey::new();
+        let probe = alloc::sync::Arc::new(());
+        let handle = key.handle(HandleKind::File, probe.clone());
+        let clone = handle.clone();
+        drop(handle);
+        assert_eq!(alloc::sync::Arc::strong_count(&probe), 2);
+        drop(clone);
+        assert_eq!(alloc::sync::Arc::strong_count(&probe), 1);
     }
 
     #[test]

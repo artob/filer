@@ -5,9 +5,9 @@
 //! This crate will define the types and traits that platform backends such as
 //! `filer-posix` implement. So far it provides the lexical [`path`] types,
 //! the on-disk name types ([`EntryName`], [`ForeignName`], [`LinkTarget`]),
-//! driver identity ([`DriverKey`], [`DriverId`]), [`Metadata`], owned I/O
-//! buffers ([`IoBuf`], [`IoBufMut`], [`BufResult`]), and the [`Error`]
-//! type.
+//! driver identity and handles ([`DriverKey`], [`DriverId`], [`Handle`]),
+//! [`Metadata`], owned I/O buffers ([`IoBuf`], [`IoBufMut`], [`BufResult`]),
+//! and the [`Error`] type.
 //!
 //! It builds with `#![no_std]` but requires `alloc`; the `std` feature,
 //! enabled by default, adds `std::io::Error` interop. `all` currently
@@ -55,6 +55,12 @@ pub use file_kind::*;
 
 mod foreign_name;
 pub use foreign_name::*;
+
+mod handle;
+pub use handle::*;
+
+mod handle_kind;
+pub use handle_kind::*;
 
 mod io_buf;
 pub use io_buf::*;

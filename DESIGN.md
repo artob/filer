@@ -1546,7 +1546,18 @@ driver's background closer ([§8.4](#84-closing-and-handle-lifetime)).
 
 Drivers that cooperate share a payload type: `filer-uring` mints handles
 with `filer-posix`'s public payload type, so routing between them needs no
-translation.
+translation. Since handles are minted and read through a `DriverKey`
+(below), cooperating drivers must also share one key, for example by
+`Posix` accepting an `Arc<DriverKey>` from the `Uring` that wraps it.
+
+As built (2026-11-01): a handle is `{ driver: DriverId, kind: HandleKind,
+payload: Arc<dyn Any + Send + Sync> }`, one allocation instead of two.
+Like foreign names (D32), handles are minted only by `DriverKey::handle`,
+and `DriverKey::payload::<T>(&handle)` returns `None` for handles from
+another driver, which drivers report as `CrossDriver`. `HandleKind` has
+only `Dir` and `File` so far. Deferred: the `Pending` placeholder (with
+chains, DRV-03) and the background closer (until then the payload drops,
+and closes, wherever the last clone is dropped).
 
 ### 16.3 The trait
 
@@ -2376,6 +2387,7 @@ Record changes here with a date and one line of rationale.
 | D31 | Repository at `github.com/artob/filer` (resolves Q12) | Accepted |
 | D32 | `ForeignName`s are minted only via a driver's `DriverKey` | Accepted |
 | D33 | `IoBufMut::fill` instead of `spare_zeroed` plus `commit` | Accepted |
+| D34 | Handles too are minted and read only via a `DriverKey` | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

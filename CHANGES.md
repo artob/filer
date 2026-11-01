@@ -19,3 +19,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-api`: `EntryName`, `ForeignName`, `LinkTarget`, and `DriverKey`.
 - `filer-api`: `Metadata`, `MetaMask`, `FileKind`, `FileId`, and `Timestamp`.
 - `filer-api`: `IoBuf`, `IoBufMut`, and `BufResult` for owned I/O buffers.
+- `filer-api`: `Handle` and `HandleKind`, minted through a `DriverKey`.
