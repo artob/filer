@@ -76,4 +76,7 @@ pub use ntfs_error::*;
 
 mod fixup;
 mod geometry;
+mod mft;
 mod record;
+mod runs;
+mod stream;

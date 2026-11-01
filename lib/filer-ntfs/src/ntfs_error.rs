@@ -65,6 +65,49 @@ pub enum NtfsError {
         offset: u32,
     },
 
+    /// An attribute's data runs are malformed, lie outside the volume, or
+    /// do not cover its clusters.
+    BadRuns {
+        /// The number of the file's base record.
+        record: u64,
+    },
+
+    /// A non-resident attribute's sizes are inconsistent: initialized past
+    /// its size, or its size past what it has allocated or mapped.
+    BadDataSize {
+        /// The number of the file's base record.
+        record: u64,
+    },
+
+    /// A file's `$ATTRIBUTE_LIST` is malformed.
+    BadAttributeList {
+        /// The number of the file's base record.
+        record: u64,
+    },
+
+    /// An extension record of a file is not one of its own.
+    BadExtension {
+        /// The number of the file's base record.
+        record: u64,
+        /// The number of the extension record.
+        extension: u64,
+    },
+
+    /// A reference to an MFT record names no file: past the MFT, not in
+    /// use, an extension record, or of another sequence number.
+    BadReference {
+        /// The record's number.
+        record: u64,
+    },
+
+    /// A file lacks an attribute every file of its kind has.
+    MissingAttribute {
+        /// The record's number.
+        record: u64,
+        /// The attribute's type.
+        kind: u32,
+    },
+
     /// The volume is larger than its source.
     Truncated {
         /// The volume's size in bytes, per its boot sector.
@@ -113,6 +156,25 @@ impl core::fmt::Display for NtfsError {
                     f,
                     "MFT record {record} has an invalid attribute at {offset}"
                 )
+            },
+            Self::BadRuns { record } => write!(f, "file {record} has invalid data runs"),
+            Self::BadDataSize { record } => {
+                write!(f, "file {record} has inconsistent data sizes")
+            },
+            Self::BadAttributeList { record } => {
+                write!(f, "file {record} has an invalid attribute list")
+            },
+            Self::BadExtension { record, extension } => {
+                write!(
+                    f,
+                    "file {record} lists record {extension}, not its extension"
+                )
+            },
+            Self::BadReference { record } => {
+                write!(f, "reference to record {record}, which is no file")
+            },
+            Self::MissingAttribute { record, kind } => {
+                write!(f, "file {record} lacks attribute {kind:#X}")
             },
             Self::Truncated { volume, source } => {
                 write!(f, "volume of {volume} bytes in a source of {source}")

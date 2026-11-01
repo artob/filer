@@ -104,13 +104,15 @@ impl Record {
                 return Err(bad());
             }
         }
-        let base = FileRef::from_u64(u64_at(&bytes, 0x20).ok_or_else(bad)?);
+        // No base is the whole reference being zero: `$MFT`'s extension
+        // records refer to record 0, with its sequence number.
+        let base = u64_at(&bytes, 0x20).ok_or_else(bad)?;
         Ok(Self {
             number,
             sequence: u16_at(&bytes, 0x10).ok_or_else(bad)?,
             links: u16_at(&bytes, 0x12).ok_or_else(bad)?,
             flags: u16_at(&bytes, 0x16).ok_or_else(bad)?,
-            base: (base.record != 0).then_some(base),
+            base: (base != 0).then(|| FileRef::from_u64(base)),
             attributes,
             used,
             bytes,
@@ -266,7 +268,8 @@ impl<'a> Attribute<'a> {
                     size: u64_at(bytes, 0x30)?,
                     initialized: u64_at(bytes, 0x38)?,
                 };
-                if runs_at < 0x40 || header.last_vcn.checked_add(1)? < header.first_vcn {
+                // An empty attribute's last VCN is -1, stored as `u64::MAX`.
+                if runs_at < 0x40 || header.last_vcn.wrapping_add(1) < header.first_vcn {
                     return None;
                 }
                 Body::NonResident(header)

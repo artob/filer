@@ -685,10 +685,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-03: Data runs.** Mapping pairs into run lists; reading
-  resident, non-resident, and sparse data to the initialized size;
-  records through `$MFT`'s runs; `$ATTRIBUTE_LIST`. Done when unit tests
-  cover each.
 - [ ] **NTFS-04: Names and indexes.** `$FILE_NAME`, `$UpCase`, `$I30`
   traversal and lookup. Done when bounded against loops.
 - [ ] **NTFS-05: Driver.** Open, read, stat, list, close, dirty-volume
