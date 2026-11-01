@@ -191,21 +191,24 @@ pub(crate) mod tests {
         }
     }
 
-    fn open(toy: &Toy, root: &Handle, name: &str) -> Completion {
-        block_on(toy.submit(Op::Open {
+    fn open<D: Driver>(driver: &D, root: &Handle, name: &str) -> Completion {
+        block_on(driver.submit(Op::Open {
             at: root.clone(),
             path: name.parse().unwrap(),
             how: OpenHow::file(),
         }))
     }
 
-    #[test]
-    fn opens_reads_and_stats() {
+    // Each check takes `wrap`, so it runs on `Toy` directly and through
+    // wrappers such as `DynDriver`.
+
+    pub(crate) fn check_open_read_stat<D: Driver>(wrap: impl Fn(Toy) -> D) {
         let (toy, root) = Toy::new(&[("a.txt", b"hello")]);
-        let Ok(Output::Opened(file)) = open(&toy, &root, "a.txt").result else {
+        let driver = wrap(toy);
+        let Ok(Output::Opened(file)) = open(&driver, &root, "a.txt").result else {
             panic!("open failed");
         };
-        let read = block_on(toy.submit(Op::Read {
+        let read = block_on(driver.submit(Op::Read {
             file: file.clone(),
             buf: ErasedBufMut::new(Vec::<u8>::with_capacity(4)),
             off: 1,
@@ -213,7 +216,7 @@ pub(crate) mod tests {
         assert!(matches!(read.result, Ok(Output::Read(4))));
         let buf: Vec<u8> = read.buf.unwrap().downcast().unwrap();
         assert_eq!(buf, b"ello");
-        let stat = block_on(toy.submit(Op::Stat {
+        let stat = block_on(driver.submit(Op::Stat {
             target: Target::Handle(file),
             mask: MetaMask::all(),
         }));
@@ -226,10 +229,9 @@ pub(crate) mod tests {
         );
     }
 
-    #[test]
-    fn reports_missing_entries() {
+    pub(crate) fn check_missing_entries<D: Driver>(wrap: impl Fn(Toy) -> D) {
         let (toy, root) = Toy::new(&[]);
-        let error = open(&toy, &root, "nope").result.unwrap_err();
+        let error = open(&wrap(toy), &root, "nope").result.unwrap_err();
         assert_eq!(
             (error.kind(), error.op()),
             (ErrorKind::NotFound, OpKind::Open)
@@ -237,11 +239,10 @@ pub(crate) mod tests {
         assert_eq!(error.path(), Some(rel!("nope")));
     }
 
-    #[test]
-    fn rejects_handles_from_other_drivers_and_returns_the_buffer() {
+    pub(crate) fn check_cross_driver<D: Driver>(wrap: impl Fn(Toy) -> D) {
         let (toy, _) = Toy::new(&[]);
         let (_, foreign_root) = Toy::new(&[]);
-        let read = block_on(toy.submit(Op::Read {
+        let read = block_on(wrap(toy).submit(Op::Read {
             file: foreign_root,
             buf: ErasedBufMut::new(Vec::<u8>::with_capacity(4)),
             off: 0,
@@ -250,8 +251,7 @@ pub(crate) mod tests {
         assert!(read.buf.unwrap().is::<Vec<u8>>());
     }
 
-    #[test]
-    fn futures_outlive_their_driver() {
+    pub(crate) fn check_detached_futures<D: Driver>(wrap: impl Fn(Toy) -> D) {
         fn detach<D: Driver>(
             driver: D,
             op: Op,
@@ -265,6 +265,26 @@ pub(crate) mod tests {
             target: Target::Handle(root),
             mask: MetaMask::KIND,
         };
-        assert!(block_on(detach(toy, op)).result.is_ok());
+        assert!(block_on(detach(wrap(toy), op)).result.is_ok());
+    }
+
+    #[test]
+    fn opens_reads_and_stats() {
+        check_open_read_stat(|toy| toy);
+    }
+
+    #[test]
+    fn reports_missing_entries() {
+        check_missing_entries(|toy| toy);
+    }
+
+    #[test]
+    fn rejects_handles_from_other_drivers_and_returns_the_buffer() {
+        check_cross_driver(|toy| toy);
+    }
+
+    #[test]
+    fn futures_outlive_their_driver() {
+        check_detached_futures(|toy| toy);
     }
 }

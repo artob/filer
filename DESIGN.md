@@ -1596,6 +1596,12 @@ pub struct DynDriver(alloc::sync::Arc<dyn ErasedDriver>);
 The frontend is generic, `Dir<D: Driver = DynDriver>`: static dispatch when
 the driver is known, one boxed future per op when it is not.
 
+`DynDriver` as built (2026-11-01) wraps `Arc<dyn ErasedDriver>`, a private
+object-safe trait with a blanket impl for every `Driver` that boxes the
+future. Its methods are named `erased_*` because the blanket impl also
+covers `DynDriver`. `DynDriver::new` of a `DynDriver` returns a clone
+rather than wrapping twice, and the wrapper keeps the inner driver's id.
+
 Language features available at MSRV 1.97 (probed 2026-11-01 on
 1.97.0 and 1.99.1):
 

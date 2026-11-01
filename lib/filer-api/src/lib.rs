@@ -46,6 +46,9 @@ pub use driver_id::*;
 mod driver_key;
 pub use driver_key::*;
 
+mod dyn_driver;
+pub use dyn_driver::*;
+
 mod entry;
 pub use entry::*;
 

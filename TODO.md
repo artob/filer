@@ -189,10 +189,10 @@ No OS access; everything builds without `std` (§7.6).
   state, §16.2); cancel-the-rest semantics (§7.3, §16.3). Done when a toy
   driver in tests exercises a failing chain.
 
-- [ ] **DRV-04: `DynDriver` and `Layer`.**
-  `ErasedDriver`, `DynDriver` with a blanket impl, the `Layer` trait, and
-  `layered()`. Done when a pass-through layer and `DynDriver` both run the
-  toy driver's tests.
+- [ ] **DRV-04: `Layer`.**
+  `DynDriver` exists. Still missing: the `Layer` trait and `layered()`
+  (§18). Done when a pass-through layer runs the toy driver's tests (the
+  generic `check_*` functions in `driver.rs`).
 
 - [ ] **DRV-05: `Hybrid` and `ReadOnly` combinators.**
   Per §16.5 and §18. Done when `Hybrid` routes by op kind with handle
