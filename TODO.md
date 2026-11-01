@@ -142,12 +142,6 @@ with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
 
 No OS access; everything builds without `std` (§7.6).
 
-- [ ] **CORE-01: Errors.**
-  `Error`, `ErrorKind`, `OpKind`, `ErrorContext`, `RawOsError`, `Fallback`
-  per §19; `Display`; `core::error::Error`; `From<Error> for
-  std::io::Error` under `std`. Done when tests cover display formatting and
-  the io kind mapping.
-
 - [ ] **CORE-02: Rights and resolution policy.**
   `Rights` (§6.2) via `bitflags`, `Symlinks`, `Resolve`, and the rights
   table as rustdoc. Done when attenuation is tested and `serde` works under

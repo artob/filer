@@ -1858,12 +1858,15 @@ frontend handles that carry them.
 ## 19. Errors
 
 ```rust
-#[non_exhaustive]
-pub struct Error {
+pub struct Error(alloc::boxed::Box<Inner>);    // one pointer wide
+
+struct Inner {
     kind: ErrorKind,
     op: OpKind,
-    context: Option<ErrorContext>,     // relative path(s), handle label
-    os: Option<RawOsError>,            // errno or Win32 code, preserved
+    path: Option<RelPathBuf>,          // relative to the handle
+    target: Option<RelPathBuf>,        // second path (rename, link)
+    label: Option<alloc::boxed::Box<str>>, // the handle's label
+    os: Option<RawOsError>,            // Errno(i32) | Windows(u32)
     fallback: Option<Fallback>,        // e.g. "openat2 -> userspace walk"
     source: Option<alloc::boxed::Box<dyn core::error::Error + Send + Sync>>,
 }
@@ -1879,6 +1882,14 @@ pub enum ErrorKind {
 }
 ```
 
+As built (2026-11-01): fields are private, set with `with_*` builders and
+read with accessors, so the sketched `ErrorContext` became the `path`,
+`target`, and `label` accessors. Boxing keeps `Result<T>` one pointer wide.
+`RawOsError` names its numbering (`Errno` or `Windows`) so a recorded code
+is never misread on another platform. `Fallback` is a pair of `&'static
+str` mechanism names. `OpKind` lists only the read operations so far and
+grows with `Op`; each displays as its `snake_case` name.
+
 - `RightsDenied` (library-enforced) is distinct from `PermissionDenied`
   (OS-enforced); `EscapeBlocked` means confinement stopped a resolution
   (`EXDEV` from `openat2`, or the userspace walk).
@@ -1893,7 +1904,10 @@ pub enum ErrorKind {
   often unknowable.
 - `std::io::Error` interop under `std`: `From<Error> for std::io::Error`
   keeps the `Error` as the payload and maps the kind (the
-  pattern Dogma.rs uses for `FromPathError::into_io_error`).
+  pattern Dogma.rs uses for `FromPathError::into_io_error`). Kinds without
+  a stable `std::io::ErrorKind` counterpart at 1.97 (`SymlinkLoop`, since
+  `FilesystemLoop` is unstable; `Poisoned`, `Canceled`, `Moved`, `Io`) map
+  to `Other`.
 - `Display` reads like `rename "a.toml" -> "b.toml" in <app>: already exists
   (os error 17)`.
 - Lesson recorded: `std::io::Error` dropping the path is why `fs-err`
