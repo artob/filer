@@ -129,6 +129,44 @@ pub enum FatError {
         /// The chain's first cluster.
         start: u32,
     },
+
+    /// A directory entry's first cluster is not a data cluster.
+    BadEntryCluster {
+        /// The directory's first cluster, or 0 for a FAT12/16 root.
+        dir: u32,
+        /// The index of the entry's slot in the directory.
+        slot: u32,
+        /// The first cluster.
+        cluster: u32,
+    },
+
+    /// A directory, or a file with data, has no first cluster.
+    MissingCluster {
+        /// The directory's first cluster, or 0 for a FAT12/16 root.
+        dir: u32,
+        /// The index of the entry's slot in the directory.
+        slot: u32,
+    },
+
+    /// An empty file has a first cluster.
+    StrayCluster {
+        /// The directory's first cluster, or 0 for a FAT12/16 root.
+        dir: u32,
+        /// The index of the entry's slot in the directory.
+        slot: u32,
+        /// The first cluster.
+        cluster: u32,
+    },
+
+    /// A directory entry is marked both a directory and a volume label.
+    BadAttributes {
+        /// The directory's first cluster, or 0 for a FAT12/16 root.
+        dir: u32,
+        /// The index of the entry's slot in the directory.
+        slot: u32,
+        /// The attribute byte.
+        attrs: u8,
+    },
 }
 
 impl FatError {
@@ -216,6 +254,21 @@ impl core::fmt::Display for FatError {
             Self::DirectoryTooLarge { start } => {
                 write!(f, "directory from cluster {start} is too large")
             },
+            Self::BadEntryCluster { dir, slot, cluster } => write!(
+                f,
+                "entry {slot} of directory {dir} starts at invalid cluster {cluster}"
+            ),
+            Self::MissingCluster { dir, slot } => {
+                write!(f, "entry {slot} of directory {dir} has no first cluster")
+            },
+            Self::StrayCluster { dir, slot, cluster } => write!(
+                f,
+                "empty file {slot} of directory {dir} has cluster {cluster}"
+            ),
+            Self::BadAttributes { dir, slot, attrs } => write!(
+                f,
+                "entry {slot} of directory {dir} has invalid attributes {attrs:#04X}"
+            ),
         }
     }
 }

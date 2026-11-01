@@ -57,4 +57,6 @@ mod fat_type;
 pub use fat_type::*;
 
 mod chain;
+mod dir_entry;
+mod fat_time;
 mod geometry;

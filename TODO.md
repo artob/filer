@@ -669,13 +669,13 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only first, designed for writing (§17.13, D46). One commit per item.
 
-- [ ] **FAT-03: Directory entries.** Short names (with NT case flags and
-  `0x05`), long names (checksum and order), deleted entries and labels,
-  times. Done when unit tests cover each, including orphaned long names
-  and unpaired surrogates.
 - [ ] **FAT-04: Driver.** Open, read, stat, list, read link (always
   `NotASymlink`), close, with case-insensitive lookup through the
-  `Resolver`. Done when a test image reads correctly.
+  `Resolver`, matching long or short names. Short names with OEM bytes
+  must surface as foreign even when the bytes happen to be valid UTF-8,
+  which needs a `DriverKey` constructor forcing a `ForeignName`. Names
+  `DriverKey::entry_name` rejects are `Corrupt`. Done when a test image
+  reads correctly.
 - [ ] **FAT-05: Specification and fixtures.** A test image writer for
   `filer-spec`; fixtures from `mkfs.fat` and `mtools` for each FAT type.
   Done when `filer-spec` passes with symlinks and FIFOs off.
