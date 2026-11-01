@@ -14,16 +14,44 @@ const SECTOR: usize = 512;
 
 /// A file or directory to write.
 pub enum Node {
-    File(&'static str, Vec<u8>),
-    Dir(&'static str, Vec<Node>),
+    File(String, Vec<u8>),
+    Dir(String, Vec<Node>),
 }
 
-pub fn file(name: &'static str, data: impl Into<Vec<u8>>) -> Node {
-    Node::File(name, data.into())
+pub fn file(name: impl Into<String>, data: impl Into<Vec<u8>>) -> Node {
+    Node::File(name.into(), data.into())
 }
 
-pub fn dir(name: &'static str, children: Vec<Node>) -> Node {
-    Node::Dir(name, children)
+pub fn dir(name: impl Into<String>, children: Vec<Node>) -> Node {
+    Node::Dir(name.into(), children)
+}
+
+impl Node {
+    fn name(&self) -> &str {
+        match self {
+            Self::File(name, _) | Self::Dir(name, _) => name,
+        }
+    }
+
+    /// Adds a file (with `data`) or directory (without) at the
+    /// `/`-separated `path` below this directory, whose parents must have
+    /// been added already.
+    pub fn add(&mut self, path: &str, data: Option<Vec<u8>>) {
+        let Self::Dir(_, children) = self else {
+            panic!("{path}: parent is not a directory");
+        };
+        match path.split_once('/') {
+            Some((first, rest)) => children
+                .iter_mut()
+                .find(|child| child.name() == first)
+                .unwrap_or_else(|| panic!("{path}: no parent"))
+                .add(rest, data),
+            None => children.push(match data {
+                Some(data) => file(path, data),
+                None => dir(path, Vec::new()),
+            }),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -259,9 +287,10 @@ impl Image {
         let mut aliases = Vec::new();
         for node in children {
             let (name, is_dir) = match &node {
-                Node::File(name, _) => (*name, false),
-                Node::Dir(name, _) => (*name, true),
+                Node::File(name, _) => (name.clone(), false),
+                Node::Dir(name, _) => (name.clone(), true),
             };
+            let name = name.as_str();
             let child = if path.is_empty() {
                 name.to_owned()
             } else {
@@ -347,10 +376,7 @@ fn slots_of(children: &[Node], dots: bool) -> usize {
     let entries: usize = children
         .iter()
         .map(|node| {
-            let name = match node {
-                Node::File(name, _) | Node::Dir(name, _) => name,
-            };
-            let (_, _, long) = alias(name, &mut aliases);
+            let (_, _, long) = alias(node.name(), &mut aliases);
             1 + long.map_or(0, |long| long.encode_utf16().count().div_ceil(13))
         })
         .sum();

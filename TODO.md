@@ -295,6 +295,12 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
   Reported features work; unreported ones yield `Unsupported`. Done when
   verified for every `Features` field.
 
+- [ ] **SPEC-06: Foreign names per encoding.**
+  The foreign name `caf\xE9` exists only where names are raw bytes. Let
+  the profile choose WTF-8 with an unpaired surrogate instead, so that
+  `filer-fat` and `filer-windows` run the foreign-name cases. Done when
+  `filer-fat` passes them.
+
 ## `filer-posix`
 
 - [ ] **POSIX-01: Public payload for `filer-uring`.**
@@ -669,10 +675,10 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only first, designed for writing (§17.13, D46). One commit per item.
 
-- [ ] **FAT-05: Specification and fixtures.** Lay `filer-spec`'s tree out
-  with the test image writer (`tests/common`); fixtures from `mkfs.fat`
-  and `mtools` for each FAT type. Done when `filer-spec` passes with
-  symlinks and FIFOs off.
+- [ ] **FAT-05: Fixtures from real tools.** Images made by `mkfs.fat` and
+  filled by `mtools` (or the Linux driver) for each FAT type, stored
+  sparsely (only nonzero sectors), and read in tests. Done when each
+  reads as its manifest says.
 - [ ] **FAT-06: Differential test on Linux.** Compare against the kernel's
   FAT driver on loop-mounted images (on the Ubuntu test host `byte3`,
   which has passwordless `sudo`). Done when listings, contents, and times
