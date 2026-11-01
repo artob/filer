@@ -30,3 +30,6 @@ filer-api.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, optional = true, features = ["fs", "std"] }
+
+[dev-dependencies]
+filer-spec = { workspace = true, features = ["std"] }

@@ -51,6 +51,9 @@
   Releases are 0.0.x for now: extremely experimental, any one may break.
 - Backend crates depend on `filer-api`, never the reverse. Move behavior tests
   with their implementation.
+- Every driver runs `filer-spec` (`run_blocking(profile, setup)`) in its
+  tests; extend `filer-spec` when adding operations, and keep only
+  driver-specific tests in the driver.
 - Gate backend items on `cfg(unix)`, `cfg(target_os = "wasi")`,
   `cfg(windows)`, or `cfg(all(target_family = "wasm", target_os = "unknown"))`:
   each backend must still build, empty, on every other target.

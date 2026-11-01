@@ -282,7 +282,7 @@ mod tests {
         vec,
     };
     use core::task::{Context, Poll, Waker};
-    use filer_api::{ErasedBufMut, MetaMask, Symlinks, name, rel};
+    use filer_api::{ErasedBufMut, MetaMask, rel};
 
     fn block_on<F: Future>(future: F) -> F::Output {
         let mut future = core::pin::pin!(future);
@@ -357,137 +357,6 @@ mod tests {
     }
 
     #[test]
-    fn opens_and_reads_files() {
-        let heap = fixture();
-        let file = open(&heap, &heap.root(), rel!("a/b/c.txt"), OpenHow::file()).unwrap();
-        assert_eq!(read(&heap, &file, 0, 64).unwrap(), b"contents");
-        assert_eq!(read(&heap, &file, 3, 2).unwrap(), b"te");
-        assert_eq!(read(&heap, &file, 8, 4).unwrap(), b"");
-        assert_eq!(read(&heap, &file, u64::MAX, 4).unwrap(), b"");
-    }
-
-    #[test]
-    fn opens_relative_to_subdirectories() {
-        let heap = fixture();
-        let a = open(&heap, &heap.root(), rel!("a"), OpenHow::dir()).unwrap();
-        let file = open(&heap, &a, rel!("b/c.txt"), OpenHow::file()).unwrap();
-        assert_eq!(read(&heap, &file, 0, 64).unwrap(), b"contents");
-        let again = open(&heap, &a, RelPath::empty(), OpenHow::dir()).unwrap();
-        assert_eq!(heap.ino(&again), heap.ino(&a));
-    }
-
-    #[test]
-    fn reports_open_errors() {
-        let heap = fixture();
-        let root = heap.root();
-        let kind = |path, how| open(&heap, &root, path, how).unwrap_err().kind();
-        assert_eq!(kind(rel!("nope"), OpenHow::file()), ErrorKind::NotFound);
-        assert_eq!(kind(rel!("a"), OpenHow::file()), ErrorKind::IsADirectory);
-        assert_eq!(
-            kind(rel!("a/z.txt"), OpenHow::dir()),
-            ErrorKind::NotADirectory
-        );
-        assert_eq!(
-            kind(rel!("a/z.txt/x"), OpenHow::file()),
-            ErrorKind::NotADirectory
-        );
-        let error = open(&heap, &root, rel!("a/nope"), OpenHow::file()).unwrap_err();
-        assert_eq!(
-            (error.op(), error.path()),
-            (OpKind::Open, Some(rel!("a/nope")))
-        );
-    }
-
-    #[test]
-    fn follows_symlinks_beneath_the_handle() {
-        let heap = Heap::builder()
-            .file("a/b/c.txt", "contents")
-            .symlink("a/link", "b/c.txt")
-            .symlink("a/up", "../a/b/c.txt")
-            .symlink("a/abs", "/a/b/c.txt")
-            .build();
-        let root = heap.root();
-        let a = open(&heap, &root, rel!("a"), OpenHow::dir()).unwrap();
-        let how = |symlinks| {
-            let mut how = OpenHow::file();
-            how.resolve.symlinks = symlinks;
-            how
-        };
-        let contents = |at: &Handle, path, symlinks| {
-            let file = open(&heap, at, path, how(symlinks))?;
-            read(&heap, &file, 0, 64)
-        };
-        let kind = |at, path, symlinks| contents(at, path, symlinks).unwrap_err().kind();
-
-        assert_eq!(
-            contents(&root, rel!("a/link"), Symlinks::Beneath).unwrap(),
-            b"contents"
-        );
-        // `..` stays beneath the root, but not beneath `a`.
-        assert_eq!(
-            contents(&root, rel!("a/up"), Symlinks::Beneath).unwrap(),
-            b"contents"
-        );
-        assert_eq!(
-            kind(&a, rel!("up"), Symlinks::Beneath),
-            ErrorKind::EscapeBlocked
-        );
-        // Absolute targets escape, unless the handle is treated as the root.
-        assert_eq!(
-            kind(&root, rel!("a/abs"), Symlinks::Beneath),
-            ErrorKind::EscapeBlocked
-        );
-        assert_eq!(
-            contents(&root, rel!("a/abs"), Symlinks::InRoot).unwrap(),
-            b"contents"
-        );
-        assert_eq!(
-            kind(&root, rel!("a/link"), Symlinks::Deny),
-            ErrorKind::SymlinkLoop
-        );
-
-        let stat_link = |follow| {
-            stat(
-                &heap,
-                Target::Entry {
-                    at: a.clone(),
-                    name: EntryName::from(name!("link")),
-                    follow,
-                    resolve: Resolve::default(),
-                },
-            )
-            .unwrap()
-            .kind
-        };
-        assert_eq!(stat_link(true), Some(FileKind::File));
-        assert_eq!(stat_link(false), Some(FileKind::Symlink));
-    }
-
-    #[test]
-    fn stats_handles_and_entries() {
-        let heap = fixture();
-        let a = open(&heap, &heap.root(), rel!("a"), OpenHow::dir()).unwrap();
-        let dir = stat(&heap, Target::Handle(a.clone())).unwrap();
-        assert_eq!((dir.kind, dir.len), (Some(FileKind::Dir), Some(4)));
-        let entry = |name: &str, follow| Target::Entry {
-            at: a.clone(),
-            name: EntryName::Utf8(name.parse().unwrap()),
-            follow,
-            resolve: Resolve::default(),
-        };
-        let file = stat(&heap, entry("z.txt", true)).unwrap();
-        assert_eq!((file.kind, file.len), (Some(FileKind::File), Some(0)));
-        let link = stat(&heap, entry("link", false)).unwrap();
-        assert_eq!((link.kind, link.len), (Some(FileKind::Symlink), Some(7)));
-        let error = stat(&heap, entry("nope", false)).unwrap_err();
-        assert_eq!(
-            (error.kind(), error.path()),
-            (ErrorKind::NotFound, Some(rel!("nope")))
-        );
-        assert_ne!(dir.id, file.id);
-    }
-
-    #[test]
     fn lists_directories_in_batches() {
         let heap = fixture();
         let a = open(&heap, &heap.root(), rel!("a"), OpenHow::dir()).unwrap();
@@ -501,25 +370,6 @@ mod tests {
         assert_eq!(list(&heap, &a, 1), expected);
         let empty = open(&heap, &a, rel!("empty"), OpenHow::dir()).unwrap();
         assert_eq!(list(&heap, &empty, 1), vec![]);
-    }
-
-    #[test]
-    fn reads_links() {
-        let heap = fixture();
-        let a = open(&heap, &heap.root(), rel!("a"), OpenHow::dir()).unwrap();
-        let read_link = |name| {
-            block_on(heap.submit(Op::ReadLink {
-                at: a.clone(),
-                name: EntryName::from(name),
-            }))
-            .result
-        };
-        let Ok(Output::LinkTarget(target)) = read_link(name!("link")) else {
-            panic!("read_link failed");
-        };
-        assert_eq!(target.as_str(), Some("b/c.txt"));
-        let error = read_link(name!("z.txt")).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::NotASymlink);
     }
 
     #[test]

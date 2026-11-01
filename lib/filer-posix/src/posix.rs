@@ -464,14 +464,13 @@ fn with_name(error: Error, name: &EntryName) -> Error {
 mod tests {
     use super::*;
     use core::task::{Context, Poll, Waker};
-    use filer_api::{ErasedBufMut, MetaMask, Symlinks, ambient_authority, name, rel};
+    use filer_api::{ambient_authority, rel};
     use std::{
         borrow::ToOwned,
         fs,
         os::unix::fs::symlink,
         path::PathBuf,
         process,
-        string::{String, ToString},
         sync::atomic::{AtomicUsize, Ordering},
     };
 
@@ -534,67 +533,6 @@ mod tests {
         }
     }
 
-    fn read(posix: &Posix, file: &Handle, off: u64, capacity: usize) -> Result<Vec<u8>, Error> {
-        let completion = block_on(posix.submit(Op::Read {
-            file: file.clone(),
-            buf: ErasedBufMut::new(Vec::<u8>::with_capacity(capacity)),
-            off,
-        }));
-        let buf: Vec<u8> = completion.buf.unwrap().downcast().unwrap();
-        completion.result.map(|_| buf)
-    }
-
-    fn stat(posix: &Posix, target: Target) -> Result<filer_api::Metadata, Error> {
-        let completion = block_on(posix.submit(Op::Stat {
-            target,
-            mask: MetaMask::all(),
-        }));
-        match completion.result? {
-            Output::Metadata(metadata) => Ok(metadata),
-            output => panic!("unexpected {output:?}"),
-        }
-    }
-
-    fn list(posix: &Posix, dir: &Handle, max: usize) -> Vec<(String, Option<FileKind>)> {
-        let mut names = Vec::new();
-        let mut cookie = None;
-        loop {
-            let completion = block_on(posix.submit(Op::ReadDir {
-                dir: dir.clone(),
-                cookie,
-                max,
-            }));
-            let Ok(Output::Entries { entries, next }) = completion.result else {
-                panic!("read_dir failed: {:?}", completion.result);
-            };
-            names.extend(entries.into_iter().map(|e| (e.name.to_string(), e.kind)));
-            match next {
-                Some(next) => cookie = Some(next),
-                None => break,
-            }
-        }
-        names.sort_by(|a, b| a.0.cmp(&b.0));
-        names
-    }
-
-    fn file_how(symlinks: Symlinks) -> OpenHow {
-        let mut how = OpenHow::file();
-        how.resolve.symlinks = symlinks;
-        how
-    }
-
-    #[test]
-    fn opens_and_reads_files() {
-        let (_temp, posix, root) = fixture();
-        let file = open(&posix, &root, rel!("a/b/c.txt"), OpenHow::file()).unwrap();
-        assert_eq!(read(&posix, &file, 0, 64).unwrap(), b"contents");
-        assert_eq!(read(&posix, &file, 3, 2).unwrap(), b"te");
-        assert_eq!(read(&posix, &file, 100, 4).unwrap(), b"");
-        let a = open(&posix, &root, rel!("a"), OpenHow::dir()).unwrap();
-        let file = open(&posix, &a, rel!("b/c.txt"), OpenHow::file()).unwrap();
-        assert_eq!(read(&posix, &file, 0, 64).unwrap(), b"contents");
-    }
-
     #[test]
     fn reports_open_errors_with_os_codes() {
         let (_temp, posix, root) = fixture();
@@ -614,97 +552,6 @@ mod tests {
             kind(rel!("a/z.txt/x"), OpenHow::file()),
             ErrorKind::NotADirectory
         );
-    }
-
-    #[test]
-    fn confines_symlinks() {
-        let (_temp, posix, root) = fixture();
-        let contents = |at: &Handle, path, symlinks| {
-            read(&posix, &open(&posix, at, path, file_how(symlinks))?, 0, 64)
-        };
-        let kind = |at, path, symlinks| contents(at, path, symlinks).unwrap_err().kind();
-        let a = open(&posix, &root, rel!("a"), OpenHow::dir()).unwrap();
-
-        assert_eq!(
-            contents(&root, rel!("a/link"), Symlinks::Beneath).unwrap(),
-            b"contents"
-        );
-        assert_eq!(
-            contents(&root, rel!("a/up"), Symlinks::Beneath).unwrap(),
-            b"contents"
-        );
-        assert_eq!(
-            kind(&a, rel!("up"), Symlinks::Beneath),
-            ErrorKind::EscapeBlocked
-        );
-        // The real `/a/b/c.txt` does not exist; `InRoot` finds ours.
-        assert_eq!(
-            kind(&root, rel!("a/abs"), Symlinks::Beneath),
-            ErrorKind::EscapeBlocked
-        );
-        assert_eq!(
-            contents(&root, rel!("a/abs"), Symlinks::InRoot).unwrap(),
-            b"contents"
-        );
-        // `outside.txt` exists beside the root, but is out of reach.
-        assert_eq!(
-            kind(&root, rel!("a/escape"), Symlinks::Beneath),
-            ErrorKind::EscapeBlocked
-        );
-        assert_eq!(
-            kind(&root, rel!("a/escape"), Symlinks::InRoot),
-            ErrorKind::NotFound
-        );
-        assert_eq!(
-            kind(&root, rel!("a/link"), Symlinks::Deny),
-            ErrorKind::SymlinkLoop
-        );
-    }
-
-    #[test]
-    fn stats_handles_and_entries() {
-        let (_temp, posix, root) = fixture();
-        let a = open(&posix, &root, rel!("a"), OpenHow::dir()).unwrap();
-        let dir = stat(&posix, Target::Handle(a.clone())).unwrap();
-        assert_eq!(dir.kind, Some(FileKind::Dir));
-        assert!(dir.modified.is_some() && dir.id.is_some());
-        let entry = |name: &str, follow| Target::Entry {
-            at: a.clone(),
-            name: EntryName::Utf8(name.parse().unwrap()),
-            follow,
-            resolve: Resolve::default(),
-        };
-        let link = stat(&posix, entry("link", false)).unwrap();
-        assert_eq!((link.kind, link.len), (Some(FileKind::Symlink), Some(7)));
-        let file = stat(&posix, entry("link", true)).unwrap();
-        assert_eq!((file.kind, file.len), (Some(FileKind::File), Some(8)));
-        let opened = open(&posix, &root, rel!("a/b/c.txt"), OpenHow::file()).unwrap();
-        assert_eq!(stat(&posix, Target::Handle(opened)).unwrap().id, file.id);
-        let error = stat(&posix, entry("nope", false)).unwrap_err();
-        assert_eq!(
-            (error.kind(), error.path()),
-            (ErrorKind::NotFound, Some(rel!("nope")))
-        );
-    }
-
-    #[test]
-    fn lists_directories_in_batches() {
-        let (temp, posix, root) = fixture();
-        let many = temp.0.join("top/many");
-        fs::create_dir(&many).unwrap();
-        for i in 0..10 {
-            fs::write(many.join(std::format!("f{i}")), "").unwrap();
-        }
-        let dir = open(&posix, &root, rel!("many"), OpenHow::dir()).unwrap();
-        let expected: Vec<_> = (0..10)
-            .map(|i| (std::format!("f{i}"), Some(FileKind::File)))
-            .collect();
-        assert_eq!(list(&posix, &dir, 100), expected);
-        assert_eq!(list(&posix, &dir, 3), expected);
-        assert_eq!(list(&posix, &dir, 1), expected);
-        let a = open(&posix, &root, rel!("a"), OpenHow::dir()).unwrap();
-        let names: Vec<String> = list(&posix, &a, 2).into_iter().map(|(n, _)| n).collect();
-        assert_eq!(names, ["abs", "b", "escape", "link", "up", "z.txt"]);
     }
 
     #[test]
@@ -730,45 +577,6 @@ mod tests {
     }
 
     #[test]
-    fn reads_links() {
-        let (_temp, posix, root) = fixture();
-        let a = open(&posix, &root, rel!("a"), OpenHow::dir()).unwrap();
-        let read_link = |name| {
-            block_on(posix.submit(Op::ReadLink {
-                at: a.clone(),
-                name: EntryName::from(name),
-            }))
-            .result
-        };
-        let Ok(Output::LinkTarget(target)) = read_link(name!("abs")) else {
-            panic!("read_link failed");
-        };
-        assert_eq!(target.as_str(), Some("/a/b/c.txt"));
-        assert_eq!(
-            read_link(name!("z.txt")).unwrap_err().kind(),
-            ErrorKind::NotASymlink
-        );
-    }
-
-    #[test]
-    fn refuses_special_files() {
-        let (temp, posix, root) = fixture();
-        let fifo = temp.0.join("top/fifo");
-        let status = process::Command::new("mkfifo").arg(&fifo).status().unwrap();
-        assert!(status.success());
-        let error = open(&posix, &root, rel!("fifo"), OpenHow::file()).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::NotRegularFile);
-    }
-
-    #[test]
-    fn rejects_handles_from_other_drivers() {
-        let (_temp, _posix, root) = fixture();
-        let other = Posix::blocking();
-        let error = open(&other, &root, rel!("a"), OpenHow::dir()).unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::CrossDriver);
-    }
-
-    #[test]
     fn labels_ambient_errors() {
         let posix = Posix::blocking();
         let error = posix
@@ -776,38 +584,6 @@ mod tests {
             .unwrap_err();
         assert_eq!(error.kind(), ErrorKind::NotFound);
         assert_eq!(error.label(), Some("/nonexistent/filer"));
-    }
-
-    /// Linux filesystems accept any bytes in names; APFS rejects invalid
-    /// UTF-8, so this runs on Linux only.
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn lists_and_stats_foreign_names() {
-        use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
-        let (temp, posix, root) = fixture();
-        let raw = b"caf\xE9";
-        fs::write(temp.0.join("top").join(OsStr::from_bytes(raw)), "x").unwrap();
-        let completion = block_on(posix.submit(Op::ReadDir {
-            dir: root.clone(),
-            cookie: None,
-            max: 100,
-        }));
-        let Ok(Output::Entries { entries, .. }) = completion.result else {
-            panic!("read_dir failed");
-        };
-        let foreign = entries.into_iter().find(|e| e.name.is_foreign()).unwrap();
-        assert_eq!(foreign.name.to_string(), "caf\\xE9");
-        let metadata = stat(
-            &posix,
-            Target::Entry {
-                at: root,
-                name: foreign.name,
-                follow: false,
-                resolve: Resolve::default(),
-            },
-        )
-        .unwrap();
-        assert_eq!(metadata.len, Some(1));
     }
 }
 

@@ -274,28 +274,29 @@ The executable specification and test bed; it comes before any OS driver.
   `std` (§6.1). Done when docs suggest a `clippy::disallowed_methods`
   configuration.
 
-## `filer-conformance`
+## `filer-spec`
 
-- [ ] **CONF-01: Crate and runner.**
-  Create `lib/filer-conformance/` with `run<D: Driver>(Dir<D>, Profile)`
-  (§24, D26); first consumer is `filer-heap`'s test suite, using
-  `pollster`. Done when it covers API-01 through API-04.
+The executable specification (§24, D26). It exists with 15 read-only cases,
+run by `filer-heap` and `filer-posix`; extend it with each new operation.
 
-- [ ] **CONF-02: Confinement cases.**
-  Absolute and relative symlink escapes, `InRoot`, `Deny`, magic links on
-  real drivers, mount crossing. Done when every case asserts
-  `EscapeBlocked` or the specified in-root result.
+- [ ] **SPEC-02: Remaining confinement cases.**
+  Escapes, `InRoot`, `Deny`, and loops are covered. Still missing: magic
+  links (`/proc/self/fd/*`) on real drivers, mount crossing with
+  `cross_mounts: false`, and races (a directory swapped for a symlink
+  mid-resolution). Done when each asserts `EscapeBlocked` or the specified
+  result.
 
-- [ ] **CONF-03: Foreign-name cases.**
-  Enumerate, open, stat, remove, and rename-from a foreign name; reject it
-  as a destination and across drivers. Done when `filer-heap` passes and
-  `Profile` lets real drivers skip what the OS cannot create.
+- [ ] **SPEC-03: Remaining foreign-name cases.**
+  Listing, stat, and cross-driver refusal are covered. Still missing: open,
+  remove, and rename-from a foreign name, and refusal as a destination
+  (needs DRV-02 and API-01). Done when `filer-heap` (after HEAP-03) and
+  `filer-posix` on Linux pass.
 
-- [ ] **CONF-04: Cancellation by drop.**
+- [ ] **SPEC-04: Cancellation by drop.**
   A mutating op dropped after first poll still completes. Done when
   verified on every driver.
 
-- [ ] **CONF-05: Feature honesty.**
+- [ ] **SPEC-05: Feature honesty.**
   Reported features work; unreported ones yield `Unsupported`. Done when
   verified for every `Features` field.
 
@@ -310,17 +311,17 @@ The executable specification and test bed; it comes before any OS driver.
 - [ ] **POSIX-02: Kernel-confined open.**
   `openat2` with each `Resolve` combination; bounded `EAGAIN` retry; the
   `ENOSYS`/`EPERM` switch to the userspace walk (per VER-04). Done when
-  CONF-02 passes on Linux.
+  SPEC-02 passes on Linux.
 
 - [ ] **POSIX-03: Forced userspace walk.**
   The generic `Resolver` already resolves every path. Still missing: a
-  configuration option forcing it once POSIX-02 exists. Done when CONF-02
+  configuration option forcing it once POSIX-02 exists. Done when SPEC-02
   passes with the walk forced on Linux and by default on macOS.
 
 - [ ] **POSIX-04: Write ops and `statx`.**
   Read and `fstat`/`statat` metadata exist. Still missing: write,
   `set_len`, `statx` on Linux (birth times, masks), birth times on macOS,
-  and close via the background closer. Done when CONF-01 passes in a
+  and close via the background closer. Done when `filer-spec` passes in a
   temporary directory.
 
 - [ ] **POSIX-05: Large-batch listing.**
@@ -335,11 +336,11 @@ The executable specification and test bed; it comes before any OS driver.
   `readlinkat`, `fchmod`, `utimensat`. Done when API-04's tests pass.
 
 - [ ] **POSIX-07: Feature detection.**
-  Per directory, cached per mount (§16.4). Done when CONF-05 passes on
+  Per directory, cached per mount (§16.4). Done when SPEC-05 passes on
   ext4, tmpfs, and APFS.
 
 - [ ] **POSIX-08: CI wiring.**
-  Conformance against both executors on Ubuntu and macOS at MSRV and
+  `filer-spec` against both executors on Ubuntu and macOS at MSRV and
   stable. Done when green.
 
 - [ ] **POSIX-09: Advisory locks.**
@@ -383,12 +384,12 @@ The executable specification and test bed; it comes before any OS driver.
 
 - [ ] **WIN-02: Relative opens and the userspace walk.**
   `NtCreateFile` with `RootDirectory`, `FILE_OPEN_REPARSE_POINT`, reparse
-  data reading, and the generic resolver (§17.2). Done when CONF-02 passes
+  data reading, and the generic resolver (§17.2). Done when SPEC-02 passes
   on Windows, including junctions.
 
 - [ ] **WIN-03: Data and metadata.**
   Positional read and write, `GetFileInformationByHandleEx` metadata,
-  128-bit file IDs. Done when CONF-01 passes on Windows.
+  128-bit file IDs. Done when `filer-spec` passes on Windows.
 
 - [ ] **WIN-04: Listing.**
   `NtQueryDirectoryFile` in large batches. Done when a large directory
@@ -464,7 +465,7 @@ The executable specification and test bed; it comes before any OS driver.
 
 - [ ] **XATTR-01: Extended attributes.**
   Linux namespaces, macOS flat mapping (§11.1); listing yields foreign
-  names; `Features::xattr` populated. Done when conformance covers set,
+  names; `Features::xattr` populated. Done when specification covers set,
   get, list, and remove, skipping where unsupported.
 
 - [ ] **XATTR-02: File flags.**
@@ -522,7 +523,7 @@ The executable specification and test bed; it comes before any OS driver.
 
 - [ ] **WALK-07: Native `Op::Walk` in `filer-posix`.**
   Batched traversal on a worker. Done when it passes the walker
-  conformance cases and benchmarks show fewer hops.
+  specification cases and benchmarks show fewer hops.
 
 ## Crash properties
 
@@ -573,7 +574,7 @@ Created with `publish = false` (D16).
   `sys` module; dedicated completion thread; opcode probe;
   `Uring::new_or_posix`. Done when CI exercises both setup paths.
 - [ ] **URING-03: Basic ops.** `openat2`, read, write, `statx`, fsync,
-  close; everything else routed to `Posix`. Done when the conformance suite
+  close; everything else routed to `Posix`. Done when `filer-spec`
   passes.
 - [ ] **URING-04: Native chains.** Linked SQEs with direct descriptors. Done
   when `write_atomic` is one submission.
@@ -585,18 +586,18 @@ Created with `publish = false` (D16).
 
 ## Virtual drivers
 
-- [ ] **VFS-01: `filer-vfs` mount table.** Done when the conformance suite
+- [ ] **VFS-01: `filer-vfs` mount table.** Done when `filer-spec`
   passes over two `filer-heap` mounts.
 - [ ] **VFS-02: Cross-mount behavior.** Done when component-wise resolution
   and `CrossesDevices` are tested.
 - [ ] **OVL-01: `filer-overlay` reads.** Done when layered lookup and merged
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
-  directories. Done when the conformance suite passes.
+  directories. Done when `filer-spec` passes.
 - [ ] **ARC-01: `filer-archive` zip.** Decide Q7 first. Done when a fuzz
   target covers member-name quarantine.
 - [ ] **ARC-02: `filer-archive` tar.** Done when tar archives pass the
-  read-only conformance subset.
+  read-only specification subset.
 
 ## Middleware
 
@@ -612,7 +613,7 @@ Created with `publish = false` (D16).
 ## Adapters
 
 - [ ] **ADP-01: `filer-tokio`.** `TokioSpawner`, plus `tokio::io` traits for
-  `filer-api`'s cursor. Done when the conformance suite runs on a Tokio
+  `filer-api`'s cursor. Done when `filer-spec` runs on a Tokio
   runtime and `tokio::io::copy` works between cursors.
 - [ ] **ADP-02: Cursor and `futures-io`.** `filer-api`'s `futures-io`
   feature. Done when tested.
@@ -625,7 +626,7 @@ Created with `publish = false` (D16).
 - [ ] **PLAT-01: FreeBSD.** At least a cross-check build of `filer-posix`,
   ideally a VM-based CI job. Done when one runs.
 - [ ] **PLAT-02: WASI.** Implement the `filer-wasi` shell per §17.8
-  (syscall layer per VER-02). Done when a conformance subset passes under
+  (syscall layer per VER-02). Done when a specification subset passes under
   Wasmtime on `wasm32-wasip1` and `wasm32-wasip2`.
 - [ ] **EXP-01: `filer-fuse`.** Done when `filer-heap` mounts and
   `ls`/`cat` work in a Linux CI job.
@@ -693,7 +694,7 @@ Blocked on ASK-01; `filer-system` (§17.10) may make it unnecessary.
 Not tasks. Experimental 0.0.x releases need none of these (D29); check
 them before proposing 0.1.0:
 
-- conformance green for `filer-heap` and both `filer-posix` executors on
+- specification green for `filer-heap` and both `filer-posix` executors on
   Ubuntu and macOS, and for `filer-windows` on Windows, at MSRV and stable;
 - atomic replacement with crash properties green;
 - walker and `remove_tree` with the CVE-2022-21658 regression test;

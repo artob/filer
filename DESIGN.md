@@ -251,7 +251,7 @@ stable.
 
 New for Filer.rs: a macOS job (APFS clones, `F_FULLFSYNC`, no `openat2`),
 all-feature checks on `wasm32-wasip1` and `wasm32-wasip2` (for
-`filer-wasi`), filesystem fixtures on Linux (§24), and the conformance
+`filer-wasi`), filesystem fixtures on Linux (§24), and the specification
 suite run against every driver. The packaged-doctest job skips `filer-cli`,
 which has no library and so no doctests.
 
@@ -324,7 +324,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-replay` | record and replay middleware | no |
 | `filer-tx` | transactions (experimental) | no |
 | `filer-tokio` | Tokio spawner and I/O trait adapters | no |
-| `filer-conformance` | driver conformance suite, as a library | no |
+| `filer-spec` | executable driver specification, as a library | no |
 | `filer-fuse` | FUSE export of any driver | no |
 | `filer-uefi` | UEFI driver (planned, §17.12) | TBD |
 | `filer-9p`, `-smb`, `-nfs`, `-sftp` | remote drivers (planned) | no |
@@ -360,7 +360,7 @@ filer-api <--+-- filer-posix <---- filer-uring
              +-- filer-vfs, filer-overlay, filer-archive
              +-- filer-tracing, filer-faults, filer-quota, filer-replay
              +-- filer-tx, filer-tokio, filer-fuse
-             +-- filer-conformance   (dev-dependency of every driver)
+             +-- filer-spec          (dev-dependency of every driver)
 ```
 
 `filer-cli` depends on `filer-api` and on `filer-posix`, `filer-wasi`, and
@@ -2138,7 +2138,7 @@ because path-based recursion can be redirected mid-walk. Every recursive
 operation here is built on handle-relative descent. The walker and the
 operations built on it are generic algorithms in `filer-api`. A driver may
 implement the coarse `Op::Walk` natively (one worker job per batch instead
-of one per directory); it must then pass the same walker conformance cases.
+of one per directory); it must then pass the same walker specification cases.
 
 ```rust
 #[non_exhaustive]
@@ -2316,7 +2316,7 @@ filer/
     filer-heap/  src/ { lib.rs, inode.rs, crash.rs, harness.rs, ... }
     filer-vfs/  filer-overlay/  filer-archive/
     filer-tracing/  filer-faults/  filer-quota/  filer-replay/
-    filer-tx/  filer-tokio/  filer-conformance/  filer-fuse/
+    filer-tx/  filer-tokio/  filer-spec/  filer-fuse/
     <umbrella>/
 ```
 
@@ -2410,16 +2410,24 @@ Considered and rejected:
 Crash consistency that is not tested does not exist. The strategy, in order
 of leverage:
 
-1. **`filer-conformance`.** A published library crate whose `async fn
-   run<D: Driver>(root: Dir<D>, profile: Profile)` specifies the driver
-   contract: resolution and confinement (including symlink escapes and
-   races), foreign names, rights, every op's success and error behavior,
-   chains, cancellation by drop, and feature honesty (a reported feature
-   must work; an unreported one must return `Unsupported`). `Profile`
-   declares what the environment can do (create foreign names, symlinks,
-   hardlinks) so cases skip rather than fail. Every driver crate runs it in
-   its tests with `pollster` as the executor; out-of-tree drivers can too
-   (D26).
+1. **`filer-spec`.** A published library crate, the executable
+   specification of the driver contract: resolution and confinement
+   (including symlink escapes and races), foreign names, rights, every op's
+   success and error behavior, chains, cancellation by drop, and feature
+   honesty (a reported feature must work; an unreported one must return
+   `Unsupported`). `Profile` declares what the environment can create
+   (symlinks, FIFOs, foreign names) so cases skip rather than fail. Every
+   driver crate runs it in its tests; out-of-tree drivers can too (D26).
+
+   As built (2026-11-01), named `filer-spec` rather than
+   `filer-conformance`: `run(profile, setup)` calls the driver's `setup`
+   twice (two instances, for isolation cases) to create a described
+   `Tree`, then runs 15 read-only cases through the frontend and returns a
+   `Report` of pass, skip, or fail verdicts, so one run shows every
+   failure. Cases report rather than panic. `block_on` parks the thread
+   under `std` (so thread-pool drivers need no spinning) and spins
+   without. `filer-heap`'s tests also run it against a driver that
+   loosens `Deny`, asserting the specification catches it.
 2. **Differential testing.** Generate random op sequences (proptest) and run
    them against `filer-heap` and `filer-posix`; compare observable state.
    Heap personalities let one CI machine imitate case-insensitive, NFD, or
@@ -2554,7 +2562,7 @@ Record changes here with a date and one line of rationale.
 | D23 | Sync failure poisons the handle | Accepted |
 | D24 | `ForeignName` is never a creation or rename destination | Accepted |
 | D25 | Umbrella crate; its `std` enables native drivers | Proposed |
-| D26 | `filer-conformance` is a published library | Proposed |
+| D26 | `filer-spec` is a published library | Accepted |
 | D27 | Unix advisory locks use `flock`; never classic `fcntl` | Proposed |
 | D28 | `rustix` gaps: upstream first, confined stopgaps second | Accepted |
 | D29 | Versions start at 0.0.0; releases are 0.0.x until 0.1.0 | Accepted |

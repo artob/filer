@@ -40,3 +40,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-cli`: Depends on `filer-system` instead of each backend.
 - `filer-whatwg`: New crate for the browser backend (WHATWG File System,
   OPFS), with no items yet.
+- `filer-spec`: New crate, the executable specification of the driver
+  contract, run by `filer-heap` and `filer-posix`.

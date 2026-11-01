@@ -38,6 +38,7 @@ name = "filer-heap"
 version = "0.0.0"
 dependencies = [
  "filer-api",
+ "filer-spec",
 ]
 
 [[package]]
@@ -45,7 +46,15 @@ name = "filer-posix"
 version = "0.0.0"
 dependencies = [
  "filer-api",
+ "filer-spec",
  "rustix",
+]
+
+[[package]]
+name = "filer-spec"
+version = "0.0.0"
+dependencies = [
+ "filer-api",
 ]
 
 [[package]]
