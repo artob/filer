@@ -740,17 +740,24 @@ pub trait IoBuf: sealed::Sealed + Send + 'static {
 /// A buffer that a read can fill, from `len()` up to `capacity()`.
 pub trait IoBufMut: IoBuf {
     fn capacity(&self) -> usize;
-    /// Zero-fills spare capacity and returns it (safe drivers only).
-    fn spare_zeroed(&mut self) -> &mut [u8];
-    /// Marks `n` more bytes as initialized and part of the contents.
-    fn commit(&mut self, n: usize);
+    /// Zero-fills the spare capacity, lets `read` fill it, and appends the
+    /// count it returns; on error the contents are unchanged.
+    fn fill(&mut self, read: &mut dyn FnMut(&mut [u8]) -> Result<usize>)
+        -> Result<usize>;
 }
 
 /// The result of an operation, returning its buffer whatever happened.
 pub struct BufResult<T, B>(pub Result<T>, pub B);
 ```
 
-Implementations: `alloc::vec::Vec<u8>`, `alloc::boxed::Box<[u8]>`,
+`fill` replaced an earlier `spare_zeroed` plus `commit` pair (D33): with
+`Vec<u8>`, safe code can only expose spare capacity by resizing into it,
+after which `commit` cannot know where the old contents ended. One call
+that resizes, reads, and truncates is safe, keeps the storage in place,
+and is dyn-compatible for erased buffers (§16.1).
+
+Implementations: `alloc::vec::Vec<u8>`, `alloc::boxed::Box<[u8]>` (write
+only, since a boxed slice has no spare capacity),
 `alloc::string::String` (write only), `&'static [u8]` (write only),
 `bytes::Bytes` and `bytes::BytesMut` (feature `bytes`), `AlignedBuf` (for
 direct I/O, see [§10](#10-metadata)), `PooledBuf` (driver-registered), and
@@ -2368,6 +2375,7 @@ Record changes here with a date and one line of rationale.
 | D30 | `filer-wasi` and `filer-cli` exist from the start | Accepted |
 | D31 | Repository at `github.com/artob/filer` (resolves Q12) | Accepted |
 | D32 | `ForeignName`s are minted only via a driver's `DriverKey` | Accepted |
+| D33 | `IoBufMut::fill` instead of `spare_zeroed` plus `commit` | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

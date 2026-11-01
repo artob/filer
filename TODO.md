@@ -161,11 +161,11 @@ No OS access; everything builds without `std` (§7.6).
   normalization-insensitive rules (normalization via a small table or an
   optional dependency, decided in the item).
 
-- [ ] **CORE-06: Buffers.**
-  Sealed `IoBuf` and `IoBufMut`, implementations for `Vec<u8>`,
-  `Box<[u8]>`, `String`, `&'static [u8]`, plus `Slice<B>`, `BufResult`, and
-  `AlignedBuf` (§7.1). Done when tests cover `spare_zeroed`, `commit`, and
-  slicing. `bytes` impls are a separate item (ADP-03).
+- [ ] **CORE-06: Remaining buffers.**
+  `IoBuf` (`Vec<u8>`, `Box<[u8]>`), `IoBufMut` (`Vec<u8>`), and `BufResult`
+  exist. Still missing (§7.1): `IoBuf` for `String` and `&'static [u8]`,
+  `Slice<B>`, and `AlignedBuf`. Done when tests cover slicing and aligned
+  reads. `bytes` impls are a separate item (ADP-03).
 
 ## `filer-api`: driver boundary
 
