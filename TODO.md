@@ -119,7 +119,8 @@ with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
   Windows-style inputs.
 
 - [ ] **PATH-05: Serde.**
-  Strings on the wire, validated on input. Done when `serde_test` covers
+  Add the `serde` feature. Paths as strings on the wire, validated on
+  input; `Rights` via `bitflags/serde`. Done when `serde_test` covers
   success and rejection.
 
 - [ ] **PATH-06: Native and Camino conversions.**
@@ -141,11 +142,6 @@ with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
 ## `filer-api`: core types
 
 No OS access; everything builds without `std` (§7.6).
-
-- [ ] **CORE-02: Rights.**
-  `Symlinks` and `Resolve` exist. Still missing: `Rights` (§6.2) via
-  `bitflags` and the rights table as rustdoc. Done when attenuation is
-  tested and `serde` works under its feature.
 
 - [ ] **CORE-04: Remaining metadata fields.**
   `MetaMask`, `Metadata`, `FileKind`, `FileId`, and `Timestamp` exist with

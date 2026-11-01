@@ -120,6 +120,9 @@ pub use resolve::*;
 mod resolver;
 pub use resolver::*;
 
+mod rights;
+pub use rights::*;
+
 mod target;
 pub use target::*;
 
