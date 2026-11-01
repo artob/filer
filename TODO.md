@@ -55,13 +55,6 @@ this file are met (D29).
 Each spike produces findings, not library code: update the matching
 **VERIFY** note in `DESIGN.md` (with a date) and add or adjust items here.
 
-- [ ] **VER-01: `ref-cast` under `forbid(unsafe_code)` (D4).**
-  In a scratch crate with the workspace lints and `#![forbid(unsafe_code)]`,
-  compile `#[repr(transparent)] pub struct RelPath(str)` with
-  `#[derive(RefCast)]`, plus a `#[ref_cast_custom]` `const fn` constructor
-  usable from a `rel!` macro. Done when §5.3 records the result; if it
-  fails, D4 falls back to borrowed views and §28 says so.
-
 - [ ] **VER-02: Remaining `rustix` questions.**
   The 2026-10-31 audit is in §17.1. Still open: `F_BARRIERFSYNC`,
   `F_PREALLOCATE`, `FS_IOC_SETFLAGS`, `RWF_ATOMIC` via `pwritev2`, the
@@ -92,11 +85,6 @@ Each spike produces findings, not library code: update the matching
   anything on NTFS and ReFS; how to detect symlink-creation rights; current
   IoRing coverage. Done when §17.2 and §21.4 have no **VERIFY** left.
 
-- [ ] **VER-07: Language features at MSRV 1.97.**
-  Return type notation, `core::io::BorrowedBuf`, and `impl Trait` in
-  associated types. Done when §7.1, §7.4, and §16.3 state what code may
-  use.
-
 - [ ] **VER-08: Change tokens.**
   A Linux change cookie through `statx`, if any, and reading a per-file USN
   on NTFS (`FSCTL_READ_FILE_USN_DATA`). Done when §10 lists the token source
@@ -123,7 +111,7 @@ done when the PR is merged and released, or when §17.1 records why not.
 ## `filer-api`: paths
 
 All in the self-contained `filer_api::path` module (D3), using `ref-cast`
-(D4, VER-01).
+with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
 
 - [ ] **PATH-01: `Name` and `NameBuf`.**
   Adds `extern crate alloc` (and the `std`-gated `extern crate std`, §3.2)

@@ -423,17 +423,29 @@ from `&str` needs a pointer cast, and `filer-api` forbids `unsafe` (§3.3).
 Decision (D4): use `ref-cast`. `#[derive(RefCast)]` generates the cast, and
 its derive deliberately emits the `unsafe` block with a macro-generated span
 so that a caller's `forbid(unsafe_code)` accepts the expansion (confirmed by
-reading the `ref-cast-impl` 1.0.27 source, 2026-10-31). **VERIFY** with a
-compile test under the workspace lints and `#![forbid(unsafe_code)]`,
-including `#[ref_cast_custom]` `const fn` constructors for the literal
-macros below.
+reading the `ref-cast-impl` 1.0.27 source, 2026-10-31).
 
-Fallback, only if that test fails: borrowed views (`#[derive(Clone, Copy)]
-struct RelPath<'a>(&'a str)` plus `RelPathBuf(alloc::string::String)` with
-`as_rel_path(&self) -> RelPath<'_>`), which are entirely safe but lose
-`Deref`, `Cow<RelPath>`, and `&RelPath` ergonomics.
+Verified 2026-11-01 with a `no_std` scratch crate carrying the workspace
+lints and `#![forbid(unsafe_code)]`, on Rust 1.97.0 and 1.99.1, with
+`ref-cast` 1.0.27 and `default-features = false`:
 
-Either way, owned forms use `alloc::boxed::Box<str>` or `String`
+- `#[derive(RefCast, RefCastCustom)]` on `#[repr(transparent)] struct
+  RelPath(str)` compiles; Clippy (including `undocumented_unsafe_blocks`)
+  is clean. `#[ref_cast_custom]` needs the `RefCastCustom` derive; `RefCast`
+  alone fails with `RefCastCustom<str>` not satisfied.
+- A private `#[ref_cast_custom] const fn from_str_unchecked(&str) -> &Self`
+  works in `const` context, so `rel!` expands to a `const` item calling a
+  `const fn` validator that panics on invalid input. An invalid literal is
+  a compile error (`E0080: evaluation panicked`).
+- `Deref`, `Borrow`, `ToOwned`, and `Cow<'static, RelPath>` work, and the
+  crate builds for `thumbv7em-none-eabihf`.
+- `forbid` still rejects a hand-written `unsafe` block in the same crate.
+
+Rejected fallback, kept for the record: borrowed views
+(`#[derive(Clone, Copy)] struct RelPath<'a>(&'a str)`), which are safe but
+lose `Deref`, `Cow<RelPath>`, and `&RelPath` ergonomics.
+
+Owned forms use `alloc::boxed::Box<str>` or `String`
 internally, and `Op` payloads use owned forms so that futures stay
 `'static`.
 
@@ -730,8 +742,9 @@ Safe drivers zero-fill spare capacity before reading. That memset is
 the price of keeping `filer-api` and most drivers free of `unsafe`; it is
 cheap next to a syscall and invisible next to a device. A driver crate that
 contains `unsafe` (`filer-uring`, D11) may read into uninitialized memory
-through a crate-private extension trait in its `sys` module. Revisit if
-`core::io::BorrowedBuf` stabilizes (**VERIFY** status at 1.97).
+through a crate-private extension trait in its `sys` module.
+`core::io::BorrowedBuf` is still unstable (`core_io_borrowed_buf`) at 1.97
+and at 1.99.1 (checked 2026-11-01); revisit if it stabilizes.
 
 ### 7.2 `'static` futures and cancellation
 
@@ -790,8 +803,9 @@ Work-stealing runtimes need `Send` futures; thread-per-core io_uring
 runtimes are naturally `!Send`. The core `Driver` trait requires `Send`
 futures, because that is what the default driver and most users need. A
 `LocalDriver` twin, generated with `trait-variant` or written by hand, can
-follow once there is a concrete `!Send` driver. **VERIFY** whether return
-type notation is stable at the MSRV; if so it may replace the twin.
+follow once there is a concrete `!Send` driver. Return type notation
+(`D: Driver<submit(..): Send>`), which could replace the twin, is still
+experimental at 1.97 and at 1.99.1 (checked 2026-11-01).
 
 ### 7.5 Runtime independence
 
@@ -1526,6 +1540,20 @@ pub struct DynDriver(alloc::sync::Arc<dyn ErasedDriver>);
 
 The frontend is generic, `Dir<D: Driver = DynDriver>`: static dispatch when
 the driver is known, one boxed future per op when it is not.
+
+Language features available at MSRV 1.97 (probed 2026-11-01 on
+1.97.0 and 1.99.1):
+
+- **Usable:** `impl Future + Send + 'static` in trait return position,
+  including default method bodies (as `submit_chain` above); precise
+  capturing (`+ use<>`), which lets a method borrowing `&self` return a
+  future that captures nothing borrowed; trait upcasting (`&dyn Sub` to
+  `&dyn Any`), useful for erased drivers and payloads; `core::error::Error`;
+  `panic!` and `assert!` in `const fn`, which the `rel!` and `name!`
+  validators rely on.
+- **Not usable:** return type notation; `impl Trait` in associated types
+  (so a `type Future = impl Future` per driver is out, and nameable future
+  types need boxing or a hand-written future); `core::io::BorrowedBuf`.
 
 ### 16.4 Features, per directory
 
@@ -2304,7 +2332,7 @@ Notes on the 2026-10-31 decisions:
 - **D3:** path types may later be imported from and re-exported by
   `dogma-path`; keeping `filer_api::path` free of other `filer-api`
   dependencies makes that move non-breaking.
-- **D4:** Option A, conditional only on the compile test in `TODO.md`.
+- **D4:** Option A; the compile test passed on 2026-11-01 (§5.3).
 - **D11:** crates without `unsafe` declare `#![forbid(unsafe_code)]`; the
   mechanics are in §3.3. Every current crate forbids it, the empty OS
   driver shells included, until one needs a `sys` module.
