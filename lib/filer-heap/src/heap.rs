@@ -1,15 +1,18 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::HeapBuilder;
-use alloc::{sync::Arc, vec::Vec};
+use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
     BlockingResolver, Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName,
     Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op,
-    OpKind, OpenHow, Output, Resolve, Target,
+    OpKind, OpenHow, Output, Resolve, Target, XattrEntry, XattrName, XattrOp,
     path::RelPath,
     tree::{Ino, Node, ROOT, Tree},
 };
+
+/// Extended attributes, by inode.
+pub(crate) type Xattrs = BTreeMap<Ino, BTreeMap<XattrName, Vec<u8>>>;
 
 /// An in-memory filesystem driver.
 ///
@@ -24,7 +27,8 @@ use filer_api::{
 /// following stat does, uses the default policy.
 ///
 /// Metadata has kind, length, and id; no timestamps yet. File ids use
-/// volume 0 and the inode number.
+/// volume 0 and the inode number. Extended attributes, in any namespace,
+/// are set by the builder.
 ///
 /// # Examples
 ///
@@ -55,6 +59,7 @@ use filer_api::{
 pub struct Heap {
     key: Arc<DriverKey>,
     tree: Arc<Tree<Vec<u8>>>,
+    xattrs: Arc<Xattrs>,
 }
 
 impl Heap {
@@ -63,10 +68,11 @@ impl Heap {
         HeapBuilder::new()
     }
 
-    pub(crate) fn new(tree: Tree<Vec<u8>>) -> Self {
+    pub(crate) fn new(tree: Tree<Vec<u8>>, xattrs: Xattrs) -> Self {
         Self {
             key: Arc::new(DriverKey::new()),
             tree: Arc::new(tree),
+            xattrs: Arc::new(xattrs),
         }
     }
 
@@ -139,7 +145,36 @@ impl Heap {
                     });
                 Completion::new(result.map_err(|error| with_name(error, &name)))
             },
-            op => Completion::new(Err(Error::new(ErrorKind::Unsupported, op.kind()))),
+            Op::Xattr(XattrOp::Get {
+                handle,
+                name,
+                mut buf,
+            }) => {
+                let result = self
+                    .xattr(&handle, &name)
+                    .map_err(error)
+                    .and_then(|value| {
+                        let Some(value) = value else {
+                            return Ok(None);
+                        };
+                        buf.fill(&mut |spare| {
+                            let n = spare.len().min(value.len());
+                            spare[..n].copy_from_slice(&value[..n]);
+                            Ok(n)
+                        })?;
+                        Ok(Some(value.len() as u64))
+                    })
+                    .map(Output::Xattr);
+                Completion::new(result).with_buf(buf)
+            },
+            Op::Xattr(XattrOp::List { handle }) => {
+                let result = self.ino(&handle).map(|ino| {
+                    let names = self.xattrs.get(&ino).into_iter().flat_map(BTreeMap::keys);
+                    Output::XattrNames(names.map(XattrEntry::from).collect())
+                });
+                Completion::new(result.map_err(error))
+            },
+            op => op.unsupported(),
         }
     }
 
@@ -149,6 +184,21 @@ impl Heap {
             .payload::<Ino>(handle)
             .copied()
             .ok_or(ErrorKind::CrossDriver)
+    }
+
+    /// Returns the value of an extended attribute of a handle's inode.
+    fn xattr(&self, handle: &Handle, name: &XattrEntry) -> Result<Option<&[u8]>, ErrorKind> {
+        let ino = self.ino(handle)?;
+        let name = match name {
+            XattrEntry::Utf8(name) => name,
+            // The heap's names are all UTF-8, so it has none of its own.
+            XattrEntry::Foreign { name, .. } if name.origin() == self.key.id() => return Ok(None),
+            XattrEntry::Foreign { .. } => return Err(ErrorKind::ForeignNameMismatch),
+        };
+        let xattrs = self.xattrs.get(&ino);
+        Ok(xattrs
+            .and_then(|xattrs| xattrs.get(name))
+            .map(Vec::as_slice))
     }
 
     /// Returns the inode of a directory handle.

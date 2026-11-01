@@ -1,7 +1,8 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    DirCookie, EntryName, ErasedBufMut, Handle, MetaMask, OpKind, OpenHow, Target, path::RelPathBuf,
+    Completion, DirCookie, EntryName, ErasedBufMut, Error, ErrorKind, Handle, MetaMask, OpKind,
+    OpenHow, Target, XattrOp, path::RelPathBuf,
 };
 
 /// One driver operation, as data.
@@ -79,6 +80,9 @@ pub enum Op {
         /// The symlink's name.
         name: EntryName,
     },
+
+    /// Reads extended attributes; see [`XattrOp`].
+    Xattr(XattrOp),
 }
 
 impl Op {
@@ -92,6 +96,32 @@ impl Op {
             Self::Stat { .. } => OpKind::Stat,
             Self::ReadDir { .. } => OpKind::ReadDir,
             Self::ReadLink { .. } => OpKind::ReadLink,
+            Self::Xattr(op) => op.kind(),
+        }
+    }
+
+    /// Takes the buffer this operation carries, if any.
+    #[must_use]
+    pub fn into_buf(self) -> Option<ErasedBufMut> {
+        match self {
+            Self::Read { buf, .. } | Self::Xattr(XattrOp::Get { buf, .. }) => Some(buf),
+            _ => None,
+        }
+    }
+
+    /// Fails this operation with [`Unsupported`](ErrorKind::Unsupported),
+    /// returning the buffer it carries, as the frontend expects of every
+    /// completion.
+    ///
+    /// Drivers answer each operation they do not implement with this,
+    /// including operations added after they were written, rather than
+    /// dropping the operation and its buffer.
+    #[must_use]
+    pub fn unsupported(self) -> Completion {
+        let completion = Completion::new(Err(Error::new(ErrorKind::Unsupported, self.kind())));
+        match self.into_buf() {
+            Some(buf) => completion.with_buf(buf),
+            None => completion,
         }
     }
 }
@@ -101,6 +131,31 @@ mod tests {
     use super::*;
     use crate::{DriverKey, HandleKind, name};
     use alloc::vec::Vec;
+
+    #[test]
+    fn returns_buffers_when_unsupported() {
+        let key = DriverKey::new();
+        let file = key.handle(HandleKind::File, ());
+        let read = Op::Read {
+            file: file.clone(),
+            buf: ErasedBufMut::new(Vec::<u8>::new()),
+            off: 0,
+        };
+        let get = Op::Xattr(XattrOp::Get {
+            handle: file.clone(),
+            name: "user.comment".try_into().unwrap(),
+            buf: ErasedBufMut::new(Vec::<u8>::new()),
+        });
+        for op in [read, get] {
+            let kind = op.kind();
+            let completion = op.unsupported();
+            let error = completion.result.unwrap_err();
+            assert_eq!((error.kind(), error.op()), (ErrorKind::Unsupported, kind));
+            assert!(completion.buf.is_some());
+        }
+        let completion = Op::Close { handle: file }.unsupported();
+        assert!(completion.buf.is_none());
+    }
 
     #[test]
     fn reports_its_kind() {
@@ -130,9 +185,15 @@ mod tests {
                 max: 1,
             },
             Op::ReadLink {
-                at: dir,
+                at: dir.clone(),
                 name: EntryName::from(name!("link")),
             },
+            Op::Xattr(XattrOp::Get {
+                handle: dir.clone(),
+                name: "user.comment".try_into().unwrap(),
+                buf: ErasedBufMut::new(Vec::new()),
+            }),
+            Op::Xattr(XattrOp::List { handle: dir }),
         ];
         let kinds: Vec<OpKind> = ops.iter().map(Op::kind).collect();
         assert_eq!(
@@ -144,6 +205,8 @@ mod tests {
                 OpKind::Stat,
                 OpKind::ReadDir,
                 OpKind::ReadLink,
+                OpKind::GetXattr,
+                OpKind::ListXattrs,
             ]
         );
     }

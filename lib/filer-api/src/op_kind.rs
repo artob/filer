@@ -24,6 +24,12 @@ pub enum OpKind {
 
     /// Reading a symlink's target.
     ReadLink,
+
+    /// Reading an extended attribute.
+    GetXattr,
+
+    /// Listing extended attributes.
+    ListXattrs,
 }
 
 impl OpKind {
@@ -37,6 +43,8 @@ impl OpKind {
             Self::Stat => "stat",
             Self::ReadDir => "read_dir",
             Self::ReadLink => "read_link",
+            Self::GetXattr => "get_xattr",
+            Self::ListXattrs => "list_xattrs",
         }
     }
 }

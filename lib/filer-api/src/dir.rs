@@ -1,12 +1,13 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    Completion, Driver, DynDriver, EntryName, Error, ErrorKind, File, Handle, HandleKind,
-    LinkTarget, MetaMask, Metadata, Op, OpKind, OpenHow, Output, ReadDir, ReadOnly, Resolve,
-    Rights, Target,
+    BufResult, Completion, Driver, DynDriver, EntryName, Error, ErrorKind, File, Handle,
+    HandleKind, IoBufMut, LinkTarget, MetaMask, Metadata, Op, OpKind, OpenHow, Output, ReadDir,
+    ReadOnly, Resolve, Rights, Target, XattrEntry,
     path::{RelPath, RelPathBuf},
+    xattr,
 };
-use alloc::{borrow::ToOwned, sync::Arc};
+use alloc::{borrow::ToOwned, sync::Arc, vec::Vec};
 
 /// An open directory: the unit of authority.
 ///
@@ -253,6 +254,81 @@ impl<D: Driver> Dir<D> {
             Output::LinkTarget(target) => Ok(target),
             output => Err(unexpected(output, OpKind::ReadLink)),
         }
+    }
+
+    /// Reads the whole value of the extended attribute `name` of this
+    /// directory, such as `"user.comment"`, or `None` if it has no such
+    /// attribute.
+    ///
+    /// # Errors
+    ///
+    /// [`InvalidName`](ErrorKind::InvalidName) if `name` is not an
+    /// attribute name; [`RightsDenied`](ErrorKind::RightsDenied) without
+    /// [`Rights::READ`]; [`Unsupported`](ErrorKind::Unsupported) if the
+    /// driver has no extended attributes;
+    /// [`LimitExceeded`](ErrorKind::LimitExceeded) if the value is too
+    /// large to allocate; any error from the driver.
+    pub async fn xattr<N>(&self, name: N) -> crate::Result<Option<Vec<u8>>>
+    where
+        N: TryInto<XattrEntry>,
+        N::Error: core::error::Error + Send + Sync + 'static,
+    {
+        let op = OpKind::GetXattr;
+        let name = xattr::name(name, op).map_err(|error| self.context(error, RelPath::empty()))?;
+        self.check(Rights::READ, op, RelPath::empty())?;
+        xattr::read(&self.driver, &self.handle, &name)
+            .await
+            .map_err(|error| self.context(error, RelPath::empty()))
+    }
+
+    /// Reads as much of the value of the extended attribute `name` of this
+    /// directory as fits into the spare capacity of `buf`, returning the
+    /// value's whole length, or `None` if it has no such attribute. A
+    /// length above the spare capacity means the value was cut short.
+    ///
+    /// # Errors
+    ///
+    /// As for [`xattr`](Self::xattr).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the driver breaks its contract by not returning the
+    /// buffer.
+    pub async fn xattr_into<N, B>(&self, name: N, buf: B) -> BufResult<Option<u64>, B>
+    where
+        N: TryInto<XattrEntry>,
+        N::Error: core::error::Error + Send + Sync + 'static,
+        B: IoBufMut,
+    {
+        let op = OpKind::GetXattr;
+        let name = match xattr::name(name, op) {
+            Ok(name) => name,
+            Err(error) => return BufResult(Err(self.context(error, RelPath::empty())), buf),
+        };
+        if let Err(error) = self.check(Rights::READ, op, RelPath::empty()) {
+            return BufResult(Err(error), buf);
+        }
+        let BufResult(result, buf) = xattr::get(&self.driver, self.handle.clone(), name, buf).await;
+        BufResult(
+            result.map_err(|error| self.context(error, RelPath::empty())),
+            buf,
+        )
+    }
+
+    /// Lists the extended attributes of this directory, in no particular
+    /// order.
+    ///
+    /// # Errors
+    ///
+    /// [`RightsDenied`](ErrorKind::RightsDenied) without
+    /// [`Rights::READ`]; [`Unsupported`](ErrorKind::Unsupported) if the
+    /// driver has no extended attributes; any error from the driver.
+    pub async fn xattr_names(&self) -> crate::Result<Vec<XattrEntry>> {
+        let op = OpKind::ListXattrs;
+        self.check(Rights::READ, op, RelPath::empty())?;
+        xattr::list(&self.driver, self.handle.clone())
+            .await
+            .map_err(|error| self.context(error, RelPath::empty()))
     }
 
     async fn stat<P>(&self, path: P, mask: MetaMask, follow: bool) -> crate::Result<Metadata>

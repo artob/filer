@@ -42,7 +42,7 @@ impl Driver for Unsupported {
     }
 
     fn submit(&self, op: Op) -> impl Future<Output = Completion> + Send + use<> {
-        let error = Error::new(ErrorKind::Unsupported, op.kind());
-        async move { Completion::new(Err(error)) }
+        let completion = op.unsupported();
+        async move { completion }
     }
 }

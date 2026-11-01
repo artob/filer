@@ -2,7 +2,7 @@
 
 use crate::Profile;
 use alloc::{format, string::String, vec, vec::Vec};
-use filer_api::path::RelPathBuf;
+use filer_api::{XattrName, path::RelPathBuf};
 
 /// One entry for a driver's setup function to create.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -19,6 +19,11 @@ pub enum TreeEntry {
 
     /// A FIFO (named pipe), only if [`Profile::fifos`].
     Fifo(RelPathBuf),
+
+    /// An extended attribute of the file or directory at the path, created
+    /// before it, only if [`Profile::xattrs`]. Its name is always in the
+    /// `user` namespace.
+    Xattr(RelPathBuf, XattrName, Vec<u8>),
 
     /// A regular file whose name is not valid UTF-8, only if
     /// [`Profile::foreign_names`].
@@ -54,8 +59,11 @@ impl Tree {
     ///
     /// ```text
     /// a/b/c.txt          "contents"
+    ///   user.comment     "a comment" (if xattrs)
+    ///   user.empty       ""          (if xattrs)
     /// a/z.txt            ""
     /// a/empty/
+    /// a/                 user.tag "dir" (if xattrs)
     /// a/link -> b/c.txt  a/up -> ../a/b/c.txt  a/abs -> /a/b/c.txt
     /// a/escape -> ../../c.txt  a/loop -> loop  a/dangling -> nope
     /// many/f000 .. many/f599
@@ -72,6 +80,16 @@ impl Tree {
             TreeEntry::File(path("a/z.txt"), Vec::new()),
             TreeEntry::Dir(path("a/empty")),
         ];
+        if profile.xattrs {
+            let name = |s: &str| XattrName::try_from(s).expect("valid attribute name");
+            for (at, xattr, value) in [
+                ("a/b/c.txt", "user.comment", &b"a comment"[..]),
+                ("a/b/c.txt", "user.empty", b""),
+                ("a", "user.tag", b"dir"),
+            ] {
+                entries.push(TreeEntry::Xattr(path(at), name(xattr), value.to_vec()));
+            }
+        }
         if profile.symlinks {
             for (link, target) in [
                 ("a/link", "b/c.txt"),

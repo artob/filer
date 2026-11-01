@@ -455,13 +455,16 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
   Per VER-08. Done when tokens change on write and rename-over.
 
 - [ ] **XATTR-01: Extended attributes.**
-  Linux namespaces, macOS flat mapping (§11.1); listing yields foreign
-  names; `Features::xattr` populated. Done when specification covers set,
-  get, list, and remove, skipping where unsupported.
+  Reading exists in `filer-api` (`XattrOp::Get` and `List`), `filer-heap`,
+  and `filer-spec` (`reads_xattrs`). Still missing: `filer-posix` (Linux
+  namespaces, macOS flat mapping, §11.1), then set and remove;
+  `Features::xattr` populated. Done when specification covers set, get,
+  list, and remove, skipping where unsupported.
 
 - [ ] **XATTR-02: File flags.**
-  Read and set `FileAttrs` where supported; `nocow` at creation. Done when
-  tested on a filesystem supporting each flag.
+  `Metadata::attrs` reports `FileAttrs` read-only. Still missing: reading
+  them in `filer-posix` and `filer-windows`, setting them, and `nocow` at
+  creation. Done when tested on a filesystem supporting each flag.
 
 - [ ] **COPY-01: `copy_file` on Linux.**
   `CloneMode`, `FICLONE`, `copy_file_range`, sparse-preserving fallback,

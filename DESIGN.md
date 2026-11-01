@@ -1176,8 +1176,8 @@ pub struct Timestamp {
 ```
 
 As built (2026-11-01), only the fields a read-only driver needs exist:
-`kind`, `len`, the four timestamps, and `id`, with `MetaMask` bits at the
-values above (others are added with their operations and never renumbered).
+`kind`, `len`, the four timestamps, `id`, and `attrs`, with `MetaMask` bits
+at the values above (others are added with their operations and never renumbered).
 Drivers fill `Metadata::default()` field by field, since the struct is
 `#[non_exhaustive]`. `Timestamp` keeps its fields private behind a
 constructor that rejects `nanos` of a full second or more, and converts to
@@ -1242,6 +1242,16 @@ impl<M: Mode, D: Driver> File<M, D> {          // likewise on Dir
 - `Features::xattr` reports support, maximum value size (effectively one
   block on ext4, 64 KiB on XFS and Linux's `XATTR_SIZE_MAX`), and whether
   symlinks can carry them.
+- As built (2026-11-01), the read side: `Op::Xattr(XattrOp)` with `Get {
+  handle, name, buf }` (completing with `Output::Xattr(Option<u64>)`, the
+  value's whole length, having copied what fits) and `List { handle }`
+  (`Output::XattrNames`). `XattrName` parses `ns.name` (not empty, no NUL;
+  length limits are the filesystem's); `XattrEntry` is `Utf8` or `Foreign
+  { ns, name }`, minted by `DriverKey::xattr_entry`. `File` and `Dir`
+  have `xattr(name)` (the whole value, retried if it grows),
+  `xattr_into(name, buf)`, and `xattr_names()`, needing `READ`.
+  `filer-heap` reads them; other drivers answer
+  `Unsupported`.
 - Lesson recorded in rustdoc: xattrs are the first thing lost in transit.
   `cp` without `-a`, `tar` without `--xattrs`, `rsync` without `-X`, git,
   most cloud sync, and many container tools drop them. Treat them as caches
@@ -1255,7 +1265,9 @@ for the core; they may become extension traits later.
 ### 11.2 File flags
 
 `FileAttrs` exposes, read-only through metadata and settable through
-`set_flags` where supported:
+`set_flags` where supported (as built, read-only, in `Metadata::attrs`,
+with Windows' `hidden`, `system`, and `archive` too; read-only stays a
+permission):
 
 - `immutable`, `append_only` (Linux `chattr`, BSD `chflags`);
 - `nocow` (btrfs `+C`; only effective on empty files, so it belongs in the
@@ -1650,6 +1662,9 @@ read buffer whatever happened. `ErasedBufMut` boxes a `dyn IoBufMut`;
 recovers the original type, and the erased buffer itself implements
 `IoBufMut` so drivers fill it without knowing its type. `Op::kind()`
 returns its `OpKind`. `Output::Done` is the unit result (`Close`).
+`Op::unsupported()` fails an operation with `Unsupported` and returns its
+buffer: drivers answer unknown operations with it, so that an operation
+added later never loses a caller's buffer.
 
 ### 16.2 Handles
 
@@ -1992,7 +2007,7 @@ contract and the backbone of the test strategy. `no_std` + `alloc`.
 - **Locks.** Synchronous mutexes only (§7.7).
 
 As built (2026-11-01), read-only: `HeapBuilder` fixes the contents at
-construction (`dir`, `file`, `symlink`, taking string or `RelPath`
+construction (`dir`, `file`, `symlink`, `xattr`, taking string or `RelPath`
 arguments, creating parents like `mkdir -p`, panicking on mistakes), and
 the tree, a `filer_api::tree::Tree<Vec<u8>>` (§17.7), is then immutable
 behind an `Arc`, so no locks are needed yet. Directories map raw name

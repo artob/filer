@@ -7,8 +7,8 @@
 //! checks. The driver's test supplies a setup function that creates a
 //! described [`Tree`] and returns its root [`Dir`](filer_api::Dir); [`run`]
 //! then checks opening, reading, errors, symlink policies and escapes,
-//! loops, metadata, links, listings, rights, and isolation between driver
-//! instances, through the frontend. A [`Profile`] says what the
+//! loops, metadata, extended attributes, links, listings, rights, and
+//! isolation between driver instances, through the frontend. A [`Profile`] says what the
 //! environment can create, so cases skip rather than fail.
 //!
 //! So far the specification covers read operations only.

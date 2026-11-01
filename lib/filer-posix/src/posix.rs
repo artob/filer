@@ -243,7 +243,7 @@ impl Posix {
                         .map_err(|e| with_name(e, &name)),
                 )
             },
-            op => Completion::new(Err(Error::new(ErrorKind::Unsupported, op.kind()))),
+            op => op.unsupported(),
         }
     }
 

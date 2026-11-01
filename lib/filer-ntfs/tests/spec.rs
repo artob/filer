@@ -14,7 +14,8 @@ fn passes_the_specification() {
     // WTF-8 (SPEC-06).
     let profile = Profile::default()
         .with_fifos(false)
-        .with_foreign_names(false);
+        .with_foreign_names(false)
+        .with_xattrs(false);
     let report = filer_spec::run_blocking(profile, |tree| {
         // The fixture holds exactly this tree; if the specification's
         // changes, `make.sh`'s `spec` must follow.

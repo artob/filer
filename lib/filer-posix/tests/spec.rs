@@ -22,7 +22,10 @@ use std::{
 fn run(driver: fn() -> Posix) -> filer_spec::Report {
     // Linux file systems accept any bytes in names; APFS rejects invalid
     // UTF-8.
-    let profile = Profile::default().with_foreign_names(cfg!(target_os = "linux"));
+    // Extended attributes are not read yet (XATTR-01).
+    let profile = Profile::default()
+        .with_foreign_names(cfg!(target_os = "linux"))
+        .with_xattrs(false);
     let mut roots: Vec<PathBuf> = Vec::new();
     let report = filer_spec::run_blocking(profile, |tree| {
         // Tests run in parallel, so each tree gets its own number.

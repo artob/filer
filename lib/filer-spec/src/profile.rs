@@ -25,6 +25,10 @@ pub struct Profile {
 
     /// FIFOs (named pipes) can be created.
     pub fifos: bool,
+
+    /// Extended attributes in the `user` namespace can be created, and the
+    /// driver reads them.
+    pub xattrs: bool,
 }
 
 impl Default for Profile {
@@ -33,6 +37,7 @@ impl Default for Profile {
             symlinks: true,
             foreign_names: true,
             fifos: true,
+            xattrs: true,
         }
     }
 }
@@ -56,6 +61,13 @@ impl Profile {
     #[must_use]
     pub const fn with_fifos(mut self, fifos: bool) -> Self {
         self.fifos = fifos;
+        self
+    }
+
+    /// Sets whether extended attributes can be created and read.
+    #[must_use]
+    pub const fn with_xattrs(mut self, xattrs: bool) -> Self {
+        self.xattrs = xattrs;
         self
     }
 }

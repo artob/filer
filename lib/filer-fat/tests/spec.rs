@@ -15,7 +15,8 @@ fn passes_the_specification() {
     let profile = Profile::default()
         .with_symlinks(false)
         .with_fifos(false)
-        .with_foreign_names(false);
+        .with_foreign_names(false)
+        .with_xattrs(false);
     for kind in KINDS {
         for fragmented in [false, true] {
             let report = filer_spec::run_blocking(profile, |tree| {

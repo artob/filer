@@ -154,7 +154,7 @@ impl<S: ReadAt> Ntfs<S> {
                         .map_err(|error| with_name(error, &name)),
                 )
             },
-            _ => Completion::new(Err(Error::new(ErrorKind::Unsupported, kind))),
+            op => op.unsupported(),
         }
     }
 

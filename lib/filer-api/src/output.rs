@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{DirCookie, Entry, Handle, LinkTarget, Metadata};
+use crate::{DirCookie, Entry, Handle, LinkTarget, Metadata, XattrEntry};
 use alloc::vec::Vec;
 
 /// The successful result of an [`Op`](crate::Op), one variant per kind of
@@ -33,4 +33,12 @@ pub enum Output {
 
     /// A symlink's target.
     LinkTarget(LinkTarget),
+
+    /// The whole length of an extended attribute's value, of which as much
+    /// as fit was read into the returned buffer, or `None` if the
+    /// attribute does not exist.
+    Xattr(Option<u64>),
+
+    /// The names of a file's extended attributes, in no particular order.
+    XattrNames(Vec<XattrEntry>),
 }

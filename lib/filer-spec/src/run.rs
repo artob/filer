@@ -42,6 +42,7 @@ pub async fn run<D: Driver>(profile: Profile, mut setup: impl FnMut(&Tree) -> Di
     case!(denies_symlinks);
     case!(stops_loops_and_dangling_links);
     case!(reads_metadata);
+    case!(reads_xattrs);
     case!(reads_links);
     case!(lists_directories);
     case!(lists_large_directories);

@@ -2,8 +2,8 @@
 
 use crate::{
     BufResult, Completion, Driver, DynDriver, ErasedBufMut, Error, ErrorKind, Handle, IoBufMut,
-    MetaMask, Metadata, Mode, Op, OpKind, Output, ReadOnly, Readable, Rights, Target,
-    dir::unexpected,
+    MetaMask, Metadata, Mode, Op, OpKind, Output, ReadOnly, Readable, Rights, Target, XattrEntry,
+    dir::unexpected, xattr,
 };
 use alloc::{sync::Arc, vec::Vec};
 use core::marker::PhantomData;
@@ -83,6 +83,78 @@ impl<M: Mode, D: Driver> File<M, D> {
             Output::Metadata(metadata) => Ok(metadata),
             output => Err(unexpected(output, op)),
         }
+    }
+
+    /// Reads the whole value of the extended attribute `name` of this
+    /// file, such as `"user.comment"`, or `None` if it has no such
+    /// attribute.
+    ///
+    /// # Errors
+    ///
+    /// [`InvalidName`](ErrorKind::InvalidName) if `name` is not an
+    /// attribute name; [`RightsDenied`](ErrorKind::RightsDenied) without
+    /// [`Rights::READ`]; [`Unsupported`](ErrorKind::Unsupported) if the
+    /// driver has no extended attributes;
+    /// [`LimitExceeded`](ErrorKind::LimitExceeded) if the value is too
+    /// large to allocate; any error from the driver.
+    pub async fn xattr<N>(&self, name: N) -> crate::Result<Option<Vec<u8>>>
+    where
+        N: TryInto<XattrEntry>,
+        N::Error: core::error::Error + Send + Sync + 'static,
+    {
+        let op = OpKind::GetXattr;
+        let name = xattr::name(name, op).map_err(|error| self.context(error))?;
+        self.check(Rights::READ, op)?;
+        xattr::read(&self.driver, &self.handle, &name)
+            .await
+            .map_err(|error| self.context(error))
+    }
+
+    /// Reads as much of the value of the extended attribute `name` of this
+    /// file as fits into the spare capacity of `buf`, returning the
+    /// value's whole length, or `None` if it has no such attribute. A
+    /// length above the spare capacity means the value was cut short.
+    ///
+    /// # Errors
+    ///
+    /// As for [`xattr`](Self::xattr).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the driver breaks its contract by not returning the
+    /// buffer.
+    pub async fn xattr_into<N, B>(&self, name: N, buf: B) -> BufResult<Option<u64>, B>
+    where
+        N: TryInto<XattrEntry>,
+        N::Error: core::error::Error + Send + Sync + 'static,
+        B: IoBufMut,
+    {
+        let op = OpKind::GetXattr;
+        let name = match xattr::name(name, op) {
+            Ok(name) => name,
+            Err(error) => return BufResult(Err(self.context(error)), buf),
+        };
+        if let Err(error) = self.check(Rights::READ, op) {
+            return BufResult(Err(error), buf);
+        }
+        let BufResult(result, buf) = xattr::get(&self.driver, self.handle.clone(), name, buf).await;
+        BufResult(result.map_err(|error| self.context(error)), buf)
+    }
+
+    /// Lists the extended attributes of this file, in no particular
+    /// order.
+    ///
+    /// # Errors
+    ///
+    /// [`RightsDenied`](ErrorKind::RightsDenied) without
+    /// [`Rights::READ`]; [`Unsupported`](ErrorKind::Unsupported) if the
+    /// driver has no extended attributes; any error from the driver.
+    pub async fn xattr_names(&self) -> crate::Result<Vec<XattrEntry>> {
+        let op = OpKind::ListXattrs;
+        self.check(Rights::READ, op)?;
+        xattr::list(&self.driver, self.handle.clone())
+            .await
+            .map_err(|error| self.context(error))
     }
 
     /// Closes the file, reporting errors that some filesystems (such as

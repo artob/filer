@@ -5,7 +5,7 @@
 use core::future::Future;
 use filer_api::{Completion, Dir, Driver, DriverId, Op, Resolve};
 use filer_heap::Heap;
-use filer_spec::{Profile, Tree, TreeEntry};
+use filer_spec::{Profile, Tree, TreeEntry, Verdict};
 
 /// The builder cannot create FIFOs or non-UTF-8 names yet.
 fn profile() -> Profile {
@@ -21,6 +21,9 @@ fn build(tree: &Tree) -> Heap {
             TreeEntry::Dir(path) => builder.dir(path.clone()),
             TreeEntry::File(path, contents) => builder.file(path.clone(), contents.clone()),
             TreeEntry::Symlink(path, target) => builder.symlink(path.clone(), target.as_str()),
+            TreeEntry::Xattr(path, name, value) => {
+                builder.xattr(path.clone(), name.clone(), value.clone())
+            },
             entry => panic!("not in this profile: {entry:?}"),
         };
     }
@@ -29,7 +32,16 @@ fn build(tree: &Tree) -> Heap {
 
 #[test]
 fn passes_the_specification() {
-    filer_spec::run_blocking(profile(), |tree| build(tree).root_dir()).assert_passed();
+    let report = filer_spec::run_blocking(profile(), |tree| build(tree).root_dir());
+    report.assert_passed();
+    // The heap has extended attributes: the case must have run.
+    let skipped: Vec<&str> = report
+        .cases
+        .iter()
+        .filter(|(_, verdict)| matches!(verdict, Verdict::Skip(_)))
+        .map(|(name, _)| *name)
+        .collect();
+    assert!(!skipped.contains(&"reads_xattrs"), "{report}");
 }
 
 /// A driver that silently loosens every `Open` policy to the default, which

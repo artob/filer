@@ -11,7 +11,7 @@ use filer_tar::Tar;
 #[test]
 fn passes_the_specification() {
     // TAR records everything the specification's tree describes.
-    let report = filer_spec::run_blocking(Profile::default(), |tree| {
+    let report = filer_spec::run_blocking(Profile::default().with_xattrs(false), |tree| {
         let mut writer = Writer::default();
         for entry in tree.entries() {
             match entry {

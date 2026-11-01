@@ -1,9 +1,10 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::Heap;
+use crate::{Heap, Xattrs};
 use alloc::{string::String, vec::Vec};
 use core::fmt::Display;
 use filer_api::{
+    XattrName,
     path::{RelPath, RelPathBuf},
     tree::{Ino, Node, ROOT, Tree},
 };
@@ -28,17 +29,22 @@ use filer_api::{
 ///     .file("config/app.toml", "debug = true")
 ///     .file(rel!("data/blob.bin"), [0xFF, 0x00])
 ///     .symlink("current", "config")
+///     .xattr("config/app.toml", "user.origin", "https://example.org")
 ///     .build();
 /// ```
 #[derive(Debug)]
 #[must_use]
 pub struct HeapBuilder {
     tree: Tree<Vec<u8>>,
+    xattrs: Xattrs,
 }
 
 impl HeapBuilder {
     pub(crate) fn new() -> Self {
-        Self { tree: Tree::new() }
+        Self {
+            tree: Tree::new(),
+            xattrs: Xattrs::new(),
+        }
     }
 
     /// Adds a directory at `path`, if it does not exist yet.
@@ -94,10 +100,44 @@ impl HeapBuilder {
         self.add(&parse(path), Node::Symlink(target.into_bytes().into()))
     }
 
+    /// Sets the extended attribute `name`, such as `"user.comment"`, of the
+    /// existing entry at `path` (not following a symlink there) to `value`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `path` is not a valid [`RelPath`] or does not exist, or if
+    /// `name` is not a valid [`XattrName`].
+    #[track_caller]
+    pub fn xattr<P, N>(mut self, path: P, name: N, value: impl Into<Vec<u8>>) -> Self
+    where
+        P: TryInto<RelPathBuf>,
+        P::Error: Display,
+        N: TryInto<XattrName>,
+        N::Error: Display,
+    {
+        let path = parse(path);
+        let name = match name.try_into() {
+            Ok(name) => name,
+            Err(error) => panic!("{error}"),
+        };
+        let mut ino = ROOT;
+        for component in path.components() {
+            match self.tree.child(ino, component.as_str().as_bytes()) {
+                Some(child) => ino = child,
+                None => panic!("{path:?} does not exist"),
+            }
+        }
+        self.xattrs
+            .entry(ino)
+            .or_default()
+            .insert(name, value.into());
+        self
+    }
+
     /// Returns the heap.
     #[must_use]
     pub fn build(self) -> Heap {
-        Heap::new(self.tree)
+        Heap::new(self.tree, self.xattrs)
     }
 
     #[track_caller]
@@ -182,6 +222,29 @@ mod tests {
         let _ = HeapBuilder::new()
             .file(rel!("a"), "")
             .symlink(rel!("a"), "b");
+    }
+
+    #[test]
+    fn sets_xattrs() {
+        let builder = HeapBuilder::new()
+            .file("a/b", "")
+            .xattr("a/b", "user.x", "1")
+            .xattr("a/b", "user.x", "2")
+            .xattr("", "user.y", "3");
+        let names: Vec<usize> = builder.xattrs.values().map(|map| map.len()).collect();
+        assert_eq!(names, [1, 1]);
+    }
+
+    #[test]
+    #[should_panic(expected = "does not exist")]
+    fn rejects_xattrs_of_missing_entries() {
+        let _ = HeapBuilder::new().xattr("a", "user.x", "");
+    }
+
+    #[test]
+    #[should_panic(expected = "lacks a namespace")]
+    fn rejects_invalid_xattr_names() {
+        let _ = HeapBuilder::new().file("a", "").xattr("a", "x", "");
     }
 
     #[test]

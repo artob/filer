@@ -26,7 +26,9 @@ use core::future::Future;
 ///   never panics.
 /// - The [`Completion`] returns the operation's buffer, if it had one,
 ///   whether or not the operation succeeded, and on success its
-///   [`Output`](crate::Output) variant matches the operation.
+///   [`Output`](crate::Output) variant matches the operation. Operations
+///   the driver does not implement, including those added after it was
+///   written, complete with [`Op::unsupported`], which returns the buffer.
 ///
 /// # Implementing
 ///
@@ -36,7 +38,7 @@ use core::future::Future;
 ///
 /// ```
 /// use core::future::Future;
-/// use filer_api::{Completion, Driver, DriverId, DriverKey, Error, ErrorKind, Op};
+/// use filer_api::{Completion, Driver, DriverId, DriverKey, Op};
 /// use std::sync::Arc;
 ///
 /// /// A driver that supports nothing.
@@ -49,8 +51,9 @@ use core::future::Future;
 ///     }
 ///
 ///     fn submit(&self, op: Op) -> impl Future<Output = Completion> + Send + use<> {
-///         let error = Error::new(ErrorKind::Unsupported, op.kind());
-///         async move { Completion::new(Err(error)) }
+///         // Returns the buffer a read carries, as every completion must.
+///         let completion = op.unsupported();
+///         async move { completion }
 ///     }
 /// }
 /// ```
@@ -175,7 +178,7 @@ pub(crate) mod tests {
                     });
                     Completion::new(result)
                 },
-                op => Completion::new(Err(Error::new(ErrorKind::Unsupported, op.kind()))),
+                op => op.unsupported(),
             }
         }
     }

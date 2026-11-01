@@ -110,6 +110,7 @@ impl<S: ReadAt + 'static> Archive<S> {
                     });
                 Completion::new(result.map_err(|error| with_name(error, &name)))
             },
+            op => op.unsupported(),
         }
     }
 

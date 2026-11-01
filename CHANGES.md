@@ -25,6 +25,17 @@ so any release may break compatibility.
   Windows code pages, decoded by table.
 - `filer-api`: `archive`, the shared machinery of archive drivers:
   `Archive`, `Index`, `Member`, `Limits`, and `ArchiveError`.
+- `filer-api`: Reading extended attributes: `Op::Xattr` with `XattrOp`,
+  `XattrName`, `XattrNs`, `XattrEntry`, and `XattrNameError`;
+  `File::xattr`, `xattr_into`, and `xattr_names`, likewise on `Dir`;
+  `DriverKey::xattr_entry`; `Output::Xattr` and `Output::XattrNames`.
+- `filer-api`: `FileAttrs` (file flags) in `Metadata::attrs`, requested
+  with `MetaMask::ATTRS`.
+- `filer-api`: `Op::unsupported` and `Op::into_buf`, so a driver's answer
+  to an operation it does not implement returns the operation's buffer.
+- `filer-heap`: Extended attributes, set by `HeapBuilder::xattr`.
+- `filer-spec`: `Profile::xattrs`, `TreeEntry::Xattr`, and the
+  `reads_xattrs` case.
 ### Changed
 - `filer-api`: `Resolver` is now asynchronous, as async-first; the
   synchronous walk is `BlockingResolver`, and both share one

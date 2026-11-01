@@ -93,6 +93,9 @@ pub use fallback::*;
 mod file;
 pub use file::*;
 
+mod file_attrs;
+pub use file_attrs::*;
+
 mod file_id;
 pub use file_id::*;
 
@@ -168,3 +171,17 @@ pub use target::*;
 
 mod timestamp;
 pub use timestamp::*;
+
+mod xattr;
+
+mod xattr_entry;
+pub use xattr_entry::*;
+
+mod xattr_name;
+pub use xattr_name::*;
+
+mod xattr_ns;
+pub use xattr_ns::*;
+
+mod xattr_op;
+pub use xattr_op::*;

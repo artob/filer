@@ -1,7 +1,8 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    DriverId, EntryName, ForeignName, Handle, HandleKind,
+    DriverId, EntryName, ForeignName, Handle, HandleKind, XattrEntry, XattrName, XattrNameError,
+    XattrNs,
     path::{Name, NameBuf, NameError},
 };
 use core::any::Any;
@@ -80,6 +81,23 @@ impl DriverKey {
         Ok(EntryName::Foreign(ForeignName::new(raw, self.id)))
     }
 
+    /// Classifies the name of an extended attribute in `ns` read from disk:
+    /// valid UTF-8 becomes an [`XattrName`], anything else a foreign name
+    /// from this driver. On Windows, pass the name as WTF-8.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`XattrNameError`] for an empty name or one containing
+    /// NUL.
+    pub fn xattr_entry(&self, ns: XattrNs, raw: &[u8]) -> Result<XattrEntry, XattrNameError> {
+        crate::xattr_name::check(raw)?;
+        if let Ok(s) = core::str::from_utf8(raw) {
+            return XattrName::new(ns, s).map(XattrEntry::Utf8);
+        }
+        let name = ForeignName::new(raw, self.id);
+        Ok(XattrEntry::Foreign { ns, name })
+    }
+
     /// Mints a handle of `kind` for this driver, owning `payload`.
     ///
     /// The payload is the driver's private state for the open file or
@@ -140,6 +158,23 @@ mod tests {
         assert_eq!(name.origin(), key.id());
         assert_eq!(key.entry_name(b"\xFF/"), Err(NameError::ContainsSlash));
         assert_eq!(key.entry_name(b"\xFF\0"), Err(NameError::ContainsNul));
+    }
+
+    #[test]
+    fn classifies_xattr_names() {
+        let key = DriverKey::new();
+        let utf8 = key.xattr_entry(XattrNs::User, b"a/b").unwrap();
+        assert_eq!(utf8, XattrEntry::Utf8("user.a/b".parse().unwrap()));
+        let XattrEntry::Foreign { ns, name } = key.xattr_entry(XattrNs::User, b"/\xFF").unwrap()
+        else {
+            panic!("expected a foreign name");
+        };
+        assert_eq!((ns, name.as_bytes()), (XattrNs::User, &b"/\xFF"[..]));
+        assert_eq!(name.origin(), key.id());
+        let error = key.xattr_entry(XattrNs::User, b"\xFF\0");
+        assert_eq!(error, Err(XattrNameError::ContainsNul));
+        let error = key.xattr_entry(XattrNs::System, b"");
+        assert_eq!(error, Err(XattrNameError::Empty));
     }
 
     #[test]

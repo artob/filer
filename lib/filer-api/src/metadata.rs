@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{FileId, FileKind, MetaMask, Timestamp};
+use crate::{FileAttrs, FileId, FileKind, MetaMask, Timestamp};
 
 /// Metadata about a filesystem entry.
 ///
@@ -44,6 +44,10 @@ pub struct Metadata {
 
     /// The file's identity within its filesystem.
     pub id: Option<FileId>,
+
+    /// The file's flags, of those the filesystem has: `Some` of an empty
+    /// set means none is set, `None` that they are unknown.
+    pub attrs: Option<FileAttrs>,
 }
 
 impl Metadata {
@@ -58,6 +62,7 @@ impl Metadata {
             (MetaMask::BTIME, self.created.is_some()),
             (MetaMask::ATIME, self.accessed.is_some()),
             (MetaMask::ID, self.id.is_some()),
+            (MetaMask::ATTRS, self.attrs.is_some()),
         ];
         let mut mask = MetaMask::empty();
         for (bit, present) in fields {
@@ -87,6 +92,7 @@ mod tests {
             created: Some(time),
             accessed: Some(time),
             id: Some(FileId::new(1, 2)),
+            attrs: Some(FileAttrs::empty()),
         };
         assert_eq!(metadata.mask(), MetaMask::all());
     }

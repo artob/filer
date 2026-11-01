@@ -9,8 +9,7 @@ bitflags::bitflags! {
     /// driver may return more than was asked for; fields it cannot provide
     /// stay `None`.
     ///
-    /// More fields (permissions, allocated size, ownership, attributes) are
-    /// added with the operations that need them; existing bit values never
+    /// More fields (permissions, allocated size, ownership) are added with the operations that need them; existing bit values never
     /// change.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct MetaMask: u32 {
@@ -28,5 +27,7 @@ bitflags::bitflags! {
         const ATIME = 1 << 7;
         /// [`Metadata::id`](crate::Metadata::id).
         const ID = 1 << 8;
+        /// [`Metadata::attrs`](crate::Metadata::attrs).
+        const ATTRS = 1 << 11;
     }
 }

@@ -15,8 +15,10 @@ use alloc::boxed::Box;
 ///
 /// It has no public constructor: drivers create foreign names through
 /// their private [`DriverKey`](crate::DriverKey), so they cannot be forged.
-/// Its bytes are never valid UTF-8, contain neither `/` nor NUL, and are
-/// raw bytes on POSIX and WTF-8 on Windows.
+/// Its bytes are never valid UTF-8, never contain NUL, and are raw bytes
+/// on POSIX and WTF-8 on Windows. As an entry name it never contains `/`
+/// either; as the name of an extended attribute
+/// ([`XattrEntry`](crate::XattrEntry)) it may.
 ///
 /// [`Display`](core::fmt::Display) renders invalid bytes as `\xNN`; the
 /// rendering is lossy and cannot be parsed back. Foreign names are not

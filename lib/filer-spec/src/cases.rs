@@ -214,6 +214,58 @@ pub(crate) async fn reads_metadata<D: Driver>(ctx: &Ctx<D>) -> Verdict {
     Verdict::Pass
 }
 
+pub(crate) async fn reads_xattrs<D: Driver>(ctx: &Ctx<D>) -> Verdict {
+    let file = ok!(ctx.root.open_file("a/b/c.txt").await);
+    if !ctx.profile.xattrs {
+        // A driver without extended attributes has none, or says so.
+        for result in [
+            file.xattr_names().await.map(|names| names.is_empty()),
+            file.xattr("user.comment")
+                .await
+                .map(|value| value.is_none()),
+        ] {
+            match result {
+                Ok(true) => {},
+                Ok(false) => return Verdict::Fail(String::from("found unexpected attributes")),
+                Err(error) if error.kind() == ErrorKind::Unsupported => {},
+                Err(error) => return Verdict::Fail(format!("unexpected error: {error}")),
+            }
+        }
+        return Verdict::Skip("no xattrs in this profile");
+    }
+    let mut names: Vec<String> = ok!(file.xattr_names().await)
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    names.sort();
+    check_eq!(names, ["user.comment", "user.empty"]);
+    check_eq!(
+        ok!(file.xattr("user.comment").await).as_deref(),
+        Some(&b"a comment"[..])
+    );
+    check_eq!(
+        ok!(file.xattr("user.empty").await).as_deref(),
+        Some(&b""[..])
+    );
+    check_eq!(ok!(file.xattr("user.nope").await), None);
+    // A short buffer gets the start of the value, and its whole length.
+    let filer_api::BufResult(len, buf) =
+        file.xattr_into("user.comment", Vec::with_capacity(3)).await;
+    check_eq!((ok!(len), buf.as_slice()), (Some(9), &b"a c"[..]));
+    expect_error!(file.xattr("comment").await, ErrorKind::InvalidName);
+    let dir = ok!(ctx.root.open_dir("a").await);
+    check_eq!(
+        ok!(dir.xattr("user.tag").await).as_deref(),
+        Some(&b"dir"[..])
+    );
+    let names = ok!(dir.xattr_names().await);
+    check_eq!(names.len(), 1);
+    let blind = dir.restrict(Rights::all() - Rights::READ);
+    expect_error!(blind.xattr_names().await, ErrorKind::RightsDenied);
+    expect_error!(blind.xattr("user.tag").await, ErrorKind::RightsDenied);
+    Verdict::Pass
+}
+
 pub(crate) async fn reads_links<D: Driver>(ctx: &Ctx<D>) -> Verdict {
     need_symlinks!(ctx);
     let root = &ctx.root;
