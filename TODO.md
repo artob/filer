@@ -675,10 +675,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only first, designed for writing (§17.13, D46). One commit per item.
 
-- [ ] **FAT-05: Fixtures from real tools.** Images made by `mkfs.fat` and
-  filled by `mtools` (or the Linux driver) for each FAT type, stored
-  sparsely (only nonzero sectors), and read in tests. Done when each
-  reads as its manifest says.
 - [ ] **FAT-06: Differential test on Linux.** Compare against the kernel's
   FAT driver on loop-mounted images (on the Ubuntu test host `byte3`,
   which has passwordless `sudo`). Done when listings, contents, and times
