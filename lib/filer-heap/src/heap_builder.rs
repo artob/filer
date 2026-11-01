@@ -1,12 +1,12 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{
-    Heap,
-    node::{Ino, Node, ROOT, Tree},
-};
-use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
+use crate::Heap;
+use alloc::{string::String, vec::Vec};
 use core::fmt::Display;
-use filer_api::path::{RelPath, RelPathBuf};
+use filer_api::{
+    path::{RelPath, RelPathBuf},
+    tree::{Ino, Node, ROOT, Tree},
+};
 
 /// Builds a [`Heap`] with fixed initial contents.
 ///
@@ -33,7 +33,7 @@ use filer_api::path::{RelPath, RelPathBuf};
 #[derive(Debug)]
 #[must_use]
 pub struct HeapBuilder {
-    tree: Tree,
+    tree: Tree<Vec<u8>>,
 }
 
 impl HeapBuilder {
@@ -90,7 +90,8 @@ impl HeapBuilder {
         P: TryInto<RelPathBuf>,
         P::Error: Display,
     {
-        self.add(&parse(path), Node::Symlink(target.into()))
+        let target: String = target.into();
+        self.add(&parse(path), Node::Symlink(target.into_bytes().into()))
     }
 
     /// Returns the heap.
@@ -100,7 +101,7 @@ impl HeapBuilder {
     }
 
     #[track_caller]
-    fn add(mut self, path: &RelPath, node: Node) -> Self {
+    fn add(mut self, path: &RelPath, node: Node<Vec<u8>>) -> Self {
         let Some((parent, name)) = path.split_last() else {
             panic!("cannot replace the root directory");
         };
@@ -108,36 +109,25 @@ impl HeapBuilder {
         for component in parent.components() {
             dir = self.subdir(dir, component.as_str(), path);
         }
-        let ino = self.tree.nodes.len();
-        self.tree.nodes.push(node);
-        let Node::Dir(entries) = &mut self.tree.nodes[dir] else {
-            unreachable!("`subdir` returns directories");
-        };
-        let key: Box<[u8]> = Box::from(name.as_str().as_bytes());
+        let name = name.as_str().as_bytes();
         assert!(
-            entries.insert(key, ino).is_none(),
+            self.tree.child(dir, name).is_none(),
             "{path:?} already exists"
         );
+        let ino = self.tree.add(node);
+        self.tree
+            .link(dir, name, ino)
+            .expect("`subdir` returns directories");
         self
     }
 
     /// Returns the subdirectory `name` of `dir`, creating it if missing.
     #[track_caller]
     fn subdir(&mut self, dir: Ino, name: &str, path: &RelPath) -> Ino {
-        if let Some(child) = self.tree.child(dir, name.as_bytes()) {
-            assert!(
-                matches!(self.tree.nodes[child], Node::Dir(_)),
-                "{name:?} in {path:?} is not a directory",
-            );
-            return child;
+        match self.tree.make_dir(dir, name.as_bytes()) {
+            Ok(child) => child,
+            Err(_) => panic!("{name:?} in {path:?} is not a directory"),
         }
-        let ino = self.tree.nodes.len();
-        self.tree.nodes.push(Node::Dir(BTreeMap::new()));
-        let Node::Dir(entries) = &mut self.tree.nodes[dir] else {
-            unreachable!("callers pass directories");
-        };
-        entries.insert(Box::from(name.as_bytes()), ino);
-        ino
     }
 }
 
@@ -166,7 +156,7 @@ mod tests {
             .file(rel!("a/b/d"), "y")
             .dir(rel!("a/b"));
         // The root, `a`, `b`, `c`, and `d`.
-        assert_eq!(builder.tree.nodes.len(), 5);
+        assert_eq!(builder.tree.node_count(), 5);
     }
 
     #[test]
@@ -177,7 +167,7 @@ mod tests {
             .file(rel!("c"), [0_u8])
             .file(RelPathBuf::try_from("d").unwrap(), alloc::vec![0_u8])
             .symlink("e", String::from("a"));
-        assert_eq!(builder.tree.nodes.len(), 6);
+        assert_eq!(builder.tree.node_count(), 6);
     }
 
     #[test]

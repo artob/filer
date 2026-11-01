@@ -45,3 +45,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-api`: `ReadAt`, positional byte sources for archive drivers.
 - `filer-tar`, `filer-zip`: New crates for the archive drivers, with no
   items yet.
+- `filer-api`: `tree`, the immutable trees of virtual drivers, now used by
+  `filer-heap`.

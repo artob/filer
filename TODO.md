@@ -594,9 +594,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **ARC-02: Shared immutable tree.** Factor `filer-heap`'s tree so
-  archive drivers reuse it with (offset, size, codec) leaves. Done when
-  `filer-heap` and one archive driver share it.
 - [ ] **TAR-01: `filer-tar` over random access.** Index on open, later
   entry wins, hardlinks, quarantine, strict limits. Done when it passes the
   read-only `filer-spec` subset and a fuzz target covers headers and names.

@@ -14,8 +14,9 @@
 //! Around them are the lexical [`path`] types, the on-disk name types
 //! ([`EntryName`], [`ForeignName`], [`LinkTarget`]), driver identity and
 //! handles ([`DriverKey`], [`DriverId`], [`Handle`]), [`Metadata`], owned
-//! I/O buffers ([`IoBuf`], [`IoBufMut`], [`BufResult`]), and the [`Error`]
-//! type.
+//! I/O buffers ([`IoBuf`], [`IoBufMut`], [`BufResult`]), the [`Error`]
+//! type, and for drivers, the generic [`Resolver`] and the [`tree`] of
+//! virtual drivers.
 //!
 //! It builds with `#![no_std]` but requires `alloc`; the `std` feature,
 //! enabled by default, adds `std::io::Error` interop. `all` currently
@@ -31,6 +32,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod path;
+pub mod tree;
 
 mod ambient_authority;
 pub use ambient_authority::*;

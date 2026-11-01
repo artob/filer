@@ -1,15 +1,14 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{
-    HeapBuilder,
-    node::{Ino, Node, ROOT, Tree},
-};
+use crate::HeapBuilder;
 use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
     Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error, ErrorKind,
     FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow,
-    Output, Resolve, Resolver, Target, path::RelPath,
+    Output, Resolve, Resolver, Target,
+    path::RelPath,
+    tree::{Ino, Node, ROOT, Tree},
 };
 
 /// An in-memory filesystem driver.
@@ -55,7 +54,7 @@ use filer_api::{
 #[derive(Clone, Debug)]
 pub struct Heap {
     key: Arc<DriverKey>,
-    tree: Arc<Tree>,
+    tree: Arc<Tree<Vec<u8>>>,
 }
 
 impl Heap {
@@ -64,7 +63,7 @@ impl Heap {
         HeapBuilder::new()
     }
 
-    pub(crate) fn new(tree: Tree) -> Self {
+    pub(crate) fn new(tree: Tree<Vec<u8>>) -> Self {
         Self {
             key: Arc::new(DriverKey::new()),
             tree: Arc::new(tree),
@@ -132,9 +131,9 @@ impl Heap {
             Op::ReadLink { at, name } => {
                 let result = self
                     .entry(&at, &name, false, Resolve::default(), kind)
-                    .and_then(|ino| match &self.tree.nodes[ino] {
+                    .and_then(|ino| match self.tree.node(ino) {
                         Node::Symlink(target) => {
-                            Ok(Output::LinkTarget(LinkTarget::Utf8(target.clone())))
+                            Ok(Output::LinkTarget(LinkTarget::from_bytes(target.to_vec())))
                         },
                         _ => Err(error(ErrorKind::NotASymlink)),
                     });
@@ -155,7 +154,7 @@ impl Heap {
     /// Returns the inode of a directory handle.
     fn dir(&self, handle: &Handle) -> Result<Ino, ErrorKind> {
         let ino = self.ino(handle)?;
-        match self.tree.nodes[ino] {
+        match self.tree.node(ino) {
             Node::Dir(_) => Ok(ino),
             _ => Err(ErrorKind::NotADirectory),
         }
@@ -163,10 +162,10 @@ impl Heap {
 
     /// Returns a regular file's contents.
     fn contents(&self, ino: Ino) -> Result<&[u8], ErrorKind> {
-        match &self.tree.nodes[ino] {
+        match self.tree.node(ino) {
             Node::File(data) => Ok(data),
             Node::Dir(_) => Err(ErrorKind::IsADirectory),
-            Node::Symlink(_) => Err(ErrorKind::NotRegularFile),
+            Node::Symlink(_) | Node::Special(_) => Err(ErrorKind::NotRegularFile),
         }
     }
 
@@ -176,7 +175,7 @@ impl Heap {
         let ino = self
             .tree
             .resolve(&dir, path.as_str().as_bytes(), how.resolve, true, op)?;
-        let mismatch = match (&self.tree.nodes[ino], how.kind) {
+        let mismatch = match (self.tree.node(ino), how.kind) {
             (Node::Dir(_), HandleKind::Dir) | (Node::File(_), HandleKind::File) => None,
             (Node::Dir(_), HandleKind::File) => Some(ErrorKind::IsADirectory),
             (_, HandleKind::Dir) => Some(ErrorKind::NotADirectory),
@@ -210,10 +209,11 @@ impl Heap {
 
     fn metadata(&self, ino: Ino) -> Metadata {
         let mut metadata = Metadata::default();
-        let (kind, len) = match &self.tree.nodes[ino] {
+        let (kind, len) = match self.tree.node(ino) {
             Node::Dir(entries) => (FileKind::Dir, entries.len()),
             Node::File(data) => (FileKind::File, data.len()),
             Node::Symlink(target) => (FileKind::Symlink, target.len()),
+            Node::Special(kind) => (*kind, 0),
         };
         metadata.kind = Some(kind);
         metadata.len = Some(len as u64);
@@ -231,7 +231,7 @@ impl Heap {
         cookie: Option<DirCookie>,
         max: usize,
     ) -> Result<Output, ErrorKind> {
-        let Node::Dir(children) = &self.tree.nodes[self.dir(dir)?] else {
+        let Node::Dir(children) = self.tree.node(self.dir(dir)?) else {
             unreachable!("`dir` returns directories");
         };
         let start = cookie.map_or(0, |cookie| {

@@ -1913,14 +1913,14 @@ contract and the backbone of the test strategy. `no_std` + `alloc`.
 As built (2026-11-01), read-only: `HeapBuilder` fixes the contents at
 construction (`dir`, `file`, `symlink`, taking string or `RelPath`
 arguments, creating parents like `mkdir -p`, panicking on mistakes), and
-the tree is then immutable behind an `Arc`, so no locks are needed yet.
-Inodes are indexes into a `Vec`; directories map
-raw name bytes to inodes in a `BTreeMap`, so listings are sorted by bytes,
-foreign names will fit, and a `DirCookie` is an entry index. Handle
-payloads are inode numbers; `FileId`s are `(0, inode)`. Paths resolve
-through the generic `Resolver` (§6.5); following a single entry (a stat
-with `follow`) uses the default policy, since `Op::Stat` carries none yet.
-`ReadLink` on a non-symlink is the new `ErrorKind::NotASymlink`.
+the tree, a `filer_api::tree::Tree<Vec<u8>>` (§17.7), is then immutable
+behind an `Arc`, so no locks are needed yet. Directories map raw name
+bytes to inodes in a `BTreeMap`, so listings are sorted by bytes, foreign
+names will fit, and a `DirCookie` is an entry index. Handle payloads are
+inode numbers; `FileId`s are `(0, inode)`. Paths resolve through the
+tree's `Resolver` (§6.5), and a following single-entry stat uses the
+policy `Target::Entry` carries. `ReadLink` on a non-symlink is
+`ErrorKind::NotASymlink`.
 
 ### 17.5 `filer-vfs`
 
@@ -1999,7 +1999,12 @@ a safer extraction tool than most.
 
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
-bytes; factor it out rather than write it three times. Creating archives
+bytes. As built (2026-11-01), that tree is `filer_api::tree::Tree<F>`,
+generic over the file payload: `Node::{Dir, File(F), Symlink(bytes),
+Special(FileKind)}`, policy-free primitives (`add`, `link` returning the
+replaced inode, `make_dir`), and a `Resolver` impl. Drivers apply their
+own policies (`Heap` panics on duplicates; archives let the later entry
+win) and keep their tree private. Creating archives
 does not fit the driver model (no in-place rename or removal; ZIP writes
 its index last) and belongs to a separate writer API, such as packing a
 `Dir` into a TAR or ZIP.
