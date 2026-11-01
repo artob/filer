@@ -1954,8 +1954,9 @@ let contents: Dir<Zip<_>> = filer_zip::Zip::open(archive).await?;
 ```
 
 **Source.** Drivers read through `filer_api::ReadAt` (D42): an async
-positional `read_at` plus `len`, implemented by `File<M: Readable, D>` and
-by in-memory bytes (`&'static [u8]`, `Vec<u8>`, `Arc<[u8]>`, ...), so a
+positional `read_at` plus `size` (not `len`, which would shadow slices' own
+`len` wherever the trait is in scope), implemented by `File<M: Readable,
+D>` and by in-memory bytes (`&'static [u8]`, `Vec<u8>`, `Arc<[u8]>`, ...), so a
 member of one driver, a `no_std` `include_bytes!` archive, or a stored
 member of another archive can all be sources. Access needed per format:
 

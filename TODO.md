@@ -594,8 +594,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **ARC-01: `ReadAt` source trait.** In `filer-api`, for `File` and
-  in-memory bytes (§17.7, D42). Done when tests read through both.
 - [ ] **ARC-02: Shared immutable tree.** Factor `filer-heap`'s tree so
   archive drivers reuse it with (offset, size, codec) leaves. Done when
   `filer-heap` and one archive driver share it.

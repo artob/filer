@@ -42,3 +42,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OPFS), with no items yet.
 - `filer-spec`: New crate, the executable specification of the driver
   contract, run by `filer-heap` and `filer-posix`.
+- `filer-api`: `ReadAt`, positional byte sources for archive drivers.

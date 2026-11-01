@@ -127,6 +127,9 @@ pub use output::*;
 mod raw_os_error;
 pub use raw_os_error::*;
 
+mod read_at;
+pub use read_at::*;
+
 mod read_dir;
 pub use read_dir::*;
 
