@@ -685,9 +685,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-01: Boot sector.** Crate scaffolding, `NtfsError`, and a
-  validated geometry. Done when unit tests cover every field and
-  rejection.
 - [ ] **NTFS-02: MFT records.** Fixups, record headers, and attribute
   iteration. Done when torn and malformed records are `Corrupt`.
 - [ ] **NTFS-03: Data runs.** Mapping pairs into run lists; reading

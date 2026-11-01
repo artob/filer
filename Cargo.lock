@@ -78,6 +78,7 @@ name = "filer-ntfs"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-spec",
 ]
 
 [[package]]

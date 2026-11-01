@@ -2,9 +2,18 @@
 
 //! Read-only NTFS file system driver for the Filer API.
 //!
-//! This crate reserves the name for a driver over NTFS volumes, read from
-//! any [`filer_api::ReadAt`] source, and does not export any items yet.
-//! Writing is out of scope for now.
+//! This crate will implement [`filer_api::Driver`] over NTFS volumes,
+//! read from any [`filer_api::ReadAt`] source. Writing is out of scope for
+//! now. So far it parses and validates the boot sector, reporting each
+//! inconsistency as an [`NtfsError`]; the rest is in progress (see
+//! `DESIGN.md` §17.14).
+//!
+//! **Clean room.** The mature NTFS implementations are GPL, so this
+//! public-domain crate is written from public descriptions of the format
+//! only: Microsoft's open specifications [MS-FSCC] and [MS-XCA], and the
+//! Linux-NTFS project's *NTFS Documentation*. Contributors must not
+//! consult GPL implementations (ntfs-3g, the Linux kernel's `ntfs3` and
+//! `ntfs`) while working on it (`DESIGN.md` D52).
 //!
 //! What a reader must handle: the boot sector and the master file table
 //! (MFT), whose records carry update sequence arrays (fixups) to check
@@ -16,7 +25,7 @@
 //! data, decompressed in pure Rust; alternate data streams; reparse
 //! points (symbolic links and junctions, mapped to symlinks where they
 //! can be confined); and a volume marked dirty, whose `$LogFile` has not
-//! been replayed. See `DESIGN.md` §17.12.
+//! been replayed.
 //!
 //! **Development.** Fixtures are made with `mkntfs` and written through
 //! the FUSE driver `ntfs-3g`, both in the `ntfs-3g` package on Debian and
@@ -33,3 +42,36 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// No input may make this crate panic (DESIGN.md D47).
+#![deny(
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::let_underscore_must_use,
+    clippy::panic,
+    clippy::string_slice,
+    clippy::todo,
+    clippy::unimplemented,
+    clippy::unreachable,
+    clippy::unwrap_used,
+    unused_must_use
+)]
+// Tests may panic: that is how they fail.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::arithmetic_side_effects,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic,
+        clippy::unwrap_used
+    )
+)]
+
+extern crate alloc;
+
+mod ntfs_error;
+pub use ntfs_error::*;
+
+mod geometry;
