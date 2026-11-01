@@ -308,16 +308,6 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
   payload type for `filer-uring`. Done when both executors pass the same
   tests.
 
-- [ ] **POSIX-02: Kernel-confined open.**
-  `openat2` with each `Resolve` combination; bounded `EAGAIN` retry; the
-  `ENOSYS`/`EPERM` switch to the userspace walk (per VER-04). Done when
-  SPEC-02 passes on Linux.
-
-- [ ] **POSIX-03: Forced userspace walk.**
-  The generic `Resolver` already resolves every path. Still missing: a
-  configuration option forcing it once POSIX-02 exists. Done when SPEC-02
-  passes with the walk forced on Linux and by default on macOS.
-
 - [ ] **POSIX-04: Write ops and `statx`.**
   Read and `fstat`/`statat` metadata exist. Still missing: write,
   `set_len`, `statx` on Linux (birth times, masks), birth times on macOS,

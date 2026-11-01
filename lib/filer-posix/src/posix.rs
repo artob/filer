@@ -16,17 +16,40 @@ use rustix::{
     fs::{AtFlags, DirEntry, Mode, OFlags},
     io::Errno,
 };
-use std::{path::Path, sync::Arc, vec::Vec};
+use std::{
+    path::Path,
+    sync::{Arc, atomic::AtomicBool},
+    vec::Vec,
+};
+
+/// The fallback recorded on errors from the userspace walk after `openat2`
+/// declined to answer.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+const KERNEL_FALLBACK: filer_api::Fallback = filer_api::Fallback::new("openat2", "userspace walk");
 
 /// The POSIX driver, over [`rustix`](https://docs.rs/rustix).
 ///
-/// Paths resolve through the generic [`Resolver`], one component at a
-/// time: each directory is opened with `O_DIRECTORY | O_NOFOLLOW` relative
-/// to the previous one, and symlinks are read and followed by the resolver
-/// under the operation's [`Resolve`] policy, so resolution stays beneath
-/// the handle even if entries are renamed concurrently. Files are opened
-/// with `O_NOFOLLOW`, rejecting anything but regular files, and every
-/// descriptor is close-on-exec.
+/// On Linux 5.6 and later, opening a path is confined by the kernel:
+/// `openat2` with `RESOLVE_BENEATH`, `RESOLVE_IN_ROOT`, or
+/// `RESOLVE_NO_SYMLINKS` per the [`Resolve`] policy, plus
+/// `RESOLVE_NO_MAGICLINKS` always and `RESOLVE_NO_XDEV` when mount crossing
+/// is off. Where the kernel cannot answer precisely (`EXDEV`, which means
+/// either an escape or a mount crossing, or a recurring `EAGAIN` from a
+/// racing rename), the open falls back to the userspace walk, and errors
+/// from it record that [`Fallback`](filer_api::Fallback). If `openat2` is
+/// unavailable (`ENOSYS` or `EPERM`: an old kernel or a seccomp filter),
+/// the driver instance uses the userspace walk from then on.
+///
+/// Elsewhere, and for every other operation, paths resolve through the
+/// generic [`Resolver`], one component at a time: each directory is opened
+/// with `O_DIRECTORY | O_NOFOLLOW` relative to the previous one, and
+/// symlinks are read and followed by the resolver under the policy, so
+/// resolution stays beneath the handle even if entries are renamed
+/// concurrently. [`with_userspace_resolution`](Self::with_userspace_resolution)
+/// forces this walk everywhere.
+///
+/// Files are opened without blocking on FIFOs, rejecting anything but
+/// regular files, and every descriptor is close-on-exec.
 ///
 /// Directory listings keep their stream open in the handle between
 /// batches; a [`DirCookie`] is the number of entries listed so far, and an
@@ -67,6 +90,10 @@ use std::{path::Path, sync::Arc, vec::Vec};
 #[derive(Clone, Debug)]
 pub struct Posix {
     key: Arc<DriverKey>,
+    /// Whether to try kernel-confined resolution (`openat2`) first; only
+    /// read on Linux.
+    #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+    kernel: Arc<AtomicBool>,
 }
 
 impl Posix {
@@ -82,6 +109,21 @@ impl Posix {
     pub fn blocking() -> Self {
         Self {
             key: Arc::new(DriverKey::new()),
+            kernel: Arc::new(AtomicBool::new(cfg!(any(
+                target_os = "linux",
+                target_os = "android"
+            )))),
+        }
+    }
+
+    /// Returns this driver, but always resolving paths with the userspace
+    /// walk instead of kernel-confined `openat2`: for testing, and for
+    /// kernels whose `openat2` misbehaves.
+    #[must_use]
+    pub fn with_userspace_resolution(self) -> Self {
+        Self {
+            key: self.key,
+            kernel: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -219,9 +261,36 @@ impl Posix {
 
     fn open(&self, at: &Handle, path: &RelPath, how: OpenHow) -> Result<Output, Error> {
         let op = OpKind::Open;
-        let start = Node::Dir(self.dir(at, op)?.fd.clone());
-        let node = Walker.resolve(&start, path.as_str().as_bytes(), how.resolve, true, op)?;
-        match (node, how.kind) {
+        let dir = self.dir(at, op)?;
+        #[allow(unused_mut)]
+        let mut fallback = None;
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        if !path.is_empty() && self.kernel.load(core::sync::atomic::Ordering::Relaxed) {
+            use crate::kernel::{Opened, open};
+            match open(dir.fd.as_fd(), path, how.kind, how.resolve) {
+                Opened::Fd(fd) => return self.opened(fd, how.kind, op),
+                Opened::Failed(errno) => return Err(error(errno, op)),
+                Opened::Unavailable => {
+                    self.kernel
+                        .store(false, core::sync::atomic::Ordering::Relaxed);
+                    fallback = Some(KERNEL_FALLBACK);
+                },
+                Opened::Inconclusive => fallback = Some(KERNEL_FALLBACK),
+            }
+        }
+        let start = Node::Dir(dir.fd.clone());
+        let walked = Walker
+            .resolve(&start, path.as_str().as_bytes(), how.resolve, true, op)
+            .and_then(|node| self.open_node(node, how.kind, op));
+        walked.map_err(|error| match fallback {
+            Some(fallback) => error.with_fallback(fallback),
+            None => error,
+        })
+    }
+
+    /// Opens the result of a userspace walk as `kind`.
+    fn open_node(&self, node: Node, kind: HandleKind, op: OpKind) -> Result<Output, Error> {
+        match (node, kind) {
             (Node::Dir(fd), HandleKind::Dir) => Ok(Output::Opened(self.dir_handle(fd))),
             (Node::Dir(_), HandleKind::File) => Err(Error::new(ErrorKind::IsADirectory, op)),
             (Node::Entry { .. }, HandleKind::Dir) => Err(Error::new(ErrorKind::NotADirectory, op)),
@@ -229,13 +298,34 @@ impl Posix {
                 if kind != FileKind::File {
                     return Err(Error::new(ErrorKind::NotRegularFile, op));
                 }
-                let fd = open_file(dir.as_fd(), &name, op)?;
-                Ok(Output::Opened(
-                    self.key.handle(HandleKind::File, FilePayload { fd }),
-                ))
+                let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC;
+                let fd = retry(|| rustix::fs::openat(&dir, name.as_slice(), flags, Mode::empty()))
+                    .map_err(|e| error(e, op))?;
+                self.opened(fd, HandleKind::File, op)
             },
             _ => Err(Error::new(ErrorKind::Unsupported, op)),
         }
+    }
+
+    /// Wraps a freshly opened descriptor in a handle of `kind`. A directory
+    /// was opened with `O_DIRECTORY`; a file with `O_NONBLOCK`, so it is
+    /// checked to be a regular file and the flag is cleared.
+    fn opened(&self, fd: OwnedFd, kind: HandleKind, op: OpKind) -> Result<Output, Error> {
+        if kind == HandleKind::Dir {
+            return Ok(Output::Opened(self.dir_handle(Arc::new(fd))));
+        }
+        let stat = retry(|| rustix::fs::fstat(&fd)).map_err(|e| error(e, op))?;
+        match stat::kind(&stat) {
+            FileKind::File => {},
+            FileKind::Dir => return Err(Error::new(ErrorKind::IsADirectory, op)),
+            _ => return Err(Error::new(ErrorKind::NotRegularFile, op)),
+        }
+        let flags = retry(|| rustix::fs::fcntl_getfl(&fd)).map_err(|e| error(e, op))?;
+        retry(|| rustix::fs::fcntl_setfl(&fd, flags - OFlags::NONBLOCK))
+            .map_err(|e| error(e, op))?;
+        Ok(Output::Opened(
+            self.key.handle(HandleKind::File, FilePayload { fd }),
+        ))
     }
 
     /// Resolves a single entry of a directory, following it under
@@ -373,24 +463,6 @@ fn stat_node(node: &Node, op: OpKind) -> Result<rustix::fs::Stat, Error> {
                 .map_err(|e| error(e, op))
         },
     }
-}
-
-/// Opens the regular file `name` in `dir` for reading.
-///
-/// `O_NONBLOCK` keeps a FIFO swapped in since resolution from blocking the
-/// open; anything but a regular file is then rejected, and the flag is
-/// cleared.
-fn open_file(dir: BorrowedFd<'_>, name: &[u8], op: OpKind) -> Result<OwnedFd, Error> {
-    let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC;
-    let fd =
-        retry(|| rustix::fs::openat(dir, name, flags, Mode::empty())).map_err(|e| error(e, op))?;
-    let stat = retry(|| rustix::fs::fstat(&fd)).map_err(|e| error(e, op))?;
-    if stat::kind(&stat) != FileKind::File {
-        return Err(Error::new(ErrorKind::NotRegularFile, op));
-    }
-    let flags = retry(|| rustix::fs::fcntl_getfl(&fd)).map_err(|e| error(e, op))?;
-    retry(|| rustix::fs::fcntl_setfl(&fd, flags - OFlags::NONBLOCK)).map_err(|e| error(e, op))?;
-    Ok(fd)
 }
 
 /// Reads the target of the symlink `name` in `dir`.

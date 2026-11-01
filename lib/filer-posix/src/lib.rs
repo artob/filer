@@ -28,6 +28,9 @@ extern crate std;
 #[cfg(all(unix, feature = "std"))]
 mod errno;
 
+#[cfg(all(any(target_os = "linux", target_os = "android"), feature = "std"))]
+mod kernel;
+
 #[cfg(all(unix, feature = "std"))]
 mod node;
 

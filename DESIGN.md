@@ -1769,8 +1769,18 @@ for background closes.
 
 As built (2026-11-01), read-only and blocking only: `Posix::blocking()`
 answers the six read ops, and `open_ambient_dir(path, AmbientAuthority)`
-opens roots. Resolution is the generic `Resolver` (§6.5) on a private
-`Walker`, so `openat2` (POSIX-02) is still to come: `lookup` is `statat`
+opens roots. On Linux and Android, `Op::Open` first tries `openat2` with
+`RESOLVE_NO_MAGICLINKS` and `BENEATH`, `IN_ROOT`, or `BENEATH |
+NO_SYMLINKS` per `Symlinks`, plus `NO_XDEV` when mount crossing is off.
+`EAGAIN` is retried up to 8 times; `EXDEV` (an escape or a mount
+crossing, indistinguishable) and exhausted retries fall back to the walk
+for this open, and `ENOSYS` or `EPERM` switch the instance to the walk for
+good (which errno seccomp filters return is still VER-04). Errors after a
+fallback carry `Fallback("openat2", "userspace walk")`, which a Linux test
+uses to prove the kernel path ran. `Posix::with_userspace_resolution()`
+forces the walk; the specification runs both ways. Everything else, and
+other systems, use the generic `Resolver` (§6.5) on a private `Walker`:
+`lookup` is `statat`
 with `AT_SYMLINK_NOFOLLOW`, then directories open with `O_DIRECTORY |
 O_NOFOLLOW` (a swap to a symlink in between fails rather than escapes);
 files open with `O_NOFOLLOW | O_NONBLOCK`, are `fstat`-checked to be
