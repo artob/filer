@@ -2224,8 +2224,8 @@ Recorded 2026-11-01 (D40); none exists yet:
   D46), and, at low priority, other file systems such as littlefs, over a
   block device, for embedded and `no_std` use and for reading disk images.
 - **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4),
-  `filer-ntfs`, `filer-udf`, and `filer-xfs`, published as stubs to
-  reserve their names. Each would follow `filer-fat`'s model: a lazy
+  `filer-ntfs` (§17.14, in progress), `filer-udf`, and `filer-xfs`,
+  published as stubs to reserve their names. Each would follow `filer-fat`'s model: a lazy
   driver over any `ReadAt` source, the async `Resolver`, panic-free by
   lint, fixtures from the real tools, and a differential test against the
   Linux kernel's driver. Writing them is out of scope for now: their
@@ -2397,7 +2397,79 @@ on POSIX it would wrap `FITRIM`, which needs `CAP_SYS_ADMIN`.
 **Backlog, not now:** partitioned images (MBR and GPT), best served by a
 general window adapter over any `ReadAt`; exFAT, in `filer-exfat`.
 
-### 17.14 Later
+### 17.14 `filer-ntfs`
+
+A read-only driver for NTFS volumes (versions 3.0 and 3.1, as written
+since Windows 2000), following `filer-fat`'s model (§17.13): a lazy
+driver over any `ReadAt` source, the async `Resolver`, panic-free by lint
+(D47), pure Rust (D45), fixtures from the real tools, and a differential
+test against the Linux kernel's `ntfs3` driver. Writing is out of scope.
+
+**Clean room (D52).** NTFS has no official on-disk specification, and the
+mature implementations (ntfs-3g, the Linux kernel's `ntfs3` and `ntfs`)
+are GPL, which this public-domain project cannot take code from. The
+driver is written from public descriptions of the format only, and no
+GPL source is consulted while writing it: Microsoft's open
+specifications [MS-FSCC] (attribute, file-attribute, and reparse-point
+layouts) and [MS-XCA] (LZNT1), and the Linux-NTFS project's *NTFS
+Documentation* (a description of the on-disk format, not code).
+
+**On-disk facts the parser relies on:**
+
+- The boot sector: `NTFS    ` at byte 3, bytes per sector, sectors per
+  cluster (a byte above 0x80 encodes 2^(256 - n), for clusters over 64
+  KiB), total sectors, the clusters of `$MFT` and `$MFTMirr`, and the
+  size of MFT records and index records (a positive byte counts
+  clusters; a negative one n means 2^-n bytes), and the serial number.
+- The master file table (MFT): fixed-size records, `FILE` signed, each
+  protected by an update sequence array: the last two bytes of every
+  512-byte stride hold the update sequence number and are restored from
+  the array, so a torn write is detected. Records 0 to 15 are system
+  files: `$MFT` (0), `$MFTMirr`, `$LogFile`, `$Volume`, `$AttrDef`, the
+  root directory (5), `$Bitmap`, `$Boot`, `$BadClus`, `$Secure`,
+  `$UpCase` (10), and `$Extend` (11). `$MFT` is itself a file, so records
+  are read through its own `$DATA` runs.
+- Attributes: typed (`$STANDARD_INFORMATION`, `$ATTRIBUTE_LIST`,
+  `$FILE_NAME`, `$DATA`, `$INDEX_ROOT`, `$INDEX_ALLOCATION`, `$BITMAP`,
+  `$REPARSE_POINT`, ...), optionally named, resident (value inline) or
+  non-resident (data runs: a header byte giving the sizes of a length and
+  a signed, relative cluster offset; no offset means a sparse run). Data
+  past the initialized size reads as zeros. A file whose attributes do
+  not fit one record lists them, across extension records, in
+  `$ATTRIBUTE_LIST`.
+- Directories: `$I30` indexes of `$FILE_NAME` keys, a B+ tree whose root
+  is resident (`$INDEX_ROOT`) and whose other nodes are `INDX` records
+  (also fixed up) in `$INDEX_ALLOCATION`, collated by the volume's
+  `$UpCase` table. A name is in the POSIX, Win32, DOS (8.3), or Win32 and
+  DOS namespace; a file with a long and a short name has two entries.
+- Times: 100-nanosecond intervals since 1601, UTC.
+- Compression: LZNT1 over compression units (usually 16 clusters); a
+  unit whose runs are shorter than the unit, then sparse, is compressed.
+
+**How it maps onto Filer:**
+
+- Ids: the MFT record number, with the volume serial number, so hard
+  links share an id, as they should.
+- Names: UTF-16, unpaired surrogates as WTF-8 foreign names. Listings
+  show each file once, skipping DOS names that shadow a Win32 name, and
+  hide the system files (records below 16). Lookups match exactly, else
+  case-insensitively by `$UpCase`, as on Windows.
+- Metadata: from `$STANDARD_INFORMATION`: modified, changed (the MFT
+  record's change time), created, and accessed, at 100 ns; length from
+  the unnamed `$DATA`.
+- Reparse points: symlinks, junctions, and WSL symlinks become symlinks,
+  confined by the `Resolver`; other tags, encrypted files, and files
+  compressed by WOF read as `Unsupported`. Named data streams are not
+  exposed yet.
+- A volume marked dirty (its `$LogFile` not replayed) is refused unless
+  the caller opts in: it is never read as if clean (§17.12).
+
+**Robustness** follows §17.13: every count, offset, and run is checked;
+run lists, attribute lists, and index trees are bounded (a loop in the
+index or in extension records is an error, not a hang); fixups are
+verified before a record is used.
+
+### 17.15 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
@@ -2957,6 +3029,7 @@ Record changes here with a date and one line of rationale.
 | D49 | Code pages in `known-codepages`, a support crate to spin out | Accepted |
 | D50 | `cargo-fuzz` (C++ libFuzzer) allowed in `fuzz/` crates only | Accepted |
 | D51 | Discard is an optional `deallocate` on writable sources | Accepted |
+| D52 | Formats implemented only in GPL code are written clean room | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

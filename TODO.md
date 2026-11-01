@@ -676,12 +676,39 @@ From §17.12 (D40). Create each crate when its item starts.
 - [ ] **FMT-04: `filer-ext4`.** Read-only ext2/3/4 (crate docs list the
   structures). Done when `mke2fs` fixtures of each revision read, and the
   differential test agrees with the Linux kernel.
-- [ ] **FMT-05: `filer-ntfs`.** Read-only NTFS. Done when fixtures from
-  `mkntfs` and Windows read, including compressed and sparse files.
 - [ ] **FMT-06: `filer-udf`.** Read-only UDF. Done when `mkudffs` images
   of revisions 1.02, 2.01, and 2.50 read.
 - [ ] **FMT-07: `filer-xfs`.** Read-only XFS, v5 with CRCs. Done when
   `mkfs.xfs` fixtures read and agree with the Linux kernel.
+
+## `filer-ntfs`
+
+Read-only NTFS, clean room (§17.14). One step per item, each committed.
+
+- [ ] **NTFS-01: Boot sector.** Crate scaffolding, `NtfsError`, and a
+  validated geometry. Done when unit tests cover every field and
+  rejection.
+- [ ] **NTFS-02: MFT records.** Fixups, record headers, and attribute
+  iteration. Done when torn and malformed records are `Corrupt`.
+- [ ] **NTFS-03: Data runs.** Mapping pairs into run lists; reading
+  resident, non-resident, and sparse data to the initialized size;
+  records through `$MFT`'s runs; `$ATTRIBUTE_LIST`. Done when unit tests
+  cover each.
+- [ ] **NTFS-04: Names and indexes.** `$FILE_NAME`, `$UpCase`, `$I30`
+  traversal and lookup. Done when bounded against loops.
+- [ ] **NTFS-05: Driver.** Open, read, stat, list, close, dirty-volume
+  refusal with an opt-in. Done when an `mkntfs` image reads.
+- [ ] **NTFS-06: Fixtures and verification.** `mkntfs` and ntfs-3g
+  fixtures stored sparsely, `filer-spec`, and the differential test
+  against the Linux kernel's `ntfs3`. Done when all agree.
+- [ ] **NTFS-07: LZNT1.** Compressed files, per [MS-XCA]. Done when
+  ntfs-3g-compressed fixtures read.
+- [ ] **NTFS-08: Reparse points.** Symlinks, junctions, WSL symlinks.
+  Done when each resolves, confined.
+- [ ] **NTFS-09: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when
+  both run clean.
+- [ ] **NTFS-10: Later.** Named streams, attributes (with FAT-11),
+  Windows-made fixtures.
 
 ## `filer-fat`
 
