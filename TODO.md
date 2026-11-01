@@ -303,7 +303,7 @@ The executable specification and test bed; it comes before any OS driver.
 - [ ] **POSIX-01: Crate, executors, payload.**
   In the existing `lib/filer-posix/` shell: `rustix` as a target-gated
   optional dependency enabled by `std`; `Posix::thread_pool(spawner)` and
-  `Posix::inline()`; a public `OwnedFd`-based payload type for
+  `Posix::blocking()`; a public `OwnedFd`-based payload type for
   `filer-uring`. `#![forbid(unsafe_code)]` stays until a stopgap is needed
   (POSIX-10). Done when the crate still builds as an empty shell without
   `std`, on bare metal, on Windows, and on wasm (WASI included).

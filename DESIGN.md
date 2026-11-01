@@ -1701,7 +1701,7 @@ targets. `Posix` takes an executor:
 - `Posix::thread_pool(spawner)`: ops run on a `Spawner`; a chain or coarse
   op is one job; directory listing fetches large batches per job. The
   default.
-- `Posix::inline()`: executes each op synchronously inside `poll`. It blocks
+- `Posix::blocking()`: executes each op synchronously inside `poll`. It blocks
   the executor, and its rustdoc says so in the first sentence. Useful for
   single-threaded tools and deterministic tests on a real filesystem
   (`filer-wasi` offers the same for WASI, §17.8). Same syscall layer, so
@@ -1899,7 +1899,7 @@ there and cannot be the WASI driver directly.
 - `Dir`s come from preopens via `AmbientAuthority` (§6.1). Preopens already
   behave like capabilities, and WASI resolution is confined by the host, so
   `Enforcement` is reported per what the host guarantees.
-- Executor: inline (as `Posix::inline()`, §17.1) where threads are
+- Executor: blocking (as `Posix::blocking()`, §17.1) where threads are
   unavailable, the shared `Spawner` where they are.
 - Syscall layer: `rustix`'s WASI support if it covers what is needed,
   otherwise `std`'s WASI extensions or the `wasi` bindings (**VERIFY**
@@ -2445,6 +2445,7 @@ Record changes here with a date and one line of rationale.
 | D32 | `ForeignName`s are minted only via a driver's `DriverKey` | Accepted |
 | D33 | `IoBufMut::fill` instead of `spare_zeroed` plus `commit` | Accepted |
 | D34 | Handles too are minted and read only via a `DriverKey` | Accepted |
+| D35 | The in-`poll` executor is named "blocking", not "inline" | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
@@ -2509,7 +2510,7 @@ Notes on the 2026-10-31 decisions:
 - **Enforcement:** the mechanism confining resolution beneath a handle:
   kernel, userspace walk, or a virtual driver's own resolver.
 - **Executor:** how a driver runs blocking calls: on a `Spawner` (thread
-  pool) or inline inside `poll`.
+  pool) or blocking inside `poll`.
 - **Foreign name:** a name found on disk that is not valid UTF-8 (or UTF-16
   on Windows); opaque, usable only with its originating driver.
 - **Op:** one driver-level operation as a value; `Completion` is its result.
