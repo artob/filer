@@ -22,6 +22,7 @@
 | `filer-posix` | Unix | POSIX backend |
 | `filer-system` | All | Native backend for the target, plus the API |
 | `filer-wasi` | WASI | WASI backend |
+| `filer-whatwg` | Browsers | WHATWG File System (OPFS) backend |
 | `filer-windows` | Windows | Windows backend |
 | `filer-cli` | All | `filer` command-line interface |
 

@@ -27,6 +27,7 @@ std = [
   "filer-api/std",
   "filer-posix/std",
   "filer-wasi/std",
+  "filer-whatwg/std",
   "filer-windows/std",
 ]
 
@@ -38,6 +39,9 @@ filer-posix.workspace = true
 
 [target.'cfg(target_os = "wasi")'.dependencies]
 filer-wasi.workspace = true
+
+[target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
+filer-whatwg.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 filer-windows.workspace = true

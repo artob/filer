@@ -35,7 +35,8 @@
 # Workspace
 - Rust 2024 crates live in `lib/<crate>/`: `filer-api` owns the
   platform-independent API; backends implement it for Unix (`filer-posix`),
-  WASI (`filer-wasi`), and Windows (`filer-windows`); `filer-heap` is the
+  WASI (`filer-wasi`), Windows (`filer-windows`), and browsers
+  (`filer-whatwg`, the WHATWG File System API); `filer-heap` is the
   in-memory driver (no OS, builds everywhere); `filer-system` re-exports
   `filer-api` plus `System`, the target's native driver (the one dependency
   for users); `filer-cli` builds the `filer` binary over `filer-system`.
@@ -50,8 +51,9 @@
   Releases are 0.0.x for now: extremely experimental, any one may break.
 - Backend crates depend on `filer-api`, never the reverse. Move behavior tests
   with their implementation.
-- Gate backend items on `cfg(unix)`, `cfg(target_os = "wasi")`, or
-  `cfg(windows)`: each backend must still build, empty, on every other target.
+- Gate backend items on `cfg(unix)`, `cfg(target_os = "wasi")`,
+  `cfg(windows)`, or `cfg(all(target_family = "wasm", target_os = "unknown"))`:
+  each backend must still build, empty, on every other target.
 - Root `[workspace.lints]` holds shared lints; each crate sets
   `[lints] workspace = true`. Every crate root has `#![forbid(unsafe_code)]`.
   A backend that needs FFI switches to `#![deny(unsafe_code)]` and confines

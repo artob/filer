@@ -38,3 +38,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-system`: New crate re-exporting `filer-api` with `System`, the
   target's native driver.
 - `filer-cli`: Depends on `filer-system` instead of each backend.
+- `filer-whatwg`: New crate for the browser backend (WHATWG File System,
+  OPFS), with no items yet.

@@ -623,10 +623,11 @@ Created with `publish = false` (D16).
 ## `filer-system`
 
 - [ ] **SYS-01: Wire in new native drivers.**
-  Replace the `Unsupported` stub with `filer_windows::Windows` and the
-  `filer-wasi` driver as each gains a `blocking()` constructor and
-  `open_ambient_dir`, and add `System::thread_pool` after POSIX-01. Done
-  when `filer-system`'s tests pass on Windows and under Wasmtime.
+  Replace the `Unsupported` stub with `filer_windows::Windows`, the
+  `filer-wasi` driver, and the `filer-whatwg` driver as each gains a
+  constructor and a way to open roots, and add `System::thread_pool` after
+  POSIX-01. Done when `filer-system`'s tests pass on Windows, under
+  Wasmtime, and in a browser.
 
 ## Umbrella crate
 

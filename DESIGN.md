@@ -312,6 +312,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-posix` | `rustix` driver: Linux, macOS, BSDs | stopgaps only |
 | `filer-wasi` | WASI driver over preopens | no (§17.8) |
 | `filer-windows` | `windows-sys` driver | yes, in `sys` |
+| `filer-whatwg` | WHATWG File System driver (browsers, OPFS) | no (§17.11) |
 | `filer-uring` | io_uring driver over `filer-posix` | yes, in `sys` |
 | `filer-heap` | in-memory driver with a crash model | no |
 | `filer-vfs` | mount-table routing driver | no |
@@ -331,8 +332,8 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 
 Existing so far (2026-11-01): `filer-api`, `filer-heap`, and `filer-posix`
 (read-only), `filer-system`, and as empty skeletons `filer-wasi`,
-`filer-windows`, and `filer-cli` (D30). The rest are created when their
-first `TODO.md` item starts.
+`filer-whatwg`, `filer-windows`, and `filer-cli` (D30, D38). The rest are
+created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
 that perform no I/O and hold no filesystem state (`DynDriver`, `Hybrid`,
@@ -1965,7 +1966,34 @@ just the re-export.
 The broader umbrella of §3.7 (re-exporting `filer-heap`, middleware, and
 the rest as modules, Q11) remains separate and may not be needed.
 
-### 17.11 Later
+### 17.11 `filer-whatwg`
+
+The browser driver, gated on `cfg(all(target_family = "wasm", target_os =
+"unknown"))` and selected there by `filer-system`; it exists as an empty
+shell. It implements the WHATWG File System Standard
+(<https://fs.spec.whatwg.org/>), whose `FileSystemDirectoryHandle` and
+`FileSystemFileHandle` are already capabilities: no global root, only
+handles a page was given. Roots come from the Origin Private File System
+(`navigator.storage.getDirectory()`) or from the File System Access picker
+(`showDirectoryPicker()`, a WICG extension returning the same handle
+types); the driver code is the same for both. The API is asynchronous on
+the main thread; the faster `FileSystemSyncAccessHandle` exists only in
+dedicated workers, so the driver will need both paths. It is for browsers
+only: Node and Deno do not implement this API.
+
+Naming (D38), decided 2026-11-01 after weighing three names:
+
+- `filer-opfs` named one storage area, but the driver equally serves
+  user-picked directories, which would make it a misnomer;
+- `filer-web` named a platform, inviting Node, Deno, and Cloudflare Workers
+  users (also `wasm32-unknown-unknown`) to expect it to work there;
+- `filer-whatwg` names the specification the handle types come from, like
+  `filer-posix` and `filer-wasi`, and promises an API rather than a place.
+  Its costs (WHATWG is the body, not the standard's name; developers say
+  "OPFS") are met by the crate's first doc line and its crates.io keywords
+  (`opfs`, `browser`, `wasm`, `file-system-access`, `whatwg`).
+
+### 17.12 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
@@ -2206,9 +2234,10 @@ to not hydrating; `Open::allow_hydration()` is explicit.
 
 ### 21.7 WebAssembly
 
-- `wasm32-unknown-unknown`: no filesystem; only `filer-heap`,
-  `filer-vfs`, `filer-overlay`, and other virtual drivers do anything.
-  Every crate and feature must still build there (CI).
+- `wasm32-unknown-unknown`: no OS filesystem. In browsers, `filer-whatwg`
+  (§17.11) uses the WHATWG File System API; elsewhere (Node, Deno, bare
+  hosts) only `filer-heap` and other virtual drivers do anything. Every
+  crate and feature must still build there (CI).
 - WASI targets: `std` uses wasi-libc's `openat`-style calls over preopens,
   which already behave like capabilities. `filer-wasi` (§17.8) turns
   preopens into `Dir`s via `AmbientAuthority`; CI checks every crate with
@@ -2498,6 +2527,7 @@ Record changes here with a date and one line of rationale.
 | D35 | The in-`poll` executor is named "blocking", not "inline" | Accepted |
 | D36 | Frontend methods are `async fn`s borrowing `self` (§7.2) | Accepted |
 | D37 | `filer-system` is the one cross-platform dependency | Accepted |
+| D38 | The browser driver is `filer-whatwg`, after its standard | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

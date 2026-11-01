@@ -12,6 +12,7 @@
 //! | Linux, macOS, the BSDs, other Unix | `filer-posix` |
 //! | Windows | `filer-windows` (not implemented yet) |
 //! | WASI | `filer-wasi` (not implemented yet) |
+//! | Browsers (`wasm32-unknown-unknown`) | `filer-whatwg` (not implemented yet) |
 //!
 //! Where no driver exists yet, `System` still compiles, so that portable
 //! code builds everywhere, but every operation fails with

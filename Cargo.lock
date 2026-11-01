@@ -55,11 +55,19 @@ dependencies = [
  "filer-api",
  "filer-posix",
  "filer-wasi",
+ "filer-whatwg",
  "filer-windows",
 ]
 
 [[package]]
 name = "filer-wasi"
+version = "0.0.0"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
+name = "filer-whatwg"
 version = "0.0.0"
 dependencies = [
  "filer-api",
