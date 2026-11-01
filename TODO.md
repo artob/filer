@@ -677,9 +677,6 @@ Read-only first, designed for writing (§17.13, D46). One commit per item.
 
 - [ ] **FAT-07: Fuzzing.** Targets for the boot sector, FAT, and directory
   parsers. Done when they build in CI.
-- [ ] **FAT-09: Open options.** `Fat::open_with` taking the time zone
-  offset that local times are read in (UTC now), and limits such as a
-  cap on cached directory chains. Done when times honor the offset.
 - [ ] **FAT-10: Volume metadata.** The volume serial number as the
   `FileId` volume, directory lengths (their chains' bytes, as Linux
   reports), and attributes once `FileAttrs` exists. Done when `stat`

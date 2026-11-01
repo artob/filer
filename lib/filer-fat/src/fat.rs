@@ -1,6 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
+    Options,
     dir_entry::Body,
     fat_time::{ONE_DAY, TEN_MILLIS, TWO_SECONDS},
     geometry,
@@ -25,7 +26,8 @@ use filer_api::{
 /// Names are matched case-insensitively, as FAT preserves case but does
 /// not distinguish it, against either an entry's long name or its short
 /// (8.3) name. Listings show the long name if there is one. Times are
-/// local with no time zone, and are reported as if UTC.
+/// local with no time zone, and are read at the offset from UTC that
+/// [`Options`] gives: UTC by default.
 ///
 /// Writing is planned. Until then, everything but reading is
 /// [`Unsupported`](ErrorKind::Unsupported).
@@ -60,7 +62,7 @@ impl Payload {
 
 impl<S: ReadAt + 'static> Fat<S> {
     /// Opens the volume in `source` and returns its root directory, with
-    /// [`Rights::READ`].
+    /// [`Rights::READ`], with the default [`Options`].
     ///
     /// # Errors
     ///
@@ -68,11 +70,22 @@ impl<S: ReadAt + 'static> Fat<S> {
     /// as its source, if the boot sector is invalid or the source is
     /// shorter than the volume; any error reading the source.
     pub async fn open(source: S) -> Result<Dir<Self>, Error> {
+        Self::open_with(source, Options::new()).await
+    }
+
+    /// Opens the volume in `source` as [`open`](Self::open) does, reading
+    /// it per `options`.
+    ///
+    /// # Errors
+    ///
+    /// As for [`open`](Self::open).
+    pub async fn open_with(source: S, options: Options) -> Result<Dir<Self>, Error> {
         let geometry = geometry::read(&source).await?;
         let volume = Volume {
             key: DriverKey::new(),
             geometry,
             source,
+            options,
         };
         let op = OpKind::Open;
         let extent = volume.extent(&Node::Root, op).await?;
@@ -220,9 +233,10 @@ impl<S: ReadAt> Fat<S> {
                 (_, Body::EmptyFile) => Some(0),
                 (_, Body::Dir(_)) => None,
             };
-            metadata.modified = entry.modified().to_timestamp(0, TWO_SECONDS);
-            metadata.created = entry.created().to_timestamp(0, TEN_MILLIS);
-            metadata.accessed = entry.accessed().to_timestamp(0, ONE_DAY);
+            let offset = self.0.options.utc_offset();
+            metadata.modified = entry.modified().to_timestamp(offset, TWO_SECONDS);
+            metadata.created = entry.created().to_timestamp(offset, TEN_MILLIS);
+            metadata.accessed = entry.accessed().to_timestamp(offset, ONE_DAY);
         }
         metadata
     }

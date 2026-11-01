@@ -9,6 +9,7 @@
 //! reserved and arbitrary, so a field may be unset or invalid without the
 //! volume being corrupt; [`Stamp`] keeps all three cases apart.
 
+use crate::UtcOffset;
 use core::time::Duration;
 use filer_api::Timestamp;
 
@@ -70,9 +71,13 @@ impl DateTime {
         })
     }
 
-    /// Returns this local time as a [`Timestamp`], for a zone `offset`
-    /// seconds east of UTC, with `granularity`.
-    pub(crate) fn to_timestamp(self, offset: i32, granularity: Duration) -> Option<Timestamp> {
+    /// Returns this local time, at `offset` from UTC, as a [`Timestamp`]
+    /// with `granularity`.
+    pub(crate) fn to_timestamp(
+        self,
+        offset: UtcOffset,
+        granularity: Duration,
+    ) -> Option<Timestamp> {
         let mut days = DAYS_TO_1980;
         for year in 1980..self.year {
             days = days.checked_add(if is_leap(year) { 366 } else { 365 })?;
@@ -86,7 +91,7 @@ impl DateTime {
             .checked_add(i64::from(self.hour).checked_mul(3600)?)?
             .checked_add(i64::from(self.minute).checked_mul(60)?)?
             .checked_add(i64::from(self.second))?
-            .checked_sub(i64::from(offset))?;
+            .checked_sub(i64::from(offset.seconds()))?;
         // Below a second, as `centis` is below 100.
         let nanos = u32::from(self.centis).checked_mul(10_000_000)?;
         Some(Timestamp::new(secs, nanos).with_granularity(granularity))
@@ -133,7 +138,11 @@ impl Stamp {
 
     /// Returns the time as a [`Timestamp`], if it is valid; see
     /// [`DateTime::to_timestamp`].
-    pub(crate) fn to_timestamp(self, offset: i32, granularity: Duration) -> Option<Timestamp> {
+    pub(crate) fn to_timestamp(
+        self,
+        offset: UtcOffset,
+        granularity: Duration,
+    ) -> Option<Timestamp> {
         match self {
             Self::Valid(time) => time.to_timestamp(offset, granularity),
             Self::Unset | Self::Invalid { .. } => None,
@@ -154,7 +163,10 @@ mod tests {
     }
 
     fn secs(stamp: Stamp) -> i64 {
-        stamp.to_timestamp(0, TWO_SECONDS).unwrap().secs()
+        stamp
+            .to_timestamp(UtcOffset::UTC, TWO_SECONDS)
+            .unwrap()
+            .secs()
     }
 
     #[test]
@@ -164,7 +176,10 @@ mod tests {
         let stamp = Stamp::decode(date(2024, 2, 29), time(12, 34, 56), 0);
         assert_eq!(secs(stamp), 1_709_210_096);
         assert_eq!(
-            stamp.to_timestamp(3600, TWO_SECONDS).unwrap().secs(),
+            stamp
+                .to_timestamp(UtcOffset::from_minutes(60).unwrap(), TWO_SECONDS)
+                .unwrap()
+                .secs(),
             1_709_210_096 - 3600
         );
         assert_eq!(
@@ -176,7 +191,7 @@ mod tests {
     #[test]
     fn adds_hundredths_to_creation_times() {
         let stamp = Stamp::decode(date(2000, 1, 1), time(0, 0, 58), 199);
-        let t = stamp.to_timestamp(0, TEN_MILLIS).unwrap();
+        let t = stamp.to_timestamp(UtcOffset::UTC, TEN_MILLIS).unwrap();
         assert_eq!((t.secs(), t.nanos()), (946_684_859, 990_000_000));
         assert_eq!(t.granularity(), Some(TEN_MILLIS));
     }
@@ -205,7 +220,7 @@ mod tests {
                     centis: c
                 }
             );
-            assert_eq!(stamp.to_timestamp(0, ONE_DAY), None);
+            assert_eq!(stamp.to_timestamp(UtcOffset::UTC, ONE_DAY), None);
         }
         assert!(matches!(
             Stamp::decode(date(2000, 2, 29), 0, 0),

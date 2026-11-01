@@ -2266,7 +2266,9 @@ re-check each against it while implementing):
   first driver whose name matching is not byte-exact, informing
   `NamingRules`.
 - Metadata: kind, length, the three times (`Timestamp::granularity` set;
-  local times interpreted per an open option, UTC by default), and ids
+  local times read at a fixed `UtcOffset` from `Options`, UTC by default,
+  as Linux's `time_offset`: following daylight saving time would need
+  zone rules and leaves an hour ambiguous each year), and ids
   from each entry's location, since empty files have no first cluster.
   Attributes map to `FileAttrs` once it exists.
 - Listings: a `DirCookie` is an entry index; `.` and `..` are hidden, as

@@ -315,3 +315,25 @@ fn dump_images() {
         }
     }
 }
+
+#[test]
+fn reads_times_at_the_given_offset() {
+    use filer_fat::{Options, UtcOffset};
+    let all = MetaMask::all();
+    let utc = block_on(open(sample(Kind::Fat16, false)).metadata("README.TXT", all)).unwrap();
+    for minutes in [-300, 90, UtcOffset::MAX_MINUTES] {
+        let offset = UtcOffset::from_minutes(minutes).unwrap();
+        let options = Options::new().with_utc_offset(offset);
+        let image = sample(Kind::Fat16, false).bytes;
+        let root = block_on(Fat::open_with(image, options)).unwrap();
+        let local = block_on(root.metadata("README.TXT", all)).unwrap();
+        let shift = i64::from(minutes) * 60;
+        for (utc, local) in [
+            (utc.modified, local.modified),
+            (utc.created, local.created),
+            (utc.accessed, local.accessed),
+        ] {
+            assert_eq!(local.unwrap().secs(), utc.unwrap().secs() - shift);
+        }
+    }
+}

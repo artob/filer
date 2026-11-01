@@ -4,7 +4,7 @@
 //! and directory reading and lookup.
 
 use crate::{
-    FatError,
+    FatError, Options,
     chain::{Chain, FatReader, Length},
     dir_entry::{Assembler, Body, DirEntry, Item, MAX_LONG_NAME, SLOT, Step},
     geometry::{Cluster, Geometry, Root},
@@ -26,6 +26,7 @@ pub(crate) struct Volume<S> {
     pub(crate) key: DriverKey,
     pub(crate) geometry: Geometry,
     pub(crate) source: S,
+    pub(crate) options: Options,
 }
 
 /// A file or directory that a path resolved to.

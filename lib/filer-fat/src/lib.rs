@@ -64,4 +64,11 @@ pub use fat::*;
 
 mod fat_time;
 mod geometry;
+
+mod options;
+pub use options::*;
+
+mod utc_offset;
+pub use utc_offset::*;
+
 mod volume;

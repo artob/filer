@@ -823,7 +823,7 @@ pub(crate) mod tests {
         let entry = &entries(&[slot])[0];
         let created = entry
             .created()
-            .to_timestamp(0, crate::fat_time::TEN_MILLIS)
+            .to_timestamp(crate::UtcOffset::UTC, crate::fat_time::TEN_MILLIS)
             .unwrap();
         assert_eq!(
             (created.secs(), created.nanos()),
