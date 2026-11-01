@@ -73,6 +73,8 @@ name = "filer-tar"
 version = "0.0.0"
 dependencies = [
  "filer-api",
+ "filer-heap",
+ "filer-spec",
 ]
 
 [[package]]

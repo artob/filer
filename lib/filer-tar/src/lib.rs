@@ -2,19 +2,16 @@
 
 //! TAR archive driver for the Filer API.
 //!
-//! This crate will implement [`filer_api::Driver`] over TAR archives,
-//! read-only: a `Dir` over an archive's contents, opened from any
-//! [`filer_api::ReadAt`] source, such as a `File` from another driver or
-//! bytes in memory. It does not export any items yet.
+//! [`Tar`] serves the contents of a TAR archive, read-only, as a
+//! [`Dir`](filer_api::Dir): open the archive from any
+//! [`ReadAt`](filer_api::ReadAt) source, such as a `File` from another
+//! driver or bytes in memory, then use it like any other directory. Paths
+//! stay confined to the archive, and a hostile archive fails to open rather
+//! than exposing anything outside it (see [`Tar`] and [`Limits`]).
 //!
-//! The plan (see `DESIGN.md` §17.7): one pass over the 512-byte headers
-//! builds an index, after which member contents, being contiguous, are
-//! truly random-access. Compressed archives (gzip, zstd, xz) will be
-//! indexed on open, since seeking back in them means decompressing again.
-//! Paths are confined to the archive root, later duplicate entries win,
-//! hardlinks share one node, and strict limits guard against hostile
-//! archives. Forward-only sources will get a streaming visitor instead of
-//! a `Dir`.
+//! So far it reads uncompressed archives with random access. Compressed
+//! archives (gzip, zstd, xz) and forward-only sources are planned (see
+//! `DESIGN.md` §17.7).
 //!
 //! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
 //! by default, forwards to `filer-api`. `all` currently enables nothing.
@@ -22,3 +19,15 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+
+extern crate alloc;
+
+mod header;
+
+mod index;
+
+mod limits;
+pub use limits::*;
+
+mod tar;
+pub use tar::*;

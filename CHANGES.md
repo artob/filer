@@ -47,3 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   items yet.
 - `filer-api`: `tree`, the immutable trees of virtual drivers, now used by
   `filer-heap`.
+- `filer-tar`: `Tar`, a read-only driver over uncompressed TAR archives,
+  with strict `Limits`.
+- `filer-api`: `ErrorKind::LimitExceeded`.

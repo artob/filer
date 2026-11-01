@@ -75,6 +75,10 @@ pub enum ErrorKind {
     /// A disk quota is exhausted (`EDQUOT`).
     QuotaExceeded,
 
+    /// A configured safety limit was exceeded, such as an archive's entry
+    /// count or a member's decompression ratio.
+    LimitExceeded,
+
     /// The driver, filesystem, or platform does not support the operation.
     Unsupported,
 
@@ -142,6 +146,7 @@ impl core::fmt::Display for ErrorKind {
             Self::ReadOnly => "read-only",
             Self::StorageFull => "storage full",
             Self::QuotaExceeded => "quota exceeded",
+            Self::LimitExceeded => "limit exceeded",
             Self::Unsupported => "unsupported",
             Self::Busy => "busy",
             Self::Stale => "stale handle",
@@ -194,6 +199,7 @@ impl From<ErrorKind> for std::io::ErrorKind {
             ErrorKind::SymlinkLoop
             | ErrorKind::Poisoned
             | ErrorKind::Canceled
+            | ErrorKind::LimitExceeded
             | ErrorKind::Moved
             | ErrorKind::Io
             | ErrorKind::Other => Io::Other,

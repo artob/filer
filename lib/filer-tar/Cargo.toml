@@ -27,3 +27,7 @@ std = ["filer-api/std"]
 
 [dependencies]
 filer-api.workspace = true
+
+[dev-dependencies]
+filer-heap = { workspace = true, features = ["std"] }
+filer-spec = { workspace = true, features = ["std"] }

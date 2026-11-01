@@ -1997,6 +1997,22 @@ is confined by construction ("zip slip" and symlink-then-write attacks
 cannot name anything outside the destination), which makes these drivers
 a safer extraction tool than most.
 
+**`filer-tar` as built** (2026-11-01, uncompressed, random access): an
+own parser (answering Q7 for TAR: small, `no_std`, and under our limits),
+reading POSIX ustar with the name prefix, PAX `path`/`linkpath`/`size`/
+`mtime`, GNU long names and base-256 numbers; global PAX headers are
+ignored, GNU sparse members are `Unsupported`, and unknown types read as
+regular files, as POSIX requires. Opening fails as a whole on any unsafe
+member name (`InvalidName`: absolute, `..`, NUL), malformed or truncated
+header (`Corrupt`), or exceeded `Limits` (the new `LimitExceeded`: entry
+count, name length, extended-header size); the error's source names the
+header's offset. Quarantining instead of failing is left for later.
+Reads go through a bounded intermediate buffer so a source never reads
+past a member into the next header; a `Slice` buffer (CORE-06) would
+remove that copy. The full `filer-spec` passes, with nothing skipped, on
+archives written from its tree; a doc example reads a bsdtar archive, and
+a test reads an archive stored as a `File` in `filer-heap`.
+
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
 bytes. As built (2026-11-01), that tree is `filer_api::tree::Tree<F>`,
@@ -2156,7 +2172,8 @@ pub enum ErrorKind {
     NotASymlink, DirectoryNotEmpty, PermissionDenied, RightsDenied,
     EscapeBlocked, SymlinkLoop, NameTooLong, InvalidName, InvalidNameForTarget,
     ForeignNameMismatch, CrossDriver, CrossesDevices, ReadOnly,
-    StorageFull, QuotaExceeded, Unsupported, Busy, Stale, Poisoned,
+    StorageFull, QuotaExceeded, LimitExceeded, Unsupported, Busy, Stale,
+    Poisoned,
     Canceled, Interrupted, TimedOut, UnexpectedEof, Moved, Corrupt, Io,
     Other,
 }
@@ -2678,7 +2695,8 @@ Notes on the 2026-10-31 decisions:
 - **Q6.** Optional `miette` diagnostics for `filer_api::Error`?
 - **Q7.** Archive support: own small zip and tar readers (`no_std`
   possible) or existing crates (bigger, `std`)? Packaging is settled
-  (separate `filer-tar` and `filer-zip`, D41); the parser choice is open.
+  (separate `filer-tar` and `filer-zip`, D41); TAR has its own parser
+  (§17.7); for ZIP, the choice is open.
 - **Q8.** Should `Dir::open_ambient` accept `camino::Utf8Path` (and Dogma.rs
   types, §5.7) directly, or only `std::path::Path`?
 - **Q9.** Watching (§26): in scope for 1.0 or never?

@@ -594,9 +594,9 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **TAR-01: `filer-tar` over random access.** Index on open, later
-  entry wins, hardlinks, quarantine, strict limits. Done when it passes the
-  read-only `filer-spec` subset and a fuzz target covers headers and names.
+- [ ] **TAR-01: Fuzzing `filer-tar`.** The driver passes `filer-spec` and
+  hostile-archive tests. Still missing: a fuzz target over `header.rs` and
+  indexing (with CI-03). Done when it builds in CI.
 - [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz behind features, indexed on
   open with checkpoints or cached members. Done when `.tar.gz` passes the
   same subset.
