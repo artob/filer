@@ -685,8 +685,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-07: LZNT1.** Compressed files, per [MS-XCA]. Done when
-  ntfs-3g-compressed fixtures read.
 - [ ] **NTFS-08: Reparse points.** Symlinks, junctions, WSL symlinks.
   Done when each resolves, confined.
 - [ ] **NTFS-09: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when

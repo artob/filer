@@ -81,3 +81,37 @@ pub fn expected() -> BTreeMap<String, Expected> {
     }
     tree
 }
+
+/// Bytes from Xorshift32, as `make.sh` writes them.
+pub fn noise(size: usize, seed: u32) -> Vec<u8> {
+    let mut x = seed;
+    (0..size)
+        .map(|_| {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            x as u8
+        })
+        .collect()
+}
+
+/// The tree `make.sh`'s `compressed` writes.
+pub fn expected_compressed() -> BTreeMap<String, Expected> {
+    let mut tree = BTreeMap::new();
+    let mut file = |name: &str, contents: Vec<u8>| {
+        tree.insert(format!("Compressed/{name}"), Expected::File(contents));
+    };
+    file("text.txt", pattern(200_000, 1));
+    file("noise.bin", noise(100_000, 7));
+    file("exact.bin", pattern(65536, 3));
+    let mut mixed = noise(30_000, 9);
+    mixed.extend(vec![0; 70_000]);
+    mixed.extend(pattern(50_000, 4));
+    file("mixed.bin", mixed);
+    file("small.txt", pattern(5, 2));
+    let mut sparse = vec![0; 200_000];
+    sparse.extend(b"end");
+    file("sparse.bin", sparse);
+    tree.insert("Compressed".to_owned(), Expected::Dir);
+    tree
+}

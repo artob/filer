@@ -6,11 +6,15 @@
 use crate::{
     NtfsError,
     geometry::Geometry,
+    lznt1,
     record::{Attribute, Body},
     runs::{self, Run},
 };
 use alloc::{vec, vec::Vec};
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
+
+/// The largest compression unit read, in bytes: 16 clusters of 4 KiB.
+const MAX_UNIT: u64 = 64 * 1024;
 
 /// An attribute's value, from all of its extents.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -104,9 +108,18 @@ impl Stream {
             true => (header.size, header.initialized),
             false => (header.size.min(mapped), header.initialized.min(mapped)),
         };
+        // Windows compresses in units of 16 clusters of at most 4 KiB; a
+        // unit of over 64 KiB would make reads allocate without bound.
         let compression = (first.is_compressed() && header.compression_unit != 0)
-            .then(|| 1u64.checked_shl(u32::from(header.compression_unit)))
-            .map(|unit| unit.ok_or(bad_size))
+            .then(|| {
+                1u64.checked_shl(u32::from(header.compression_unit))
+                    .filter(|&clusters| {
+                        clusters
+                            .checked_mul(u64::from(geometry.cluster_size()))
+                            .is_some_and(|bytes| bytes <= MAX_UNIT)
+                    })
+                    .ok_or(bad_size)
+            })
             .transpose()?;
         Ok(Self::NonResident {
             runs: all,
@@ -142,14 +155,10 @@ impl Stream {
                 return Ok(rest.get(..max.min(rest.len())).unwrap_or_default().to_vec());
             },
             Self::NonResident {
-                compression: Some(_),
-                ..
-            } => return Err(Error::new(ErrorKind::Unsupported, op)),
-            Self::NonResident {
                 runs,
                 size,
                 initialized,
-                compression: None,
+                ..
             } => (runs, *size, *initialized),
         };
         let cap = |n: u64| usize::try_from(n).map_or(max, |n| n.min(max));
@@ -163,6 +172,16 @@ impl Stream {
         let want = want.min(cap(initialized.saturating_sub(off)));
         let cluster_size = u64::from(geometry.cluster_size());
         let corrupt = || Error::new(ErrorKind::Corrupt, op);
+        if let Self::NonResident {
+            compression: Some(unit),
+            ..
+        } = self
+            && let Some(bytes) = self
+                .read_unit(source, geometry, *unit, off, want, op)
+                .await?
+        {
+            return Ok(bytes);
+        }
         let vcn = off.checked_div(cluster_size).ok_or_else(corrupt)?;
         let run = runs::find(runs, vcn).ok_or_else(corrupt)?;
         let within = off
@@ -183,6 +202,76 @@ impl Stream {
             .and_then(|at| at.checked_add(within))
             .ok_or_else(corrupt)?;
         read_exact(source, at, n, op).await
+    }
+
+    /// Reads up to `want` bytes at `off` from the compression unit of
+    /// `unit` clusters holding it, if the unit is compressed or sparse:
+    /// some of its clusters allocated and the rest sparse is LZNT1 data,
+    /// none allocated is zeros. Returns `None` for a unit stored as is,
+    /// which reads as any other data.
+    async fn read_unit<S: ReadAt + ?Sized>(
+        &self,
+        source: &S,
+        geometry: &Geometry,
+        unit: u64,
+        off: u64,
+        want: usize,
+        op: OpKind,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        let Self::NonResident { runs, .. } = self else {
+            return Ok(None);
+        };
+        let corrupt = || Error::new(ErrorKind::Corrupt, op);
+        let cluster_size = u64::from(geometry.cluster_size());
+        let unit_bytes = unit.checked_mul(cluster_size).ok_or_else(corrupt)?;
+        let index = off.checked_div(unit_bytes).ok_or_else(corrupt)?;
+        let first_vcn = index.checked_mul(unit).ok_or_else(corrupt)?;
+        let end_vcn = first_vcn.checked_add(unit).ok_or_else(corrupt)?;
+        // The unit's allocated clusters, in order, and how many are sparse.
+        let mut allocated = Vec::new();
+        let mut sparse = 0u64;
+        let mut vcn = first_vcn;
+        while vcn < end_vcn {
+            let run = runs::find(runs, vcn).ok_or_else(corrupt)?;
+            let n = run
+                .end()
+                .min(end_vcn)
+                .checked_sub(vcn)
+                .ok_or_else(corrupt)?;
+            match run.lcn {
+                Some(lcn) => {
+                    let skip = vcn.checked_sub(run.vcn).ok_or_else(corrupt)?;
+                    allocated.push((lcn.checked_add(skip).ok_or_else(corrupt)?, n));
+                },
+                None => sparse = sparse.checked_add(n).ok_or_else(corrupt)?,
+            }
+            vcn = vcn.checked_add(n).ok_or_else(corrupt)?;
+        }
+        if sparse == 0 {
+            return Ok(None);
+        }
+        let within = off
+            .checked_sub(index.checked_mul(unit_bytes).ok_or_else(corrupt)?)
+            .ok_or_else(corrupt)?;
+        let n = usize::try_from(unit_bytes.checked_sub(within).ok_or_else(corrupt)?)
+            .map_or(want, |left| left.min(want));
+        let unit_len = usize::try_from(unit_bytes).map_err(|_| corrupt())?;
+        let mut output = vec![0; unit_len];
+        if !allocated.is_empty() {
+            let mut input = Vec::new();
+            for (lcn, clusters) in allocated {
+                let at = geometry.cluster_offset(lcn).ok_or_else(corrupt)?;
+                let len = clusters
+                    .checked_mul(cluster_size)
+                    .and_then(|len| usize::try_from(len).ok())
+                    .ok_or_else(corrupt)?;
+                input.extend(read_exact(source, at, len, op).await?);
+            }
+            lznt1::decompress(&input, &mut output).ok_or_else(corrupt)?;
+        }
+        let start = usize::try_from(within).map_err(|_| corrupt())?;
+        let end = start.checked_add(n).ok_or_else(corrupt)?;
+        Ok(Some(output.get(start..end).ok_or_else(corrupt)?.to_vec()))
     }
 
     /// Reads exactly `len` bytes at `off`, or fails if the value ends first.

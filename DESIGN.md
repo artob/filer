@@ -2471,8 +2471,8 @@ verified before a record is used.
 
 **Verification.** Fixtures in four layouts (4 KiB, 512-byte, and 64 KiB
 clusters, and 4 KiB sectors with 4 KiB records), made by `mkntfs` and
-filled through ntfs-3g, are read in tests; one more holds `filer-spec`'s
-tree. `tests/differential.sh` compares them, and fresh ones, with the
+filled through ntfs-3g, are read in tests; one more holds files ntfs-3g
+compressed, and another `filer-spec`'s tree. `tests/differential.sh` compares them, and fresh ones, with the
 Linux kernel's `ntfs3`: every name, kind, size, content, and time agrees.
 Listings are compared sorted, as the order differs by design: Filer lists
 an index in collation order, as Windows does, where `ntfs3` lists a

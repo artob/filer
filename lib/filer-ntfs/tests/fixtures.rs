@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::{Expected, MTIME, expected, unsparse};
+use common::{Expected, MTIME, expected, expected_compressed, unsparse};
 use filer_api::{Dir, FileKind, MetaMask};
 use filer_ntfs::Ntfs;
 use filer_spec::block_on;
@@ -91,4 +91,20 @@ fn reads_64k_clusters() {
 #[test]
 fn reads_4k_sectors_and_records() {
     check(include_bytes!("fixtures/ntfs-4kn.sparse"));
+}
+
+#[test]
+fn reads_compressed_files() {
+    let root = block_on(Ntfs::open(unsparse(include_bytes!(
+        "fixtures/ntfs-compressed.sparse"
+    ))))
+    .unwrap();
+    let mut found = BTreeMap::new();
+    walk(&root, "", &mut found);
+    let expected = expected_compressed();
+    let names = |tree: &BTreeMap<String, Expected>| tree.keys().cloned().collect::<Vec<_>>();
+    assert_eq!(names(&found), names(&expected));
+    for (path, contents) in &expected {
+        assert!(&found[path] == contents, "{path}");
+    }
 }

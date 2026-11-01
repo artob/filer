@@ -703,23 +703,76 @@ pub(crate) mod tests {
             }),
             Err(NtfsError::BadRuns { record: 5 })
         );
-        // Compressed data is not read yet.
-        let compressed = {
-            let builder =
-                RecordBuilder::new(5).non_resident(AttrType::DATA, "", (0, 1), &runs, 8192, 0x0001);
-            let record = builder.parse().unwrap();
-            let extents: Vec<_> = record.attributes().map(Result::unwrap).collect();
-            Stream::new(&extents, &volume.geometry, 5).unwrap()
+        // A compression unit over 64 KiB: 32 clusters of 4 KiB.
+        let mut builder =
+            RecordBuilder::new(5).non_resident(AttrType::DATA, "", (0, 1), &runs, 8192, 0x0001);
+        builder.attributes.last_mut().unwrap()[0x22] = 5;
+        let record = builder.parse().unwrap();
+        let extents: Vec<_> = record.attributes().map(Result::unwrap).collect();
+        assert_eq!(Stream::new(&extents, &volume.geometry, 5), Err(size));
+    }
+
+    #[test]
+    fn reads_compressed_units() {
+        let mut volume = Volume::new(&[(4, 4)]);
+        // One unit of 16 clusters: one allocated, holding a compressed
+        // chunk ("abc", then 9 bytes 3 back), and 15 sparse; then a unit
+        // stored as is; then a sparse unit.
+        let token = (2u16 << 12 | 6).to_le_bytes();
+        // The header holds the chunk's size, 8, minus 3.
+        let chunk = [
+            0x05,
+            0xB0,
+            0b0000_1000,
+            b'a',
+            b'b',
+            b'c',
+            token[0],
+            token[1],
+        ];
+        let runs = encode_runs(&[(Some(100), 1), (None, 15), (Some(120), 16), (None, 16)]);
+        let size = 3 * 65536;
+        let file =
+            RecordBuilder::new(5).non_resident(AttrType::DATA, "", (0, 47), &runs, size, 0x0001);
+        volume
+            .write_record(&volume.mft_record())
+            .write_record(&file)
+            .write(100, &chunk)
+            .write(120, &[9; 65536]);
+        let mft = volume.mft().unwrap();
+        let source = volume.bytes.as_slice();
+        let found =
+            block_on(mft.file(source, &volume.geometry, reference(5), OpKind::Read)).unwrap();
+        let stream = found
+            .stream(&volume.geometry, AttrType::DATA, "")
+            .unwrap()
+            .unwrap();
+        let read = |off, max| {
+            block_on(stream.read(source, &volume.geometry, off, max, OpKind::Read)).unwrap()
         };
-        let error = block_on(compressed.read(
-            volume.bytes.as_slice(),
-            &volume.geometry,
-            0,
-            10,
-            OpKind::Read,
-        ))
-        .unwrap_err();
-        assert_eq!(error.kind(), ErrorKind::Unsupported);
+        assert_eq!(&read(0, 12), b"abcabcabcabc");
+        assert_eq!(read(10, 5), b"bc\0\0\0");
+        // A read stops at the end of a compressed unit.
+        assert_eq!(read(65530, 100), vec![0; 6]);
+        assert_eq!(read(65536, 70000), vec![9; 65536]);
+        assert_eq!(read(2 * 65536 + 5, 10), vec![0; 10]);
+        let all = block_on(stream.read_exact(source, &volume.geometry, 0, 3 * 65536, OpKind::Read))
+            .unwrap();
+        assert_eq!(all.len(), 3 * 65536);
+
+        // A compressed unit whose data is malformed.
+        volume.write(100, &[0x03, 0xB0, 0b0000_0001, 0, 0, 0, 0, 0]);
+        let mft = volume.mft().unwrap();
+        let source = volume.bytes.as_slice();
+        let found =
+            block_on(mft.file(source, &volume.geometry, reference(5), OpKind::Read)).unwrap();
+        let stream = found
+            .stream(&volume.geometry, AttrType::DATA, "")
+            .unwrap()
+            .unwrap();
+        let error =
+            block_on(stream.read(source, &volume.geometry, 0, 10, OpKind::Read)).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Corrupt);
     }
 
     #[test]

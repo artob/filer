@@ -32,9 +32,9 @@ use filer_api::{
 /// system files (`$MFT`, `$LogFile`, and the rest). A file's id is its MFT
 /// record number, so hard links share it. Times are UTC, at 100 ns.
 ///
-/// Writing is out of scope. Everything but reading is
-/// [`Unsupported`](ErrorKind::Unsupported), as are, for now, compressed
-/// and encrypted files.
+/// Compressed files (LZNT1) read as any other. Writing is out of scope:
+/// everything but reading is [`Unsupported`](ErrorKind::Unsupported), as
+/// are encrypted files.
 ///
 /// # Examples
 ///

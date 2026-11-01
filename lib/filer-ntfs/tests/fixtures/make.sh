@@ -9,12 +9,15 @@
 # count (u32), and the sector's bytes. `spec.sparse` holds the
 # specification's tree instead.
 #
-# Usage: tests/fixtures/make.sh [output-dir], on Linux with ntfs-3g,
-# python3, and `sudo` for mounting. Times are UTC, so output is stable but
+# Usage: tests/fixtures/make.sh [output-dir [fixture...]], on Linux with
+# ntfs-3g, python3, and `sudo` for mounting; without fixture names, makes
+# them all. Times are UTC, so output is stable but
 # for the times `mkntfs` and ntfs-3g record themselves.
 
 set -eu
 out=$(cd "${1:-$(dirname "$0")}" && pwd)
+[ $# -gt 0 ] && shift
+only="$*"
 work=$(mktemp -d)
 mnt="$work/mnt"
 mkdir "$mnt"
@@ -111,6 +114,50 @@ os.rmdir(os.path.join(root, "GoneDir"))
 PY
 }
 
+# Compressed files, in a directory flagged compressed: compressible,
+# incompressible (stored as is), sparse, exactly one unit, and mixed.
+compressed() {
+    python3 -I - "$mnt" <<'PY'
+import os, sys
+root = sys.argv[1]
+MTIME = 1_704_164_646
+
+def pattern(size, seed):
+    return bytes((i * 7 + seed) % 251 for i in range(size))
+
+def noise(size, seed):
+    # Xorshift32, as `tests/common` has it.
+    out, x = bytearray(), seed
+    for _ in range(size):
+        x ^= (x << 13) & 0xFFFFFFFF
+        x ^= x >> 17
+        x ^= (x << 5) & 0xFFFFFFFF
+        out.append(x & 0xFF)
+    return bytes(out)
+
+directory = os.path.join(root, "Compressed")
+os.mkdir(directory)
+flags = int.from_bytes(os.getxattr(directory, "system.ntfs_attrib_be"), "big")
+os.setxattr(directory, "system.ntfs_attrib_be", (flags | 0x800).to_bytes(4, "big"))
+
+def put(name, data):
+    full = os.path.join(directory, name)
+    with open(full, "wb") as f:
+        f.write(data)
+    os.utime(full, (MTIME, MTIME))
+
+put("text.txt", pattern(200_000, 1))
+put("noise.bin", noise(100_000, 7))
+put("exact.bin", pattern(65536, 3))
+put("mixed.bin", noise(30_000, 9) + bytes(70_000) + pattern(50_000, 4))
+put("small.txt", pattern(5, 2))
+with open(os.path.join(directory, "sparse.bin"), "wb") as f:
+    f.seek(200_000)
+    f.write(b"end")
+os.utime(os.path.join(directory, "sparse.bin"), (MTIME, MTIME))
+PY
+}
+
 spec() {
     python3 -I - "$mnt" <<'PY'
 import os, sys
@@ -128,9 +175,10 @@ PY
 # Makes fixture `$1` with sectors of `$2` bytes and clusters of `$3`,
 # filled by `$4`.
 make() {
+    case " $only " in "  " | *" $1 "*) ;; *) return ;; esac
     img="$work/$1.img"
     format "$img" "$2" "$3"
-    sudo mount -t ntfs-3g -o "uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
+    sudo mount -t ntfs-3g -o "compression,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
     $4
     sudo umount "$mnt"
     sparse "$img" "$out/$1.sparse"
@@ -140,4 +188,5 @@ make ntfs-4k 512 4096 fill
 make ntfs-512 512 512 fill
 make ntfs-64k 512 65536 fill
 make ntfs-4kn 4096 4096 fill
+make ntfs-compressed 512 4096 compressed
 make spec 512 4096 spec

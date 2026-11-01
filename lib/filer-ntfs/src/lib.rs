@@ -4,8 +4,8 @@
 //!
 //! [`Ntfs`] implements [`filer_api::Driver`] over NTFS volumes, read from
 //! any [`filer_api::ReadAt`] source, reporting each inconsistency it finds
-//! as an [`NtfsError`]. Writing is out of scope for now; compressed files
-//! and reparse points are in progress (see `DESIGN.md` §17.14).
+//! as an [`NtfsError`]. Writing is out of scope for now; reparse points
+//! are in progress (see `DESIGN.md` §17.14).
 //!
 //! **Clean room.** The mature NTFS implementations are GPL, so this
 //! public-domain crate is written from public descriptions of the format
@@ -78,6 +78,7 @@ mod file_name;
 mod fixup;
 mod geometry;
 mod index;
+mod lznt1;
 mod mft;
 
 mod ntfs;
