@@ -685,8 +685,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-02: MFT records.** Fixups, record headers, and attribute
-  iteration. Done when torn and malformed records are `Corrupt`.
 - [ ] **NTFS-03: Data runs.** Mapping pairs into run lists; reading
   resident, non-resident, and sparse data to the initialized size;
   records through `$MFT`'s runs; `$ATTRIBUTE_LIST`. Done when unit tests

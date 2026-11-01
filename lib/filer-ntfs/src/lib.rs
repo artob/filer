@@ -74,4 +74,6 @@ extern crate alloc;
 mod ntfs_error;
 pub use ntfs_error::*;
 
+mod fixup;
 mod geometry;
+mod record;

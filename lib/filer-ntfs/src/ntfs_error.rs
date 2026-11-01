@@ -44,6 +44,27 @@ pub enum NtfsError {
     /// from 512 bytes to 64 KiB.
     BadIndexRecordSize(i8),
 
+    /// An MFT record is not one: its signature, header, or own number is
+    /// wrong.
+    BadMftRecord {
+        /// The record's number.
+        record: u64,
+    },
+
+    /// An MFT record's update sequence does not match: it was torn.
+    TornRecord {
+        /// The record's number.
+        record: u64,
+    },
+
+    /// An attribute of an MFT record does not fit it.
+    BadAttribute {
+        /// The record's number.
+        record: u64,
+        /// The attribute's offset in the record.
+        offset: u32,
+    },
+
     /// The volume is larger than its source.
     Truncated {
         /// The volume's size in bytes, per its boot sector.
@@ -84,6 +105,14 @@ impl core::fmt::Display for NtfsError {
             Self::BadRecordSize(code) => write!(f, "invalid MFT record size code {code}"),
             Self::BadIndexRecordSize(code) => {
                 write!(f, "invalid index record size code {code}")
+            },
+            Self::BadMftRecord { record } => write!(f, "MFT record {record} is invalid"),
+            Self::TornRecord { record } => write!(f, "MFT record {record} is torn"),
+            Self::BadAttribute { record, offset } => {
+                write!(
+                    f,
+                    "MFT record {record} has an invalid attribute at {offset}"
+                )
             },
             Self::Truncated { volume, source } => {
                 write!(f, "volume of {volume} bytes in a source of {source}")
