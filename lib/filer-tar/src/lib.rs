@@ -9,6 +9,10 @@
 //! stay confined to the archive, and a hostile archive fails to open rather
 //! than exposing anything outside it (see [`Tar`] and [`Limits`]).
 //!
+//! **Read-only, permanently.** Filer reads archives as directories; it
+//! never creates or modifies them, and never will: writing archives is out
+//! of scope for this project. Use a dedicated archiving library for that.
+//!
 //! So far it reads uncompressed archives with random access. Compressed
 //! archives (gzip, zstd, xz) and forward-only sources are planned (see
 //! `DESIGN.md` §17.7).

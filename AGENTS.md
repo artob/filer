@@ -37,10 +37,12 @@
   platform-independent API; backends implement it for Unix (`filer-posix`),
   WASI (`filer-wasi`), Windows (`filer-windows`), and browsers
   (`filer-whatwg`, the WHATWG File System API); `filer-heap` is the
-  in-memory driver and `filer-tar`/`filer-zip` are archive drivers (no OS,
-  build everywhere, read from `ReadAt` sources); `filer-system` re-exports
-  `filer-api` plus `System`, the target's native driver (the one dependency
-  for users); `filer-cli` builds the `filer` binary over `filer-system`.
+  in-memory driver; `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and
+  `filer-rar` are archive drivers (no OS, build everywhere, read from
+  `ReadAt` sources, read-only forever: never add archive writing);
+  `filer-system` re-exports `filer-api` plus `System`, the target's native
+  driver (the one dependency for users); `filer-cli` builds the `filer`
+  binary over `filer-system`.
 - New crates must also be added to the package lists in
   `.github/workflows/ci.yaml` and to the README crate table.
 - `filer-cli` is binary-only: its `[[bin]]` has `required-features = ["std"]`,

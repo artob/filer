@@ -32,8 +32,11 @@ undocumented_unsafe_blocks = "deny"
 
 [workspace.dependencies]
 filer-api = { version = "0.0.1", path = "lib/filer-api", default-features = false }
+filer-ar = { version = "0.0.1", path = "lib/filer-ar", default-features = false }
+filer-cpio = { version = "0.0.1", path = "lib/filer-cpio", default-features = false }
 filer-heap = { version = "0.0.1", path = "lib/filer-heap", default-features = false }
 filer-posix = { version = "0.0.1", path = "lib/filer-posix", default-features = false }
+filer-rar = { version = "0.0.1", path = "lib/filer-rar", default-features = false }
 filer-spec = { version = "0.0.1", path = "lib/filer-spec", default-features = false }
 filer-system = { version = "0.0.1", path = "lib/filer-system", default-features = false }
 filer-tar = { version = "0.0.1", path = "lib/filer-tar", default-features = false }
@@ -47,8 +50,11 @@ rustix = { version = "1.1", default-features = false }
 
 [patch.crates-io]
 filer-api = { path = "lib/filer-api" }
+filer-ar = { path = "lib/filer-ar" }
+filer-cpio = { path = "lib/filer-cpio" }
 filer-heap = { path = "lib/filer-heap" }
 filer-posix = { path = "lib/filer-posix" }
+filer-rar = { path = "lib/filer-rar" }
 filer-spec = { path = "lib/filer-spec" }
 filer-system = { path = "lib/filer-system" }
 filer-tar = { path = "lib/filer-tar" }

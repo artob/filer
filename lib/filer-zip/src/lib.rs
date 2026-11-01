@@ -7,6 +7,10 @@
 //! [`filer_api::ReadAt`] source, such as a `File` from another driver or
 //! bytes in memory. It does not export any items yet.
 //!
+//! **Read-only, permanently.** Filer reads archives as directories; it
+//! never creates or modifies them, and never will: writing archives is out
+//! of scope for this project. Use a dedicated archiving library for that.
+//!
 //! The plan (see `DESIGN.md` §17.7): the central directory at the end of
 //! the archive indexes the members, so the source must be random-access
 //! with a known size. Members are compressed individually (stored and

@@ -14,6 +14,7 @@ so any release may break compatibility.
   `DefaultPool`, the built-in thread pool.
 - `filer-posix`, `filer-system`: `thread_pool(spawner)` constructors, which
   run each operation on a `Spawner` instead of inside `poll`.
+- `filer-ar`, `filer-cpio`, and `filer-rar`: New crates, with no items yet.
 
 ## 0.0.1 - 2026-11-01
 The first usable version: read-only access through a capability-based

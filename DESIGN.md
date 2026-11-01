@@ -318,6 +318,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-vfs` | mount-table routing driver | no |
 | `filer-overlay` | overlay routing driver | no |
 | `filer-tar`, `filer-zip` | read-only archive drivers | no |
+| `filer-ar`, `-cpio`, `-rar` | read-only archive drivers | no |
 | `filer-tracing` | tracing middleware | no |
 | `filer-faults` | fault-injection middleware | no |
 | `filer-quota` | quota middleware | no |
@@ -333,11 +334,11 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-cli` | the `filer` binary over the native driver | no |
 | umbrella (Q11) | re-exports and feature forwarding | no |
 
-Existing so far (2026-11-01): `filer-api`, `filer-heap`, and `filer-posix`
-(read-only), `filer-system`, `filer-spec`, and as empty skeletons
-`filer-wasi`, `filer-whatwg`, `filer-windows`, `filer-tar`, `filer-zip`,
-and `filer-cli` (D30, D38, D41). The rest are
-created when their first `TODO.md` item starts.
+Existing so far (2026-11-01): `filer-api`, `filer-heap`, `filer-posix`,
+and `filer-tar` (read-only), `filer-system`, `filer-spec`, and as empty
+skeletons `filer-wasi`, `filer-whatwg`, `filer-windows`, `filer-zip`,
+`filer-ar`, `filer-cpio`, `filer-rar`, and `filer-cli` (D30, D38, D41).
+The rest are created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
 that perform no I/O and hold no filesystem state (`DynDriver`, `Hybrid`,
@@ -1961,7 +1962,7 @@ semantics: whiteouts for deletions, opaque directories, copy-up on first
 write (using clone when upper and lower share a volume). Useful for
 sandboxes, test fixtures, and "try this change" workflows.
 
-### 17.7 `filer-tar` and `filer-zip`
+### 17.7 Archive drivers: `filer-tar`, `filer-zip`, and more
 
 Read-only archive drivers, one crate per format (D41, answering Q7's
 packaging question): they need different dependencies and codec features,
@@ -2042,10 +2043,30 @@ generic over the file payload: `Node::{Dir, File(F), Symlink(bytes),
 Special(FileKind)}`, policy-free primitives (`add`, `link` returning the
 replaced inode, `make_dir`), and a `Resolver` impl. Drivers apply their
 own policies (`Heap` panics on duplicates; archives let the later entry
-win) and keep their tree private. Creating archives
-does not fit the driver model (no in-place rename or removal; ZIP writes
-its index last) and belongs to a separate writer API, such as packing a
-`Dir` into a TAR or ZIP.
+win) and keep their tree private.
+
+**Read-only, permanently (D43).** Archive drivers read archives as
+directories and will never create or modify them: writing archives is out
+of scope for this project, not merely deferred. It also does not fit the
+driver model (no in-place rename or removal; ZIP writes its index last),
+and dedicated archiving libraries already do it well. Every archive
+crate's docs say so.
+
+**More formats (2026-11-01).** Each format is its own crate, so that they
+compose through `ReadAt` (a `.deb` is an ar archive holding compressed
+TARs; an RPM is a header followed by a compressed cpio):
+
+- `filer-ar`: flat ar archives (`.deb`, static `.a` libraries), with GNU
+  and BSD long names and hidden symbol tables;
+- `filer-cpio`: `odc`, `newc`, and old binary cpio (initramfs, RPM
+  payloads), with hardlinks identified by device and inode number;
+- `filer-rar`: RAR 4 and 5, reserved for now. RAR's compression is
+  proprietary and the official `unrar` license forbids using its source to
+  recreate the algorithm, so a reader must be a clean-room implementation
+  of decompression only, as libarchive's is; solid archives also make
+  reads at an offset costly.
+
+All three exist as published empty crates, to reserve their names.
 
 ### 17.8 `filer-wasi`
 
@@ -2680,6 +2701,7 @@ Record changes here with a date and one line of rationale.
 | D40 | Planned: `filer-uefi`; 9P, SMB, NFS, SFTP; FAT and others | Accepted |
 | D41 | Archives are `filer-tar` and `filer-zip`, one per format | Accepted |
 | D42 | Byte sources are `ReadAt`: positional reads, length | Accepted |
+| D43 | Archive drivers are read-only, permanently | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

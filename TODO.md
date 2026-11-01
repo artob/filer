@@ -597,8 +597,15 @@ Created with `publish = false` (D16).
   each decodes a test archive.
 - [ ] **ZIP-03: CP437 names (stretch goal).** Decode legacy names to UTF-8.
   Done when a CP437 archive lists its names correctly.
-- [ ] **ARC-03: Archive writer (later).** Pack a `Dir` into TAR or ZIP,
-  outside the driver model. Done when designed in `DESIGN.md`.
+- [ ] **AR-01: `filer-ar`.** GNU and BSD long names, hidden symbol
+  tables. Done when it reads a `.deb` and passes the read-only
+  `filer-spec` subset its format can express.
+- [ ] **CPIO-01: `filer-cpio`.** `odc`, `newc`, and old binary formats;
+  hardlinks by device and inode. Done when it reads an initramfs image and
+  passes `filer-spec`.
+- [ ] **RAR-01: `filer-rar` (on demand).** Only as a clean-room,
+  decompression-only reader (§17.7). Done when its licensing approach is
+  recorded in `DESIGN.md` before any code.
 
 ## Middleware
 

@@ -18,15 +18,18 @@
 | Crate | Platforms | Summary |
 | --- | --- | --- |
 | `filer-api` | All | Platform-independent API |
+| `filer-ar` | All | Read-only ar archive driver |
+| `filer-cpio` | All | Read-only cpio archive driver |
 | `filer-heap` | All | In-memory driver |
 | `filer-posix` | Unix | POSIX backend |
+| `filer-rar` | All | Read-only RAR archive driver |
 | `filer-spec` | All | Executable driver specification, for tests |
 | `filer-system` | All | Native backend for the target, plus the API |
-| `filer-tar` | All | TAR archive driver |
+| `filer-tar` | All | Read-only TAR archive driver |
 | `filer-wasi` | WASI | WASI backend |
 | `filer-whatwg` | Browsers | WHATWG File System (OPFS) backend |
 | `filer-windows` | Windows | Windows backend |
-| `filer-zip` | All | ZIP archive driver |
+| `filer-zip` | All | Read-only ZIP archive driver |
 | `filer-cli` | All | `filer` command-line interface |
 
 ## 👨‍💻 Development
