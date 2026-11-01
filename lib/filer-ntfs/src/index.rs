@@ -4,9 +4,6 @@
 //! is the resident `$INDEX_ROOT` and whose other nodes are `INDX` records
 //! in `$INDEX_ALLOCATION`.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::{
     NtfsError,
     file_name::FileName,

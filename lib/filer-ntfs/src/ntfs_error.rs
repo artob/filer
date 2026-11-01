@@ -140,6 +140,19 @@ pub enum NtfsError {
     /// `$UpCase` is not a table of 65,536 units.
     BadUpCase,
 
+    /// The volume is marked dirty: its `$LogFile` was not replayed, so it
+    /// may be inconsistent. Opening it needs
+    /// [`Options::allow_dirty`](crate::Options::allow_dirty).
+    Dirty,
+
+    /// The volume's NTFS version is not 1.x or 3.x.
+    UnsupportedVersion {
+        /// The major version.
+        major: u8,
+        /// The minor version.
+        minor: u8,
+    },
+
     /// The volume is larger than its source.
     Truncated {
         /// The volume's size in bytes, per its boot sector.
@@ -151,10 +164,15 @@ pub enum NtfsError {
 
 impl NtfsError {
     /// Returns the [`ErrorKind`] this inconsistency is reported as:
-    /// [`Corrupt`](ErrorKind::Corrupt).
+    /// [`Unsupported`](ErrorKind::Unsupported) for a dirty volume or an
+    /// unknown version, and [`Corrupt`](ErrorKind::Corrupt) for everything
+    /// else.
     #[must_use]
     pub const fn kind(&self) -> ErrorKind {
-        ErrorKind::Corrupt
+        match self {
+            Self::Dirty | Self::UnsupportedVersion { .. } => ErrorKind::Unsupported,
+            _ => ErrorKind::Corrupt,
+        }
     }
 
     /// Returns an [`Error`] of [`kind`](Self::kind) from `op`, with this
@@ -220,6 +238,10 @@ impl core::fmt::Display for NtfsError {
             },
             Self::BadFileName { record } => write!(f, "file {record} has an invalid name"),
             Self::BadUpCase => f.write_str("invalid $UpCase table"),
+            Self::Dirty => f.write_str("marked dirty: its log was not replayed"),
+            Self::UnsupportedVersion { major, minor } => {
+                write!(f, "unsupported NTFS version {major}.{minor}")
+            },
             Self::Truncated { volume, source } => {
                 write!(f, "volume of {volume} bytes in a source of {source}")
             },

@@ -2,9 +2,6 @@
 
 //! The boot sector, and the volume layout it describes.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::NtfsError;
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
@@ -129,6 +126,7 @@ impl Geometry {
         })
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn sector_size(&self) -> u32 {
         self.sector_size
     }
@@ -153,6 +151,7 @@ impl Geometry {
     }
 
     /// Returns the first cluster of `$MFTMirr`.
+    #[allow(dead_code, reason = "for reading $MFTMirr when $MFT is damaged, later")]
     pub(crate) const fn mft_mirror(&self) -> u64 {
         self.mft_mirror
     }
@@ -163,6 +162,7 @@ impl Geometry {
     }
 
     /// Returns the size of an index record in bytes.
+    #[allow(dead_code, reason = "used by tests; indexes state their own size")]
     pub(crate) const fn index_record_size(&self) -> u32 {
         self.index_record_size
     }
@@ -173,6 +173,7 @@ impl Geometry {
     }
 
     /// Returns the volume's size in bytes, per its boot sector.
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn volume_len(&self) -> u64 {
         self.volume_len
     }

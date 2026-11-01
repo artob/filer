@@ -2,9 +2,6 @@
 
 //! `$FILE_NAME` values: a name of a file in a directory.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::record::FileRef;
 use alloc::{boxed::Box, vec::Vec};
 

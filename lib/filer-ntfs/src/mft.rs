@@ -2,9 +2,6 @@
 
 //! The master file table, and files gathered from its records.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::{
     NtfsError,
     geometry::Geometry,
@@ -197,6 +194,7 @@ impl Mft {
     }
 
     /// Returns the number of records in the MFT.
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn records(&self) -> u64 {
         self.records
     }

@@ -3,9 +3,6 @@
 //! An attribute's value: resident bytes, or clusters mapped by data runs,
 //! and reading it.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::{
     NtfsError,
     geometry::Geometry,

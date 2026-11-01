@@ -2,9 +2,6 @@
 
 //! MFT records, and the attributes they hold.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::{NtfsError, fixup};
 use alloc::vec::Vec;
 
@@ -19,7 +16,9 @@ impl AttrType {
     pub(crate) const DATA: Self = Self(0x80);
     pub(crate) const INDEX_ROOT: Self = Self(0x90);
     pub(crate) const INDEX_ALLOCATION: Self = Self(0xA0);
+    #[allow(dead_code, reason = "for index and MFT bitmaps, later")]
     pub(crate) const BITMAP: Self = Self(0xB0);
+    #[allow(dead_code, reason = "for reparse points (NTFS-08)")]
     pub(crate) const REPARSE_POINT: Self = Self(0xC0);
     /// Ends the attributes of a record.
     const END: u32 = 0xFFFF_FFFF;
@@ -128,6 +127,7 @@ impl Record {
     }
 
     /// Returns the number of hard links (names) the file has.
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn links(&self) -> u16 {
         self.links
     }
@@ -240,6 +240,7 @@ pub(crate) struct NonResident<'a> {
 impl<'a> Attribute<'a> {
     const COMPRESSED: u16 = 0x0001;
     const ENCRYPTED: u16 = 0x4000;
+    #[allow(dead_code, reason = "used by tests")]
     const SPARSE: u16 = 0x8000;
 
     /// Parses an attribute's bytes, `kind` already read; `None` if any
@@ -290,6 +291,7 @@ impl<'a> Attribute<'a> {
     }
 
     /// Returns the name as UTF-16LE bytes, empty if unnamed.
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn name(&self) -> &'a [u8] {
         self.name
     }
@@ -306,6 +308,7 @@ impl<'a> Attribute<'a> {
                 .all(|(unit, byte)| *unit == [byte, 0])
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn id(&self) -> u16 {
         self.id
     }
@@ -322,6 +325,7 @@ impl<'a> Attribute<'a> {
         self.flags & Self::ENCRYPTED != 0
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn is_sparse(&self) -> bool {
         self.flags & Self::SPARSE != 0
     }

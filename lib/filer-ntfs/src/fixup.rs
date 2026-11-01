@@ -9,9 +9,6 @@
 //! last two bytes differ was not written with the rest: the record is
 //! torn, and must not be used.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 /// The stride the update sequence protects, whatever the sector size.
 pub(crate) const STRIDE: usize = 512;
 

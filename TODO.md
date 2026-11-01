@@ -685,8 +685,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-05: Driver.** Open, read, stat, list, close, dirty-volume
-  refusal with an opt-in. Done when an `mkntfs` image reads.
 - [ ] **NTFS-06: Fixtures and verification.** `mkntfs` and ntfs-3g
   fixtures stored sparsely, `filer-spec`, and the differential test
   against the Linux kernel's `ntfs3`. Done when all agree.

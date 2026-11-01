@@ -4,9 +4,6 @@
 //! surrogates encoded as if they were scalar values, so that every name
 //! NTFS can hold has a byte form, and back.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 use alloc::vec::Vec;
 
 /// Encodes UTF-16 `units` as WTF-8.

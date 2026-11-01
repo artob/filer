@@ -3,9 +3,6 @@
 //! `$UpCase`: the volume's own table of uppercase UTF-16 units, by which
 //! names are matched case-insensitively, as on Windows.
 
-// The driver (NTFS-05) uses the rest of this module.
-#![allow(dead_code)]
-
 use alloc::{boxed::Box, vec::Vec};
 
 /// The units in the table: every UTF-16 unit.

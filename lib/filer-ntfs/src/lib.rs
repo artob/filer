@@ -2,11 +2,11 @@
 
 //! Read-only NTFS file system driver for the Filer API.
 //!
-//! This crate will implement [`filer_api::Driver`] over NTFS volumes,
-//! read from any [`filer_api::ReadAt`] source. Writing is out of scope for
-//! now. So far it parses and validates the boot sector, reporting each
-//! inconsistency as an [`NtfsError`]; the rest is in progress (see
-//! `DESIGN.md` §17.14).
+//! [`Ntfs`] implements [`filer_api::Driver`] over NTFS volumes, read from
+//! any [`filer_api::ReadAt`] source, reporting each inconsistency it finds
+//! as an [`NtfsError`]. Writing is out of scope for now; compressed files,
+//! reparse points, and verification against real images are in progress
+//! (see `DESIGN.md` §17.14).
 //!
 //! **Clean room.** The mature NTFS implementations are GPL, so this
 //! public-domain crate is written from public descriptions of the format
@@ -79,8 +79,17 @@ mod fixup;
 mod geometry;
 mod index;
 mod mft;
+
+mod ntfs;
+pub use ntfs::*;
+
 mod record;
 mod runs;
 mod stream;
+mod time;
 mod upcase;
+mod volume;
 mod wtf8;
+
+mod options;
+pub use options::*;
