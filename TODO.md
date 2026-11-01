@@ -593,7 +593,8 @@ Created with `publish = false` (D16).
   strict limits (ratio, total size, entries). Done when it passes the
   read-only `filer-spec` subset and a fuzz target covers zip bombs and
   name quarantine.
-- [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA behind features. Done when
+- [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA behind features, as
+  pure-Rust decoders only (D45). Done when
   each decodes a test archive.
 - [ ] **ZIP-03: CP437 names (stretch goal).** Decode legacy names to UTF-8.
   Done when a CP437 archive lists its names correctly.

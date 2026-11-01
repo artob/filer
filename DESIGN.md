@@ -255,7 +255,30 @@ all-feature checks on `wasm32-wasip1` and `wasm32-wasip2` (for
 suite run against every driver. The packaged-doctest job skips `filer-cli`,
 which has no library and so no doctests.
 
-### 3.7 The umbrella crate
+### 3.7 Pure Rust (D45)
+
+Filer is a 100% Rust implementation. No dependency, direct or
+transitive, may compile or bundle C, C++, or other non-Rust code: no
+`cc`, `cmake`, `pkg-config`, or `bindgen` in the build, and no `-sys`
+crates wrapping C libraries (zlib, zstd, bzip2, liblzma, libarchive,
+libfuse, and the like). Where a pure-Rust alternative is missing, the
+feature waits or is written here.
+
+Declaring the operating system's own interfaces to Rust is not C code and
+remains allowed where the OS offers no other stable ABI: `libc` bindings
+on macOS and the BSDs (their system call interface is private), and
+`windows-sys` on Windows. On Linux, `rustix` calls the kernel directly,
+with no C library at all.
+
+Consequences: compression codecs are pure-Rust decoders (for example
+`miniz_oxide` for Deflate, `ruzstd` for zstd, `lzma-rs` for xz and LZMA;
+verify each when adopting it), which suffices since archive drivers only
+read; `filer-fuse` must use a FUSE mount path that needs no `libfuse`
+(**VERIFY** `fuser` without its `libfuse` feature). CI fails if `cc`,
+`cmake`, `pkg-config`, or `bindgen` enters the dependency tree on any
+target.
+
+### 3.8 The umbrella crate
 
 Following Dogma.rs, an umbrella crate re-exports `filer-api` at the top
 level and component crates as modules (`posix`, `windows`, `heap`, ...),
@@ -1994,7 +2017,8 @@ member of another archive can all be sources. Access needed per format:
 Reading at an offset inside a compressed member (Deflate, zstd, ...) costs
 decompressing from the member's start; drivers cache or fully decompress
 small members, and only stored members are truly random-access. Codecs
-are features, preferring `no_std` decoders.
+are features, and pure-Rust decoders only (D45), preferring `no_std`
+ones.
 
 **Names and paths.** Non-UTF-8 names become `ForeignName`s. Names with
 `..`, absolute or drive prefixes, or backslashes are never resolved
@@ -2118,7 +2142,7 @@ operation with `Unsupported`, so portable code compiles everywhere and
 starts working as drivers land; nothing is emulated. Without `std` it is
 just the re-export.
 
-The broader umbrella of §3.7 (re-exporting `filer-heap`, middleware, and
+The broader umbrella of §3.8 (re-exporting `filer-heap`, middleware, and
 the rest as modules, Q11) remains separate and may not be needed.
 
 ### 17.11 `filer-whatwg`
@@ -2519,7 +2543,7 @@ only when the first item needs it.
 | `futures-io` | 0.3 | `filer-api` | optional adapters |
 | `tracing` | 0.1 | `filer-tracing` | `no_std` capable |
 | `tokio` | 1.x | `filer-tokio` | spawner, I/O traits |
-| `fuser` | 0.18 | `filer-fuse` | MSRV 1.85 |
+| `fuser` | 0.18 | `filer-fuse` | MSRV 1.85; no `libfuse` (D45) |
 | `pollster` | 1.0 | tests | tiny `block_on` |
 | `tempfile` | 3.27 | tests | dev-dependency |
 | `proptest` | 1.12 | tests | dev-dependency; MSRV 1.88 |
@@ -2713,6 +2737,7 @@ Record changes here with a date and one line of rationale.
 | D42 | Byte sources are `ReadAt`: positional reads, length | Accepted |
 | D43 | Archive drivers are read-only, permanently | Accepted |
 | D44 | Shared archive code lives in `filer_api::archive`, for now | Accepted |
+| D45 | 100% Rust: no dependency may compile or bundle C code | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
@@ -2746,7 +2771,7 @@ Notes on the 2026-10-31 decisions:
   only via platform extensions?
 - **Q5.** Should the umbrella glob-export `filer_api::*` at its root, given
   names like `File` and `Dir` that may collide with user imports?
-  `filer-system` does (§17.10); the §3.7 umbrella is still open.
+  `filer-system` does (§17.10); the §3.8 umbrella is still open.
 - **Q6.** Optional `miette` diagnostics for `filer_api::Error`?
 - **Q7.** Archive support: own small zip and tar readers (`no_std`
   possible) or existing crates (bigger, `std`)? Packaging is settled

@@ -107,6 +107,16 @@ jobs:
             cargo check -p "$package" --no-default-features
             cargo check -p "$package" --no-default-features --features all
           done
+      - name: Check for C code in dependencies
+        run: |
+          # 100% Rust (DESIGN.md D45): these build tools mean C is compiled.
+          for tool in cc cmake pkg-config bindgen; do
+            if cargo tree --workspace --all-features --target all -i "$tool" >/dev/null 2>&1; then
+              cargo tree --workspace --all-features --target all -i "$tool"
+              echo "::error::dependency on $tool: C code is not allowed (DESIGN.md D45)"
+              exit 1
+            fi
+          done
       - name: Check each feature alone
         run: |
           metadata=$(cargo metadata --no-deps --format-version 1)
