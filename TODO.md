@@ -142,10 +142,10 @@ with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
 
 No OS access; everything builds without `std` (§7.6).
 
-- [ ] **CORE-02: Rights and resolution policy.**
-  `Rights` (§6.2) via `bitflags`, `Symlinks`, `Resolve`, and the rights
-  table as rustdoc. Done when attenuation is tested and `serde` works under
-  its feature.
+- [ ] **CORE-02: Rights.**
+  `Symlinks` and `Resolve` exist. Still missing: `Rights` (§6.2) via
+  `bitflags` and the rights table as rustdoc. Done when attenuation is
+  tested and `serde` works under its feature.
 
 - [ ] **CORE-04: Remaining metadata fields.**
   `MetaMask`, `Metadata`, `FileKind`, `FileId`, and `Timestamp` exist with
@@ -176,9 +176,11 @@ No OS access; everything builds without `std` (§7.6).
   observes the close on its closer. The `Pending` placeholder belongs to
   DRV-03.
 
-- [ ] **DRV-02: Ops and completions.**
-  `Op`, `Target`, `OpenHow`, `RenameFlags`, `Completion`, `Output`, and the
-  erased buffer types (§16.1). Done when an erased buffer round-trips to its
+- [ ] **DRV-02: Write ops and completions.**
+  The read subset of `Op`, `Output`, and `Completion` exists, with
+  `ErasedBufMut`. Still missing (§16.1): the write and namespace ops,
+  `OpenHow` write modes and creation, `RenameFlags`, and `ErasedBuf` with
+  its slot in `Completion`. Done when an erased buffer round-trips to its
   original type for every sealed buffer impl.
 
 - [ ] **DRV-03: `Driver` and chains.**

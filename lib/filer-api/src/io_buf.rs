@@ -17,8 +17,10 @@ mod sealed {
 /// move when the buffer value moves.
 ///
 /// The trait is sealed: only this crate implements it, for types it knows
-/// satisfy that requirement.
-pub trait IoBuf: sealed::Sealed + Send + 'static {
+/// satisfy that requirement. It extends [`Any`](core::any::Any) so that an
+/// erased buffer ([`ErasedBufMut`](crate::ErasedBufMut)) can be turned
+/// back into its original type.
+pub trait IoBuf: sealed::Sealed + core::any::Any + Send {
     /// Returns the buffer's contents.
     fn as_bytes(&self) -> &[u8];
 }
@@ -106,6 +108,8 @@ impl IoBufMut for Vec<u8> {
 
 /// Write-only: a boxed slice has no spare capacity to read into.
 impl sealed::Sealed for Box<[u8]> {}
+
+impl sealed::Sealed for crate::ErasedBufMut {}
 
 impl IoBuf for Box<[u8]> {
     fn as_bytes(&self) -> &[u8] {

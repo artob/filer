@@ -1520,6 +1520,16 @@ are downcast back to the caller's type on completion. That costs one
 allocation per I/O operation, negligible next to a syscall; a typed fast
 path can be added later for the common `Vec<u8>` case if profiling says so.
 
+As built (2026-11-01), the read subset exists: `Open`, `Close`, `Read`,
+`Stat`, `ReadDir`, and `ReadLink`, with `Target`, `OpenHow` (`kind` plus
+`Resolve`; read-only for now), `Entry`, `DirCookie` (an opaque `u64`, such
+as a `d_off`), `Output`, and `Completion { result, buf }`, which returns the
+read buffer whatever happened. `ErasedBufMut` boxes a `dyn IoBufMut`;
+`IoBuf` extends `core::any::Any`, so trait upcasting (stable since 1.86)
+recovers the original type, and the erased buffer itself implements
+`IoBufMut` so drivers fill it without knowing its type. `Op::kind()`
+returns its `OpKind`. `Output::Done` is the unit result (`Close`).
+
 ### 16.2 Handles
 
 ```rust
