@@ -620,9 +620,17 @@ Created with `publish = false` (D16).
 - [ ] **EXP-02: `filer-wasi-host`.** Done when a WASI 0.3 guest lists a
   `filer-heap` directory.
 
+## `filer-system`
+
+- [ ] **SYS-01: Wire in new native drivers.**
+  Replace the `Unsupported` stub with `filer_windows::Windows` and the
+  `filer-wasi` driver as each gains a `blocking()` constructor and
+  `open_ambient_dir`, and add `System::thread_pool` after POSIX-01. Done
+  when `filer-system`'s tests pass on Windows and under Wasmtime.
+
 ## Umbrella crate
 
-Blocked on ASK-01.
+Blocked on ASK-01; `filer-system` (§17.10) may make it unnecessary.
 
 - [ ] **UMB-01: Crate and re-exports.** Re-export `filer-api` at the root
   (or not, per Q5) and component crates as modules. Done when re-export

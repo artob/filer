@@ -19,12 +19,7 @@ workspace = true
 [features]
 default = ["all", "std"]
 all = []
-std = [
-  "filer-api/std",
-  "filer-posix/std",
-  "filer-wasi/std",
-  "filer-windows/std",
-]
+std = ["filer-system/std"]
 
 [[bin]]
 name = "filer"
@@ -33,13 +28,4 @@ path = "src/main.rs"
 required-features = ["std"]
 
 [dependencies]
-filer-api.workspace = true
-
-[target.'cfg(unix)'.dependencies]
-filer-posix.workspace = true
-
-[target.'cfg(target_os = "wasi")'.dependencies]
-filer-wasi.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-filer-windows.workspace = true
+filer-system.workspace = true

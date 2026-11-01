@@ -36,13 +36,15 @@
 - Rust 2024 crates live in `lib/<crate>/`: `filer-api` owns the
   platform-independent API; backends implement it for Unix (`filer-posix`),
   WASI (`filer-wasi`), and Windows (`filer-windows`); `filer-heap` is the
-  in-memory driver (no OS, builds everywhere); `filer-cli` builds the
-  `filer` binary.
+  in-memory driver (no OS, builds everywhere); `filer-system` re-exports
+  `filer-api` plus `System`, the target's native driver (the one dependency
+  for users); `filer-cli` builds the `filer` binary over `filer-system`.
 - New crates must also be added to the package lists in
   `.github/workflows/ci.yaml` and to the README crate table.
 - `filer-cli` is binary-only: its `[[bin]]` has `required-features = ["std"]`,
-  so `no_std` builds skip it. It depends on each backend only under that
-  backend's `cfg`. It has no doctests; CI's packaged-doctest loop omits it.
+  so `no_std` builds skip it. It has no doctests; CI's packaged-doctest loop
+  omits it. `filer-system` depends on each backend only under its `cfg`;
+  doctests needing `std` go on `std`-gated items, not the crate root.
 - Root `Cargo.toml` owns shared metadata/dependencies. Keep package and internal
   dependency versions aligned with `VERSION`; internal defaults stay disabled.
   Releases are 0.0.x for now: extremely experimental, any one may break.

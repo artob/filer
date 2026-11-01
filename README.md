@@ -20,6 +20,7 @@
 | `filer-api` | All | Platform-independent API |
 | `filer-heap` | All | In-memory driver |
 | `filer-posix` | Unix | POSIX backend |
+| `filer-system` | All | Native backend for the target, plus the API |
 | `filer-wasi` | WASI | WASI backend |
 | `filer-windows` | Windows | Windows backend |
 | `filer-cli` | All | `filer` command-line interface |

@@ -30,10 +30,7 @@ dependencies = [
 name = "filer-cli"
 version = "0.0.0"
 dependencies = [
- "filer-api",
- "filer-posix",
- "filer-wasi",
- "filer-windows",
+ "filer-system",
 ]
 
 [[package]]
@@ -49,6 +46,16 @@ version = "0.0.0"
 dependencies = [
  "filer-api",
  "rustix",
+]
+
+[[package]]
+name = "filer-system"
+version = "0.0.0"
+dependencies = [
+ "filer-api",
+ "filer-posix",
+ "filer-wasi",
+ "filer-windows",
 ]
 
 [[package]]

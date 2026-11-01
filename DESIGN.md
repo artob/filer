@@ -325,13 +325,14 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-tokio` | Tokio spawner and I/O trait adapters | no |
 | `filer-conformance` | driver conformance suite, as a library | no |
 | `filer-fuse` | FUSE export of any driver | no |
+| `filer-system` | the native driver for the target, plus the API | no |
 | `filer-cli` | the `filer` binary over the native driver | no |
 | umbrella (Q11) | re-exports and feature forwarding | no |
 
-Existing so far: `filer-api` and `filer-heap` (read-only, 2026-11-01), and
-as empty skeletons `filer-posix`, `filer-wasi`, `filer-windows`, and
-`filer-cli` (D30). The rest are created
-when their first `TODO.md` item starts.
+Existing so far (2026-11-01): `filer-api`, `filer-heap`, and `filer-posix`
+(read-only), `filer-system`, and as empty skeletons `filer-wasi`,
+`filer-windows`, and `filer-cli` (D30). The rest are created when their
+first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
 that perform no I/O and hold no filesystem state (`DynDriver`, `Hybrid`,
@@ -340,7 +341,8 @@ against the `Driver` trait (atomic replacement, walking, copying, the
 userspace resolver). Anything with its own semantics, state, or I/O is its
 own crate.
 
-Main type per crate: `filer_posix::Posix`, `filer_windows::Windows`,
+Main type per crate: `filer_system::System`, `filer_posix::Posix`,
+`filer_windows::Windows`,
 `filer_uring::Uring`, `filer_heap::Heap`, `filer_vfs::Vfs`,
 `filer_overlay::Overlay`, `filer_archive::Archive`.
 
@@ -1939,14 +1941,31 @@ there and cannot be the WASI driver directly.
 
 ### 17.9 `filer-cli`
 
-The `filer` binary, built only with `std` (§3.2). It picks the native
-driver for the target (`filer-posix`, `filer-wasi`, or `filer-windows`),
-obtains roots through `AmbientAuthority`, and exposes the frontend's
+The `filer` binary, built only with `std` (§3.2). It uses the native
+driver through `filer-system` (§17.10), obtains roots through
+`AmbientAuthority`, and exposes the frontend's
 operations as subcommands. It is also a living example and a manual test
 tool for the drivers; it does nothing yet, and its command set is designed
 when the frontend (API items in `TODO.md`) exists.
 
-### 17.10 Later
+### 17.10 `filer-system`
+
+The one dependency for programs replacing `std::fs` (D37). It re-exports
+all of `filer_api` (answering Q5 for this crate: yes, since it is meant to
+be the only import) and adds `System`, a newtype over the target's native
+driver (`filer-posix` on Unix, later `filer-windows` and `filer-wasi`),
+target-gated like `filer-cli`. Being a newtype rather than an alias, it has
+one API everywhere (`System::blocking()`, `open_ambient`, and a free
+`filer_system::open_ambient`). On targets without a driver yet, including
+`wasm32-unknown-unknown`, `System` wraps a private stub that fails every
+operation with `Unsupported`, so portable code compiles everywhere and
+starts working as drivers land; nothing is emulated. Without `std` it is
+just the re-export.
+
+The broader umbrella of §3.7 (re-exporting `filer-heap`, middleware, and
+the rest as modules, Q11) remains separate and may not be needed.
+
+### 17.11 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
@@ -2478,6 +2497,7 @@ Record changes here with a date and one line of rationale.
 | D34 | Handles too are minted and read only via a `DriverKey` | Accepted |
 | D35 | The in-`poll` executor is named "blocking", not "inline" | Accepted |
 | D36 | Frontend methods are `async fn`s borrowing `self` (§7.2) | Accepted |
+| D37 | `filer-system` is the one cross-platform dependency | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
@@ -2511,6 +2531,7 @@ Notes on the 2026-10-31 decisions:
   only via platform extensions?
 - **Q5.** Should the umbrella glob-export `filer_api::*` at its root, given
   names like `File` and `Dir` that may collide with user imports?
+  `filer-system` does (§17.10); the §3.7 umbrella is still open.
 - **Q6.** Optional `miette` diagnostics for `filer_api::Error`?
 - **Q7.** Archive support: own small zip and tar readers (`no_std`
   possible) or existing crates (bigger, `std`)?
