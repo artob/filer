@@ -13,7 +13,8 @@ use filer_api::{
 };
 use rustix::{
     fd::{AsFd, BorrowedFd, OwnedFd},
-    fs::{AtFlags, Dir, Mode, OFlags},
+    fs::{AtFlags, Dir, DirEntry, Mode, OFlags},
+    io::Errno,
 };
 use std::{path::Path, sync::Arc, vec::Vec};
 
@@ -35,6 +36,9 @@ use std::{path::Path, sync::Arc, vec::Vec};
 ///
 /// Metadata comes from `fstat` and `fstatat`: kind, length, modification,
 /// change, and access times, and id; no birth times yet.
+///
+/// System calls interrupted by a signal (`EINTR`) are restarted internally,
+/// so [`ErrorKind::Interrupted`] never surfaces from this driver.
 ///
 /// # Examples
 ///
@@ -113,7 +117,7 @@ impl Posix {
                 let result = match &target {
                     Target::Handle(handle) => self
                         .fd(handle, kind)
-                        .and_then(|fd| rustix::fs::fstat(fd).map_err(|e| error(e, kind))),
+                        .and_then(|fd| retry(|| rustix::fs::fstat(fd)).map_err(|e| error(e, kind))),
                     Target::Entry { at, name, follow } => self
                         .entry(at, name, *follow, kind)
                         .and_then(|node| stat_node(&node, kind))
@@ -223,7 +227,7 @@ impl Posix {
     ) -> Result<Output, Error> {
         let op = OpKind::ReadDir;
         let dir = self.dir(handle, op)?;
-        let device = rustix::fs::fstat(&dir.fd).map_err(|e| error(e, op))?;
+        let device = retry(|| rustix::fs::fstat(&dir.fd)).map_err(|e| error(e, op))?;
         let device = stat::device(&device);
         let start = cookie.map_or(0, DirCookie::get);
         let mut listing = dir
@@ -234,25 +238,12 @@ impl Posix {
         // otherwise start over and skip to the cookie.
         let mut current = match listing.take() {
             Some(current) if current.next == start => current,
-            _ => {
-                let stream = Dir::read_from(&*dir.fd).map_err(|e| error(e, op))?;
-                let mut current = Listing {
-                    next: 0,
-                    dir: stream,
-                };
-                while current.next < start {
-                    match next_entry(&mut current.dir, op)? {
-                        Some(_) => current.next += 1,
-                        None => break,
-                    }
-                }
-                current
-            },
+            _ => open_listing(&dir.fd, start).map_err(|e| error(e, op))?,
         };
         let mut entries = Vec::new();
         let mut done = false;
         while entries.len() < max {
-            let Some(raw) = next_entry(&mut current.dir, op)? else {
+            let Some(raw) = next_entry(&mut current, &dir.fd).map_err(|e| error(e, op))? else {
                 done = true;
                 break;
             };
@@ -342,7 +333,7 @@ impl Resolver for Walker {
 /// Returns the metadata of a resolution node, without following it.
 fn stat_node(node: &Node, op: OpKind) -> Result<rustix::fs::Stat, Error> {
     match node {
-        Node::Dir(fd) => rustix::fs::fstat(fd).map_err(|e| error(e, op)),
+        Node::Dir(fd) => retry(|| rustix::fs::fstat(fd)).map_err(|e| error(e, op)),
         Node::Entry { dir, name, .. } => {
             retry(|| rustix::fs::statat(dir, name.as_slice(), AtFlags::SYMLINK_NOFOLLOW))
                 .map_err(|e| error(e, op))
@@ -359,12 +350,12 @@ fn open_file(dir: BorrowedFd<'_>, name: &[u8], op: OpKind) -> Result<OwnedFd, Er
     let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC;
     let fd =
         retry(|| rustix::fs::openat(dir, name, flags, Mode::empty())).map_err(|e| error(e, op))?;
-    let stat = rustix::fs::fstat(&fd).map_err(|e| error(e, op))?;
+    let stat = retry(|| rustix::fs::fstat(&fd)).map_err(|e| error(e, op))?;
     if stat::kind(&stat) != FileKind::File {
         return Err(Error::new(ErrorKind::NotRegularFile, op));
     }
-    let flags = rustix::fs::fcntl_getfl(&fd).map_err(|e| error(e, op))?;
-    rustix::fs::fcntl_setfl(&fd, flags - OFlags::NONBLOCK).map_err(|e| error(e, op))?;
+    let flags = retry(|| rustix::fs::fcntl_getfl(&fd)).map_err(|e| error(e, op))?;
+    retry(|| rustix::fs::fcntl_setfl(&fd, flags - OFlags::NONBLOCK)).map_err(|e| error(e, op))?;
     Ok(fd)
 }
 
@@ -372,17 +363,53 @@ fn open_file(dir: BorrowedFd<'_>, name: &[u8], op: OpKind) -> Result<OwnedFd, Er
 fn read_link(dir: BorrowedFd<'_>, name: &[u8], op: OpKind) -> Result<LinkTarget, Error> {
     match retry(|| rustix::fs::readlinkat(dir, name, Vec::new())) {
         Ok(target) => Ok(LinkTarget::from_bytes(target.into_bytes())),
-        Err(rustix::io::Errno::INVAL) => Err(Error::new(ErrorKind::NotASymlink, op)),
+        Err(Errno::INVAL) => Err(Error::new(ErrorKind::NotASymlink, op)),
         Err(errno) => Err(error(errno, op)),
     }
 }
 
-/// Returns the next entry of a directory stream, skipping `.` and `..`.
-fn next_entry(dir: &mut Dir, op: OpKind) -> Result<Option<rustix::fs::DirEntry>, Error> {
+/// Opens a new stream on the directory `fd`, positioned after `position`
+/// entries (not counting `.` and `..`).
+///
+/// A stream stops for good after an error, so an `EINTR` while skipping
+/// restarts from the beginning rather than retrying the read.
+fn open_listing(fd: &OwnedFd, position: u64) -> rustix::io::Result<Listing> {
+    'restart: loop {
+        let mut listing = Listing {
+            next: 0,
+            dir: retry(|| Dir::read_from(fd))?,
+        };
+        while listing.next < position {
+            match next_raw(&mut listing.dir) {
+                Ok(Some(_)) => listing.next += 1,
+                Ok(None) => break,
+                Err(Errno::INTR) => continue 'restart,
+                Err(errno) => return Err(errno),
+            }
+        }
+        return Ok(listing);
+    }
+}
+
+/// Returns the next entry of a listing, skipping `.` and `..`.
+///
+/// On `EINTR`, the stream is reopened at the same position, since a stream
+/// stops for good after an error.
+fn next_entry(listing: &mut Listing, fd: &OwnedFd) -> rustix::io::Result<Option<DirEntry>> {
+    loop {
+        match next_raw(&mut listing.dir) {
+            Err(Errno::INTR) => *listing = open_listing(fd, listing.next)?,
+            result => return result,
+        }
+    }
+}
+
+/// Returns the next entry of a stream, skipping `.` and `..`.
+fn next_raw(dir: &mut Dir) -> rustix::io::Result<Option<DirEntry>> {
     loop {
         match dir.read() {
             None => return Ok(None),
-            Some(Err(errno)) => return Err(error(errno, op)),
+            Some(Err(errno)) => return Err(errno),
             Some(Ok(entry)) => match entry.file_name().to_bytes() {
                 b"." | b".." => {},
                 _ => return Ok(Some(entry)),

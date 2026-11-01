@@ -25,14 +25,17 @@ const KINDS: &[(Errno, ErrorKind)] = &[
     (Errno::NOSYS, ErrorKind::Unsupported),
     (Errno::BUSY, ErrorKind::Busy),
     (Errno::STALE, ErrorKind::Stale),
-    (Errno::INTR, ErrorKind::Interrupted),
     (Errno::TIMEDOUT, ErrorKind::TimedOut),
     (Errno::IO, ErrorKind::Io),
     (Errno::ILSEQ, ErrorKind::InvalidNameForTarget),
 ];
 
 /// Converts an errno from `op` into an [`Error`], keeping the raw code.
+///
+/// Never called with `EINTR`: every system call goes through [`retry`] or,
+/// for directory streams, reopens them, so interruptions never surface.
 pub(crate) fn error(errno: Errno, op: OpKind) -> Error {
+    debug_assert_ne!(errno, Errno::INTR, "EINTR must be retried, not reported");
     let kind = KINDS
         .iter()
         .find(|(e, _)| *e == errno)
@@ -40,7 +43,9 @@ pub(crate) fn error(errno: Errno, op: OpKind) -> Error {
     Error::new(kind, op).with_os(RawOsError::Errno(errno.raw_os_error()))
 }
 
-/// Runs `call` until it does not fail with `EINTR`.
+/// Runs `call` until it does not fail with `EINTR`. Every system call in
+/// this crate goes through here, so an interrupted call is restarted, never
+/// reported.
 pub(crate) fn retry<T>(mut call: impl FnMut() -> rustix::io::Result<T>) -> rustix::io::Result<T> {
     loop {
         match call() {
@@ -64,5 +69,20 @@ mod tests {
             ErrorKind::Unsupported
         );
         assert_eq!(error(Errno::FAULT, OpKind::Read).kind(), ErrorKind::Other);
+    }
+
+    #[test]
+    fn retries_interrupted_calls() {
+        let mut calls = 0;
+        let result = retry(|| {
+            calls += 1;
+            if calls < 3 {
+                Err(Errno::INTR)
+            } else {
+                Ok(calls)
+            }
+        });
+        assert_eq!(result, Ok(3));
+        assert_eq!(retry(|| Err::<(), _>(Errno::NOENT)), Err(Errno::NOENT));
     }
 }

@@ -92,7 +92,11 @@ pub enum ErrorKind {
     /// A chained operation did not run because an earlier one failed.
     Canceled,
 
-    /// The operation was interrupted (`EINTR`).
+    /// The operation was interrupted.
+    ///
+    /// Drivers restart system calls that fail with `EINTR` themselves, so
+    /// this never reports a signal interrupting a call; it is reserved for
+    /// interruptions a driver cannot retry transparently.
     Interrupted,
 
     /// The operation timed out.

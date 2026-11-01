@@ -55,6 +55,8 @@
   A backend that needs FFI switches to `#![deny(unsafe_code)]` and confines
   `#[allow(unsafe_code)]` to a private `sys` module (`DESIGN.md` §3.3).
   Gate filesystem APIs on `std` and optional interop on matching features.
+- Drivers never surface `EINTR`: wrap every system call in a retry, and
+  reopen streams that stop after an error (`filer-posix`'s `errno.rs`).
 
 # Checks
 For Rust changes, run from the repository root:

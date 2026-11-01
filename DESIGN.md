@@ -1749,8 +1749,13 @@ reopens `.` for an independent stream; the stream stays in the handle
 between batches, and a `DirCookie` counts entries listed, because
 `d_off`/`telldir` are not portable through `rustix` (`DirEntry::offset`
 is missing on Apple targets); an unexpected cookie restarts and skips.
-Errno values map to `ErrorKind` through a table, keeping the raw code;
-`EINTR` is retried. Verified on macOS and, in Docker, Linux at 1.97.
+Errno values map to `ErrorKind` through a table, keeping the raw code.
+`EINTR` never surfaces: every system call goes through a `retry` helper,
+and since a `rustix::fs::Dir` stream stops for good after any error, an
+`EINTR` while reading entries reopens the stream at the same position
+instead. A debug assertion in the errno mapping enforces this.
+`ErrorKind::Interrupted` is thus reserved for interruptions a driver
+cannot retry. Verified on macOS and, in Docker, Linux at 1.97.
 
 ### 17.2 `filer-windows`
 
