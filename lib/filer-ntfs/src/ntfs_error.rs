@@ -143,6 +143,12 @@ pub enum NtfsError {
         record: u64,
     },
 
+    /// A named data stream's name contains NUL.
+    BadStreamName {
+        /// The record's number.
+        record: u64,
+    },
+
     /// `$UpCase` is not a table of 65,536 units.
     BadUpCase,
 
@@ -243,6 +249,9 @@ impl core::fmt::Display for NtfsError {
                 write!(f, "directory {record}'s index loops at VCN {vcn}")
             },
             Self::BadFileName { record } => write!(f, "file {record} has an invalid name"),
+            Self::BadStreamName { record } => {
+                write!(f, "file {record} has a stream with an invalid name")
+            },
             Self::BadReparse { record } => {
                 write!(f, "file {record} has an invalid reparse point")
             },

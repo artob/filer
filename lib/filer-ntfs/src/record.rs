@@ -290,9 +290,26 @@ impl<'a> Attribute<'a> {
     }
 
     /// Returns the name as UTF-16LE bytes, empty if unnamed.
-    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn name(&self) -> &'a [u8] {
         self.name
+    }
+
+    /// Returns `true` if the name is `name`, given as UTF-16.
+    pub(crate) fn is_named_utf16(&self, name: &[u16]) -> bool {
+        self.name.len() == name.len().saturating_mul(2)
+            && self
+                .name
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .zip(name)
+                .all(|(unit, &expected)| u16::from_le_bytes(*unit) == expected)
+    }
+
+    /// Returns the name as UTF-16, empty if unnamed.
+    pub(crate) fn name_utf16(&self) -> Vec<u16> {
+        let (units, _) = self.name.as_chunks::<2>();
+        units.iter().map(|unit| u16::from_le_bytes(*unit)).collect()
     }
 
     /// Returns `true` if the name is `name`, given as ASCII.

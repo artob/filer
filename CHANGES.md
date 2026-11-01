@@ -36,6 +36,8 @@ so any release may break compatibility.
 - `filer-heap`: Extended attributes, set by `HeapBuilder::xattr`.
 - `filer-spec`: `Profile::xattrs`, `TreeEntry::Xattr`, and the
   `reads_xattrs` case.
+- `filer-ntfs`: Named data streams, read as `user.` extended attributes,
+  and file attributes, as `FileAttrs`; `NtfsError::BadStreamName`.
 ### Changed
 - `filer-api`: `Resolver` is now asynchronous, as async-first; the
   synchronous walk is `BlockingResolver`, and both share one

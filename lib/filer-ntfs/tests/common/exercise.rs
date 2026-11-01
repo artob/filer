@@ -4,7 +4,9 @@
 //! check that every answer is consistent. Shared by `tests/fuzz.rs` and
 //! the `cargo-fuzz` targets in `fuzz/`.
 
-use filer_api::{BufResult, Dir, Error, ErrorKind, FileKind, IoBufMut, MetaMask, ReadAt};
+use filer_api::{
+    BufResult, Dir, Error, ErrorKind, FileKind, IoBufMut, MetaMask, ReadAt, XattrEntry,
+};
 use filer_ntfs::{Ntfs, Options};
 use filer_spec::block_on;
 use std::{collections::BTreeMap, future::Future, sync::Arc};
@@ -72,6 +74,9 @@ impl ReadAt for Overlay {
 const MAX_DEPTH: usize = 12;
 const MAX_ENTRIES: usize = 4096;
 
+/// How much of each extended attribute the walk reads.
+const XATTR_BUF: usize = 4096;
+
 /// How far one input got.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Outcome {
@@ -83,8 +88,9 @@ pub struct Outcome {
 
 /// Opens (allowing dirty volumes) and walks `source`, panicking if any
 /// answer is wrong: an error other than `Corrupt` or `Unsupported`, a
-/// listed entry whose id differs from its stat's, or a read that does not
-/// return exactly the file's length.
+/// listed entry whose id differs from its stat's, a read that does not
+/// return exactly the file's length, or a listed extended attribute that
+/// cannot be found.
 ///
 /// Listed kinds come from the index's copy of a file's attributes and
 /// stats from its record; a corrupt volume may make them disagree, which
@@ -117,6 +123,12 @@ fn walk(root: &Dir<Ntfs<Overlay>>, dir: &str, depth: usize, outcome: &mut Outcom
         Ok(handle) => handle,
         Err(error) => return allowed(&error, dir, outcome),
     };
+    xattrs(
+        block_on(handle.xattr_names()),
+        |name| block_on(handle.xattr_into(name, Vec::with_capacity(XATTR_BUF))),
+        dir,
+        outcome,
+    );
     let mut entries = handle.entries().expect("READ right");
     let mut listed = Vec::new();
     while let Some(entry) = block_on(entries.next()) {
@@ -163,16 +175,53 @@ fn walk(root: &Dir<Ntfs<Overlay>>, dir: &str, depth: usize, outcome: &mut Outcom
                 }
             },
             Some(FileKind::File) => match block_on(root.open_file(path.as_str())) {
-                Ok(file) => match block_on(file.read_to_end()) {
-                    Ok(contents) => {
-                        assert_eq!(Some(contents.len() as u64), metadata.len, "{path}: len");
-                        outcome.bytes += contents.len() as u64;
-                    },
-                    Err(error) => allowed(&error, &path, outcome),
+                Ok(file) => {
+                    xattrs(
+                        block_on(file.xattr_names()),
+                        |name| block_on(file.xattr_into(name, Vec::with_capacity(XATTR_BUF))),
+                        &path,
+                        outcome,
+                    );
+                    match block_on(file.read_to_end()) {
+                        Ok(contents) => {
+                            assert_eq!(Some(contents.len() as u64), metadata.len, "{path}: len");
+                            outcome.bytes += contents.len() as u64;
+                        },
+                        Err(error) => allowed(&error, &path, outcome),
+                    }
                 },
                 Err(error) => allowed(&error, &path, outcome),
             },
             kind => panic!("{path}: unexpected kind {kind:?}"),
+        }
+    }
+}
+
+/// Reads the start of each extended attribute `names` lists with `get`,
+/// checking that each is found, and read as far as the buffer holds.
+fn xattrs(
+    names: filer_api::Result<Vec<XattrEntry>>,
+    get: impl Fn(XattrEntry) -> BufResult<Option<u64>, Vec<u8>>,
+    path: &str,
+    outcome: &mut Outcome,
+) {
+    let names = match names {
+        Ok(names) => names,
+        Err(error) => return allowed(&error, path, outcome),
+    };
+    for name in names {
+        let BufResult(result, buf) = get(name.clone());
+        match result {
+            Ok(Some(len)) => {
+                assert_eq!(
+                    buf.len() as u64,
+                    len.min(XATTR_BUF as u64),
+                    "{path}: {name}"
+                );
+                outcome.bytes += buf.len() as u64;
+            },
+            Ok(None) => panic!("{path}: listed {name} not found"),
+            Err(error) => allowed(&error, path, outcome),
         }
     }
 }

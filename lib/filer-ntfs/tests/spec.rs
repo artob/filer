@@ -14,8 +14,7 @@ fn passes_the_specification() {
     // WTF-8 (SPEC-06).
     let profile = Profile::default()
         .with_fifos(false)
-        .with_foreign_names(false)
-        .with_xattrs(false);
+        .with_foreign_names(false);
     let report = filer_spec::run_blocking(profile, |tree| {
         // The fixture holds exactly this tree; if the specification's
         // changes, `make.sh`'s `spec` must follow.
@@ -26,6 +25,7 @@ fn passes_the_specification() {
                 TreeEntry::Dir(path) => format!("{path}/"),
                 TreeEntry::File(path, contents) => format!("{path}={}", contents.len()),
                 TreeEntry::Symlink(path, target) => format!("{path}->{target}"),
+                TreeEntry::Xattr(path, name, value) => format!("{path}:{name}={}", value.len()),
                 entry => panic!("unexpected entry: {entry:?}"),
             })
             .collect();
@@ -35,6 +35,9 @@ fn passes_the_specification() {
             "a/b/c.txt=8",
             "a/z.txt=0",
             "a/empty/",
+            "a/b/c.txt:user.comment=9",
+            "a/b/c.txt:user.empty=0",
+            "a:user.tag=3",
             "a/link->b/c.txt",
             "a/up->../a/b/c.txt",
             "a/abs->/a/b/c.txt",

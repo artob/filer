@@ -10,13 +10,14 @@ use crate::{
     volume::{
         FIRST_USER_RECORD, Node, StandardInformation, Volume, Walker, is_valid_name, listed_name,
     },
+    wtf8,
 };
 use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
     Completion, Dir, DirCookie, Driver, DriverId, Entry, EntryName, Error, ErrorKind, FileId,
     FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow, Output,
-    ReadAt, Resolve, Resolver, Rights, Target, path::RelPath,
+    ReadAt, Resolve, Resolver, Rights, Target, XattrEntry, XattrNs, XattrOp, path::RelPath,
 };
 
 /// A read-only driver for an NTFS volume.
@@ -32,6 +33,12 @@ use filer_api::{
 /// skipping the DOS (8.3) names that shadow long ones, and hide the
 /// system files (`$MFT`, `$LogFile`, and the rest). A file's id is its MFT
 /// record number, so hard links share it. Times are UTC, at 100 ns.
+///
+/// Named data streams (alternate data streams) are extended attributes
+/// in the `user` namespace, as ntfs-3g has them: `file:stream` is
+/// `user.stream` of `file`, matched as names are. Metadata reports file
+/// flags: hidden, system, archive, sparse, compressed, offline,
+/// encrypted, and recall on access as dataless.
 ///
 /// Compressed files (LZNT1) read as any other. Symbolic links, junctions,
 /// and WSL symlinks are symlinks, confined like any other: a target that
@@ -154,6 +161,17 @@ impl<S: ReadAt> Ntfs<S> {
                         .map_err(|error| with_name(error, &name)),
                 )
             },
+            Op::Xattr(XattrOp::Get {
+                handle,
+                name,
+                mut buf,
+            }) => {
+                let result = self.xattr(&handle, &name, &mut buf).await;
+                Completion::new(result.map(Output::Xattr)).with_buf(buf)
+            },
+            Op::Xattr(XattrOp::List { handle }) => {
+                Completion::new(self.xattr_names(&handle).map(Output::XattrNames))
+            },
             op => op.unsupported(),
         }
     }
@@ -216,6 +234,77 @@ impl<S: ReadAt> Ntfs<S> {
         })
     }
 
+    /// Reads as much of the extended attribute `name` of `handle`, a named
+    /// data stream, as fits into `buf`, returning its whole length.
+    async fn xattr(
+        &self,
+        handle: &Handle,
+        name: &XattrEntry,
+        buf: &mut impl IoBufMut,
+    ) -> Result<Option<u64>, Error> {
+        let op = OpKind::GetXattr;
+        let node = self.payload(handle, op)?.node();
+        let id = self.0.key.id();
+        let units = match name {
+            XattrEntry::Foreign { name, .. } if name.origin() != id => {
+                return Err(Error::new(ErrorKind::ForeignNameMismatch, op));
+            },
+            XattrEntry::Utf8(name) if name.ns() == XattrNs::User => {
+                Some(name.name().encode_utf16().collect())
+            },
+            XattrEntry::Foreign {
+                ns: XattrNs::User,
+                name,
+            } => wtf8::decode(name.as_bytes()),
+            // Streams are only in the `user` namespace.
+            _ => None,
+        };
+        let Some(units) = units else {
+            return Ok(None);
+        };
+        let Some(stream) = self.0.stream(node, &units, op)? else {
+            return Ok(None);
+        };
+        let len = stream.len();
+        let want = usize::try_from(len).unwrap_or(usize::MAX).min(buf.spare());
+        let volume = &self.0;
+        let bytes = stream
+            .read_exact(&volume.source, &volume.geometry, 0, want, op)
+            .await?;
+        buf.fill(&mut |spare| {
+            let n = spare.len().min(bytes.len());
+            let (Some(to), Some(from)) = (spare.get_mut(..n), bytes.get(..n)) else {
+                return Ok(0);
+            };
+            to.copy_from_slice(from);
+            Ok(n)
+        })?;
+        Ok(Some(len))
+    }
+
+    /// Lists the extended attributes of `handle`: its named data streams.
+    fn xattr_names(&self, handle: &Handle) -> Result<Vec<XattrEntry>, Error> {
+        let op = OpKind::ListXattrs;
+        let node = self.payload(handle, op)?.node();
+        let bad = || {
+            NtfsError::BadStreamName {
+                record: node.number(),
+            }
+            .into_error(op)
+        };
+        self.0
+            .streams(node, op)?
+            .iter()
+            .map(|units| {
+                let raw = wtf8::encode(units);
+                self.0
+                    .key
+                    .xattr_entry(XattrNs::User, &raw)
+                    .map_err(|_| bad())
+            })
+            .collect()
+    }
+
     async fn entry(
         &self,
         at: &Handle,
@@ -264,6 +353,7 @@ impl<S: ReadAt> Ntfs<S> {
         metadata.modified = time::timestamp(information.modified);
         metadata.changed = time::timestamp(information.changed);
         metadata.accessed = time::timestamp(information.accessed);
+        metadata.attrs = Some(information.flags());
         Ok(metadata)
     }
 

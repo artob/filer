@@ -15,9 +15,11 @@ use crate::{
     upcase::UpCase,
     wtf8,
 };
-use alloc::{sync::Arc, vec::Vec};
+use alloc::{collections::BTreeSet, sync::Arc, vec::Vec};
 use core::future::Future;
-use filer_api::{DriverKey, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver};
+use filer_api::{
+    DriverKey, Error, ErrorKind, FileAttrs, FileKind, LinkTarget, OpKind, ReadAt, Resolver,
+};
 
 /// The record of the root directory.
 pub(crate) const ROOT: u64 = 5;
@@ -221,6 +223,48 @@ impl<S: ReadAt> Volume<S> {
         Stream::new(&extents, &self.geometry, node.number()).map_err(fail)
     }
 
+    /// Returns the names of the named `$DATA` streams of `node`, as UTF-16.
+    pub(crate) fn streams(&self, node: &Node, op: OpKind) -> Result<BTreeSet<Vec<u16>>, Error> {
+        node.file()
+            .names(AttrType::DATA)
+            .map_err(|error| error.into_error(op))
+    }
+
+    /// Returns the named `$DATA` stream `name` of `node`, given as UTF-16,
+    /// or `None` if it has none of that name. Names match exactly, or else
+    /// ignoring case by `$UpCase`, as on Windows.
+    pub(crate) fn stream(
+        &self,
+        node: &Node,
+        name: &[u16],
+        op: OpKind,
+    ) -> Result<Option<Stream>, Error> {
+        let fail = |error: NtfsError| error.into_error(op);
+        if name.is_empty() {
+            // The unnamed stream is the file's contents, not an attribute.
+            return Ok(None);
+        }
+        let file = node.file();
+        let names;
+        let mut extents = file.extents_utf16(AttrType::DATA, name).map_err(fail)?;
+        if extents.is_empty() {
+            names = file.names(AttrType::DATA).map_err(fail)?;
+            let found = names
+                .iter()
+                .find(|candidate| self.upcase.eq_ignore_case(candidate, name));
+            let Some(found) = found else {
+                return Ok(None);
+            };
+            extents = file.extents_utf16(AttrType::DATA, found).map_err(fail)?;
+        }
+        if extents.iter().any(|extent| extent.is_encrypted()) {
+            return Err(Error::new(ErrorKind::Unsupported, op));
+        }
+        Stream::new(&extents, &self.geometry, node.number())
+            .map(Some)
+            .map_err(fail)
+    }
+
     /// Finds the entry `name` in directory `dir`.
     ///
     /// Names match exactly, or else ignoring case by `$UpCase`, as on
@@ -317,6 +361,34 @@ impl StandardInformation {
             })
         })();
         parsed.ok_or(NtfsError::BadDataSize { record })
+    }
+}
+
+impl StandardInformation {
+    /// The file attributes that are flags, and the flags they map to.
+    /// Read-only is a permission; directory and reparse point, the kind.
+    const FLAGS: [(u32, FileAttrs); 9] = [
+        (0x0000_0002, FileAttrs::HIDDEN),
+        (0x0000_0004, FileAttrs::SYSTEM),
+        (0x0000_0020, FileAttrs::ARCHIVE),
+        (0x0000_0200, FileAttrs::SPARSE),
+        (0x0000_0800, FileAttrs::COMPRESSED),
+        (0x0000_1000, FileAttrs::OFFLINE),
+        (0x0000_4000, FileAttrs::ENCRYPTED),
+        // Recall on open, and recall on data access.
+        (0x0004_0000, FileAttrs::DATALESS),
+        (0x0040_0000, FileAttrs::DATALESS),
+    ];
+
+    /// Returns the file's flags.
+    pub(crate) fn flags(&self) -> FileAttrs {
+        let mut flags = FileAttrs::empty();
+        for (bit, flag) in Self::FLAGS {
+            if self.attributes & bit != 0 {
+                flags |= flag;
+            }
+        }
+        flags
     }
 }
 

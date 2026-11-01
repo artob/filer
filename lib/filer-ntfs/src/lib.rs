@@ -21,7 +21,8 @@
 //! `$INDEX_ALLOCATION`); names in UTF-16, with case-insensitive matching
 //! by the volume's own `$UpCase` table, and the DOS (8.3) namespace
 //! alongside the Win32 one; hard links; sparse and LZNT1-compressed
-//! data, decompressed in pure Rust; alternate data streams; reparse
+//! data, decompressed in pure Rust; alternate data streams, read as
+//! extended attributes, and file attributes, read as flags; reparse
 //! points (symbolic links and junctions, mapped to symlinks where they
 //! can be confined); and a volume marked dirty, whose `$LogFile` has not
 //! been replayed.
@@ -31,7 +32,8 @@
 //! `ntfs-3g` package on Debian and Ubuntu, and needs `python3` and `sudo`.
 //! `tests/differential.sh` compares with the Linux kernel's `ntfs3`
 //! driver, a module that Ubuntu ships in `linux-modules-extra-$(uname -r)`
-//! (kept current by `linux-generic`).
+//! (kept current by `linux-generic`), and, for streams and flags, with
+//! `ntfs-3g`.
 //!
 //! Volumes are untrusted input: like `filer-fat`, the driver will yield
 //! errors, never a panic, a hang, or unbounded memory use, and every codec

@@ -688,9 +688,8 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-10: Later.** Named streams, attributes (with FAT-11),
-  Windows-made fixtures, and Interix symlinks (system files holding
-  `IntxLNK`, which older ntfs-3g made).
+- [ ] **NTFS-10: Later.** Windows-made fixtures, and Interix symlinks
+  (system files holding `IntxLNK`, which older ntfs-3g made).
 - [ ] **NTFS-11: Index descent.** Lookups walk a whole `$I30` index in
   order, which is correct whatever its collation, but linear. Descend the
   B+ tree by `$UpCase` collation instead, falling back to the walk if a

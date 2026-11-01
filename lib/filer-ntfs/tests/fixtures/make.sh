@@ -3,7 +3,7 @@
 #
 # Makes the NTFS fixtures with real tools: `mkntfs` formats each volume,
 # and the ntfs-3g FUSE driver fills it with the tree `tests/fixtures.rs`
-# expects. Each image is stored as `<name>.sparse`: the magic
+# expects, writing named data streams as `user.` attributes. Each image is stored as `<name>.sparse`: the magic
 # `FILER-SPARSE-2\n`, the image size (u64, little-endian), then runs of
 # identical nonzero 512-byte sectors, each as its first sector (u32), its
 # count (u32), and the sector's bytes. `spec.sparse` holds the
@@ -104,7 +104,7 @@ put("case.txt", 4, 12)
 put("Long name for DOS.txt", 6, 13)
 os.setxattr(os.path.join(root, "Long name for DOS.txt"),
             "system.ntfs_dos_name", b"LONGNA~1.TXT")
-# A named data stream, which is not exposed yet.
+# A named data stream, read as the attribute `user.extra`.
 os.setxattr(os.path.join(root, "README.TXT"), "user.extra", b"stream data")
 # Deleted entries.
 put("gone.txt", 512, 14)
@@ -210,6 +210,53 @@ reparse("cloud.bin", struct.pack("<IHH", 0x9000001A, 4, 0) + b"data")
 PY
 }
 
+# Named data streams, read as extended attributes, and file attributes.
+streams() {
+    python3 -I - "$mnt" <<'PY'
+import os, sys
+root = sys.argv[1]
+MTIME = 1_704_164_646
+
+def pattern(size, seed):
+    return bytes((i * 7 + seed) % 251 for i in range(size))
+
+def put(path, data):
+    full = os.path.join(root, path)
+    with open(full, "wb") as f:
+        f.write(data)
+    os.utime(full, (MTIME, MTIME))
+    return full
+
+# Resident, non-resident (up to Linux's limit on attribute values),
+# empty, and non-ASCII streams.
+full = put("streams.txt", b"main")
+os.setxattr(full, "user.small", b"x")
+os.setxattr(full, "user.big", pattern(60_000, 1))
+os.setxattr(full, "user.empty", b"")
+os.setxattr(full, "user.Ünï ✓", b"unicode")
+os.setxattr(full, "user.MixedCase", b"m")
+# More streams than one record holds, listed in `$ATTRIBUTE_LIST`.
+full = put("many.bin", b"many")
+for i in range(100):
+    os.setxattr(full, f"user.s{i:03}", pattern(300, i))
+# A directory's stream.
+os.mkdir(os.path.join(root, "Tagged"))
+os.setxattr(os.path.join(root, "Tagged"), "user.tag", b"dir")
+# File attributes, set exactly: read-only (0x1) is a permission, and not
+# content indexed (0x2000) is not reported.
+for name, bits in [
+    ("hidden.txt", 0x2),
+    ("system.txt", 0x4),
+    ("archive.txt", 0x20),
+    ("readonly.txt", 0x1),
+    ("offline.txt", 0x1000),
+    ("all.txt", 0x1 | 0x2 | 0x4 | 0x20 | 0x1000 | 0x2000),
+]:
+    full = put(name, name.encode())
+    os.setxattr(full, "system.ntfs_attrib_be", bits.to_bytes(4, "big"))
+PY
+}
+
 spec() {
     python3 -I - "$mnt" <<'PY'
 import os, struct, sys
@@ -244,6 +291,10 @@ os.makedirs(os.path.join(root, "a", "b"))
 open(os.path.join(root, "a", "b", "c.txt"), "wb").write(b"contents")
 open(os.path.join(root, "a", "z.txt"), "wb").close()
 os.mkdir(os.path.join(root, "a", "empty"))
+# The specification's attributes, as named data streams.
+os.setxattr(os.path.join(root, "a", "b", "c.txt"), "user.comment", b"a comment")
+os.setxattr(os.path.join(root, "a", "b", "c.txt"), "user.empty", b"")
+os.setxattr(os.path.join(root, "a"), "user.tag", b"dir")
 # The specification's symlinks, as Windows links where Windows can
 # express them, and an absolute one on drive C:.
 reparse("a/link", windows_link("b\\c.txt", "b\\c.txt", 1))
@@ -276,4 +327,5 @@ make ntfs-64k 512 65536 fill
 make ntfs-4kn 4096 4096 fill
 make ntfs-compressed 512 4096 compressed
 make ntfs-links 512 4096 links
+make ntfs-streams 512 4096 streams
 make spec 512 4096 spec

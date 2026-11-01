@@ -78,11 +78,22 @@ fn extents<'a>(
     kind: AttrType,
     name: &str,
 ) -> Result<Vec<Attribute<'a>>, NtfsError> {
+    matching(records, |attribute| {
+        attribute.kind() == kind && attribute.is_named(name)
+    })
+}
+
+/// Returns the extents in `records` that `matches` selects, sorted by
+/// first VCN.
+fn matching<'a>(
+    records: impl IntoIterator<Item = &'a Record>,
+    matches: impl Fn(&Attribute<'a>) -> bool,
+) -> Result<Vec<Attribute<'a>>, NtfsError> {
     let mut found = Vec::new();
     for record in records {
         for attribute in record.attributes() {
             let attribute = attribute?;
-            if attribute.kind() == kind && attribute.is_named(name) {
+            if matches(&attribute) {
                 found.push(attribute);
             }
         }
@@ -299,11 +310,39 @@ impl File {
         kind: AttrType,
         name: &str,
     ) -> Result<Vec<Attribute<'_>>, NtfsError> {
-        extents(
-            core::iter::once(&self.base).chain(&self.extensions),
-            kind,
-            name,
-        )
+        extents(self.records(), kind, name)
+    }
+
+    /// Returns the extents of the attribute of `kind` named `name`, given
+    /// as UTF-16, sorted by first VCN; empty if there is none.
+    pub(crate) fn extents_utf16(
+        &self,
+        kind: AttrType,
+        name: &[u16],
+    ) -> Result<Vec<Attribute<'_>>, NtfsError> {
+        matching(self.records(), |attribute| {
+            attribute.kind() == kind && attribute.is_named_utf16(name)
+        })
+    }
+
+    /// Returns the names of the named attributes of `kind`, as UTF-16, each
+    /// once (however many extents it has), sorted.
+    pub(crate) fn names(&self, kind: AttrType) -> Result<BTreeSet<Vec<u16>>, NtfsError> {
+        let mut names = BTreeSet::new();
+        for record in self.records() {
+            for attribute in record.attributes() {
+                let attribute = attribute?;
+                if attribute.kind() == kind && !attribute.name().is_empty() {
+                    names.insert(attribute.name_utf16());
+                }
+            }
+        }
+        Ok(names)
+    }
+
+    /// Returns the base record, then the extension records.
+    fn records(&self) -> impl Iterator<Item = &Record> {
+        core::iter::once(&self.base).chain(&self.extensions)
     }
 
     /// Returns the value of the attribute of `kind` named `name`, if any.

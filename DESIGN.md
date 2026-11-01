@@ -1250,7 +1250,7 @@ impl<M: Mode, D: Driver> File<M, D> {          // likewise on Dir
   { ns, name }`, minted by `DriverKey::xattr_entry`. `File` and `Dir`
   have `xattr(name)` (the whole value, retried if it grows),
   `xattr_into(name, buf)`, and `xattr_names()`, needing `READ`.
-  `filer-heap` reads them; other drivers answer
+  `filer-heap` and `filer-ntfs` read them; other drivers answer
   `Unsupported`.
 - Lesson recorded in rustdoc: xattrs are the first thing lost in transit.
   `cp` without `-a`, `tar` without `--xattrs`, `rsync` without `-X`, git,
@@ -2481,7 +2481,14 @@ Documentation* (a description of the on-disk format, not code).
   their text and dangle. Reparse points of other tags (cloud
   placeholders, files compressed by WOF) and encrypted files keep their
   kind and metadata, but opening them to read is `Unsupported`, as their
-  `$DATA` is not their contents. Named data streams are not exposed yet.
+  `$DATA` is not their contents.
+- Named data streams are extended attributes in the `user` namespace, as
+  ntfs-3g has them (`file:stream` is `user.stream`), listed once however
+  many extents they have, and matched as names are. Other namespaces are
+  empty. `$STANDARD_INFORMATION`'s file attributes are `FileAttrs`:
+  hidden, system, archive, sparse, compressed, offline, encrypted, and
+  recall on open or on data access as dataless; read-only is a permission
+  (not reported yet), and directory and reparse point are the kind.
 - A volume marked dirty (its `$LogFile` not replayed) is refused unless
   the caller opts in: it is never read as if clean (§17.12).
 
@@ -2493,8 +2500,12 @@ verified before a record is used.
 **Verification.** Fixtures in four layouts (4 KiB, 512-byte, and 64 KiB
 clusters, and 4 KiB sectors with 4 KiB records), made by `mkntfs` and
 filled through ntfs-3g, are read in tests; one more holds files ntfs-3g
-compressed, and another `filer-spec`'s tree. `tests/differential.sh` compares them, and fresh ones, with the
-Linux kernel's `ntfs3`: every name, kind, size, content, and time agrees.
+compressed, another named streams (100 of them on one file, so listed in
+`$ATTRIBUTE_LIST`) and file attributes, and another `filer-spec`'s tree.
+`tests/differential.sh` compares them, and fresh ones, with the Linux
+kernel's `ntfs3`: every name, kind, size, content, and time agrees; and
+with ntfs-3g, which has streams as attributes as `ntfs3` does not: every
+flag and attribute agrees.
 Listings are compared sorted, as the order differs by design: Filer lists
 an index in collation order, as Windows does, where `ntfs3` lists a
 node's separating entries after its children. Reparse points differ by

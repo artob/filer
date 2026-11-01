@@ -6,7 +6,7 @@
 mod common;
 
 use common::{Expected, MTIME, expected, expected_compressed, unsparse};
-use filer_api::{Dir, ErrorKind, FileKind, MetaMask, Symlinks};
+use filer_api::{BufResult, Dir, ErrorKind, FileAttrs, FileKind, MetaMask, Symlinks};
 use filer_ntfs::Ntfs;
 use filer_spec::block_on;
 use std::collections::BTreeMap;
@@ -71,6 +71,34 @@ fn check(sparse: &[u8]) {
     assert_eq!(id("LONGNA~1.TXT"), id("Long name for DOS.txt"));
     // System files are hidden.
     assert!(block_on(root.metadata("$MFT", MetaMask::KIND)).is_err());
+
+    // A named data stream is an attribute, matched as names are.
+    let readme = block_on(root.open_file("README.TXT")).unwrap();
+    let names = block_on(readme.xattr_names()).unwrap();
+    assert_eq!(names, ["user.extra".try_into().unwrap()]);
+    for name in ["user.extra", "user.EXTRA"] {
+        let value = block_on(readme.xattr(name)).unwrap();
+        assert_eq!(value.as_deref(), Some(&b"stream data"[..]), "{name}");
+    }
+    for name in ["user.nope", "trusted.extra"] {
+        assert_eq!(block_on(readme.xattr(name)).unwrap(), None, "{name}");
+    }
+    let notes = block_on(root.open_file("notes.txt")).unwrap();
+    assert_eq!(block_on(notes.xattr_names()).unwrap(), []);
+    // Flags: ntfs-3g marks new files for archiving, and `mkntfs` the root
+    // hidden and system, as Windows does.
+    let attrs = |path: &str| {
+        block_on(root.metadata(path, MetaMask::ATTRS))
+            .unwrap()
+            .attrs
+            .unwrap()
+    };
+    assert_eq!(attrs("README.TXT"), FileAttrs::ARCHIVE);
+    assert_eq!(attrs("sparse.bin"), FileAttrs::ARCHIVE | FileAttrs::SPARSE);
+    assert_eq!(
+        attrs(""),
+        FileAttrs::HIDDEN | FileAttrs::SYSTEM | FileAttrs::ARCHIVE
+    );
 }
 
 #[test]
@@ -107,6 +135,78 @@ fn reads_compressed_files() {
     for (path, contents) in &expected {
         assert!(&found[path] == contents, "{path}");
     }
+    for path in ["Compressed", "Compressed/text.txt", "Compressed/noise.bin"] {
+        let metadata = block_on(root.metadata(path, MetaMask::ATTRS)).unwrap();
+        let attrs = metadata.attrs.unwrap();
+        assert!(attrs.contains(FileAttrs::COMPRESSED), "{path}: {attrs:?}");
+    }
+}
+
+#[test]
+fn reads_streams_and_attributes() {
+    let root = block_on(Ntfs::open(unsparse(include_bytes!(
+        "fixtures/ntfs-streams.sparse"
+    ))))
+    .unwrap();
+    let file = block_on(root.open_file("streams.txt")).unwrap();
+    assert_eq!(block_on(file.read_to_end()).unwrap(), b"main");
+    let mut names: Vec<String> = block_on(file.xattr_names())
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        [
+            "user.MixedCase",
+            "user.big",
+            "user.empty",
+            "user.small",
+            "user.Ünï ✓"
+        ]
+    );
+    let value = |name: &str| block_on(file.xattr(name)).unwrap();
+    assert_eq!(value("user.small").as_deref(), Some(&b"x"[..]));
+    assert_eq!(value("user.big"), Some(common::pattern(60_000, 1)));
+    assert_eq!(value("user.empty").as_deref(), Some(&b""[..]));
+    assert_eq!(value("user.ÜNÏ ✓").as_deref(), Some(&b"unicode"[..]));
+    assert_eq!(value("user.mixedcase").as_deref(), Some(&b"m"[..]));
+    // A short buffer gets the start of a non-resident stream.
+    let BufResult(len, buf) = block_on(file.xattr_into("user.big", Vec::with_capacity(10)));
+    assert_eq!(len.unwrap(), Some(60_000));
+    assert_eq!(buf, common::pattern(10, 1));
+
+    // More streams than one record holds.
+    let many = block_on(root.open_file("many.bin")).unwrap();
+    assert_eq!(block_on(many.xattr_names()).unwrap().len(), 100);
+    for i in [0, 37, 99] {
+        let value = block_on(many.xattr(format!("user.s{i:03}").as_str())).unwrap();
+        assert_eq!(value, Some(common::pattern(300, i)), "s{i:03}");
+    }
+
+    let dir = block_on(root.open_dir("Tagged")).unwrap();
+    assert_eq!(
+        block_on(dir.xattr("user.tag")).unwrap().as_deref(),
+        Some(&b"dir"[..])
+    );
+
+    let attrs = |path: &str| {
+        block_on(root.metadata(path, MetaMask::ATTRS))
+            .unwrap()
+            .attrs
+            .unwrap()
+    };
+    assert_eq!(attrs("hidden.txt"), FileAttrs::HIDDEN);
+    assert_eq!(attrs("system.txt"), FileAttrs::SYSTEM);
+    assert_eq!(attrs("archive.txt"), FileAttrs::ARCHIVE);
+    assert_eq!(attrs("offline.txt"), FileAttrs::OFFLINE);
+    // Read-only is a permission, and not content indexed no flag.
+    assert_eq!(attrs("readonly.txt"), FileAttrs::empty());
+    assert_eq!(
+        attrs("all.txt"),
+        FileAttrs::HIDDEN | FileAttrs::SYSTEM | FileAttrs::ARCHIVE | FileAttrs::OFFLINE
+    );
 }
 
 #[test]

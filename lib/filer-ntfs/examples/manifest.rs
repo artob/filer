@@ -6,12 +6,15 @@
 //! ```text
 //! path <TAB> kind (d, f, or l) <TAB> size <TAB> modified <TAB> created
 //!      <TAB> accessed <TAB> FNV-1a hash of the contents, or link target
+//!      <TAB> flags <TAB> extended attributes
 //! ```
 //!
-//! Directories have no size here. Times are whole seconds
-//! since the Unix epoch; `-` stands for what does not apply or is
-//! unknown. `tests/differential.sh` compares this with
-//! what the Linux kernel's `ntfs3` driver reports for the same image.
+//! Directories have no size here. Times are whole seconds since the Unix
+//! epoch. Flags are lowercase names, sorted and joined by `,`; extended
+//! attributes are `name=hash` pairs, sorted and joined by `,`. `-` stands
+//! for what does not apply, is unknown, or is empty. `tests/differential.sh`
+//! compares this with what the Linux kernel's `ntfs3` driver and ntfs-3g
+//! report for the same image.
 //!
 //! The image is opened as a file of the native driver, and `Ntfs` reads it
 //! through that file: one driver layered over another.
@@ -20,7 +23,9 @@
 //! IMAGE`, where `--allow-dirty` opens a volume marked dirty.
 
 use filer_ntfs::{Ntfs, Options};
-use filer_system::{Dir, FileKind, MetaMask, Metadata, ReadAt, ambient_authority};
+use filer_system::{
+    Dir, FileAttrs, FileKind, MetaMask, Metadata, ReadAt, XattrEntry, ambient_authority,
+};
 use std::{
     error::Error,
     future::Future,
@@ -80,7 +85,7 @@ async fn walk<S: ReadAt + 'static>(
         let metadata = root
             .symlink_metadata(path.as_str(), MetaMask::all())
             .await?;
-        let (kind, size, hash) = match metadata.kind {
+        let (kind, size, hash, xattrs) = match metadata.kind {
             Some(FileKind::Symlink) => {
                 let target = root.read_link(path.as_str()).await?;
                 let size = metadata
@@ -90,13 +95,21 @@ async fn walk<S: ReadAt + 'static>(
                     "l",
                     size,
                     String::from_utf8_lossy(target.as_bytes()).into_owned(),
+                    "-".to_owned(),
                 )
             },
             Some(FileKind::Dir) => {
                 let size = metadata
                     .len
                     .map_or_else(|| "-".to_owned(), |len| len.to_string());
-                ("d", size, "-".to_owned())
+                let dir = root.open_dir(path.as_str()).await?;
+                let names = dir.xattr_names().await?;
+                let mut pairs = Vec::new();
+                for name in names {
+                    let value = dir.xattr(name.clone()).await?.unwrap_or_default();
+                    pairs.push(pair(&name, &value));
+                }
+                ("d", size, "-".to_owned(), joined(pairs))
             },
             _ => {
                 let size = metadata
@@ -105,12 +118,19 @@ async fn walk<S: ReadAt + 'static>(
                 // A file whose contents cannot be read, such as a cloud
                 // placeholder, is listed with `!error` for its hash.
                 match read(root, &path).await {
-                    Ok(contents) => ("f", size, format!("{:016x}", fnv1a(&contents))),
-                    Err(_) => ("f", size, "!error".to_owned()),
+                    Ok((contents, xattrs)) => {
+                        ("f", size, format!("{:016x}", fnv1a(&contents)), xattrs)
+                    },
+                    Err(_) => ("f", size, "!error".to_owned(), "!error".to_owned()),
                 }
             },
         };
-        writeln!(out, "{path}\t{kind}\t{size}\t{}\t{hash}", times(&metadata))?;
+        writeln!(
+            out,
+            "{path}\t{kind}\t{size}\t{}\t{hash}\t{}\t{xattrs}",
+            times(&metadata),
+            flags(&metadata),
+        )?;
         if kind == "d" {
             // Boxed, as an async function cannot recurse into itself
             // directly.
@@ -120,11 +140,43 @@ async fn walk<S: ReadAt + 'static>(
     Ok(())
 }
 
+/// Reads a file's contents and its extended attributes, as listed.
 async fn read<S: ReadAt + 'static>(
     root: &Dir<Ntfs<S>>,
     path: &str,
-) -> filer_system::Result<Vec<u8>> {
-    root.open_file(path).await?.read_to_end().await
+) -> filer_system::Result<(Vec<u8>, String)> {
+    let file = root.open_file(path).await?;
+    let mut pairs = Vec::new();
+    for name in file.xattr_names().await? {
+        let value = file.xattr(name.clone()).await?.unwrap_or_default();
+        pairs.push(pair(&name, &value));
+    }
+    Ok((file.read_to_end().await?, joined(pairs)))
+}
+
+/// Returns an attribute's `name=hash` pair.
+fn pair(name: &XattrEntry, value: &[u8]) -> String {
+    format!("{name}={:016x}", fnv1a(value))
+}
+
+/// Returns `items` sorted and joined by `,`, or `-` if there are none.
+fn joined(mut items: Vec<String>) -> String {
+    if items.is_empty() {
+        return "-".to_owned();
+    }
+    items.sort();
+    items.join(",")
+}
+
+/// Returns the names of the file's flags.
+fn flags(metadata: &Metadata) -> String {
+    let names = metadata
+        .attrs
+        .unwrap_or(FileAttrs::empty())
+        .iter_names()
+        .map(|(name, _)| name.to_lowercase())
+        .collect();
+    joined(names)
 }
 
 fn times(metadata: &Metadata) -> String {
