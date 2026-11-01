@@ -51,7 +51,9 @@
   `ReadAt` sources, read-only forever: never add archive writing; each is
   a header parser over the shared `filer_api::archive` module);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
-  planned; its root denies panicking constructs by lint);
+  planned; its root denies panicking constructs by lint); `filer-ext4`,
+  `filer-ntfs`, `filer-udf`, and `filer-xfs` are read-only file system
+  driver stubs (no items yet), to follow `filer-fat`'s model;
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `filer-system` re-exports `filer-api` plus `System`, the target's native

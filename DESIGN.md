@@ -2223,6 +2223,16 @@ Recorded 2026-11-01 (D40); none exists yet:
   (exFAT shares almost nothing on disk with FAT, so it is its own crate,
   D46), and, at low priority, other file systems such as littlefs, over a
   block device, for embedded and `no_std` use and for reading disk images.
+- **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4),
+  `filer-ntfs`, `filer-udf`, and `filer-xfs`, published as stubs to
+  reserve their names. Each would follow `filer-fat`'s model: a lazy
+  driver over any `ReadAt` source, the async `Resolver`, panic-free by
+  lint, fixtures from the real tools, and a differential test against the
+  Linux kernel's driver. Writing them is out of scope for now: their
+  journals, B+ trees, and checksums make safe writing far harder than
+  FAT's. Each must refuse a volume with unknown incompatible features, and
+  a dirty journal or log is either refused or replayed in memory, never
+  read as if clean. Their crate docs list what each format needs.
 
 ### 17.13 `filer-fat`
 

@@ -34,16 +34,20 @@ undocumented_unsafe_blocks = "deny"
 filer-api = { version = "0.0.1", path = "lib/filer-api", default-features = false }
 filer-ar = { version = "0.0.1", path = "lib/filer-ar", default-features = false }
 filer-cpio = { version = "0.0.1", path = "lib/filer-cpio", default-features = false }
+filer-ext4 = { version = "0.0.1", path = "lib/filer-ext4", default-features = false }
 filer-fat = { version = "0.0.1", path = "lib/filer-fat", default-features = false }
 filer-heap = { version = "0.0.1", path = "lib/filer-heap", default-features = false }
+filer-ntfs = { version = "0.0.1", path = "lib/filer-ntfs", default-features = false }
 filer-posix = { version = "0.0.1", path = "lib/filer-posix", default-features = false }
 filer-rar = { version = "0.0.1", path = "lib/filer-rar", default-features = false }
 filer-spec = { version = "0.0.1", path = "lib/filer-spec", default-features = false }
 filer-system = { version = "0.0.1", path = "lib/filer-system", default-features = false }
 filer-tar = { version = "0.0.1", path = "lib/filer-tar", default-features = false }
+filer-udf = { version = "0.0.1", path = "lib/filer-udf", default-features = false }
 filer-wasi = { version = "0.0.1", path = "lib/filer-wasi", default-features = false }
 filer-whatwg = { version = "0.0.1", path = "lib/filer-whatwg", default-features = false }
 filer-windows = { version = "0.0.1", path = "lib/filer-windows", default-features = false }
+filer-xfs = { version = "0.0.1", path = "lib/filer-xfs", default-features = false }
 filer-zip = { version = "0.0.1", path = "lib/filer-zip", default-features = false }
 known-codepages = { version = "0.0.1", path = "lib/known-codepages", default-features = false }
 bitflags = { version = "2.13", default-features = false }
@@ -54,15 +58,19 @@ rustix = { version = "1.1", default-features = false }
 filer-api = { path = "lib/filer-api" }
 filer-ar = { path = "lib/filer-ar" }
 filer-cpio = { path = "lib/filer-cpio" }
+filer-ext4 = { path = "lib/filer-ext4" }
 filer-fat = { path = "lib/filer-fat" }
 filer-heap = { path = "lib/filer-heap" }
+filer-ntfs = { path = "lib/filer-ntfs" }
 filer-posix = { path = "lib/filer-posix" }
 filer-rar = { path = "lib/filer-rar" }
 filer-spec = { path = "lib/filer-spec" }
 filer-system = { path = "lib/filer-system" }
 filer-tar = { path = "lib/filer-tar" }
+filer-udf = { path = "lib/filer-udf" }
 filer-wasi = { path = "lib/filer-wasi" }
 filer-whatwg = { path = "lib/filer-whatwg" }
 filer-windows = { path = "lib/filer-windows" }
+filer-xfs = { path = "lib/filer-xfs" }
 filer-zip = { path = "lib/filer-zip" }
 known-codepages = { path = "lib/known-codepages" }

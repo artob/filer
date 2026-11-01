@@ -673,6 +673,15 @@ From §17.12 (D40). Create each crate when its item starts.
   Done when a partitioned image's FAT partition opens.
 - [ ] **FMT-02: Other on-disk formats (low priority).** Such as littlefs.
   Done when each reads an image.
+- [ ] **FMT-04: `filer-ext4`.** Read-only ext2/3/4 (crate docs list the
+  structures). Done when `mke2fs` fixtures of each revision read, and the
+  differential test agrees with the Linux kernel.
+- [ ] **FMT-05: `filer-ntfs`.** Read-only NTFS. Done when fixtures from
+  `mkntfs` and Windows read, including compressed and sparse files.
+- [ ] **FMT-06: `filer-udf`.** Read-only UDF. Done when `mkudffs` images
+  of revisions 1.02, 2.01, and 2.50 read.
+- [ ] **FMT-07: `filer-xfs`.** Read-only XFS, v5 with CRCs. Done when
+  `mkfs.xfs` fixtures read and agree with the Linux kernel.
 
 ## `filer-fat`
 

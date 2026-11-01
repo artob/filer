@@ -15,6 +15,8 @@ so any release may break compatibility.
 - `filer-posix`, `filer-system`: `thread_pool(spawner)` constructors, which
   run each operation on a `Spawner` instead of inside `poll`.
 - `filer-ar`, `filer-cpio`, and `filer-rar`: New crates, with no items yet.
+- `filer-ext4`, `filer-ntfs`, `filer-udf`, and `filer-xfs`: New crates for
+  read-only file system drivers, with no items yet.
 - `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
   FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`;
   the `code-pages` feature decodes short names in any `CodePage`.

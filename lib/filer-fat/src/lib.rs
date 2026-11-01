@@ -13,6 +13,17 @@
 //! arithmetic outright, and every inconsistency it finds is reported as a
 //! [`FatError`].
 //!
+//! **Development.** `tests/fixtures/make.sh` makes the fixtures with
+//! `mkfs.fat` and `fsck.fat`, in the `dosfstools` package on Debian and
+//! Ubuntu, and fills them with `mtools`, in the `mtools` package; it also
+//! needs `python3`. `tests/differential.sh` compares with the Linux
+//! kernel's `vfat` driver, which Ubuntu's kernel has built in along with
+//! code page 437; its code page 850 and 866 cases need the `nls_cp850` and
+//! `nls_cp866` modules from `linux-modules-extra-$(uname -r)` (kept current
+//! by `linux-generic`), and it mounts images with `sudo`. The `cargo-fuzz`
+//! targets in `fuzz/` need a nightly toolchain and `cargo-fuzz` (`cargo
+//! install cargo-fuzz`).
+//!
 //! It needs no OS, builds with `#![no_std]`, and is pure Rust; the `std`
 //! feature, enabled by default, forwards to `filer-api`. `all` currently
 //! enables nothing. The `code-pages` feature, off by default, makes every

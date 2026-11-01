@@ -20,16 +20,20 @@
 | `filer-api` | All | Platform-independent API |
 | `filer-ar` | All | Read-only ar archive driver |
 | `filer-cpio` | All | Read-only cpio archive driver |
+| `filer-ext4` | All | Read-only ext2/3/4 file system driver |
 | `filer-fat` | All | FAT12/16/32 file system driver |
 | `filer-heap` | All | In-memory driver |
+| `filer-ntfs` | All | Read-only NTFS file system driver |
 | `filer-posix` | Unix | POSIX backend |
 | `filer-rar` | All | Read-only RAR archive driver |
 | `filer-spec` | All | Executable driver specification, for tests |
 | `filer-system` | All | Native backend for the target, plus the API |
 | `filer-tar` | All | Read-only TAR archive driver |
+| `filer-udf` | All | Read-only UDF file system driver |
 | `filer-wasi` | WASI | WASI backend |
 | `filer-whatwg` | Browsers | WHATWG File System (OPFS) backend |
 | `filer-windows` | Windows | Windows backend |
+| `filer-xfs` | All | Read-only XFS file system driver |
 | `filer-zip` | All | Read-only ZIP archive driver |
 | `filer-cli` | All | `filer` command-line interface |
 | `known-codepages` | All | DOS code pages, for FAT and ZIP names |

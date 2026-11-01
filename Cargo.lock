@@ -48,6 +48,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-ext4"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-fat"
 version = "0.0.1"
 dependencies = [
@@ -64,6 +71,13 @@ version = "0.0.1"
 dependencies = [
  "filer-api",
  "filer-spec",
+]
+
+[[package]]
+name = "filer-ntfs"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
 ]
 
 [[package]]
@@ -110,6 +124,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-udf"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-wasi"
 version = "0.0.1"
 dependencies = [
@@ -125,6 +146,13 @@ dependencies = [
 
 [[package]]
 name = "filer-windows"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
+name = "filer-xfs"
 version = "0.0.1"
 dependencies = [
  "filer-api",
