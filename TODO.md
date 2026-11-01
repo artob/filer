@@ -675,10 +675,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only first, designed for writing (§17.13, D46). One commit per item.
 
-- [ ] **FAT-06: Differential test on Linux.** Compare against the kernel's
-  FAT driver on loop-mounted images (on the Ubuntu test host `byte3`,
-  which has passwordless `sudo`). Done when listings, contents, and times
-  agree.
 - [ ] **FAT-07: Fuzzing.** Targets for the boot sector, FAT, and directory
   parsers. Done when they build in CI.
 - [ ] **FAT-09: Open options.** `Fat::open_with` taking the time zone

@@ -31,3 +31,8 @@ filer-api.workspace = true
 [dev-dependencies]
 filer-heap = { workspace = true, features = ["std"] }
 filer-spec = { workspace = true, features = ["std"] }
+filer-system = { workspace = true, features = ["std"] }
+
+[[example]]
+name = "manifest"
+required-features = ["std"]

@@ -2287,6 +2287,15 @@ is `Corrupt` with a source naming what and where. Nothing is silently
 skipped: an inconsistent long name falls back to the short name only
 because the specification defines it so. A fuzz target covers the parsers.
 
+**Verification.** Besides unit tests, the driver runs `filer-spec` on
+images its test writer lays out (contiguous and fragmented, for each FAT
+type), reads fixtures made by `mkfs.fat` and `mtools` (stored sparsely),
+and `tests/differential.sh` compares it with the Linux kernel's FAT driver
+on loop-mounted images, including volumes the kernel wrote itself: names
+in directory order, kinds, sizes, contents, and all three times must be
+identical. The `manifest` example prints a volume through `Fat` layered
+over a native `File`, which is what the comparison reads.
+
 **Ready for writing.** The layers are the boot sector and geometry
 (validated once, immutable), the FAT table (entry reads now, writes
 later), directory entries (decoding now, encoding later, kept symmetric),

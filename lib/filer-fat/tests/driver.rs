@@ -296,3 +296,22 @@ fn refuses_truncated_volumes() {
         }
     );
 }
+
+/// Writes this file's sample images to the directory named by
+/// `FILER_FAT_DUMP`, for `tests/differential.sh` to compare with Linux.
+#[test]
+#[ignore = "run by tests/differential.sh"]
+fn dump_images() {
+    let dir = std::env::var_os("FILER_FAT_DUMP").expect("FILER_FAT_DUMP");
+    let dir = std::path::Path::new(&dir);
+    for kind in KINDS {
+        for fragmented in [false, true] {
+            let image = sample(kind, fragmented);
+            let name = format!(
+                "writer-{kind:?}{}.img",
+                if fragmented { "-fragmented" } else { "" }
+            );
+            std::fs::write(dir.join(name.to_lowercase()), image.bytes).unwrap();
+        }
+    }
+}

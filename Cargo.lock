@@ -54,6 +54,7 @@ dependencies = [
  "filer-api",
  "filer-heap",
  "filer-spec",
+ "filer-system",
 ]
 
 [[package]]
