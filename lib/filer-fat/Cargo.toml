@@ -1,0 +1,33 @@
+[package]
+name = "filer-fat"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "FAT12/16/32 file system driver for the Filer API."
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["fat", "fat32", "vfat", "filesystem", "no-std"]
+categories.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["all", "std"]
+all = []
+std = ["filer-api/std"]
+
+[dependencies]
+filer-api.workspace = true
+
+[dev-dependencies]
+filer-heap = { workspace = true, features = ["std"] }
+filer-spec = { workspace = true, features = ["std"] }

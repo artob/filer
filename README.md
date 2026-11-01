@@ -20,6 +20,7 @@
 | `filer-api` | All | Platform-independent API |
 | `filer-ar` | All | Read-only ar archive driver |
 | `filer-cpio` | All | Read-only cpio archive driver |
+| `filer-fat` | All | FAT12/16/32 file system driver |
 | `filer-heap` | All | In-memory driver |
 | `filer-posix` | Unix | POSIX backend |
 | `filer-rar` | All | Read-only RAR archive driver |

@@ -48,6 +48,8 @@
   `filer-rar` are archive drivers (no OS, build everywhere, read from
   `ReadAt` sources, read-only forever: never add archive writing; each is
   a header parser over the shared `filer_api::archive` module);
+  `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
+  planned; its root denies panicking constructs by lint);
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.

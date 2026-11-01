@@ -48,6 +48,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-fat"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
+ "filer-heap",
+ "filer-spec",
+]
+
+[[package]]
 name = "filer-heap"
 version = "0.0.1"
 dependencies = [

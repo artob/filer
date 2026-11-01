@@ -669,10 +669,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only first, designed for writing (§17.13, D46). One commit per item.
 
-- [ ] **FAT-01: Crate and boot sector.** Create `lib/filer-fat/` with the
-  no-panic lints; parse and validate the boot sector into an immutable
-  geometry; decide the FAT type by cluster count. Done when unit tests
-  cover FAT12, FAT16, FAT32, and every rejection.
 - [ ] **FAT-02: FAT table and chains.** Entry reads for all three widths
   (FAT12 straddling sectors), chain walking into run lists bounded by the
   cluster count. Done when loops, out-of-range, bad, and short chains are

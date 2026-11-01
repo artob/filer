@@ -34,6 +34,7 @@ undocumented_unsafe_blocks = "deny"
 filer-api = { version = "0.0.1", path = "lib/filer-api", default-features = false }
 filer-ar = { version = "0.0.1", path = "lib/filer-ar", default-features = false }
 filer-cpio = { version = "0.0.1", path = "lib/filer-cpio", default-features = false }
+filer-fat = { version = "0.0.1", path = "lib/filer-fat", default-features = false }
 filer-heap = { version = "0.0.1", path = "lib/filer-heap", default-features = false }
 filer-posix = { version = "0.0.1", path = "lib/filer-posix", default-features = false }
 filer-rar = { version = "0.0.1", path = "lib/filer-rar", default-features = false }
@@ -52,6 +53,7 @@ rustix = { version = "1.1", default-features = false }
 filer-api = { path = "lib/filer-api" }
 filer-ar = { path = "lib/filer-ar" }
 filer-cpio = { path = "lib/filer-cpio" }
+filer-fat = { path = "lib/filer-fat" }
 filer-heap = { path = "lib/filer-heap" }
 filer-posix = { path = "lib/filer-posix" }
 filer-rar = { path = "lib/filer-rar" }
