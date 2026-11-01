@@ -3,11 +3,14 @@
 //! Platform-independent Filer API.
 //!
 //! This crate will define the types and traits that platform backends such as
-//! `filer-posix` implement. At its core is the driver boundary: a
-//! [`Driver`] receives each operation as an [`Op`] value and answers with a
-//! [`Completion`]. So far only read operations exist.
+//! `filer-posix` implement. Applications use the frontend: a [`Dir`] is an
+//! open directory, the unit of authority, through which files ([`File`])
+//! are opened and paths resolved, confined beneath it. Below the frontend
+//! is the driver boundary: a [`Driver`] receives each operation as an
+//! [`Op`] value and answers with a [`Completion`]. So far only read
+//! operations exist.
 //!
-//! Around it are the lexical [`path`] types, the on-disk name types
+//! Around them are the lexical [`path`] types, the on-disk name types
 //! ([`EntryName`], [`ForeignName`], [`LinkTarget`]), driver identity and
 //! handles ([`DriverKey`], [`DriverId`], [`Handle`]), [`Metadata`], owned
 //! I/O buffers ([`IoBuf`], [`IoBufMut`], [`BufResult`]), and the [`Error`]
@@ -36,6 +39,9 @@ pub use buf_result::*;
 
 mod completion;
 pub use completion::*;
+
+mod dir;
+pub use dir::*;
 
 mod dir_cookie;
 pub use dir_cookie::*;
@@ -72,6 +78,9 @@ mod escaped;
 mod fallback;
 pub use fallback::*;
 
+mod file;
+pub use file::*;
+
 mod file_id;
 pub use file_id::*;
 
@@ -98,6 +107,9 @@ pub use meta_mask::*;
 
 mod metadata;
 pub use metadata::*;
+
+mod mode;
+pub use mode::*;
 
 mod op;
 pub use op::*;

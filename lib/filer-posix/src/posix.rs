@@ -7,13 +7,13 @@ use crate::{
 };
 use core::future::Future;
 use filer_api::{
-    AmbientAuthority, Completion, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error,
-    ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Op, OpKind, OpenHow,
-    Output, Resolve, Resolver, Target, path::RelPath,
+    AmbientAuthority, Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName,
+    Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Op, OpKind,
+    OpenHow, Output, Resolve, Resolver, Target, path::RelPath,
 };
 use rustix::{
     fd::{AsFd, BorrowedFd, OwnedFd},
-    fs::{AtFlags, Dir, DirEntry, Mode, OFlags},
+    fs::{AtFlags, DirEntry, Mode, OFlags},
     io::Errno,
 };
 use std::{path::Path, sync::Arc, vec::Vec};
@@ -43,12 +43,26 @@ use std::{path::Path, sync::Arc, vec::Vec};
 /// # Examples
 ///
 /// ```
-/// use filer_api::ambient_authority;
+/// use filer_api::{MetaMask, ambient_authority};
 /// use filer_posix::Posix;
 ///
 /// let posix = Posix::blocking();
-/// let root = posix.open_ambient_dir(std::env::temp_dir(), ambient_authority());
-/// assert!(root.is_ok());
+/// let tmp = posix.open_ambient(std::env::temp_dir(), ambient_authority())?;
+/// # block_on(async {
+/// let metadata = tmp.metadata("", MetaMask::KIND).await?;
+/// assert!(metadata.kind.unwrap().is_dir());
+/// # Ok::<(), filer_api::Error>(())
+/// # })?;
+/// # fn block_on<F: core::future::Future>(f: F) -> F::Output {
+/// #     let mut f = core::pin::pin!(f);
+/// #     let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
+/// #     loop {
+/// #         if let core::task::Poll::Ready(v) = f.as_mut().poll(&mut cx) {
+/// #             return v;
+/// #         }
+/// #     }
+/// # }
+/// # Ok::<(), filer_api::Error>(())
 /// ```
 #[derive(Clone, Debug)]
 pub struct Posix {
@@ -92,6 +106,23 @@ impl Posix {
             .map_err(|errno| error(errno, OpKind::Open).with_label(&path.to_string_lossy()))
     }
 
+    /// Opens the directory at the native `path` as a root [`Dir`], with all
+    /// rights and `path` as its label, for the frontend.
+    ///
+    /// # Errors
+    ///
+    /// As for [`open_ambient_dir`](Self::open_ambient_dir).
+    pub fn open_ambient(
+        &self,
+        path: impl AsRef<Path>,
+        authority: AmbientAuthority,
+    ) -> Result<Dir<Self>, Error> {
+        let path = path.as_ref();
+        let handle = self.open_ambient_dir(path, authority)?;
+        let dir = Dir::new(self.clone(), handle)?;
+        Ok(dir.with_label(&path.to_string_lossy()))
+    }
+
     fn dir_handle(&self, fd: Arc<OwnedFd>) -> Handle {
         self.key.handle(HandleKind::Dir, DirPayload::new(fd))
     }
@@ -118,8 +149,13 @@ impl Posix {
                     Target::Handle(handle) => self
                         .fd(handle, kind)
                         .and_then(|fd| retry(|| rustix::fs::fstat(fd)).map_err(|e| error(e, kind))),
-                    Target::Entry { at, name, follow } => self
-                        .entry(at, name, *follow, kind)
+                    Target::Entry {
+                        at,
+                        name,
+                        follow,
+                        resolve,
+                    } => self
+                        .entry(at, name, *follow, *resolve, kind)
                         .and_then(|node| stat_node(&node, kind))
                         .map_err(|e| with_name(e, name)),
                 };
@@ -202,21 +238,19 @@ impl Posix {
         }
     }
 
-    /// Resolves a single entry of a directory, following it if it is a
-    /// symlink and `follow` is set.
-    ///
-    /// Operations naming a single entry carry no resolution policy yet, so
-    /// following uses the default, [`Symlinks::Beneath`](filer_api::Symlinks::Beneath).
+    /// Resolves a single entry of a directory, following it under
+    /// `resolve` if it is a symlink and `follow` is set.
     fn entry(
         &self,
         at: &Handle,
         name: &EntryName,
         follow: bool,
+        resolve: Resolve,
         op: OpKind,
     ) -> Result<Node, Error> {
         let start = Node::Dir(self.dir(at, op)?.fd.clone());
         let bytes = self.name_bytes(name, op)?;
-        Walker.resolve(&start, bytes, Resolve::default(), follow, op)
+        Walker.resolve(&start, bytes, resolve, follow, op)
     }
 
     fn read_dir(
@@ -377,7 +411,7 @@ fn open_listing(fd: &OwnedFd, position: u64) -> rustix::io::Result<Listing> {
     'restart: loop {
         let mut listing = Listing {
             next: 0,
-            dir: retry(|| Dir::read_from(fd))?,
+            dir: retry(|| rustix::fs::Dir::read_from(fd))?,
         };
         while listing.next < position {
             match next_raw(&mut listing.dir) {
@@ -405,7 +439,7 @@ fn next_entry(listing: &mut Listing, fd: &OwnedFd) -> rustix::io::Result<Option<
 }
 
 /// Returns the next entry of a stream, skipping `.` and `..`.
-fn next_raw(dir: &mut Dir) -> rustix::io::Result<Option<DirEntry>> {
+fn next_raw(dir: &mut rustix::fs::Dir) -> rustix::io::Result<Option<DirEntry>> {
     loop {
         match dir.read() {
             None => return Ok(None),
@@ -638,6 +672,7 @@ mod tests {
             at: a.clone(),
             name: EntryName::Utf8(name.parse().unwrap()),
             follow,
+            resolve: Resolve::default(),
         };
         let link = stat(&posix, entry("link", false)).unwrap();
         assert_eq!((link.kind, link.len), (Some(FileKind::Symlink), Some(7)));
@@ -768,9 +803,47 @@ mod tests {
                 at: root,
                 name: foreign.name,
                 follow: false,
+                resolve: Resolve::default(),
             },
         )
         .unwrap();
         assert_eq!(metadata.len, Some(1));
+    }
+}
+
+#[cfg(test)]
+mod frontend_tests {
+    use super::*;
+    use core::task::{Context, Poll, Waker};
+    use filer_api::{MetaMask, ambient_authority};
+    use std::{fs, process, string::ToString};
+
+    fn block_on<F: Future>(future: F) -> F::Output {
+        let mut future = core::pin::pin!(future);
+        let mut cx = Context::from_waker(Waker::noop());
+        loop {
+            if let Poll::Ready(output) = future.as_mut().poll(&mut cx) {
+                return output;
+            }
+        }
+    }
+
+    #[test]
+    fn serves_the_frontend() {
+        let path =
+            std::env::temp_dir().join(std::format!("filer-posix-frontend-{}", process::id()));
+        fs::create_dir_all(path.join("sub")).unwrap();
+        fs::write(path.join("sub/file.txt"), "hello").unwrap();
+        let root = Posix::blocking()
+            .open_ambient(&path, ambient_authority())
+            .unwrap();
+        let file = block_on(root.open_file("sub/file.txt")).unwrap();
+        assert_eq!(block_on(file.read_to_end()).unwrap(), b"hello");
+        let metadata = block_on(root.metadata("sub", MetaMask::KIND)).unwrap();
+        assert_eq!(metadata.kind, Some(FileKind::Dir));
+        let error = block_on(root.open_file("nope")).unwrap_err();
+        let label = path.to_string_lossy().to_string();
+        assert_eq!(error.label(), Some(label.as_str()));
+        fs::remove_dir_all(&path).unwrap();
     }
 }

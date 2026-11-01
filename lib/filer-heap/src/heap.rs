@@ -7,9 +7,9 @@ use crate::{
 use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
-    Completion, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error, ErrorKind, FileId,
-    FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow, Output,
-    Resolve, Resolver, Target, path::RelPath,
+    Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error, ErrorKind,
+    FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow,
+    Output, Resolve, Resolver, Target, path::RelPath,
 };
 
 /// An in-memory filesystem driver.
@@ -30,21 +30,18 @@ use filer_api::{
 /// # Examples
 ///
 /// ```
-/// use filer_api::{Driver, IoBufMut, Op, OpenHow, Output, rel};
 /// use filer_heap::Heap;
 ///
-/// let heap = Heap::builder().file("hello.txt", "Hello!").build();
-/// let opened = block_on(heap.submit(Op::Open {
-///     at: heap.root(),
-///     path: rel!("hello.txt").to_owned(),
-///     how: OpenHow::file(),
-/// }));
-/// let Ok(Output::Opened(file)) = opened.result else { panic!() };
-///
-/// let buf = filer_api::ErasedBufMut::new(Vec::<u8>::with_capacity(64));
-/// let read = block_on(heap.submit(Op::Read { file, buf, off: 0 }));
-/// let buf: Vec<u8> = read.buf.unwrap().downcast().unwrap();
-/// assert_eq!(buf, b"Hello!");
+/// let heap = Heap::builder()
+///     .file("config/app.toml", "debug = true")
+///     .symlink("current", "config")
+///     .build();
+/// let root = heap.root_dir();
+/// # block_on(async {
+/// let file = root.open_file("current/app.toml").await?;
+/// assert_eq!(file.read_to_end().await?, b"debug = true");
+/// # Ok::<(), filer_api::Error>(())
+/// # }).unwrap();
 /// # fn block_on<F: core::future::Future>(f: F) -> F::Output {
 /// #     let mut f = core::pin::pin!(f);
 /// #     let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
@@ -80,6 +77,12 @@ impl Heap {
         self.key.handle(HandleKind::Dir, ROOT)
     }
 
+    /// Returns the root directory, with all rights, for the frontend.
+    #[must_use]
+    pub fn root_dir(&self) -> Dir<Self> {
+        Dir::new(self.clone(), self.root()).expect("the root is a directory of this heap")
+    }
+
     /// Performs `op` synchronously.
     fn perform(&self, op: Op) -> Completion {
         let kind = op.kind();
@@ -112,8 +115,13 @@ impl Heap {
             Op::Stat { target, .. } => {
                 let ino = match &target {
                     Target::Handle(handle) => self.ino(handle).map_err(error),
-                    Target::Entry { at, name, follow } => self
-                        .entry(at, name, *follow, kind)
+                    Target::Entry {
+                        at,
+                        name,
+                        follow,
+                        resolve,
+                    } => self
+                        .entry(at, name, *follow, *resolve, kind)
                         .map_err(|error| with_name(error, name)),
                 };
                 Completion::new(ino.map(|ino| Output::Metadata(self.metadata(ino))))
@@ -122,14 +130,14 @@ impl Heap {
                 Completion::new(self.read_dir(&dir, cookie, max).map_err(error))
             },
             Op::ReadLink { at, name } => {
-                let result = self.entry(&at, &name, false, kind).and_then(|ino| {
-                    match &self.tree.nodes[ino] {
+                let result = self
+                    .entry(&at, &name, false, Resolve::default(), kind)
+                    .and_then(|ino| match &self.tree.nodes[ino] {
                         Node::Symlink(target) => {
                             Ok(Output::LinkTarget(LinkTarget::Utf8(target.clone())))
                         },
                         _ => Err(error(ErrorKind::NotASymlink)),
-                    }
-                });
+                    });
                 Completion::new(result.map_err(|error| with_name(error, &name)))
             },
             op => Completion::new(Err(Error::new(ErrorKind::Unsupported, op.kind()))),
@@ -181,20 +189,23 @@ impl Heap {
         }
     }
 
-    /// Looks up one entry of a directory, following it if it is a symlink
-    /// and `follow` is set.
-    ///
-    /// Operations naming a single entry carry no resolution policy yet, so
-    /// following uses the default, [`Symlinks::Beneath`].
-    fn entry(&self, at: &Handle, name: &EntryName, follow: bool, op: OpKind) -> Result<Ino, Error> {
+    /// Looks up one entry of a directory, following it under `resolve` if
+    /// it is a symlink and `follow` is set.
+    fn entry(
+        &self,
+        at: &Handle,
+        name: &EntryName,
+        follow: bool,
+        resolve: Resolve,
+        op: OpKind,
+    ) -> Result<Ino, Error> {
         let dir = self.dir(at).map_err(|error| Error::new(error, op))?;
         let bytes = match name {
             EntryName::Utf8(name) => name.as_str().as_bytes(),
             EntryName::Foreign(name) if name.origin() == self.key.id() => name.as_bytes(),
             EntryName::Foreign(_) => return Err(Error::new(ErrorKind::ForeignNameMismatch, op)),
         };
-        self.tree
-            .resolve(&dir, bytes, Resolve::default(), follow, op)
+        self.tree.resolve(&dir, bytes, resolve, follow, op)
     }
 
     fn metadata(&self, ino: Ino) -> Metadata {
@@ -442,6 +453,7 @@ mod tests {
                     at: a.clone(),
                     name: EntryName::from(name!("link")),
                     follow,
+                    resolve: Resolve::default(),
                 },
             )
             .unwrap()
@@ -461,6 +473,7 @@ mod tests {
             at: a.clone(),
             name: EntryName::Utf8(name.parse().unwrap()),
             follow,
+            resolve: Resolve::default(),
         };
         let file = stat(&heap, entry("z.txt", true)).unwrap();
         assert_eq!((file.kind, file.len), (Some(FileKind::File), Some(0)));
@@ -521,6 +534,7 @@ mod tests {
                 at: heap.root(),
                 name: foreign,
                 follow: false,
+                resolve: Resolve::default(),
             },
         )
         .unwrap_err();

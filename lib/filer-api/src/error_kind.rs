@@ -102,6 +102,9 @@ pub enum ErrorKind {
     /// The operation timed out.
     TimedOut,
 
+    /// A read reached the end of the file before filling its buffer.
+    UnexpectedEof,
+
     /// A walk found that a reopened ancestor directory is no longer the
     /// directory it recorded.
     Moved,
@@ -146,6 +149,7 @@ impl core::fmt::Display for ErrorKind {
             Self::Canceled => "canceled",
             Self::Interrupted => "interrupted",
             Self::TimedOut => "timed out",
+            Self::UnexpectedEof => "unexpected end of file",
             Self::Moved => "moved",
             Self::Corrupt => "corrupt",
             Self::Io => "I/O error",
@@ -185,6 +189,7 @@ impl From<ErrorKind> for std::io::ErrorKind {
             ErrorKind::Stale => Io::StaleNetworkFileHandle,
             ErrorKind::Interrupted => Io::Interrupted,
             ErrorKind::TimedOut => Io::TimedOut,
+            ErrorKind::UnexpectedEof => Io::UnexpectedEof,
             ErrorKind::Corrupt => Io::InvalidData,
             ErrorKind::SymlinkLoop
             | ErrorKind::Poisoned

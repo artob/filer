@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{EntryName, Handle};
+use crate::{EntryName, Handle, Resolve};
 
 /// What an operation such as [`Op::Stat`](crate::Op::Stat) acts on.
 #[derive(Clone, Debug)]
@@ -18,5 +18,9 @@ pub enum Target {
 
         /// Whether to follow the entry if it is a symlink.
         follow: bool,
+
+        /// How to follow it: the policy of the directory handle `at` came
+        /// from, so that a single-entry operation never loosens it.
+        resolve: Resolve,
     },
 }

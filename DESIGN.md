@@ -811,6 +811,15 @@ honor:
 Documentation must state plainly: dropping a mutating future does not undo
 or prevent the mutation.
 
+As built (2026-11-01, D36): the `'static` futures live at the driver
+boundary (§16.3). Frontend methods (`Dir`, `File`) are plain `async fn`s
+borrowing `&self`: with generic path arguments (`P: TryInto<RelPathBuf>`),
+a returned `impl Future` must capture `P`, so `open_file("x")` would yield
+a future tied to the string's lifetime unless every call were boxed. The
+semantics above are unaffected, because each frontend method awaits a
+driver future that is `'static` and runs to completion; to spawn frontend
+work, move a cheap clone of the `Dir` or `File` into the task.
+
 ### 7.3 Granularity and chains
 
 The default thread-pool executor makes granularity a design constraint:
@@ -2001,7 +2010,8 @@ pub enum ErrorKind {
     EscapeBlocked, SymlinkLoop, NameTooLong, InvalidName, InvalidNameForTarget,
     ForeignNameMismatch, CrossDriver, CrossesDevices, ReadOnly,
     StorageFull, QuotaExceeded, Unsupported, Busy, Stale, Poisoned,
-    Canceled, Interrupted, TimedOut, Moved, Corrupt, Io, Other,
+    Canceled, Interrupted, TimedOut, UnexpectedEof, Moved, Corrupt, Io,
+    Other,
 }
 ```
 
@@ -2467,6 +2477,7 @@ Record changes here with a date and one line of rationale.
 | D33 | `IoBufMut::fill` instead of `spare_zeroed` plus `commit` | Accepted |
 | D34 | Handles too are minted and read only via a `DriverKey` | Accepted |
 | D35 | The in-`poll` executor is named "blocking", not "inline" | Accepted |
+| D36 | Frontend methods are `async fn`s borrowing `self` (§7.2) | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

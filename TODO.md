@@ -175,10 +175,10 @@ No OS access; everything builds without `std` (§7.6).
 - [ ] **DRV-02: Write ops and completions.**
   The read subset of `Op`, `Output`, and `Completion` exists, with
   `ErasedBufMut`. Still missing (§16.1): the write and namespace ops,
-  `OpenHow` write modes and creation, `RenameFlags`, and `ErasedBuf` with
-  its slot in `Completion`; a `Resolve` policy on `Target::Entry` (following
-  stats now use the default). Done when an erased buffer round-trips to its
-  original type for every sealed buffer impl.
+  `OpenHow` write modes and creation, `RenameFlags`, `ErasedBuf` with its
+  slot in `Completion`, and `Op::Open` taking an `EntryName` as well.
+  Done when an erased buffer round-trips to its original type for every
+  sealed buffer impl.
 
 - [ ] **DRV-03: Chains.**
   `Driver` with `id` and `submit` exists. Still missing: a default
@@ -237,16 +237,20 @@ The executable specification and test bed; it comes before any OS driver.
 
 ## `filer-api`: frontend
 
-- [ ] **API-01: `Dir`.**
-  Rights checks before submission, `restrict`, `open_dir`, `with_label`,
-  default `Resolve` (§6). Done when rights violations return `RightsDenied`
-  without reaching the driver (assert with a recording layer).
+- [ ] **API-01: `Dir` for entries and foreign names.**
+  `Dir` exists (rights checked before submission, `restrict`, `open_dir`,
+  `with_label`, `with_resolve`, string or `RelPath` arguments). Still
+  missing: methods taking an `EntryName`, so foreign names from listings
+  can be opened, stat-ed, and read as links (needs `Op::Open` to accept an
+  `EntryName`, DRV-02). Done when a foreign name round-trips from a
+  listing on `filer-heap`.
 
-- [ ] **API-02: `Open` and `File`.**
-  `Open<M>` and `File<M, D>` with `read_at`, `read_exact_at`,
-  `write_all_at`, `append`, `set_len`, `metadata`, `close`;
-  regular-files-only default (§8). Done when tests on `filer-heap` cover
-  every mode, and the docs state the cancellation semantics.
+- [ ] **API-02: Writable `File` modes.**
+  `File<ReadOnly, D>` exists with `read_at`, `read_exact_at`,
+  `read_to_end`, `metadata`, and `close`. Still missing: `Open<M>`, the
+  `WriteOnly`, `ReadWrite`, and `Append` modes, `write_all_at`, `append`,
+  `set_len`, and `read_to_string`. Done when tests on `filer-heap` cover
+  every mode.
 
 - [ ] **API-03: Directory streams.**
   `ReadDir` and `Entry` with an inherent `next()`; `futures-core` `Stream`

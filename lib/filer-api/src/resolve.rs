@@ -27,6 +27,18 @@ pub enum Symlinks {
 /// Each directory carries a default policy; individual operations may
 /// tighten it but never loosen it. The default follows symlinks beneath
 /// the handle and crosses mount points.
+///
+/// A [`Symlinks`] value converts into a policy with that symlink treatment
+/// and the other defaults.
+///
+/// # Examples
+///
+/// ```
+/// use filer_api::{Resolve, Symlinks};
+///
+/// let policy = Resolve::from(Symlinks::InRoot).with_cross_mounts(false);
+/// assert_eq!(policy.symlinks, Symlinks::InRoot);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct Resolve {
@@ -44,5 +56,27 @@ impl Default for Resolve {
             symlinks: Symlinks::Beneath,
             cross_mounts: true,
         }
+    }
+}
+
+impl Resolve {
+    /// Returns this policy with `symlinks` treatment.
+    #[must_use]
+    pub const fn with_symlinks(mut self, symlinks: Symlinks) -> Self {
+        self.symlinks = symlinks;
+        self
+    }
+
+    /// Returns this policy, crossing mount points or not.
+    #[must_use]
+    pub const fn with_cross_mounts(mut self, cross_mounts: bool) -> Self {
+        self.cross_mounts = cross_mounts;
+        self
+    }
+}
+
+impl From<Symlinks> for Resolve {
+    fn from(symlinks: Symlinks) -> Self {
+        Self::default().with_symlinks(symlinks)
     }
 }

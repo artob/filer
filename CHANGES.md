@@ -29,3 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-api`: `AmbientAuthority` and `ambient_authority()`.
 - `filer-posix`: `Posix::blocking()`, a read-only driver over `rustix`.
 - `filer-api`: `Rights`, the four coarse handle rights.
+- `filer-api`: `Dir` and `File`, the read-only frontend, with `Mode` and
+  `ReadOnly`; `ErrorKind::UnexpectedEof`; `Resolve::with_symlinks` and
+  `From<Symlinks>`. **Breaking:** `Target::Entry` gains `resolve`.
+- `filer-heap`: `Heap::root_dir`.
+- `filer-posix`: `Posix::open_ambient`, returning a labeled `Dir`.
