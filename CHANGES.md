@@ -12,3 +12,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-wasi`: New crate for the WASI backend, with no items yet.
 - `filer-windows`: New crate for the Windows backend, with no items yet.
 - `filer-cli`: New crate for the `filer` command, which does nothing yet.
+- `filer-api`: `path::Name` and `path::NameBuf`, validated path components.

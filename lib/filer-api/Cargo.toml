@@ -24,3 +24,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std"]
 all = []
 std = []
+
+[dependencies]
+ref-cast.workspace = true

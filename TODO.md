@@ -113,15 +113,6 @@ done when the PR is merged and released, or when §17.1 records why not.
 All in the self-contained `filer_api::path` module (D3), using `ref-cast`
 with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
 
-- [ ] **PATH-01: `Name` and `NameBuf`.**
-  Adds `extern crate alloc` (and the `std`-gated `extern crate std`, §3.2)
-  to `filer-api`, which has neither yet.
-  Validation per §5.2 with a `#[non_exhaustive]` `NameError` (`Empty`,
-  `ContainsSlash`, `ContainsNul`, `DotOrDotDot`). `FromStr`,
-  `TryFrom<&str>`, `TryFrom<String>`, `Display`, `AsRef<str>`, `Borrow`,
-  `ToOwned`, `Eq`, `Ord`, `Hash`. Done when tests cover every rejection and
-  a round trip, and docs state that acceptance is lexical only.
-
 - [ ] **PATH-02: `RelPath` and `RelPathBuf`.**
   Rules per §5.2, `RelPathError` naming the offending component index.
   `components`, `split_first`, `split_last`, `parent`, `join` (with a

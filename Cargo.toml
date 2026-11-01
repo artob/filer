@@ -35,6 +35,7 @@ filer-api = { version = "0.0.0", path = "lib/filer-api", default-features = fals
 filer-posix = { version = "0.0.0", path = "lib/filer-posix", default-features = false }
 filer-wasi = { version = "0.0.0", path = "lib/filer-wasi", default-features = false }
 filer-windows = { version = "0.0.0", path = "lib/filer-windows", default-features = false }
+ref-cast = { version = "1.0.27", default-features = false }
 
 [patch.crates-io]
 filer-api = { path = "lib/filer-api" }
