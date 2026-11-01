@@ -14,11 +14,11 @@
 #![allow(dead_code)]
 
 use crate::{
-    FatError, FatType,
+    FatError, FatType, cp437,
     fat_time::Stamp,
     geometry::{Cluster, Geometry},
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use core::num::NonZeroU32;
 
 /// The size of a directory slot, in bytes.
@@ -86,19 +86,19 @@ impl ShortName {
     }
 
     /// Returns the name as displayed: base and extension with their padding
-    /// removed, joined by a dot if there is an extension, and lowercased
-    /// (ASCII only) per `case`. Bytes from the OEM code page are returned
-    /// as they are.
-    pub(crate) fn display(&self, case: Case) -> Vec<u8> {
+    /// removed, joined by a dot if there is an extension, lowercased (ASCII
+    /// only) per `case`, and decoded from code page 437.
+    pub(crate) fn display(&self, case: Case) -> String {
         let [b0, b1, b2, b3, b4, b5, b6, b7, e0, e1, e2] = self.0;
         let b0 = if b0 == KANJI_E5 { FREE } else { b0 };
         let (base, ext) = ([b0, b1, b2, b3, b4, b5, b6, b7], [e0, e1, e2]);
         let (base, ext) = (trim(&base), trim(&ext));
-        let mut name = Vec::with_capacity(12);
-        name.extend(base.iter().map(|&b| lower_if(b, case.lower_base())));
+        let decode = |byte, lower| cp437::decode(lower_if(byte, lower));
+        let mut name = String::with_capacity(12);
+        name.extend(base.iter().map(|&b| decode(b, case.lower_base())));
         if !ext.is_empty() {
-            name.push(b'.');
-            name.extend(ext.iter().map(|&b| lower_if(b, case.lower_ext())));
+            name.push('.');
+            name.extend(ext.iter().map(|&b| decode(b, case.lower_ext())));
         }
         name
     }
@@ -253,11 +253,11 @@ impl DirEntry {
     }
 
     /// Returns the name to list: the long name as WTF-8 if there is one,
-    /// else the short name, displayed per its case flags.
+    /// else the short name, displayed per its case flags and so UTF-8.
     pub(crate) fn name(&self) -> Vec<u8> {
         match &self.long {
             Some(long) => long.to_wtf8(),
-            None => self.short.display(self.case),
+            None => self.short.display(self.case).into_bytes(),
         }
     }
 
@@ -663,13 +663,15 @@ pub(crate) mod tests {
     #[test]
     fn displays_short_names() {
         let display = |name: &[u8; 11], case: u8| ShortName(*name).display(Case(case));
-        assert_eq!(display(b"README  TXT", 0), b"README.TXT");
-        assert_eq!(display(b"README  TXT", 0x08), b"readme.TXT");
-        assert_eq!(display(b"README  TXT", 0x18), b"readme.txt");
-        assert_eq!(display(b"MAKEFILE   ", 0x10), b"MAKEFILE");
-        assert_eq!(display(b"A B     C  ", 0), b"A B.C");
-        assert_eq!(display(b"\x05BC     DE ", 0), b"\xE5BC.DE");
-        assert_eq!(display(b"\x82T      \x8A  ", 0x18), b"\x82t.\x8A");
+        assert_eq!(display(b"README  TXT", 0), "README.TXT");
+        assert_eq!(display(b"README  TXT", 0x08), "readme.TXT");
+        assert_eq!(display(b"README  TXT", 0x18), "readme.txt");
+        assert_eq!(display(b"MAKEFILE   ", 0x10), "MAKEFILE");
+        assert_eq!(display(b"A B     C  ", 0), "A B.C");
+        // 0x05 stands for 0xE5, which is σ in code page 437.
+        assert_eq!(display(b"\x05BC     DE ", 0), "σBC.DE");
+        // Lowercasing is ASCII only: 0x90 is É, and stays so.
+        assert_eq!(display(b"\x90T      \x8A  ", 0x18), "Ét.è");
     }
 
     #[test]

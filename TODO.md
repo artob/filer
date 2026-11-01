@@ -671,11 +671,8 @@ Read-only first, designed for writing (§17.13, D46). One commit per item.
 
 - [ ] **FAT-04: Driver.** Open, read, stat, list, read link (always
   `NotASymlink`), close, with case-insensitive lookup through the
-  `Resolver`, matching long or short names. Short names with OEM bytes
-  must surface as foreign even when the bytes happen to be valid UTF-8,
-  which needs a `DriverKey` constructor forcing a `ForeignName`. Names
-  `DriverKey::entry_name` rejects are `Corrupt`. Done when a test image
-  reads correctly.
+  `Resolver`, matching long or short names. Names `DriverKey::entry_name`
+  rejects are `Corrupt`. Done when a test image reads correctly.
 - [ ] **FAT-05: Specification and fixtures.** A test image writer for
   `filer-spec`; fixtures from `mkfs.fat` and `mtools` for each FAT type.
   Done when `filer-spec` passes with symlinks and FIFOs off.

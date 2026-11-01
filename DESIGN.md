@@ -2258,8 +2258,10 @@ re-check each against it while implementing):
 
 - Names: a long name is UTF-16; one with unpaired surrogates becomes a
   `ForeignName` holding WTF-8, so enumeration stays total. A short name
-  without a long name is ASCII, or foreign if it uses OEM code page bytes
-  (decoding CP437 is the stretch goal shared with ZIP). Lookups are
+  without a long name is decoded from code page 437, the default of the
+  Linux driver: the volume does not record its OEM code page, and a total
+  decoding keeps every short name UTF-8 (a `ForeignName` must not be
+  UTF-8), the same name every time. Lookups are
   case-insensitive, as FAT preserves case but does not distinguish it: the
   first driver whose name matching is not byte-exact, informing
   `NamingRules`.
