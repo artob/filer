@@ -207,6 +207,11 @@ windows; this section holds the rationale.
   warnings`. Rustdoc coverage of every public item is a goal; brevity and
   quality matter. Run `cargo doc` as the last step after changing a crate.
 - Error enums are `#[non_exhaustive]`.
+- Builders (fixtures such as `HeapBuilder`, and later configuration
+  builders) maximize developer usability: path arguments take
+  `P: TryInto<RelPathBuf>` so plain strings work besides `rel!` literals,
+  and invalid input panics under `#[track_caller]`. Operations and driver
+  APIs stay strictly typed, so drivers never re-validate.
 - Markdown and comments wrap at 80 columns where feasible.
 - The README is curated: longer is not better. Documentation that wants to
   go there usually belongs in rustdoc.
@@ -1833,9 +1838,10 @@ contract and the backbone of the test strategy. `no_std` + `alloc`.
 - **Locks.** Synchronous mutexes only (§7.7).
 
 As built (2026-11-01), read-only: `HeapBuilder` fixes the contents at
-construction (`dir`, `file`, `symlink`, creating parents like `mkdir -p`,
-panicking on mistakes), and the tree is then immutable behind an `Arc`, so
-no locks are needed yet. Inodes are indexes into a `Vec`; directories map
+construction (`dir`, `file`, `symlink`, taking string or `RelPath`
+arguments, creating parents like `mkdir -p`, panicking on mistakes), and
+the tree is then immutable behind an `Arc`, so no locks are needed yet.
+Inodes are indexes into a `Vec`; directories map
 raw name bytes to inodes in a `BTreeMap`, so listings are sorted by bytes,
 foreign names will fit, and a `DirCookie` is an entry index. Handle
 payloads are inode numbers; `FileId`s are `(0, inode)`. Until the generic

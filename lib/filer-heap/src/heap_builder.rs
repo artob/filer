@@ -5,13 +5,17 @@ use crate::{
     node::{Ino, Node, ROOT, Tree},
 };
 use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
-use filer_api::path::RelPath;
+use core::fmt::Display;
+use filer_api::path::{RelPath, RelPathBuf};
 
 /// Builds a [`Heap`] with fixed initial contents.
 ///
 /// Each method adds one entry, creating missing parent directories as
 /// needed, like `mkdir -p`. The builder is meant for tests and fixtures,
-/// so mistakes panic rather than return errors.
+/// so it favors convenience: paths may be plain strings, validated when
+/// the method runs, or [`rel!`](filer_api::rel) literals, validated at
+/// compile time; contents may be anything convertible to bytes. Mistakes
+/// panic, pointing at the caller, rather than return errors.
 ///
 /// # Examples
 ///
@@ -20,9 +24,10 @@ use filer_api::path::RelPath;
 /// use filer_heap::Heap;
 ///
 /// let heap = Heap::builder()
-///     .dir(rel!("empty"))
-///     .file(rel!("config/app.toml"), "debug = true")
-///     .symlink(rel!("current"), "config")
+///     .dir("empty")
+///     .file("config/app.toml", "debug = true")
+///     .file(rel!("data/blob.bin"), [0xFF, 0x00])
+///     .symlink("current", "config")
 ///     .build();
 /// ```
 #[derive(Debug)]
@@ -40,23 +45,36 @@ impl HeapBuilder {
     ///
     /// # Panics
     ///
-    /// Panics if a non-directory is in the way.
-    pub fn dir(mut self, path: &RelPath) -> Self {
+    /// Panics if `path` is not a valid [`RelPath`] or a non-directory is in
+    /// the way.
+    #[track_caller]
+    pub fn dir<P>(mut self, path: P) -> Self
+    where
+        P: TryInto<RelPathBuf>,
+        P::Error: Display,
+    {
+        let path = parse(path);
         let mut dir = ROOT;
         for name in path.components() {
-            dir = self.subdir(dir, name.as_str(), path);
+            dir = self.subdir(dir, name.as_str(), &path);
         }
         self
     }
 
-    /// Adds a regular file at `path` with `contents`.
+    /// Adds a regular file at `path` with `contents`, such as a `&str`, a
+    /// byte string, a byte array, or a `Vec<u8>`.
     ///
     /// # Panics
     ///
-    /// Panics if `path` is empty or already exists, or if a non-directory
-    /// is in the way.
-    pub fn file(self, path: &RelPath, contents: impl Into<Vec<u8>>) -> Self {
-        self.add(path, Node::File(contents.into()))
+    /// Panics if `path` is not a valid [`RelPath`], is empty, or already
+    /// exists, or if a non-directory is in the way.
+    #[track_caller]
+    pub fn file<P>(self, path: P, contents: impl Into<Vec<u8>>) -> Self
+    where
+        P: TryInto<RelPathBuf>,
+        P::Error: Display,
+    {
+        self.add(&parse(path), Node::File(contents.into()))
     }
 
     /// Adds a symlink at `path` pointing to `target`, which is stored as
@@ -64,10 +82,15 @@ impl HeapBuilder {
     ///
     /// # Panics
     ///
-    /// Panics if `path` is empty or already exists, or if a non-directory
-    /// is in the way.
-    pub fn symlink(self, path: &RelPath, target: &str) -> Self {
-        self.add(path, Node::Symlink(String::from(target)))
+    /// Panics if `path` is not a valid [`RelPath`], is empty, or already
+    /// exists, or if a non-directory is in the way.
+    #[track_caller]
+    pub fn symlink<P>(self, path: P, target: impl Into<String>) -> Self
+    where
+        P: TryInto<RelPathBuf>,
+        P::Error: Display,
+    {
+        self.add(&parse(path), Node::Symlink(target.into()))
     }
 
     /// Returns the heap.
@@ -76,6 +99,7 @@ impl HeapBuilder {
         Heap::new(self.tree)
     }
 
+    #[track_caller]
     fn add(mut self, path: &RelPath, node: Node) -> Self {
         let Some((parent, name)) = path.split_last() else {
             panic!("cannot replace the root directory");
@@ -98,6 +122,7 @@ impl HeapBuilder {
     }
 
     /// Returns the subdirectory `name` of `dir`, creating it if missing.
+    #[track_caller]
     fn subdir(&mut self, dir: Ino, name: &str, path: &RelPath) -> Ino {
         if let Some(child) = self.tree.child(dir, name.as_bytes()) {
             assert!(
@@ -116,6 +141,19 @@ impl HeapBuilder {
     }
 }
 
+/// Converts a builder argument to a path, panicking if it is invalid.
+#[track_caller]
+fn parse<P>(path: P) -> RelPathBuf
+where
+    P: TryInto<RelPathBuf>,
+    P::Error: Display,
+{
+    match path.try_into() {
+        Ok(path) => path,
+        Err(error) => panic!("{error}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,6 +167,23 @@ mod tests {
             .dir(rel!("a/b"));
         // The root, `a`, `b`, `c`, and `d`.
         assert_eq!(builder.tree.nodes.len(), 5);
+    }
+
+    #[test]
+    fn accepts_strings_and_paths() {
+        let builder = HeapBuilder::new()
+            .file("a", "x")
+            .file(String::from("b"), b"y")
+            .file(rel!("c"), [0_u8])
+            .file(RelPathBuf::try_from("d").unwrap(), alloc::vec![0_u8])
+            .symlink("e", String::from("a"));
+        assert_eq!(builder.tree.nodes.len(), 6);
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid path component 1: name is '.' or '..'")]
+    fn rejects_invalid_strings() {
+        let _ = HeapBuilder::new().file("a/../b", "");
     }
 
     #[test]

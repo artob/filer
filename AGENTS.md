@@ -28,6 +28,9 @@
   qualified names or explicit, least-power imports. For example, prefer
   `core::error::Error` and `alloc::string::String` over `std` analogs.
 - After making changes to a crate, as a last step run `cargo doc` on it.
+- Builders maximize usability: paths take `P: TryInto<RelPathBuf>` (plain
+  strings or `rel!`), panicking under `#[track_caller]`; ops and driver APIs
+  stay strictly typed.
 
 # Workspace
 - Rust 2024 crates live in `lib/<crate>/`: `filer-api` owns the

@@ -14,11 +14,11 @@
 //! # Examples
 //!
 //! ```
-//! use filer_api::{Driver, rel};
+//! use filer_api::Driver;
 //! use filer_heap::Heap;
 //!
 //! let heap = Heap::builder()
-//!     .file(rel!("config/app.toml"), "debug = true")
+//!     .file("config/app.toml", "debug = true")
 //!     .build();
 //! let root = heap.root();
 //! assert_eq!(root.driver(), heap.id());

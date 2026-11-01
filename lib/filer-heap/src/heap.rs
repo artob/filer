@@ -33,7 +33,7 @@ use filer_api::{
 /// use filer_api::{Driver, IoBufMut, Op, OpenHow, Output, rel};
 /// use filer_heap::Heap;
 ///
-/// let heap = Heap::builder().file(rel!("hello.txt"), "Hello!").build();
+/// let heap = Heap::builder().file("hello.txt", "Hello!").build();
 /// let opened = block_on(heap.submit(Op::Open {
 ///     at: heap.root(),
 ///     path: rel!("hello.txt").to_owned(),
@@ -303,10 +303,10 @@ mod tests {
 
     fn fixture() -> Heap {
         Heap::builder()
-            .file(rel!("a/b/c.txt"), "contents")
-            .file(rel!("a/z.txt"), "")
-            .dir(rel!("a/empty"))
-            .symlink(rel!("a/link"), "b/c.txt")
+            .file("a/b/c.txt", "contents")
+            .file("a/z.txt", "")
+            .dir("a/empty")
+            .symlink("a/link", "b/c.txt")
             .build()
     }
 
