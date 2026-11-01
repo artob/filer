@@ -21,3 +21,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-api`: `IoBuf`, `IoBufMut`, and `BufResult` for owned I/O buffers.
 - `filer-api`: `Handle` and `HandleKind`, minted through a `DriverKey`.
 - `filer-api`: `Op`, `Output`, and `Completion` for read operations.
+- `filer-api`: `Driver`, the trait every driver implements.

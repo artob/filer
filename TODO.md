@@ -183,11 +183,11 @@ No OS access; everything builds without `std` (§7.6).
   its slot in `Completion`. Done when an erased buffer round-trips to its
   original type for every sealed buffer impl.
 
-- [ ] **DRV-03: `Driver` and chains.**
-  `Driver` with `submit` and a default sequential `submit_chain`; `Chain`
-  with placeholders (a `Pending` handle state, §16.2); cancel-the-rest
-  semantics (§7.3, §16.3). Done when a toy driver in tests exercises a
-  failing chain.
+- [ ] **DRV-03: Chains.**
+  `Driver` with `id` and `submit` exists. Still missing: a default
+  sequential `submit_chain`; `Chain` with placeholders (a `Pending` handle
+  state, §16.2); cancel-the-rest semantics (§7.3, §16.3). Done when a toy
+  driver in tests exercises a failing chain.
 
 - [ ] **DRV-04: `DynDriver` and `Layer`.**
   `ErasedDriver`, `DynDriver` with a blanket impl, the `Layer` trait, and

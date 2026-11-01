@@ -1577,12 +1577,12 @@ pub trait Driver: Clone + Send + Sync + 'static {
     fn id(&self) -> DriverId;
 
     fn submit(&self, op: Op)
-        -> impl core::future::Future<Output = Completion> + Send + 'static;
+        -> impl core::future::Future<Output = Completion> + Send + use<Self>;
 
     /// Ops run in order; the first failure cancels the rest.
     fn submit_chain(&self, chain: Chain)
         -> impl core::future::Future<Output = alloc::vec::Vec<Completion>>
-            + Send + 'static
+            + Send + use<Self>
     {
         sequential_chain(self.clone(), chain) // default implementation
     }
@@ -1599,16 +1599,24 @@ the driver is known, one boxed future per op when it is not.
 Language features available at MSRV 1.97 (probed 2026-11-01 on
 1.97.0 and 1.99.1):
 
-- **Usable:** `impl Future + Send + 'static` in trait return position,
-  including default method bodies (as `submit_chain` above); precise
-  capturing (`+ use<>`), which lets a method borrowing `&self` return a
-  future that captures nothing borrowed; trait upcasting (`&dyn Sub` to
+- **Usable:** `impl Future + Send` in trait return position, including
+  default method bodies (as `submit_chain` above); precise capturing in
+  traits, which the futures need (below); trait upcasting (`&dyn Sub` to
   `&dyn Any`), useful for erased drivers and payloads; `core::error::Error`;
   `panic!` and `assert!` in `const fn`, which the `rel!` and `name!`
   validators rely on.
 - **Not usable:** return type notation; `impl Trait` in associated types
   (so a `type Future = impl Future` per driver is out, and nameable future
   types need boxing or a hand-written future); `core::io::BorrowedBuf`.
+
+As built (2026-11-01, without chains yet): a `+ 'static` bound alone is
+not enough. In edition 2024 the returned future implicitly captures the
+`&self` lifetime, so `let f = d.submit(op); drop(d);` fails to borrow-check
+(`E0505`) even though the bound holds. The trait therefore declares
+`+ Send + use<Self>`, and implementations write `+ Send + use<>` (writing
+`use<Self>` in an `impl` is `E0799`, since there `Self` is an alias). The
+future then borrows nothing and outlives the driver; a test checks this
+through a generic `D: Driver`.
 
 ### 16.4 Features, per directory
 

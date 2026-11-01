@@ -3,8 +3,8 @@
 //! Platform-independent Filer API.
 //!
 //! This crate will define the types and traits that platform backends such as
-//! `filer-posix` implement. At its core is the driver boundary: drivers
-//! receive each operation as an [`Op`] value and answer with a
+//! `filer-posix` implement. At its core is the driver boundary: a
+//! [`Driver`] receives each operation as an [`Op`] value and answers with a
 //! [`Completion`]. So far only read operations exist.
 //!
 //! Around it are the lexical [`path`] types, the on-disk name types
@@ -36,6 +36,9 @@ pub use completion::*;
 
 mod dir_cookie;
 pub use dir_cookie::*;
+
+mod driver;
+pub use driver::*;
 
 mod driver_id;
 pub use driver_id::*;
