@@ -46,6 +46,11 @@ pub use completion::*;
 mod dir;
 pub use dir::*;
 
+#[cfg(feature = "std")]
+mod default_pool;
+#[cfg(feature = "std")]
+pub use default_pool::*;
+
 mod dir_cookie;
 pub use dir_cookie::*;
 
@@ -143,6 +148,14 @@ pub use resolver::*;
 
 mod rights;
 pub use rights::*;
+
+#[cfg(feature = "std")]
+mod run_on;
+#[cfg(feature = "std")]
+pub use run_on::*;
+
+mod spawner;
+pub use spawner::*;
 
 mod target;
 pub use target::*;

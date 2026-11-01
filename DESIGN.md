@@ -905,6 +905,16 @@ Completion is signaled through a small internal oneshot channel in
 - `filer_tokio::TokioSpawner`: delegates to `tokio::task::spawn_blocking`.
 - Others (smol's `blocking`) as small adapter crates if requested.
 
+As built (2026-11-01): `Spawner::spawn_blocking(Job)` with `Job =
+Box<dyn FnOnce() + Send>`; under `std`, `run_on(Arc<dyn Spawner>, job)`
+is a `'static` future that submits the job on first poll and resolves to
+`Some(result)`, or `None` if the job panicked or was dropped unrun (the
+oneshot is a `Mutex` slot whose sender closes it on drop). `DefaultPool`
+starts named `filer-N` threads on demand up to a maximum (64 by default),
+queues jobs beyond it, retires threads idle past a timeout (10 seconds),
+contains panics so threads survive, and runs the queue inline only if no
+thread can be started at all.
+
 ### 7.6 `no_std`
 
 `core::future::Future`, `core::task`, and `alloc` are enough for the types,
@@ -2637,7 +2647,7 @@ Record changes here with a date and one line of rationale.
 | D9 | Four coarse rights: `READ`, `WRITE`, `MUTATE`, `META` | Accepted |
 | D10 | Guarantees reported, never silently emulated | Accepted |
 | D11 | `unsafe` only in driver crates that need it, in `sys` | Accepted |
-| D12 | `Spawner` trait and `DefaultPool` in `filer-api` | Proposed |
+| D12 | `Spawner` trait and `DefaultPool` in `filer-api` | Accepted |
 | D13 | `Send` futures by default; `LocalDriver` later | Proposed |
 | D14 | Own `no_std` `Error`, `#[non_exhaustive]`, io interop | Accepted |
 | D15 | No mmap in the core | Accepted |

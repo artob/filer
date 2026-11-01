@@ -196,11 +196,6 @@ No OS access; everything builds without `std` (§7.6).
   translation and `ReadOnly` rejects every mutating `OpKind` (test
   enumerates them).
 
-- [ ] **DRV-06: `Spawner` and `DefaultPool`.**
-  The trait, the internal oneshot, and the `std` pool (bounded threads,
-  idle timeout, named threads) per §7.5. Done when tests cover saturation
-  and shutdown.
-
 ## `filer-heap`
 
 The executable specification and test bed; it comes before any OS driver.

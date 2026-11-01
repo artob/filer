@@ -10,6 +10,8 @@ so any release may break compatibility.
 ### Added
 - `filer-posix`: Kernel-confined opens with `openat2` on Linux, falling
   back to the userspace walk; `Posix::with_userspace_resolution`.
+- `filer-api`: `Spawner` and `Job`; under `std`, `run_on` and
+  `DefaultPool`, the built-in thread pool.
 
 ## 0.0.1 - 2026-11-01
 The first usable version: read-only access through a capability-based
