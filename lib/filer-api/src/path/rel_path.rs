@@ -55,6 +55,17 @@ impl RelPath {
         Self::from_str_unchecked("")
     }
 
+    /// Validates a literal for the [`rel!`](crate::rel) macro, panicking
+    /// (a compile error in `const` context) if it is invalid.
+    #[doc(hidden)]
+    #[must_use]
+    pub const fn __from_literal(s: &'static str) -> &'static Self {
+        match Self::new(s) {
+            Ok(path) => path,
+            Err(error) => error.reason().panic(),
+        }
+    }
+
     /// Borrows `s` as a path without checking it; `s` must be valid.
     #[ref_cast_custom]
     pub(super) const fn from_str_unchecked(s: &str) -> &Self;

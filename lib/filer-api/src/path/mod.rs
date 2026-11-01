@@ -18,6 +18,8 @@
 mod components;
 pub use components::*;
 
+mod macros;
+
 mod name;
 pub use name::*;
 

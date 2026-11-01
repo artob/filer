@@ -18,6 +18,20 @@ pub enum NameError {
     DotOrDotDot,
 }
 
+impl NameError {
+    /// Panics with a fixed message for this error. A `const` panic cannot
+    /// format its argument, so the `name!` and `rel!` macros use this to
+    /// report invalid literals at compile time.
+    pub(super) const fn panic(self) -> ! {
+        match self {
+            Self::Empty => panic!("invalid literal: empty name or component"),
+            Self::ContainsSlash => panic!("invalid literal: name contains '/'"),
+            Self::ContainsNul => panic!("invalid literal: contains NUL"),
+            Self::DotOrDotDot => panic!("invalid literal: '.' or '..'"),
+        }
+    }
+}
+
 impl core::fmt::Display for NameError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self {

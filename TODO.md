@@ -113,11 +113,6 @@ done when the PR is merged and released, or when §17.1 records why not.
 All in the self-contained `filer_api::path` module (D3), using `ref-cast`
 with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
 
-- [ ] **PATH-03: `name!` and `rel!` macros.**
-  `const fn` validators; invalid literals fail to compile. Done when
-  `compile_fail` doctests show rejection and valid literals yield
-  `&'static` values.
-
 - [ ] **PATH-04: `RelPathBuf::normalize_lexically`.**
   Accepts `.` components, redundant separators, and (when asked) `\`;
   rejects `..`, roots, and drive prefixes. Done when tests cover POSIX- and

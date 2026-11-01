@@ -41,6 +41,17 @@ impl Name {
         }
     }
 
+    /// Validates a literal for the [`name!`](crate::name) macro, panicking
+    /// (a compile error in `const` context) if it is invalid.
+    #[doc(hidden)]
+    #[must_use]
+    pub const fn __from_literal(s: &'static str) -> &'static Self {
+        match Self::new(s) {
+            Ok(name) => name,
+            Err(error) => error.panic(),
+        }
+    }
+
     /// Borrows `s` as a name without checking it; `s` must be valid.
     #[ref_cast_custom]
     pub(super) const fn from_str_unchecked(s: &str) -> &Self;

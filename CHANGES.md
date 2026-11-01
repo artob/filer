@@ -14,3 +14,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-cli`: New crate for the `filer` command, which does nothing yet.
 - `filer-api`: `path::Name` and `path::NameBuf`, validated path components.
 - `filer-api`: `path::RelPath` and `path::RelPathBuf`, confined relative paths.
+- `filer-api`: `name!` and `rel!` macros for compile-time-checked literals.
