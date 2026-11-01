@@ -2,9 +2,6 @@
 
 //! The file allocation table, and cluster chains read from it.
 
-// The driver (FAT-04) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::{
     FatError, FatType,
     geometry::{Cluster, Geometry},
@@ -270,6 +267,7 @@ impl Chain {
     }
 
     /// Returns the number of clusters in the chain.
+    #[allow(dead_code, reason = "used by tests, and by writing later")]
     pub(crate) const fn clusters(&self) -> u32 {
         self.clusters
     }

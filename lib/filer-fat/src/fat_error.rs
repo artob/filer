@@ -158,6 +158,15 @@ pub enum FatError {
         cluster: u32,
     },
 
+    /// A directory entry's name cannot name an entry: it is empty,
+    /// contains `/` or NUL, or is `.` or `..`.
+    BadName {
+        /// The directory's first cluster, or 0 for a FAT12/16 root.
+        dir: u32,
+        /// The index of the entry's slot in the directory.
+        slot: u32,
+    },
+
     /// A directory entry is marked both a directory and a volume label.
     BadAttributes {
         /// The directory's first cluster, or 0 for a FAT12/16 root.
@@ -265,6 +274,9 @@ impl core::fmt::Display for FatError {
                 f,
                 "empty file {slot} of directory {dir} has cluster {cluster}"
             ),
+            Self::BadName { dir, slot } => {
+                write!(f, "entry {slot} of directory {dir} has an invalid name")
+            },
             Self::BadAttributes { dir, slot, attrs } => write!(
                 f,
                 "entry {slot} of directory {dir} has invalid attributes {attrs:#04X}"

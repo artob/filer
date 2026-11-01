@@ -9,9 +9,6 @@
 //! reserved and arbitrary, so a field may be unset or invalid without the
 //! volume being corrupt; [`Stamp`] keeps all three cases apart.
 
-// The driver (FAT-04) uses the rest of this module.
-#![allow(dead_code)]
-
 use core::time::Duration;
 use filer_api::Timestamp;
 

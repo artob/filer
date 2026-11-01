@@ -2,9 +2,6 @@
 
 //! The boot sector, parsed and validated into a volume's geometry.
 
-// The driver (FAT-04) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::{FatError, FatType};
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
@@ -257,6 +254,7 @@ impl Geometry {
         self.fat_type
     }
 
+    #[allow(dead_code, reason = "for writing, later")]
     pub(crate) const fn sector_size(&self) -> u32 {
         self.sector_size
     }
@@ -279,6 +277,7 @@ impl Geometry {
         self.fat_len
     }
 
+    #[allow(dead_code, reason = "used by tests, and by writing later")]
     pub(crate) const fn fat_count(&self) -> u8 {
         self.fat_count
     }
@@ -287,6 +286,7 @@ impl Geometry {
         self.root
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn volume_len(&self) -> u64 {
         self.volume_len
     }

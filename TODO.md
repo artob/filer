@@ -669,19 +669,23 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only first, designed for writing (§17.13, D46). One commit per item.
 
-- [ ] **FAT-04: Driver.** Open, read, stat, list, read link (always
-  `NotASymlink`), close, with case-insensitive lookup through the
-  `Resolver`, matching long or short names. Names `DriverKey::entry_name`
-  rejects are `Corrupt`. Done when a test image reads correctly.
-- [ ] **FAT-05: Specification and fixtures.** A test image writer for
-  `filer-spec`; fixtures from `mkfs.fat` and `mtools` for each FAT type.
-  Done when `filer-spec` passes with symlinks and FIFOs off.
+- [ ] **FAT-05: Specification and fixtures.** Lay `filer-spec`'s tree out
+  with the test image writer (`tests/common`); fixtures from `mkfs.fat`
+  and `mtools` for each FAT type. Done when `filer-spec` passes with
+  symlinks and FIFOs off.
 - [ ] **FAT-06: Differential test on Linux.** Compare against the kernel's
   FAT driver on loop-mounted images (on the Ubuntu test host `byte3`,
   which has passwordless `sudo`). Done when listings, contents, and times
   agree.
 - [ ] **FAT-07: Fuzzing.** Targets for the boot sector, FAT, and directory
   parsers. Done when they build in CI.
+- [ ] **FAT-09: Open options.** `Fat::open_with` taking the time zone
+  offset that local times are read in (UTC now), and limits such as a
+  cap on cached directory chains. Done when times honor the offset.
+- [ ] **FAT-10: Volume metadata.** The volume serial number as the
+  `FileId` volume, directory lengths (their chains' bytes, as Linux
+  reports), and attributes once `FileAttrs` exists. Done when `stat`
+  reports them.
 - [ ] **FAT-08: Writing (later).** Allocation, mirrored FATs, FSInfo, the
   dirty bit, write ordering, locking (§17.13). Done when designed in
   `DESIGN.md` against `filer-spec`'s write cases.

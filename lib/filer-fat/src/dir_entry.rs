@@ -10,9 +10,6 @@
 //! unaware of long names is recognized as orphaned: per the specification,
 //! it is then not part of any entry, which keeps its short name.
 
-// The driver (FAT-04) uses the rest of this module.
-#![allow(dead_code)]
-
 use crate::{
     FatError, FatType, cp437,
     fat_time::Stamp,
@@ -73,6 +70,7 @@ impl ShortName {
     }
 
     /// Returns the stored bytes.
+    #[allow(dead_code, reason = "for writing, later")]
     pub(crate) const fn raw(&self) -> &[u8; 11] {
         &self.0
     }
@@ -150,6 +148,7 @@ impl Case {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct Attrs(u8);
 
+#[allow(dead_code, reason = "reported once `FileAttrs` exists")]
 impl Attrs {
     pub(crate) const fn read_only(self) -> bool {
         self.0 & 0x01 != 0
@@ -261,6 +260,7 @@ impl DirEntry {
         }
     }
 
+    #[allow(dead_code, reason = "reported once `FileAttrs` exists")]
     pub(crate) const fn attrs(&self) -> Attrs {
         self.attrs
     }
@@ -282,6 +282,7 @@ impl DirEntry {
     }
 
     /// Returns the index of the entry's first slot.
+    #[allow(dead_code, reason = "for writing, later")]
     pub(crate) const fn first_slot(&self) -> u32 {
         self.slots.0
     }
@@ -436,11 +437,14 @@ pub(crate) struct Assembler<'a> {
 }
 
 impl<'a> Assembler<'a> {
-    pub(crate) fn new(geometry: &'a Geometry, dir: u32) -> Self {
+    /// Returns an assembler for the directory starting at cluster `dir`
+    /// (0 for a FAT12/16 root), fed from slot `slot` on, which must not be
+    /// in the middle of an entry.
+    pub(crate) fn new(geometry: &'a Geometry, dir: u32, slot: u32) -> Self {
         Self {
             geometry,
             dir,
-            slot: 0,
+            slot,
             pending: None,
             ended: false,
         }
@@ -624,7 +628,7 @@ pub(crate) mod tests {
 
     /// Feeds `slots`, returning every step that is not `More`.
     fn assemble(geometry: &Geometry, slots: &[[u8; SLOT]]) -> Vec<Result<Step, FatError>> {
-        let mut assembler = Assembler::new(geometry, 7);
+        let mut assembler = Assembler::new(geometry, 7, 0);
         slots
             .iter()
             .map(|slot| assembler.push(slot))

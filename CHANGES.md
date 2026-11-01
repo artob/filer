@@ -15,8 +15,8 @@ so any release may break compatibility.
 - `filer-posix`, `filer-system`: `thread_pool(spawner)` constructors, which
   run each operation on a `Spawner` instead of inside `poll`.
 - `filer-ar`, `filer-cpio`, and `filer-rar`: New crates, with no items yet.
-- `filer-fat`: New crate for the FAT12/16/32 driver, with `FatType` and
-  `FatError` so far.
+- `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
+  FAT32 volumes, with `FatType` and `FatError`.
 - `filer-api`: `archive`, the shared machinery of archive drivers:
   `Archive`, `Index`, `Member`, `Limits`, and `ArchiveError`.
 ### Changed

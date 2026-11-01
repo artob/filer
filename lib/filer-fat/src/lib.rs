@@ -2,11 +2,10 @@
 
 //! FAT12/16/32 file system driver for the Filer API.
 //!
-//! This crate will implement [`filer_api::Driver`] over FAT volumes, read
-//! from any [`filer_api::ReadAt`] source: a disk image `File` of another
-//! driver, bytes in memory, or a block device. It is read-only for now, and
-//! designed so that writing can follow. So far it parses and validates the
-//! boot sector; the driver itself is in progress (see `DESIGN.md` §17.13).
+//! [`Fat`] implements [`filer_api::Driver`] over FAT volumes, read from any
+//! [`filer_api::ReadAt`] source: a disk image `File` of another driver,
+//! bytes in memory, or a block device. It is read-only for now, and
+//! designed so that writing can follow (see `DESIGN.md` §17.13).
 //!
 //! Volumes are untrusted input. A corrupt or hostile image yields errors,
 //! never a panic, a hang, or unbounded memory use: the crate denies
@@ -59,5 +58,10 @@ pub use fat_type::*;
 mod chain;
 mod cp437;
 mod dir_entry;
+
+mod fat;
+pub use fat::*;
+
 mod fat_time;
 mod geometry;
+mod volume;
