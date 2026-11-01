@@ -28,6 +28,9 @@ extern crate std;
 
 pub mod path;
 
+mod ambient_authority;
+pub use ambient_authority::*;
+
 mod buf_result;
 pub use buf_result::*;
 

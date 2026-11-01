@@ -1,6 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use alloc::{boxed::Box, collections::BTreeMap, string::String, vec::Vec};
+use filer_api::{Error, ErrorKind, FileKind, LinkTarget, OpKind, Resolver};
 
 /// An inode number: an index into [`Tree::nodes`].
 pub(crate) type Ino = usize;
@@ -42,6 +43,37 @@ impl Tree {
         match &self.nodes[dir] {
             Node::Dir(entries) => entries.get(name).copied(),
             _ => None,
+        }
+    }
+}
+
+/// The [`Resolver`] primitives, on the private tree so that callers cannot
+/// resolve from inode numbers they were never handed.
+impl Resolver for Tree {
+    type Node = Ino;
+
+    fn lookup(&self, dir: &Ino, name: &[u8], op: OpKind) -> Result<Ino, Error> {
+        match &self.nodes[*dir] {
+            Node::Dir(entries) => entries
+                .get(name)
+                .copied()
+                .ok_or_else(|| Error::new(ErrorKind::NotFound, op)),
+            _ => Err(Error::new(ErrorKind::NotADirectory, op)),
+        }
+    }
+
+    fn kind(&self, node: &Ino) -> FileKind {
+        match self.nodes[*node] {
+            Node::Dir(_) => FileKind::Dir,
+            Node::File(_) => FileKind::File,
+            Node::Symlink(_) => FileKind::Symlink,
+        }
+    }
+
+    fn read_link(&self, dir: &Ino, name: &[u8], op: OpKind) -> Result<LinkTarget, Error> {
+        match &self.nodes[self.lookup(dir, name, op)?] {
+            Node::Symlink(target) => Ok(LinkTarget::Utf8(target.clone())),
+            _ => Err(Error::new(ErrorKind::NotASymlink, op)),
         }
     }
 }

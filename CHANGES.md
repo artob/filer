@@ -26,3 +26,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-api`: `ErrorKind::NotASymlink`.
 - `filer-api`: `Resolver`, confined userspace path resolution.
 - `filer-heap`: New crate for the in-memory driver, read-only so far.
+- `filer-api`: `AmbientAuthority` and `ambient_authority()`.
+- `filer-posix`: `Posix::blocking()`, a read-only driver over `rustix`.

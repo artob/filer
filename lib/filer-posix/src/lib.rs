@@ -2,12 +2,39 @@
 
 //! POSIX backend for the Filer API.
 //!
-//! This crate will implement [`filer_api`] on Unix platforms and does not
-//! export any items yet. Its items will be gated on `cfg(unix)`, so the crate
-//! still builds, empty, for other targets such as Windows. It builds with
-//! `#![no_std]`; the `std` feature, enabled by default, forwards to
-//! `filer-api`. `all` currently enables nothing.
+//! [`Posix`] implements [`filer_api::Driver`] on Unix platforms (Linux,
+//! macOS, the BSDs) over [`rustix`]. So far it supports the read
+//! operations, executed by the [blocking](Posix::blocking) executor, with
+//! paths confined by the generic [`filer_api::Resolver`].
+//!
+//! Items are gated on `cfg(unix)` and the `std` feature, enabled by
+//! default, so the crate still builds, empty, without `std` and on other
+//! targets such as Windows and WASI. `all` currently enables nothing.
+//!
+//! [`rustix`]: https://docs.rs/rustix
 
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// The crate docs link to items that exist only on Unix with `std`.
+#![cfg_attr(
+    not(all(unix, feature = "std")),
+    allow(rustdoc::broken_intra_doc_links)
+)]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(all(unix, feature = "std"))]
+mod errno;
+
+#[cfg(all(unix, feature = "std"))]
+mod node;
+
+#[cfg(all(unix, feature = "std"))]
+mod posix;
+#[cfg(all(unix, feature = "std"))]
+pub use posix::*;
+
+#[cfg(all(unix, feature = "std"))]
+mod stat;

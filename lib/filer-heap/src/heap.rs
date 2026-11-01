@@ -165,7 +165,9 @@ impl Heap {
     fn open(&self, at: &Handle, path: &RelPath, how: OpenHow) -> Result<Output, Error> {
         let op = OpKind::Open;
         let dir = self.dir(at).map_err(|error| Error::new(error, op))?;
-        let ino = self.resolve(&dir, path.as_str().as_bytes(), how.resolve, true, op)?;
+        let ino = self
+            .tree
+            .resolve(&dir, path.as_str().as_bytes(), how.resolve, true, op)?;
         let mismatch = match (&self.tree.nodes[ino], how.kind) {
             (Node::Dir(_), HandleKind::Dir) | (Node::File(_), HandleKind::File) => None,
             (Node::Dir(_), HandleKind::File) => Some(ErrorKind::IsADirectory),
@@ -191,7 +193,8 @@ impl Heap {
             EntryName::Foreign(name) if name.origin() == self.key.id() => name.as_bytes(),
             EntryName::Foreign(_) => return Err(Error::new(ErrorKind::ForeignNameMismatch, op)),
         };
-        self.resolve(&dir, bytes, Resolve::default(), follow, op)
+        self.tree
+            .resolve(&dir, bytes, Resolve::default(), follow, op)
     }
 
     fn metadata(&self, ino: Ino) -> Metadata {
@@ -248,35 +251,6 @@ impl Driver for Heap {
     fn submit(&self, op: Op) -> impl Future<Output = Completion> + Send + use<> {
         let heap = self.clone();
         async move { heap.perform(op) }
-    }
-}
-
-impl Resolver for Heap {
-    type Node = Ino;
-
-    fn lookup(&self, dir: &Ino, name: &[u8], op: OpKind) -> Result<Ino, Error> {
-        match &self.tree.nodes[*dir] {
-            Node::Dir(entries) => entries
-                .get(name)
-                .copied()
-                .ok_or_else(|| Error::new(ErrorKind::NotFound, op)),
-            _ => Err(Error::new(ErrorKind::NotADirectory, op)),
-        }
-    }
-
-    fn kind(&self, node: &Ino) -> FileKind {
-        match self.tree.nodes[*node] {
-            Node::Dir(_) => FileKind::Dir,
-            Node::File(_) => FileKind::File,
-            Node::Symlink(_) => FileKind::Symlink,
-        }
-    }
-
-    fn read_link(&self, dir: &Ino, name: &[u8], op: OpKind) -> Result<LinkTarget, Error> {
-        match &self.tree.nodes[self.lookup(dir, name, op)?] {
-            Node::Symlink(target) => Ok(LinkTarget::Utf8(target.clone())),
-            _ => Err(Error::new(ErrorKind::NotASymlink, op)),
-        }
     }
 }
 

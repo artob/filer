@@ -25,6 +25,11 @@ pub const MAX_SYMLINK_HOPS: usize = 40;
 /// targets and foreign names resolve too. Components are separated by `/`;
 /// drivers translate other separators in link targets before returning
 /// them, and Windows drivers use WTF-8.
+///
+/// Implement this trait on a private type, not on the public driver:
+/// nodes are raw references such as inode numbers, and a public
+/// implementation would let callers resolve from nodes they were never
+/// handed as capabilities.
 pub trait Resolver {
     /// A driver's reference to a file, directory, or symlink, such as an
     /// open descriptor or an inode number.

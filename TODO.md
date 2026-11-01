@@ -269,9 +269,10 @@ The executable specification and test bed; it comes before any OS driver.
   `write_in_place`. Done when each issues a single submission.
 
 - [ ] **API-06: Ambient entry points.**
-  `AmbientAuthority`, `ambient_authority()`, `Dir::open_ambient`,
-  `Dir::from_owned_fd` / `from_owned_handle`, under `std` (§6.1). Done
-  when docs suggest a `clippy::disallowed_methods` configuration.
+  `AmbientAuthority` and `ambient_authority()` exist. Still missing:
+  `Dir::open_ambient` and `Dir::from_owned_fd` / `from_owned_handle`, under
+  `std` (§6.1). Done when docs suggest a `clippy::disallowed_methods`
+  configuration.
 
 ## `filer-conformance`
 
@@ -300,31 +301,34 @@ The executable specification and test bed; it comes before any OS driver.
 
 ## `filer-posix`
 
-- [ ] **POSIX-01: Crate, executors, payload.**
-  In the existing `lib/filer-posix/` shell: `rustix` as a target-gated
-  optional dependency enabled by `std`; `Posix::thread_pool(spawner)` and
-  `Posix::blocking()`; a public `OwnedFd`-based payload type for
-  `filer-uring`. `#![forbid(unsafe_code)]` stays until a stopgap is needed
-  (POSIX-10). Done when the crate still builds as an empty shell without
-  `std`, on bare metal, on Windows, and on wasm (WASI included).
+- [ ] **POSIX-01: Thread-pool executor and public payload.**
+  `Posix::blocking()` exists with the six read ops. Still missing:
+  `Posix::thread_pool(spawner)` (after DRV-06) and a public `OwnedFd`-based
+  payload type for `filer-uring`. Done when both executors pass the same
+  tests.
 
 - [ ] **POSIX-02: Kernel-confined open.**
   `openat2` with each `Resolve` combination; bounded `EAGAIN` retry; the
   `ENOSYS`/`EPERM` switch to the userspace walk (per VER-04). Done when
   CONF-02 passes on Linux.
 
-- [ ] **POSIX-03: Userspace walk.**
-  The generic `Resolver` (§6.5) over `O_NOFOLLOW` primitives; forcible via
-  configuration. Done when CONF-02 passes with the walk forced on Linux and
-  by default on macOS.
+- [ ] **POSIX-03: Forced userspace walk.**
+  The generic `Resolver` already resolves every path. Still missing: a
+  configuration option forcing it once POSIX-02 exists. Done when CONF-02
+  passes with the walk forced on Linux and by default on macOS.
 
-- [ ] **POSIX-04: Data and metadata ops.**
-  Read, write, `statx` (`fstat` fallback off Linux), `set_len`, close via
-  the background closer. Done when CONF-01 passes in a temporary directory.
+- [ ] **POSIX-04: Write ops and `statx`.**
+  Read and `fstat`/`statat` metadata exist. Still missing: write,
+  `set_len`, `statx` on Linux (birth times, masks), birth times on macOS,
+  and close via the background closer. Done when CONF-01 passes in a
+  temporary directory.
 
-- [ ] **POSIX-05: Listing.**
-  Batched `RawDir` with `d_type`; `DT_UNKNOWN` handling. Done when a
-  directory larger than one batch lists completely.
+- [ ] **POSIX-05: Large-batch listing.**
+  Listing works through `rustix::fs::Dir` with count-based cookies. Still
+  missing: large `getdents64` batches (`RawDir`) on Linux with `d_off`
+  cookies, so concurrent changes cannot shift a restarted listing. Done when
+  a directory larger than one batch lists completely and a restarted
+  listing resumes by cookie.
 
 - [ ] **POSIX-06: Namespace ops.**
   `mkdirat`, `unlinkat`, `renameat_with`, `linkat`, `symlinkat`,

@@ -1736,6 +1736,22 @@ Configuration: maximum threads (via the spawner), forced userspace
 resolution (for testing and for kernels that misbehave), and an error hook
 for background closes.
 
+As built (2026-11-01), read-only and blocking only: `Posix::blocking()`
+answers the six read ops, and `open_ambient_dir(path, AmbientAuthority)`
+opens roots. Resolution is the generic `Resolver` (§6.5) on a private
+`Walker`, so `openat2` (POSIX-02) is still to come: `lookup` is `statat`
+with `AT_SYMLINK_NOFOLLOW`, then directories open with `O_DIRECTORY |
+O_NOFOLLOW` (a swap to a symlink in between fails rather than escapes);
+files open with `O_NOFOLLOW | O_NONBLOCK`, are `fstat`-checked to be
+regular, and have `O_NONBLOCK` cleared. Metadata is `fstat`/`statat`
+(no birth time; `statx` later). Listing uses `rustix::fs::Dir`, which
+reopens `.` for an independent stream; the stream stays in the handle
+between batches, and a `DirCookie` counts entries listed, because
+`d_off`/`telldir` are not portable through `rustix` (`DirEntry::offset`
+is missing on Apple targets); an unexpected cookie restarts and skips.
+Errno values map to `ErrorKind` through a table, keeping the raw code;
+`EINTR` is retried. Verified on macOS and, in Docker, Linux at 1.97.
+
 ### 17.2 `filer-windows`
 
 Built directly on `windows-sys` (D22), with all `unsafe` in its `sys`
