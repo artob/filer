@@ -287,7 +287,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
   +----------------v-----------------+
   | Concrete drivers                 |  filer-posix, filer-windows,
   |                                  |  filer-uring, filer-heap,
-  |                                  |  filer-archive
+  |                                  |  filer-tar, filer-zip
   +----------------------------------+
 ```
 
@@ -317,7 +317,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-heap` | in-memory driver with a crash model | no |
 | `filer-vfs` | mount-table routing driver | no |
 | `filer-overlay` | overlay routing driver | no |
-| `filer-archive` | read-only zip and tar driver | no |
+| `filer-tar`, `filer-zip` | read-only archive drivers | no |
 | `filer-tracing` | tracing middleware | no |
 | `filer-faults` | fault-injection middleware | no |
 | `filer-quota` | quota middleware | no |
@@ -348,7 +348,7 @@ own crate.
 Main type per crate: `filer_system::System`, `filer_posix::Posix`,
 `filer_windows::Windows`,
 `filer_uring::Uring`, `filer_heap::Heap`, `filer_vfs::Vfs`,
-`filer_overlay::Overlay`, `filer_archive::Archive`.
+`filer_overlay::Overlay`, `filer_tar::Tar`, `filer_zip::Zip`.
 
 ### 4.2 Dependency graph
 
@@ -357,7 +357,7 @@ filer-api <--+-- filer-posix <---- filer-uring
              +-- filer-wasi
              +-- filer-windows
              +-- filer-heap
-             +-- filer-vfs, filer-overlay, filer-archive
+             +-- filer-vfs, filer-overlay, filer-tar, filer-zip
              +-- filer-tracing, filer-faults, filer-quota, filer-replay
              +-- filer-tx, filer-tokio, filer-fuse
              +-- filer-spec          (dev-dependency of every driver)
@@ -1938,14 +1938,69 @@ semantics: whiteouts for deletions, opaque directories, copy-up on first
 write (using clone when upper and lower share a volume). Useful for
 sandboxes, test fixtures, and "try this change" workflows.
 
-### 17.7 `filer-archive`
+### 17.7 `filer-tar` and `filer-zip`
 
-Read-only random-access views of zip and tar archives. `Enforcement` is
-`Virtual`; rights never include `WRITE` or `MUTATE`. Names that are not
-valid UTF-8 become foreign names. Members with `..` or absolute paths are
-exposed under a quarantine directory or rejected, never resolved outside
-the archive root. Whether to write small readers or reuse existing crates
-is Q7.
+Read-only archive drivers, one crate per format (D41, answering Q7's
+packaging question): they need different dependencies and codec features,
+and users rarely need both. Both are virtual drivers like `filer-heap`:
+`Enforcement` is `Virtual`, rights are at most `READ`, paths resolve
+through the generic `Resolver` (so archive symlinks are confined beneath
+the archive root), and no `AmbientAuthority` is needed, because the
+archive's `Dir` derives from a capability the caller already holds:
+
+```rust
+let archive = root.open_file("release.zip").await?;
+let contents: Dir<Zip<_>> = filer_zip::Zip::open(archive).await?;
+```
+
+**Source.** Drivers read through `filer_api::ReadAt` (D42): an async
+positional `read_at` plus `len`, implemented by `File<M: Readable, D>` and
+by in-memory bytes (`&'static [u8]`, `Vec<u8>`, `Arc<[u8]>`, ...), so a
+member of one driver, a `no_std` `include_bytes!` archive, or a stored
+member of another archive can all be sources. Access needed per format:
+
+| Format | Needs | Why |
+| --- | --- | --- |
+| ZIP | random access, length | its index is the central directory at the end |
+| TAR | random access | no index: one pass over 512-byte headers |
+| compressed TAR | rewinding | seeking back re-decompresses from the start |
+| forward-only | not a `Dir` | a streaming visitor or extractor only |
+
+Reading at an offset inside a compressed member (Deflate, zstd, ...) costs
+decompressing from the member's start; drivers cache or fully decompress
+small members, and only stored members are truly random-access. Codecs
+are features, preferring `no_std` decoders.
+
+**Names and paths.** Non-UTF-8 names become `ForeignName`s. Names with
+`..`, absolute or drive prefixes, or backslashes are never resolved
+outside the root: quarantined or rejected. Directories missing from the
+archive (common in ZIP) are synthesized. Decoding ZIP's legacy CP437
+names (no UTF-8 flag, bit 11) to UTF-8 is lossless and planned as a
+stretch goal; until then such names are UTF-8 if valid and foreign
+otherwise. **Duplicate entries** are resolved the same way in both
+formats: the later entry wins (TAR's append semantics; for ZIP, later in
+the central directory). TAR hardlinks become one node with one `FileId`.
+
+**Metadata.** TAR gives mode, owner, and type; ZIP gives DOS local times
+at 2-second granularity without a time zone (reported through
+`Timestamp::granularity`) unless an extended-timestamp field gives Unix
+time. Compressed size will map to `allocated`.
+
+**Security.** Strict limits are the default, configurable per archive:
+total uncompressed size, per-member decompression ratio (zip bombs),
+entry count (index memory), and path length. ZIP local and central headers
+that disagree are an error, not a choice, since parser differentials are
+exploited. Extracting by walking an archive `Dir` into a destination `Dir`
+is confined by construction ("zip slip" and symlink-then-write attacks
+cannot name anything outside the destination), which makes these drivers
+a safer extraction tool than most.
+
+**Shared structure.** An archive index is an immutable tree like
+`filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
+bytes; factor it out rather than write it three times. Creating archives
+does not fit the driver model (no in-place rename or removal; ZIP writes
+its index last) and belongs to a separate writer API, such as packing a
+`Dir` into a TAR or ZIP.
 
 ### 17.8 `filer-wasi`
 
@@ -2314,7 +2369,7 @@ filer/
     filer-cli/     src/ { main.rs }
     filer-uring/   src/ { lib.rs, ring.rs, sys/ }
     filer-heap/  src/ { lib.rs, inode.rs, crash.rs, harness.rs, ... }
-    filer-vfs/  filer-overlay/  filer-archive/
+    filer-vfs/  filer-overlay/  filer-tar/  filer-zip/
     filer-tracing/  filer-faults/  filer-quota/  filer-replay/
     filer-tx/  filer-tokio/  filer-spec/  filer-fuse/
     <umbrella>/
@@ -2577,6 +2632,8 @@ Record changes here with a date and one line of rationale.
 | D38 | The browser driver is `filer-whatwg`, after its standard | Accepted |
 | D39 | Capsicum, Landlock, `unveil`/`pledge` live in `filer-posix` | Accepted |
 | D40 | Planned: `filer-uefi`; 9P, SMB, NFS, SFTP; FAT and others | Accepted |
+| D41 | Archives are `filer-tar` and `filer-zip`, one per format | Accepted |
+| D42 | Byte sources are `ReadAt`: positional reads, length | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
@@ -2613,7 +2670,8 @@ Notes on the 2026-10-31 decisions:
   `filer-system` does (§17.10); the §3.7 umbrella is still open.
 - **Q6.** Optional `miette` diagnostics for `filer_api::Error`?
 - **Q7.** Archive support: own small zip and tar readers (`no_std`
-  possible) or existing crates (bigger, `std`)?
+  possible) or existing crates (bigger, `std`)? Packaging is settled
+  (separate `filer-tar` and `filer-zip`, D41); the parser choice is open.
 - **Q8.** Should `Dir::open_ambient` accept `camino::Utf8Path` (and Dogma.rs
   types, §5.7) directly, or only `std::path::Path`?
 - **Q9.** Watching (§26): in scope for 1.0 or never?

@@ -594,10 +594,31 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **ARC-01: `filer-archive` zip.** Decide Q7 first. Done when a fuzz
-  target covers member-name quarantine.
-- [ ] **ARC-02: `filer-archive` tar.** Done when tar archives pass the
-  read-only specification subset.
+- [ ] **ARC-01: `ReadAt` source trait.** In `filer-api`, for `File` and
+  in-memory bytes (§17.7, D42). Done when tests read through both.
+- [ ] **ARC-02: Shared immutable tree.** Factor `filer-heap`'s tree so
+  archive drivers reuse it with (offset, size, codec) leaves. Done when
+  `filer-heap` and one archive driver share it.
+- [ ] **TAR-01: `filer-tar` over random access.** Index on open, later
+  entry wins, hardlinks, quarantine, strict limits. Done when it passes the
+  read-only `filer-spec` subset and a fuzz target covers headers and names.
+- [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz behind features, indexed on
+  open with checkpoints or cached members. Done when `.tar.gz` passes the
+  same subset.
+- [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
+  and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
+  from a non-seekable source.
+- [ ] **ZIP-01: `filer-zip`.** Central directory, stored and Deflate
+  members, synthesized directories, later entry wins, header agreement,
+  strict limits (ratio, total size, entries). Done when it passes the
+  read-only `filer-spec` subset and a fuzz target covers zip bombs and
+  name quarantine.
+- [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA behind features. Done when
+  each decodes a test archive.
+- [ ] **ZIP-03: CP437 names (stretch goal).** Decode legacy names to UTF-8.
+  Done when a CP437 archive lists its names correctly.
+- [ ] **ARC-03: Archive writer (later).** Pack a `Dir` into TAR or ZIP,
+  outside the driver model. Done when designed in `DESIGN.md`.
 
 ## Middleware
 
