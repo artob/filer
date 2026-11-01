@@ -90,8 +90,10 @@ kernel fat12 12 1 1440
 kernel fat16 16 4 32768
 kernel fat32 32 1 40960
 
-# Volumes written by the kernel in other code pages: uppercase 8.3 names
-# that the kernel stores as short names alone, in the code page's bytes.
+# Volumes written by the kernel in other code pages: uppercase 8.3 names,
+# whose short names the kernel stores in the code page's bytes. It writes
+# long names for them too, which would hide the short names, so those
+# slots are then marked deleted, leaving the short names to be decoded.
 skipped=0
 codepage() {
     page=$1
@@ -109,6 +111,25 @@ codepage() {
         printf '%s' "$name" > "$mnt/$name"
     done
     sudo umount "$mnt"
+    python3 -I - "$img" <<'EOF'
+import sys
+with open(sys.argv[1], "r+b") as f:
+    boot = f.read(512)
+    sector = int.from_bytes(boot[11:13], "little")
+    reserved = int.from_bytes(boot[14:16], "little")
+    entries = int.from_bytes(boot[17:19], "little")
+    fat = int.from_bytes(boot[22:24], "little")
+    root = (reserved + boot[16] * fat) * sector
+    f.seek(root)
+    slots = bytearray(f.read(entries * 32))
+    for at in range(0, len(slots), 32):
+        if slots[at] == 0:
+            break
+        if slots[at + 11] == 0x0F:
+            slots[at] = 0xE5
+    f.seek(root)
+    f.write(slots)
+EOF
     fsck.fat -n "$img" > /dev/null
 }
 codepage 850 'ØRE.TXT' 'ÆBLE' 'ÅR.ÉTÉ' 'NIÑO.ÇÃ' 'ÜBER.ÖL'
