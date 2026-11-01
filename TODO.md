@@ -147,12 +147,6 @@ No OS access; everything builds without `std` (§7.6).
   table as rustdoc. Done when attenuation is tested and `serde` works under
   its feature.
 
-- [ ] **CORE-03: Foreign names and link targets.**
-  `DriverId` (from a `core::sync::atomic::AtomicUsize` counter, since
-  `thumbv7em` lacks 64-bit atomics), `ForeignName` without a public
-  constructor, `EntryName`, `LinkTarget`, escaped `Display`. Done when
-  escaping is tested via a crate-private constructor.
-
 - [ ] **CORE-04: Metadata types.**
   `MetaMask`, `Metadata`, `FileKind`, `FileId`, `Timestamp`, `FileAttrs`,
   `ChangeToken`, `Permissions`, `DioAlign`, `AtomicWriteUnit`, `MountId`,

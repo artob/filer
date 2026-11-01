@@ -16,3 +16,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-api`: `path::RelPath` and `path::RelPathBuf`, confined relative paths.
 - `filer-api`: `name!` and `rel!` macros for compile-time-checked literals.
 - `filer-api`: `Error` and its `ErrorKind`, `OpKind`, and context types.
+- `filer-api`: `EntryName`, `ForeignName`, `LinkTarget`, and `DriverKey`.

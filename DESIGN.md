@@ -479,7 +479,25 @@ pub enum EntryName {
     Utf8(path::NameBuf),
     Foreign(ForeignName),
 }
+
+pub enum LinkTarget {
+    Utf8(alloc::string::String),
+    Foreign(alloc::boxed::Box<[u8]>),  // never accepted as input
+}
 ```
+
+Drivers live in other crates, so "no public constructor" is enforced by a
+credential rather than by visibility (D32). Each driver instance holds a
+private `DriverKey`, which is neither `Clone` nor `Copy`. The key mints the
+instance's unique `DriverId` (a `usize` counter, since
+`thumbv7em-none-eabihf` lacks 64-bit atomics) and is the only constructor
+of `ForeignName`s carrying that id: `key.entry_name(raw: &[u8])` returns
+`EntryName::Utf8` for valid UTF-8 names and `EntryName::Foreign` otherwise,
+rejecting empty names, `/`, NUL, `.`, and `..` with a `NameError`. Anyone
+can create a key, but names from it carry an id no real driver accepts.
+Thus a `ForeignName`'s bytes are never valid UTF-8. `LinkTarget` needs no
+such protection, since it is only ever output, so it has a public
+`from_bytes`.
 
 Rules:
 
@@ -2340,6 +2358,7 @@ Record changes here with a date and one line of rationale.
 | D29 | Versions start at 0.0.0; releases are 0.0.x until 0.1.0 | Accepted |
 | D30 | `filer-wasi` and `filer-cli` exist from the start | Accepted |
 | D31 | Repository at `github.com/artob/filer` (resolves Q12) | Accepted |
+| D32 | `ForeignName`s are minted only via a driver's `DriverKey` | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
