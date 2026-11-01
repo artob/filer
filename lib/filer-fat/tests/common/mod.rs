@@ -10,6 +10,8 @@
 
 use std::collections::BTreeMap;
 
+pub mod exercise;
+
 const SECTOR: usize = 512;
 
 /// A file or directory to write.

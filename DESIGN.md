@@ -2308,7 +2308,12 @@ and `tests/differential.sh` compares it with the Linux kernel's FAT driver
 on loop-mounted images, including volumes Linux wrote itself: names
 in directory order, kinds, sizes, contents, and all three times must be
 identical. The `manifest` example prints a volume through `Fat` layered
-over a native `File`, which is what the comparison reads.
+over a native `File`, which is what the comparison reads. `tests/fuzz.rs`,
+a dependency-free, structure-aware fuzzer, mutates the fixtures and
+writer images where their structures are and walks each result, checking
+that errors are only `Corrupt` and that listings, stats, and reads agree;
+it runs briefly in every `cargo test` and for as long as asked by
+environment variable.
 
 **Ready for writing.** The layers are the boot sector and geometry
 (validated once, immutable), the FAT table (entry reads now, writes
