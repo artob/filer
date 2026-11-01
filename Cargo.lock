@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "filer-api"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "bitflags",
  "ref-cast",
@@ -28,14 +28,14 @@ dependencies = [
 
 [[package]]
 name = "filer-cli"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-system",
 ]
 
 [[package]]
 name = "filer-heap"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -43,7 +43,7 @@ dependencies = [
 
 [[package]]
 name = "filer-posix"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -52,14 +52,14 @@ dependencies = [
 
 [[package]]
 name = "filer-spec"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-system"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
  "filer-posix",
@@ -70,7 +70,7 @@ dependencies = [
 
 [[package]]
 name = "filer-tar"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
  "filer-heap",
@@ -79,28 +79,28 @@ dependencies = [
 
 [[package]]
 name = "filer-wasi"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-whatwg"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-windows"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-zip"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "filer-api",
 ]

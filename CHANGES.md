@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning]. Releases are 0.0.x while the API is experimental,
 so any release may break compatibility.
 
-## Unreleased
+## 0.0.1 - 2026-11-01
 The first usable version: read-only access through a capability-based
 frontend, over in-memory, POSIX, and TAR archive drivers.
 ### Added
