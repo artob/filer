@@ -11,7 +11,7 @@
 //! it is then not part of any entry, which keeps its short name.
 
 use crate::{
-    FatError, FatType, cp437,
+    CodePage, FatError, FatType,
     fat_time::Stamp,
     geometry::{Cluster, Geometry},
 };
@@ -85,20 +85,28 @@ impl ShortName {
 
     /// Returns the name as displayed: base and extension with their padding
     /// removed, joined by a dot if there is an extension, lowercased (ASCII
-    /// only) per `case`, and decoded from code page 437.
-    pub(crate) fn display(&self, case: Case) -> String {
+    /// only) per `case`, and decoded from `page`.
+    ///
+    /// Fails with the first byte that `page` leaves undefined.
+    pub(crate) fn display(&self, case: Case, page: CodePage) -> Result<String, u8> {
         let [b0, b1, b2, b3, b4, b5, b6, b7, e0, e1, e2] = self.0;
         let b0 = if b0 == KANJI_E5 { FREE } else { b0 };
         let (base, ext) = ([b0, b1, b2, b3, b4, b5, b6, b7], [e0, e1, e2]);
         let (base, ext) = (trim(&base), trim(&ext));
-        let decode = |byte, lower| cp437::decode(lower_if(byte, lower));
         let mut name = String::with_capacity(12);
-        name.extend(base.iter().map(|&b| decode(b, case.lower_base())));
+        let mut push = |bytes: &[u8], lower| -> Result<(), u8> {
+            for &byte in bytes {
+                let byte = lower_if(byte, lower);
+                name.push(page.decode(byte).ok_or(byte)?);
+            }
+            Ok(())
+        };
+        push(base, case.lower_base())?;
         if !ext.is_empty() {
-            name.push('.');
-            name.extend(ext.iter().map(|&b| decode(b, case.lower_ext())));
+            push(b".", false)?;
+            push(ext, case.lower_ext())?;
         }
-        name
+        Ok(name)
     }
 }
 
@@ -252,11 +260,15 @@ impl DirEntry {
     }
 
     /// Returns the name to list: the long name as WTF-8 if there is one,
-    /// else the short name, displayed per its case flags and so UTF-8.
-    pub(crate) fn name(&self) -> Vec<u8> {
+    /// else the short name, displayed per its case flags and decoded from
+    /// `page`, and so UTF-8.
+    ///
+    /// Fails with the first byte of the short name that `page` leaves
+    /// undefined.
+    pub(crate) fn name(&self, page: CodePage) -> Result<Vec<u8>, u8> {
         match &self.long {
-            Some(long) => long.to_wtf8(),
-            None => self.short.display(self.case).into_bytes(),
+            Some(long) => Ok(long.to_wtf8()),
+            None => self.short.display(self.case, page).map(String::into_bytes),
         }
     }
 
@@ -648,7 +660,7 @@ pub(crate) mod tests {
     }
 
     fn name(entry: &DirEntry) -> String {
-        String::from_utf8(entry.name()).unwrap()
+        String::from_utf8(entry.name(CodePage::Cp437).unwrap()).unwrap()
     }
 
     #[test]
@@ -666,7 +678,11 @@ pub(crate) mod tests {
 
     #[test]
     fn displays_short_names() {
-        let display = |name: &[u8; 11], case: u8| ShortName(*name).display(Case(case));
+        let display = |name: &[u8; 11], case: u8| {
+            ShortName(*name)
+                .display(Case(case), CodePage::Cp437)
+                .unwrap()
+        };
         assert_eq!(display(b"README  TXT", 0), "README.TXT");
         assert_eq!(display(b"README  TXT", 0x08), "readme.TXT");
         assert_eq!(display(b"README  TXT", 0x18), "readme.txt");
@@ -676,6 +692,19 @@ pub(crate) mod tests {
         assert_eq!(display(b"\x05BC     DE ", 0), "σBC.DE");
         // Lowercasing is ASCII only: 0x90 is É, and stays so.
         assert_eq!(display(b"\x90T      \x8A  ", 0x18), "Ét.è");
+    }
+
+    #[test]
+    fn reports_bytes_undefined_in_the_code_page() {
+        // Every byte is defined in code page 437.
+        let short = ShortName(*b"\xD5\xDB      TXT");
+        assert!(short.display(Case(0), CodePage::Cp437).is_ok());
+        #[cfg(feature = "code-pages")]
+        {
+            assert_eq!(short.display(Case(0), CodePage::Cp857), Err(0xD5));
+            assert_eq!(short.display(Case(0), CodePage::Cp874), Err(0xDB));
+            assert_eq!(short.display(Case(0), CodePage::Cp850).unwrap(), "ı█.TXT");
+        }
     }
 
     #[test]
@@ -762,7 +791,7 @@ pub(crate) mod tests {
         let mut slots = long_units(&[0x61, 0xDC00, 0xD800, 0xD83D, 0xDE00], 1, short_name);
         slots.push(short(short_name, 0, 0, 0));
         assert_eq!(
-            entries(&slots)[0].name(),
+            entries(&slots)[0].name(CodePage::Cp437).unwrap(),
             [
                 b'a', 0xED, 0xB0, 0x80, 0xED, 0xA0, 0x80, 0xF0, 0x9F, 0x98, 0x80
             ]

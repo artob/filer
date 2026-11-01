@@ -4,7 +4,7 @@
 //! and directory reading and lookup.
 
 use crate::{
-    FatError, Options,
+    CodePage, FatError, Options,
     chain::{Chain, FatReader, Length},
     dir_entry::{Assembler, Body, DirEntry, Item, MAX_LONG_NAME, SLOT, Step},
     geometry::{Cluster, Geometry, Root},
@@ -204,8 +204,9 @@ impl<S: ReadAt> Volume<S> {
         let mut stream = DirStream::new(self, &extent, 0);
         let folded = core::str::from_utf8(name).ok();
         let mut candidate = None;
-        while let Some(entry) = stream.next(op).await? {
-            match matches(&entry, name, folded) {
+        let page = self.options.code_page();
+        while let Some((entry, listed)) = stream.next(op).await? {
+            match matches(&entry, &listed, page, name, folded) {
                 Match::Exact => {
                     return Ok(Node::Entry(Arc::new(Found {
                         dir: extent.id(),
@@ -275,12 +276,14 @@ impl<'a, S: ReadAt> DirStream<'a, S> {
         u32::try_from(self.pos / SLOT_LEN).unwrap_or(u32::MAX)
     }
 
-    /// Returns the next file or subdirectory, skipping `.`, `..`, and the
-    /// volume label, or `None` at the end of the directory.
+    /// Returns the next file or subdirectory, with the name to list it by,
+    /// skipping `.`, `..`, and the volume label, or `None` at the end of
+    /// the directory.
     ///
-    /// Fails if the directory is inconsistent, or holds a name that is
-    /// empty, contains `/` or NUL, or is `.` or `..`.
-    pub(crate) async fn next(&mut self, op: OpKind) -> Result<Option<DirEntry>, Error> {
+    /// Fails if the directory is inconsistent, or holds a name that does
+    /// not decode in the volume's code page, is empty, contains `/` or
+    /// NUL, or is `.` or `..`.
+    pub(crate) async fn next(&mut self, op: OpKind) -> Result<Option<(DirEntry, Vec<u8>)>, Error> {
         let fail = |error: FatError| error.into_error(op);
         loop {
             if self.pos >= self.extent.len() {
@@ -294,13 +297,20 @@ impl<'a, S: ReadAt> DirStream<'a, S> {
                 },
                 Step::More | Step::Item(Item::Dot | Item::DotDot | Item::Label(_)) => {},
                 Step::Item(Item::Entry(entry)) => {
-                    if !is_valid_name(&entry.name()) {
-                        return Err(fail(FatError::BadName {
-                            dir: self.extent.id(),
-                            slot: entry.slot(),
-                        }));
+                    let (dir, slot) = (self.extent.id(), entry.slot());
+                    let page = self.volume.options.code_page();
+                    let name = entry.name(page).map_err(|byte| {
+                        fail(FatError::Undecodable {
+                            dir,
+                            slot,
+                            byte,
+                            code_page: page.number(),
+                        })
+                    })?;
+                    if !is_valid_name(&name) {
+                        return Err(fail(FatError::BadName { dir, slot }));
                     }
-                    return Ok(Some(entry));
+                    return Ok(Some((entry, name)));
                 },
             }
         }
@@ -342,10 +352,17 @@ enum Match {
     No,
 }
 
-/// Compares an entry with a name sought, given as bytes and, if UTF-8, as
-/// a string.
-fn matches(entry: &DirEntry, name: &[u8], folded: Option<&str>) -> Match {
-    if entry.name() == name {
+/// Compares an entry, listed as `listed`, with a name sought, given as
+/// bytes and, if UTF-8, as a string. A short alias that does not decode in
+/// `page` matches nothing.
+fn matches(
+    entry: &DirEntry,
+    listed: &[u8],
+    page: CodePage,
+    name: &[u8],
+    folded: Option<&str>,
+) -> Match {
+    if listed == name {
         return Match::Exact;
     }
     let Some(sought) = folded else {
@@ -364,8 +381,9 @@ fn matches(entry: &DirEntry, name: &[u8], folded: Option<&str>) -> Match {
                 .is_some_and(|(a, b)| fold(a) == fold(b))
         }) && sought.next().is_none()
     });
-    let short = entry.short_name().display(Default::default());
-    let short_matches = short.chars().map(fold).eq(sought.chars().map(fold));
+    let short = entry.short_name().display(Default::default(), page);
+    let short_matches =
+        short.is_ok_and(|short| short.chars().map(fold).eq(sought.chars().map(fold)));
     if long_matches || short_matches {
         Match::Folded
     } else {

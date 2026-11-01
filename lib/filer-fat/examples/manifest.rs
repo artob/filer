@@ -15,9 +15,11 @@
 //! The image is opened as a file of the native driver, and `Fat` reads it
 //! through that file: one driver layered over another.
 //!
-//! Usage: `cargo run -p filer-fat --example manifest -- IMAGE`
+//! Usage: `cargo run -p filer-fat --example manifest -- [--code-page N]
+//! IMAGE`, where short names are decoded from code page `N` (437 unless
+//! given; others need the `code-pages` feature).
 
-use filer_fat::Fat;
+use filer_fat::{CodePage, Fat, Options};
 use filer_system::{Dir, FileKind, MetaMask, Metadata, ReadAt, ambient_authority};
 use std::{
     error::Error,
@@ -28,11 +30,25 @@ use std::{
 };
 
 fn main() -> ExitCode {
-    let Some(image) = std::env::args_os().nth(1) else {
-        eprintln!("usage: manifest IMAGE");
+    let mut args: Vec<_> = std::env::args_os().skip(1).collect();
+    let mut options = Options::new();
+    if args.first().is_some_and(|arg| arg == "--code-page") {
+        let page = args
+            .get(1)
+            .and_then(|number| number.to_str()?.parse().ok())
+            .and_then(CodePage::from_number);
+        let Some(page) = page else {
+            eprintln!("manifest: unknown or unavailable code page");
+            return ExitCode::FAILURE;
+        };
+        options = options.with_code_page(page);
+        args.drain(..2);
+    }
+    let [image] = &args[..] else {
+        eprintln!("usage: manifest [--code-page N] IMAGE");
         return ExitCode::FAILURE;
     };
-    match block_on(run(Path::new(&image))) {
+    match block_on(run(Path::new(image), options)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("manifest: {error}");
@@ -41,7 +57,7 @@ fn main() -> ExitCode {
     }
 }
 
-async fn run(image: &Path) -> Result<(), Box<dyn Error>> {
+async fn run(image: &Path, options: Options) -> Result<(), Box<dyn Error>> {
     let parent = image.parent().filter(|p| !p.as_os_str().is_empty());
     let parent = parent.unwrap_or(Path::new("."));
     let name = image
@@ -50,7 +66,7 @@ async fn run(image: &Path) -> Result<(), Box<dyn Error>> {
         .unwrap_or("");
     let dir = filer_system::open_ambient(parent, ambient_authority())?;
     let file = dir.open_file(name).await?;
-    let root = Fat::open(file).await?;
+    let root = Fat::open_with(file, options).await?;
     walk(&root, "", &mut std::io::stdout().lock()).await
 }
 

@@ -259,7 +259,7 @@ impl<S: ReadAt> Fat<S> {
         let mut stream = DirStream::new(&self.0, extent, slot);
         let mut entries = Vec::new();
         while entries.len() < max {
-            let Some(dir_entry) = stream.next(op).await? else {
+            let Some((dir_entry, name)) = stream.next(op).await? else {
                 return Ok(Output::Entries {
                     entries,
                     next: None,
@@ -268,7 +268,7 @@ impl<S: ReadAt> Fat<S> {
             let name = self
                 .0
                 .key
-                .entry_name(&dir_entry.name())
+                .entry_name(&name)
                 .map_err(|error| Error::new(ErrorKind::Corrupt, op).with_source(error))?;
             let node = Node::Entry(Arc::new(Found {
                 dir: extent.id(),

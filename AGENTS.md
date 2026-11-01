@@ -50,6 +50,8 @@
   a header parser over the shared `filer_api::archive` module);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
   planned; its root denies panicking constructs by lint);
+  `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
+  not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.

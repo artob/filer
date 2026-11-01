@@ -167,6 +167,19 @@ pub enum FatError {
         slot: u32,
     },
 
+    /// A short name without a long name holds a byte that the volume's
+    /// code page leaves undefined: the volume was written under another.
+    Undecodable {
+        /// The directory's first cluster, or 0 for a FAT12/16 root.
+        dir: u32,
+        /// The index of the entry's slot in the directory.
+        slot: u32,
+        /// The undefined byte.
+        byte: u8,
+        /// The number of the code page.
+        code_page: u16,
+    },
+
     /// A directory entry is marked both a directory and a volume label.
     BadAttributes {
         /// The directory's first cluster, or 0 for a FAT12/16 root.
@@ -277,6 +290,15 @@ impl core::fmt::Display for FatError {
             Self::BadName { dir, slot } => {
                 write!(f, "entry {slot} of directory {dir} has an invalid name")
             },
+            Self::Undecodable {
+                dir,
+                slot,
+                byte,
+                code_page,
+            } => write!(
+                f,
+                "entry {slot} of directory {dir} has byte {byte:#04X}, undefined in code page {code_page}"
+            ),
             Self::BadAttributes { dir, slot, attrs } => write!(
                 f,
                 "entry {slot} of directory {dir} has invalid attributes {attrs:#04X}"

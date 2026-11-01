@@ -32,6 +32,7 @@
 | `filer-windows` | Windows | Windows backend |
 | `filer-zip` | All | Read-only ZIP archive driver |
 | `filer-cli` | All | `filer` command-line interface |
+| `known-codepages` | All | DOS code pages, for FAT and ZIP names |
 
 ## 👨‍💻 Development
 

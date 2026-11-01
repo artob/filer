@@ -148,6 +148,10 @@ windows; this section holds the rationale.
   (D29). 0.1.0 waits for the criteria at the end of `TODO.md`.
 - License: Unlicense, as in Dogma.rs (carried over; see Q10).
 - Repository: <https://github.com/artob/filer> (D31).
+- Support crates that are not Filer-specific are named for what they are,
+  not `filer-*`, and are written to be spun out: `known-codepages` (DOS
+  and Windows code pages, used by `filer-fat` and later `filer-zip`) will
+  move to <https://github.com/it-is-known/known-codepages> (D49).
 - Root files: `AGENTS.md`, `README.md`, `CHANGES.md` (Keep a Changelog,
   Semantic Versioning, **Breaking** markers), `TODO.md`, `DESIGN.md`,
   `VERSION`, `UNLICENSE`, `AUTHORS`, `CREDITS.md`, `.rustfmt.toml` (same
@@ -2041,10 +2045,11 @@ ones.
 **Names and paths.** Non-UTF-8 names become `ForeignName`s. Names with
 `..`, absolute or drive prefixes, or backslashes are never resolved
 outside the root: quarantined or rejected. Directories missing from the
-archive (common in ZIP) are synthesized. Decoding ZIP's legacy CP437
-names (no UTF-8 flag, bit 11) to UTF-8 is lossless and planned as a
-stretch goal; until then such names are UTF-8 if valid and foreign
-otherwise. **Duplicate entries** are resolved the same way in both
+archive (common in ZIP) are synthesized. Decoding ZIP's legacy names
+(no UTF-8 flag, bit 11) is planned with `known-codepages` (D49): nominally
+CP437, but in practice often the writer's OEM code page, so the code page
+will be an open option, as in `filer-fat`; until then such names are
+UTF-8 if valid and foreign otherwise. **Duplicate entries** are resolved the same way in both
 formats: the later entry wins (TAR's append semantics; for ZIP, later in
 the central directory). TAR hardlinks become one node with one `FileId`.
 
@@ -2258,10 +2263,12 @@ re-check each against it while implementing):
 
 - Names: a long name is UTF-16; one with unpaired surrogates becomes a
   `ForeignName` holding WTF-8, so enumeration stays total. A short name
-  without a long name is decoded from code page 437, the default of the
-  Linux driver: the volume does not record its OEM code page, and a total
-  decoding keeps every short name UTF-8 (a `ForeignName` must not be
-  UTF-8), the same name every time. Lookups are
+  without a long name is decoded from its OEM code page, which the volume
+  does not record: 437 by default, as in the Linux driver, or another
+  `CodePage` from `Options` (with the `code-pages` feature, D49). Decoding
+  keeps every short name UTF-8 (a `ForeignName` must not be UTF-8), the
+  same name every time; a byte the chosen page leaves undefined is
+  `Corrupt`, naming the slot, rather than replaced. Lookups are
   case-insensitive, as FAT preserves case but does not distinguish it: the
   first driver whose name matching is not byte-exact, informing
   `NamingRules`.
@@ -2865,6 +2872,7 @@ Record changes here with a date and one line of rationale.
 | D46 | `filer-fat` is a lazy driver; exFAT is `filer-exfat` | Accepted |
 | D47 | Async first, no panics, illegal states unrepresentable | Accepted |
 | D48 | `Resolver` is async; `BlockingResolver` shares its walk | Accepted |
+| D49 | Code pages in `known-codepages`, a support crate to spin out | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

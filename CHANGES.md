@@ -16,7 +16,10 @@ so any release may break compatibility.
   run each operation on a `Spawner` instead of inside `poll`.
 - `filer-ar`, `filer-cpio`, and `filer-rar`: New crates, with no items yet.
 - `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
-  FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`.
+  FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`;
+  the `code-pages` feature decodes short names in any `CodePage`.
+- `known-codepages`: New crate. `CodePage`, the single-byte DOS and
+  Windows code pages, decoded by table.
 - `filer-api`: `archive`, the shared machinery of archive drivers:
   `Archive`, `Index`, `Member`, `Limits`, and `ArchiveError`.
 ### Changed

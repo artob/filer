@@ -337,3 +337,46 @@ fn reads_times_at_the_given_offset() {
         }
     }
 }
+
+#[cfg(feature = "code-pages")]
+#[test]
+fn decodes_short_names_in_the_given_code_page() {
+    use filer_fat::{CodePage, Options};
+    // "R\x9BADME.TXT" has no long name; 0x9B is ¢ in code page 437, ø in
+    // 850, and undefined in none of these.
+    let mut image = sample(Kind::Fat16, false);
+    image.slot("README.TXT")[1] = 0x9B;
+    let open_in = |image: &Image, page| {
+        let options = Options::new().with_code_page(page);
+        block_on(Fat::open_with(image.bytes.clone(), options)).unwrap()
+    };
+    assert_eq!(
+        read(&open_in(&image, CodePage::Cp437), "R¢ADME.TXT").unwrap(),
+        b"Read me."
+    );
+    assert_eq!(
+        read(&open_in(&image, CodePage::Cp850), "RøADME.TXT").unwrap(),
+        b"Read me."
+    );
+    assert_eq!(
+        read(&open_in(&image, CodePage::Cp850), "RØADME.txt").unwrap(),
+        b"Read me."
+    );
+    assert!(list(&open_in(&image, CodePage::Cp866), "").contains(&"RЫADME.TXT".to_owned()));
+
+    // 0xD5 is undefined in code page 857: listing the entry fails.
+    image.slot("README.TXT")[1] = 0xD5;
+    let root = open_in(&image, CodePage::Cp857);
+    let dir = block_on(root.open_dir("")).unwrap();
+    let mut entries = dir.entries().unwrap();
+    let error = block_on(entries.next()).unwrap().unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Corrupt);
+    assert!(matches!(
+        fat_error(&error),
+        FatError::Undecodable {
+            byte: 0xD5,
+            code_page: 857,
+            ..
+        }
+    ));
+}

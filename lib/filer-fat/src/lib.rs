@@ -15,7 +15,9 @@
 //!
 //! It needs no OS, builds with `#![no_std]`, and is pure Rust; the `std`
 //! feature, enabled by default, forwards to `filer-api`. `all` currently
-//! enables nothing. exFAT is a different format, in `filer-exfat`.
+//! enables nothing. The `code-pages` feature, off by default, makes every
+//! [`CodePage`] of `known-codepages` available for short names, beyond
+//! code page 437. exFAT is a different format, in `filer-exfat`.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -56,7 +58,9 @@ mod fat_type;
 pub use fat_type::*;
 
 mod chain;
-mod cp437;
+
+pub use known_codepages::CodePage;
+
 mod dir_entry;
 
 mod fat;

@@ -20,9 +20,9 @@ cleanup() {
     rm -rf "$work"
 }
 trap cleanup EXIT
-options="loop,utf8,codepage=437,tz=UTC,uid=$(id -u),gid=$(id -g)"
+options="loop,utf8,tz=UTC,uid=$(id -u),gid=$(id -g)"
 
-cargo build -q -p filer-fat --example manifest
+cargo build -q -p filer-fat --example manifest --features code-pages
 manifest="$PWD/target/debug/examples/manifest"
 
 # The fixtures.
@@ -90,6 +90,30 @@ kernel fat12 12 1 1440
 kernel fat16 16 4 32768
 kernel fat32 32 1 40960
 
+# Volumes written by the kernel in other code pages: uppercase 8.3 names
+# that the kernel stores as short names alone, in the code page's bytes.
+skipped=0
+codepage() {
+    page=$1
+    shift
+    if ! modinfo "nls_cp$page" > /dev/null 2>&1; then
+        echo "SKIPPED: codepage-$page (the kernel lacks nls_cp$page;" \
+            "install linux-modules-extra-$(uname -r))"
+        skipped=1
+        return
+    fi
+    img="$work/codepage-$page.img"
+    mkfs.fat -C -F 16 -s 4 -i 12345678 "$img" 32768 > /dev/null
+    sudo mount -o "$options,codepage=$page" "$img" "$mnt"
+    for name in "$@"; do
+        printf '%s' "$name" > "$mnt/$name"
+    done
+    sudo umount "$mnt"
+    fsck.fat -n "$img" > /dev/null
+}
+codepage 850 'ØRE.TXT' 'ÆBLE' 'ÅR.ÉTÉ' 'NIÑO.ÇÃ' 'ÜBER.ÖL'
+codepage 866 'ПРИВЕТ.TXT' 'МИР' 'ЁЖ.ДОК' 'ЩУКА.ЯЯЯ'
+
 # Prints what the kernel shows, in the manifest's format.
 kernel_manifest() {
     python3 -I - "$1" <<'EOF'
@@ -128,10 +152,12 @@ EOF
 failed=0
 for img in "$work"/*.img; do
     name=$(basename "$img" .img)
-    sudo mount -o "ro,$options" "$img" "$mnt"
+    page=437
+    case $name in codepage-*) page=${name#codepage-} ;; esac
+    sudo mount -o "ro,$options,codepage=$page" "$img" "$mnt"
     kernel_manifest "$mnt" > "$work/$name.kernel"
     sudo umount "$mnt"
-    "$manifest" "$img" > "$work/$name.filer"
+    "$manifest" --code-page "$page" "$img" > "$work/$name.filer"
     if diff -u "$work/$name.kernel" "$work/$name.filer" > "$work/$name.diff"; then
         echo "same: $name ($(wc -l < "$work/$name.filer") entries)"
     else
@@ -140,4 +166,8 @@ for img in "$work"/*.img; do
         failed=1
     fi
 done
+# 1 for a difference, 2 if some case could not run.
+if [ $failed -eq 0 ] && [ $skipped -ne 0 ]; then
+    exit 2
+fi
 exit $failed

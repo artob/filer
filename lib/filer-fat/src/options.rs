@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::UtcOffset;
+use crate::{CodePage, UtcOffset};
 
 /// How [`Fat::open_with`](crate::Fat::open_with) reads a volume.
 ///
@@ -16,14 +16,17 @@ use crate::UtcOffset;
 #[non_exhaustive]
 pub struct Options {
     utc_offset: UtcOffset,
+    code_page: CodePage,
 }
 
 impl Options {
-    /// Returns the default options: times in UTC.
+    /// Returns the default options: times in UTC, and short names in code
+    /// page 437.
     #[must_use]
     pub const fn new() -> Self {
         Self {
             utc_offset: UtcOffset::UTC,
+            code_page: CodePage::Cp437,
         }
     }
 
@@ -38,5 +41,18 @@ impl Options {
     #[must_use]
     pub const fn utc_offset(&self) -> UtcOffset {
         self.utc_offset
+    }
+
+    /// Decodes short names from `page`.
+    #[must_use]
+    pub const fn with_code_page(mut self, page: CodePage) -> Self {
+        self.code_page = page;
+        self
+    }
+
+    /// Returns the code page that short names are decoded from.
+    #[must_use]
+    pub const fn code_page(&self) -> CodePage {
+        self.code_page
     }
 }

@@ -55,6 +55,7 @@ dependencies = [
  "filer-heap",
  "filer-spec",
  "filer-system",
+ "known-codepages",
 ]
 
 [[package]]
@@ -135,6 +136,10 @@ version = "0.0.1"
 dependencies = [
  "filer-api",
 ]
+
+[[package]]
+name = "known-codepages"
+version = "0.0.1"
 
 [[package]]
 name = "libc"

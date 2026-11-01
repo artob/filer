@@ -602,8 +602,9 @@ Created with `publish = false` (D16).
 - [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA behind features, as
   pure-Rust decoders only (D45). Done when
   each decodes a test archive.
-- [ ] **ZIP-03: CP437 names (stretch goal).** Decode legacy names to UTF-8.
-  Done when a CP437 archive lists its names correctly.
+- [ ] **ZIP-03: Legacy names.** Decode names without the UTF-8 flag with
+  `known-codepages`, CP437 by default and any `CodePage` by option, as
+  `filer-fat` does. Done when CP437 and CP866 archives list correctly.
 - [ ] **AR-01: `filer-ar`.** GNU and BSD long names, hidden symbol
   tables. Done when it reads a `.deb` and passes the read-only
   `filer-spec` subset its format can express.
