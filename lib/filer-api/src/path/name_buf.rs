@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use super::{Name, NameError};
+use super::{Name, NameError, RelPath};
 use alloc::{boxed::Box, string::String};
 
 /// One valid path component; owned form of [`Name`].
@@ -52,6 +52,12 @@ impl core::borrow::Borrow<Name> for NameBuf {
 impl AsRef<Name> for NameBuf {
     fn as_ref(&self) -> &Name {
         self.as_name()
+    }
+}
+
+impl AsRef<RelPath> for NameBuf {
+    fn as_ref(&self) -> &RelPath {
+        self.as_rel_path()
     }
 }
 

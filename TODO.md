@@ -113,13 +113,6 @@ done when the PR is merged and released, or when §17.1 records why not.
 All in the self-contained `filer_api::path` module (D3), using `ref-cast`
 with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
 
-- [ ] **PATH-02: `RelPath` and `RelPathBuf`.**
-  Rules per §5.2, `RelPathError` naming the offending component index.
-  `components`, `split_first`, `split_last`, `parent`, `join` (with a
-  `Name`), `starts_with`, `strip_prefix`, `is_empty`. Done when tests cover
-  the empty path, single and multiple components, and every rejection
-  (`..`, `.`, leading, trailing, and doubled `/`, NUL).
-
 - [ ] **PATH-03: `name!` and `rel!` macros.**
   `const fn` validators; invalid literals fail to compile. Done when
   `compile_fail` doctests show rejection and valid literals yield

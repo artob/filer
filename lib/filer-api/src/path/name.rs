@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use super::{NameBuf, NameError};
+use super::{NameBuf, NameError, RelPath};
 use ref_cast::{RefCastCustom, ref_cast_custom};
 
 /// One valid path component, such as `app.toml`; borrowed form.
@@ -35,7 +35,7 @@ impl Name {
     ///
     /// Returns the first rule `s` breaks; see [`NameError`].
     pub const fn new(s: &str) -> Result<&Self, NameError> {
-        match validate(s) {
+        match validate(s.as_bytes()) {
             Ok(()) => Ok(Self::from_str_unchecked(s)),
             Err(error) => Err(error),
         }
@@ -50,11 +50,16 @@ impl Name {
     pub const fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Returns the name as a one-component [`RelPath`].
+    #[must_use]
+    pub const fn as_rel_path(&self) -> &RelPath {
+        RelPath::from_str_unchecked(&self.0)
+    }
 }
 
-/// Checks the rules documented on [`Name`].
-const fn validate(s: &str) -> Result<(), NameError> {
-    let bytes = s.as_bytes();
+/// Checks the rules documented on [`Name`], on the bytes of a `str`.
+pub(super) const fn validate(bytes: &[u8]) -> Result<(), NameError> {
     match bytes {
         [] => return Err(NameError::Empty),
         [b'.'] | [b'.', b'.'] => return Err(NameError::DotOrDotDot),
@@ -90,6 +95,12 @@ impl<'a> TryFrom<&'a str> for &'a Name {
 impl AsRef<Name> for Name {
     fn as_ref(&self) -> &Name {
         self
+    }
+}
+
+impl AsRef<RelPath> for Name {
+    fn as_ref(&self) -> &RelPath {
+        self.as_rel_path()
     }
 }
 
