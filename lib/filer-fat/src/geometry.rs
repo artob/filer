@@ -53,6 +53,9 @@ pub(crate) struct Geometry {
     /// The offset of cluster 2, the first data cluster.
     data: u64,
     volume_len: u64,
+    /// The volume serial number, if the boot sector has an extended boot
+    /// record: not layout, but read from the same sector, and as fixed.
+    serial: Option<u32>,
 }
 
 /// Reads the byte at `at`.
@@ -226,7 +229,17 @@ impl Geometry {
             },
             data,
             volume_len,
+            serial: None,
         };
+        // The extended boot record follows the BPB, which FAT32 extends;
+        // its signature byte, 0x28 or 0x29, says the serial is present.
+        let (signature, serial) = match fat_type {
+            FatType::Fat12 | FatType::Fat16 => (38, 39),
+            FatType::Fat32 => (66, 67),
+        };
+        if matches!(sector.get(signature), Some(0x28 | 0x29)) {
+            geometry.serial = Some(u32_at(sector, serial)?);
+        }
         if fat_type == FatType::Fat32 {
             let root = u32_at(sector, 44)?;
             let root = geometry
@@ -289,6 +302,11 @@ impl Geometry {
     #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn volume_len(&self) -> u64 {
         self.volume_len
+    }
+
+    /// Returns the volume serial number, if the volume has one.
+    pub(crate) const fn serial(&self) -> Option<u32> {
+        self.serial
     }
 }
 
@@ -418,6 +436,21 @@ pub(crate) mod tests {
 
         fn parse(&self) -> Result<Geometry, FatError> {
             Geometry::parse(&self.bytes())
+        }
+    }
+
+    #[test]
+    fn reads_the_serial_number_if_present() {
+        for (bpb, extended) in [(Bpb::floppy(), 36), (Bpb::fat32(), 64)] {
+            let mut bytes = bpb.bytes();
+            assert_eq!(Geometry::parse(&bytes).unwrap().serial(), None);
+            bytes[extended + 3..extended + 7].copy_from_slice(&0x1234_ABCD_u32.to_le_bytes());
+            assert_eq!(Geometry::parse(&bytes).unwrap().serial(), None);
+            for signature in [0x28, 0x29] {
+                bytes[extended + 2] = signature;
+                let serial = Geometry::parse(&bytes).unwrap().serial();
+                assert_eq!(serial, Some(0x1234_ABCD));
+            }
         }
     }
 

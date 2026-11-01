@@ -678,10 +678,11 @@ Read-only first, designed for writing (§17.13, D46). One commit per item.
 
 - [ ] **FAT-07: Fuzzing.** Targets for the boot sector, FAT, and directory
   parsers. Done when they build in CI.
-- [ ] **FAT-10: Volume metadata.** The volume serial number as the
-  `FileId` volume, directory lengths (their chains' bytes, as Linux
-  reports), and attributes once `FileAttrs` exists. Done when `stat`
-  reports them.
+- [ ] **FAT-11: Attributes.** Report hidden, system, and archive through
+  `FileAttrs` (XATTR-02), which needs these Windows attributes first
+  (shared with `filer-windows`), and read-only as a permission. Done when
+  `stat` reports each, and agrees with Linux's `FAT_IOCTL_GET_ATTRIBUTES`
+  in `tests/differential.sh`.
 - [ ] **FAT-08: Writing (later).** Allocation, mirrored FATs, FSInfo, the
   dirty bit, write ordering, locking (§17.13). Done when designed in
   `DESIGN.md` against `filer-spec`'s write cases.

@@ -380,3 +380,48 @@ fn decodes_short_names_in_the_given_code_page() {
         }
     ));
 }
+
+#[test]
+fn reports_directory_lengths() {
+    for (kind, root_len, sub_len) in [
+        // The fixed roots of FAT12 and FAT16; one cluster for FAT32's.
+        (Kind::Fat12, 224 * 32, 512),
+        (Kind::Fat16, 512 * 32, 2048),
+        (Kind::Fat32, 512, 512),
+    ] {
+        let root = open(sample(kind, false));
+        let len = |path: &str, mask| block_on(root.metadata(path, mask)).unwrap().len;
+        assert_eq!(len("", MetaMask::LEN), Some(root_len), "{kind:?}");
+        assert_eq!(len("Sub", MetaMask::LEN), Some(sub_len), "{kind:?}");
+        // Without a handle, the chain is walked only when asked for.
+        assert_eq!(len("Sub", MetaMask::KIND), None, "{kind:?}");
+        let sub = block_on(root.open_dir("Sub")).unwrap();
+        let through_handle = block_on(sub.metadata("", MetaMask::KIND)).unwrap();
+        assert_eq!(through_handle.len, Some(sub_len), "{kind:?}");
+    }
+}
+
+#[test]
+fn identifies_files_by_volume_serial_number() {
+    for kind in KINDS {
+        let id = |serial: Option<u32>| {
+            let mut image = sample(kind, false);
+            let (signature, at) = match kind {
+                Kind::Fat12 | Kind::Fat16 => (38, 39),
+                Kind::Fat32 => (66, 67),
+            };
+            match serial {
+                Some(serial) => image.bytes[at..at + 4].copy_from_slice(&serial.to_le_bytes()),
+                None => image.bytes[signature] = 0,
+            }
+            let root = open(image);
+            block_on(root.metadata("Sub/nested.bin", MetaMask::ID))
+                .unwrap()
+                .id
+                .unwrap()
+        };
+        let (a, b, none) = (id(Some(1)), id(Some(2)), id(None));
+        assert!(a != b && a != none && b != none, "{kind:?}");
+        assert_eq!(id(Some(1)), a);
+    }
+}

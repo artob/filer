@@ -2275,9 +2275,14 @@ re-check each against it while implementing):
 - Metadata: kind, length, the three times (`Timestamp::granularity` set;
   local times read at a fixed `UtcOffset` from `Options`, UTC by default,
   as Linux's `time_offset`: following daylight saving time would need
-  zone rules and leaves an hour ambiguous each year), and ids
-  from each entry's location, since empty files have no first cluster.
-  Attributes map to `FileAttrs` once it exists.
+  zone rules and leaves an hour ambiguous each year), and ids: the volume
+  serial number (0 without an extended boot record) and each entry's
+  location, since empty files have no first cluster. A directory's length
+  is its chain's bytes, or the fixed root's size, as Linux reports; a stat
+  by path walks the chain only if the mask asks for the length.
+  Attributes (read-only, hidden, system, archive) await `FileAttrs`: the
+  last three are Windows attributes it does not yet have (§11.2), shared
+  with `filer-windows`; read-only is a permission.
 - Listings: a `DirCookie` is an entry index; `.` and `..` are hidden, as
   are deleted entries and volume labels.
 - Reads: a handle holds its file's run list (first cluster and length of
@@ -2300,7 +2305,7 @@ because the specification defines it so. A fuzz target covers the parsers.
 images its test writer lays out (contiguous and fragmented, for each FAT
 type), reads fixtures made by `mkfs.fat` and `mtools` (stored sparsely),
 and `tests/differential.sh` compares it with the Linux kernel's FAT driver
-on loop-mounted images, including volumes the kernel wrote itself: names
+on loop-mounted images, including volumes Linux wrote itself: names
 in directory order, kinds, sizes, contents, and all three times must be
 identical. The `manifest` example prints a volume through `Fat` layered
 over a native `File`, which is what the comparison reads.

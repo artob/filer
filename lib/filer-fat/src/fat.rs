@@ -11,8 +11,8 @@ use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
     Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error, ErrorKind,
-    FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow,
-    Output, ReadAt, Resolve, Resolver, Rights, Target, path::RelPath,
+    FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, MetaMask, Metadata, Op, OpKind,
+    OpenHow, Output, ReadAt, Resolve, Resolver, Rights, Target, path::RelPath,
 };
 
 /// A read-only driver for a FAT12, FAT16, or FAT32 volume.
@@ -116,18 +116,19 @@ impl<S: ReadAt> Fat<S> {
                 let result = self.read(&file, &mut buf, off).await;
                 Completion::new(result.map(Output::Read)).with_buf(buf)
             },
-            Op::Stat { target, .. } => {
+            Op::Stat { target, mask } => {
                 let result = match &target {
-                    Target::Handle(handle) => self
-                        .payload(handle, kind)
-                        .map(|payload| self.metadata(payload.node(), Some(payload))),
+                    Target::Handle(handle) => match self.payload(handle, kind) {
+                        Ok(payload) => self.metadata(payload.node(), Some(payload), mask).await,
+                        Err(error) => Err(error),
+                    },
                     Target::Entry {
                         at, name, resolve, ..
-                    } => self
-                        .entry(at, name, *resolve, kind)
-                        .await
-                        .map(|node| self.metadata(&node, None))
-                        .map_err(|error| with_name(error, name)),
+                    } => match self.entry(at, name, *resolve, kind).await {
+                        Ok(node) => self.metadata(&node, None, mask).await,
+                        Err(error) => Err(error),
+                    }
+                    .map_err(|error| with_name(error, name)),
                 };
                 Completion::new(result.map(Output::Metadata))
             },
@@ -221,24 +222,46 @@ impl<S: ReadAt> Fat<S> {
         Walker(&self.0).resolve(dir, bytes, resolve, true, op).await
     }
 
-    fn metadata(&self, node: &Node, payload: Option<&Payload>) -> Metadata {
+    /// Returns the id of `node`: the volume serial number (0 if the volume
+    /// has none) and the node's own id.
+    fn id(&self, node: &Node) -> FileId {
+        let volume = self.0.geometry.serial().map_or(0, u64::from);
+        FileId::new(volume, node.id())
+    }
+
+    /// Returns the metadata of `node`, opened as `payload` if it is a
+    /// handle's. A directory's length is that of its cluster chain, or of
+    /// the fixed FAT12/16 root, as Linux reports it; without a handle,
+    /// the chain is read only if `mask` asks for the length.
+    async fn metadata(
+        &self,
+        node: &Node,
+        payload: Option<&Payload>,
+        mask: MetaMask,
+    ) -> Result<Metadata, Error> {
         let mut metadata = Metadata::default();
         metadata.kind = Some(node.kind());
-        metadata.id = Some(FileId::new(0, node.id()));
+        metadata.id = Some(self.id(node));
+        metadata.len = match (payload, node) {
+            (Some(Payload::File { data, .. }), _) => Some(data.size()),
+            (Some(Payload::Dir { extent, .. }), _) => Some(extent.len()),
+            (None, Node::Entry(found)) => match found.entry.body() {
+                Body::File { size, .. } => Some(u64::from(size.get())),
+                Body::EmptyFile => Some(0),
+                Body::Dir(_) if !mask.contains(MetaMask::LEN) => None,
+                Body::Dir(_) => Some(self.0.extent(node, OpKind::Stat).await?.len()),
+            },
+            (None, Node::Root) if !mask.contains(MetaMask::LEN) => None,
+            (None, Node::Root) => Some(self.0.extent(node, OpKind::Stat).await?.len()),
+        };
         if let Node::Entry(found) = node {
             let Found { entry, .. } = &**found;
-            metadata.len = match (payload, entry.body()) {
-                (Some(Payload::File { data, .. }), _) => Some(data.size()),
-                (_, Body::File { size, .. }) => Some(u64::from(size.get())),
-                (_, Body::EmptyFile) => Some(0),
-                (_, Body::Dir(_)) => None,
-            };
             let offset = self.0.options.utc_offset();
             metadata.modified = entry.modified().to_timestamp(offset, TWO_SECONDS);
             metadata.created = entry.created().to_timestamp(offset, TEN_MILLIS);
             metadata.accessed = entry.accessed().to_timestamp(offset, ONE_DAY);
         }
-        metadata
+        Ok(metadata)
     }
 
     async fn read_dir(
@@ -276,7 +299,7 @@ impl<S: ReadAt> Fat<S> {
             }));
             let mut entry = Entry::new(name);
             entry.kind = Some(node.kind());
-            entry.id = Some(FileId::new(0, node.id()));
+            entry.id = Some(self.id(&node));
             entries.push(entry);
         }
         let next = Some(DirCookie::new(u64::from(stream.slot())));

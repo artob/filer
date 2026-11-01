@@ -2,10 +2,10 @@
 # This is free and unencumbered software released into the public domain.
 #
 # Compares `filer-fat` with the Linux kernel's FAT driver: for each image,
-# the `manifest` example's listing must equal what the kernel shows with
+# the `manifest` example's listing must equal what Linux shows with
 # the image loop-mounted read-only. The images are the fixtures, the test
 # writer's samples, and volumes made by `mkfs.fat` and written by the
-# kernel itself, with names and sizes chosen to probe edge cases.
+# Linux kernel itself, with names and sizes chosen to probe edge cases.
 #
 # Usage: lib/filer-fat/tests/differential.sh, from the repository root, on
 # Linux with dosfstools, python3, GNU coreutils, and `sudo` for mounting.
@@ -45,7 +45,7 @@ done
 FILER_FAT_DUMP="$work" cargo test -q -p filer-fat --test driver -- \
     --ignored --exact dump_images > /dev/null
 
-# Volumes written by the kernel.
+# Volumes written by the Linux kernel.
 kernel() {
     name=$1 bits=$2 sectors=$3 kib=$4
     img="$work/kernel-$name.img"
@@ -90,8 +90,8 @@ kernel fat12 12 1 1440
 kernel fat16 16 4 32768
 kernel fat32 32 1 40960
 
-# Volumes written by the kernel in other code pages: uppercase 8.3 names,
-# whose short names the kernel stores in the code page's bytes. It writes
+# Volumes written by the Linux kernel in other code pages: uppercase 8.3
+# names, whose short names Linux stores in the code page's bytes. It writes
 # long names for them too, which would hide the short names, so those
 # slots are then marked deleted, leaving the short names to be decoded.
 skipped=0
@@ -99,7 +99,7 @@ codepage() {
     page=$1
     shift
     if ! modinfo "nls_cp$page" > /dev/null 2>&1; then
-        echo "SKIPPED: codepage-$page (the kernel lacks nls_cp$page;" \
+        echo "SKIPPED: codepage-$page (the Linux kernel lacks nls_cp$page;" \
             "install linux-modules-extra-$(uname -r))"
         skipped=1
         return
@@ -135,7 +135,7 @@ EOF
 codepage 850 'ØRE.TXT' 'ÆBLE' 'ÅR.ÉTÉ' 'NIÑO.ÇÃ' 'ÜBER.ÖL'
 codepage 866 'ПРИВЕТ.TXT' 'МИР' 'ЁЖ.ДОК' 'ЩУКА.ЯЯЯ'
 
-# Prints what the kernel shows, in the manifest's format.
+# Prints what the Linux kernel shows, in the manifest's format.
 kernel_manifest() {
     python3 -I - "$1" <<'EOF'
 import os, stat, subprocess, sys
@@ -159,7 +159,7 @@ def walk(rel):
         birth = "-" if birth == "0" else birth
         times = f"{int(st.st_mtime)}\t{birth}\t{int(st.st_atime)}"
         if stat.S_ISDIR(st.st_mode):
-            lines.append(f"{path}\td\t-\t{times}\t-")
+            lines.append(f"{path}\td\t{st.st_size}\t{times}\t-")
             walk(path)
         else:
             data = open(full, "rb").read()

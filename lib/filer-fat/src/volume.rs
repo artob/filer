@@ -93,7 +93,8 @@ impl Extent {
         }
     }
 
-    fn len(&self) -> u64 {
+    /// Returns the directory's length in bytes.
+    pub(crate) fn len(&self) -> u64 {
         match self {
             Self::Region { len, .. } => *len,
             Self::Chain { chain, .. } => chain.len(),

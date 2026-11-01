@@ -8,8 +8,9 @@
 //!      <TAB> accessed <TAB> FNV-1a hash of the contents
 //! ```
 //!
-//! Times are whole seconds since the Unix epoch; `-` stands for what does
-//! not apply or is unknown. `tests/differential.sh` compares this with
+//! A directory's size is that of its clusters. Times are whole seconds
+//! since the Unix epoch; `-` stands for what does not apply or is
+//! unknown. `tests/differential.sh` compares this with
 //! what the Linux kernel's FAT driver reports for the same image.
 //!
 //! The image is opened as a file of the native driver, and `Fat` reads it
@@ -87,7 +88,12 @@ async fn walk<S: ReadAt + 'static>(
         };
         let metadata = root.metadata(path.as_str(), MetaMask::all()).await?;
         let (kind, size, hash) = match metadata.kind {
-            Some(FileKind::Dir) => ("d", "-".to_owned(), "-".to_owned()),
+            Some(FileKind::Dir) => {
+                let size = metadata
+                    .len
+                    .map_or_else(|| "-".to_owned(), |len| len.to_string());
+                ("d", size, "-".to_owned())
+            },
             _ => {
                 let contents = root.open_file(path.as_str()).await?.read_to_end().await?;
                 let size = contents.len().to_string();
