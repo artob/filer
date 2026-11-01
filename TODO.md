@@ -657,10 +657,49 @@ From §17.12 (D40). Create each crate when its item starts.
   against Samba.
 - [ ] **NET-04: `filer-nfs`.** Done when the read-only subset passes
   against a local NFS server.
-- [ ] **FMT-01: `filer-fat` (low priority).** FAT12/16/32 and exFAT over a
-  block device, `no_std`. Done when it reads a disk image.
+- [ ] **FMT-01: `filer-exfat`.** exFAT, its own crate (D46). Done when
+  it reads an exFAT image.
+- [ ] **FMT-03: Partitioned images.** MBR and GPT, through a general window
+  adapter over any `ReadAt`, so `filer-fat` and others read partitions.
+  Done when a partitioned image's FAT partition opens.
 - [ ] **FMT-02: Other on-disk formats (low priority).** Such as littlefs.
   Done when each reads an image.
+
+## `filer-fat`
+
+Read-only first, designed for writing (§17.13, D46). One commit per item.
+
+- [ ] **FAT-01: Crate and boot sector.** Create `lib/filer-fat/` with the
+  no-panic lints; parse and validate the boot sector into an immutable
+  geometry; decide the FAT type by cluster count. Done when unit tests
+  cover FAT12, FAT16, FAT32, and every rejection.
+- [ ] **FAT-02: FAT table and chains.** Entry reads for all three widths
+  (FAT12 straddling sectors), chain walking into run lists bounded by the
+  cluster count. Done when loops, out-of-range, bad, and short chains are
+  `Corrupt`.
+- [ ] **FAT-03: Directory entries.** Short names (with NT case flags and
+  `0x05`), long names (checksum and order), deleted entries and labels,
+  times. Done when unit tests cover each, including orphaned long names
+  and unpaired surrogates.
+- [ ] **FAT-04: Driver.** Open, read, stat, list, read link (always
+  `NotASymlink`), close, with case-insensitive lookup through the
+  `Resolver`. Done when a test image reads correctly.
+- [ ] **FAT-05: Specification and fixtures.** A test image writer for
+  `filer-spec`; fixtures from `mkfs.fat` and `mtools` for each FAT type.
+  Done when `filer-spec` passes with symlinks and FIFOs off.
+- [ ] **FAT-06: Differential test on Linux.** Compare against the kernel's
+  FAT driver on loop-mounted images (on the Ubuntu test host `byte3`,
+  which has passwordless `sudo`). Done when listings, contents, and times
+  agree.
+- [ ] **FAT-07: Fuzzing.** Targets for the boot sector, FAT, and directory
+  parsers. Done when they build in CI.
+- [ ] **FAT-08: Writing (later).** Allocation, mirrored FATs, FSInfo, the
+  dirty bit, write ordering, locking (§17.13). Done when designed in
+  `DESIGN.md` against `filer-spec`'s write cases.
+
+- [ ] **LINT-01: No-panic lints everywhere.** Adopt the `filer-fat` lint
+  set (D47) in every existing library crate, replacing `unwrap`, `expect`,
+  indexing, and unchecked arithmetic. Done when the workspace denies them.
 
 ## `filer-system`
 

@@ -28,6 +28,9 @@
   qualified names or explicit, least-power imports. For example, prefer
   `core::error::Error` and `alloc::string::String` over `std` analogs.
 - After making changes to a crate, as a last step run `cargo doc` on it.
+- Robustness (D47): async first; no panics on any input (no `unwrap`,
+  `expect`, `panic!`, unchecked indexing or arithmetic in library code);
+  make illegal states unrepresentable; never ignore an error.
 - 100% Rust: never add a dependency that compiles or bundles C/C++ (no `cc`,
   `cmake`, `pkg-config`, `bindgen`, or C-wrapping `-sys` crates; CI checks).
   Rust bindings to the OS's own APIs (`libc` on macOS, `windows-sys`) are

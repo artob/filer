@@ -207,6 +207,14 @@ windows; this section holds the rationale.
   warnings`. Rustdoc coverage of every public item is a goal; brevity and
   quality matter. Run `cargo doc` as the last step after changing a crate.
 - Error enums are `#[non_exhaustive]`.
+- Robustness principles (D47), for all code: async first (anything that
+  may touch storage is async); no panics on any input (no `unwrap`,
+  `expect`, `panic!`, unchecked indexing, or unchecked arithmetic in
+  library code, enforced by Clippy lints where adopted); illegal states
+  unrepresentable (validated newtypes and enums constructed only by
+  parsing, rather than checked flags); and no error ever ignored (no
+  `let _ =` on a `Result`, no defaulting away a failure). New crates adopt
+  the lints from the start; existing crates are being brought in line.
 - Builders (fixtures such as `HeapBuilder`, and later configuration
   builders) maximize developer usability: path arguments take
   `P: TryInto<RelPathBuf>` so plain strings work besides `rel!` literals,
@@ -352,7 +360,8 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-fuse` | FUSE export of any driver | no |
 | `filer-uefi` | UEFI driver (planned, §17.12) | TBD |
 | `filer-9p`, `-smb`, `-nfs`, `-sftp` | remote drivers (planned) | no |
-| `filer-fat` and others | on-disk formats (planned, low priority) | no |
+| `filer-fat` | FAT12/16/32 driver (§17.13) | no |
+| `filer-exfat` and others | on-disk formats (planned) | no |
 | `filer-system` | the native driver for the target, plus the API | no |
 | `filer-cli` | the `filer` binary over the native driver | no |
 | umbrella (Q11) | re-exports and feature forwarding | no |
@@ -2183,11 +2192,103 @@ Recorded 2026-11-01 (D40); none exists yet:
   `virtio-9p`), `filer-smb`, `filer-nfs`, and `filer-sftp`. They meet the
   network semantics of §21.5 head on (`Features::remote`, `Stale`, errors
   deferred to close) and are not selected by `filer-system`.
-- **On-disk formats, low priority:** `filer-fat` (FAT12/16/32 and exFAT),
-  and other file systems such as littlefs, over a block device, for
-  embedded and `no_std` use and for reading disk images.
+- **On-disk formats:** `filer-fat` (§17.13, in progress), `filer-exfat`
+  (exFAT shares almost nothing on disk with FAT, so it is its own crate,
+  D46), and, at low priority, other file systems such as littlefs, over a
+  block device, for embedded and `no_std` use and for reading disk images.
 
-### 17.13 Later
+### 17.13 `filer-fat`
+
+A driver for FAT12, FAT16, and FAT32 volumes (D46), read-only at first but
+designed for writing later, and meant to be the most robust and most
+freely licensed FAT implementation there is. It reads a bare volume (no
+partition table) from any `ReadAt` source: a disk-image `File` of another
+driver, bytes in memory, or a block device. It needs no OS, builds
+`no_std`, and is pure Rust (D45).
+
+**A lazy driver, not an index.** Unlike archives, a FAT volume is not
+indexed at open: file data lies in cluster chains scattered across the
+volume (so `archive::Member`, one contiguous extent, cannot describe it),
+and volumes can hold millions of files. Opening parses only the boot
+sector; directories and chains are read as operations need them. Path
+resolution uses the generic `Resolver` (§6.5) over a private type whose
+`lookup` scans one directory, so confinement and symlink policy (FAT has no
+symlinks) come from the shared walker.
+
+**On-disk facts the parser relies on** (Microsoft's FAT specification;
+re-check each against it while implementing):
+
+- The boot sector holds the BIOS parameter block: bytes per sector (512,
+  1024, 2048, or 4096), sectors per cluster (a power of two up to 128),
+  reserved sectors (at least 1), the number of FATs (usually 2), root
+  entries (FAT12/16; 0 on FAT32), total sectors (16- or 32-bit field), FAT
+  size (16-bit, or 32-bit on FAT32), and on FAT32 the root cluster and the
+  extended flags (FAT mirroring, active FAT). Bytes 510 and 511 hold
+  `0x55 0xAA`.
+- The FAT type is decided by the count of data clusters, and nothing else:
+  under 4085 is FAT12, under 65525 is FAT16, otherwise FAT32.
+- FAT entries are 12 bits (packed, possibly straddling sectors), 16 bits,
+  or 28 bits (the top 4 bits of a FAT32 entry are reserved). Clusters are
+  numbered from 2; a next-cluster value is valid only within the volume;
+  dedicated values mark free, bad, and end-of-chain clusters.
+- Directory entries are 32 bytes: an 8.3 short name, attributes
+  (read-only, hidden, system, volume label, directory, archive), Windows
+  NT case flags, creation, access, and modification times, the first
+  cluster (split into high and low halves on FAT32), and the size. First
+  byte `0x00` ends a directory, `0xE5` marks a deleted entry, and `0x05`
+  stands for a real `0xE5`. The FAT12/16 root directory is a fixed region;
+  the FAT32 root is a chain.
+- Long names (VFAT) precede their short entry as UTF-16 fragments of 13
+  units, numbered in reverse, each carrying the short name's checksum. An
+  orphaned or inconsistent long name is, per the specification, not part
+  of the entry, which then has its short name.
+- Times are local, with no time zone: modification at 2-second
+  granularity, creation at 10 milliseconds, access as a date only.
+
+**How it maps onto Filer:**
+
+- Names: a long name is UTF-16; one with unpaired surrogates becomes a
+  `ForeignName` holding WTF-8, so enumeration stays total. A short name
+  without a long name is ASCII, or foreign if it uses OEM code page bytes
+  (decoding CP437 is the stretch goal shared with ZIP). Lookups are
+  case-insensitive, as FAT preserves case but does not distinguish it: the
+  first driver whose name matching is not byte-exact, informing
+  `NamingRules`.
+- Metadata: kind, length, the three times (`Timestamp::granularity` set;
+  local times interpreted per an open option, UTC by default), and ids
+  from each entry's location, since empty files have no first cluster.
+  Attributes map to `FileAttrs` once it exists.
+- Listings: a `DirCookie` is an entry index; `.` and `..` are hidden, as
+  are deleted entries and volume labels.
+- Reads: a handle holds its file's run list (first cluster and length of
+  each contiguous run), built and validated once at open, so reads merge
+  contiguous clusters into one source read and never re-walk the chain.
+  No locks are needed: the run list is immutable.
+
+**Robustness.** A corrupt or hostile image must never cause a panic, a
+hang, or unbounded memory use. The crate denies `unwrap`, `expect`,
+`panic!`, unchecked indexing, and unchecked arithmetic by lint, so this
+holds by construction. Chains are bounded by the cluster count (catching
+loops), next-cluster values out of range or marked bad are errors,
+directories are bounded (the specification allows 65,536 entries), a file
+whose chain is shorter than its size fails to open, and every such error
+is `Corrupt` with a source naming what and where. Nothing is silently
+skipped: an inconsistent long name falls back to the short name only
+because the specification defines it so. A fuzz target covers the parsers.
+
+**Ready for writing.** The layers are the boot sector and geometry
+(validated once, immutable), the FAT table (entry reads now, writes
+later), directory entries (decoding now, encoding later, kept symmetric),
+and the driver. Writing will add: allocation with the FAT mirrored to
+every copy, the FSInfo free-count hints, the volume dirty bit around
+mutations, ordering of writes so a crash leaves at most lost clusters
+rather than cross-linked files (FAT has no journal; see §15), and
+in-process locking of shared state (§7.7).
+
+**Backlog, not now:** partitioned images (MBR and GPT), best served by a
+general window adapter over any `ReadAt`; exFAT, in `filer-exfat`.
+
+### 17.14 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
@@ -2738,6 +2839,8 @@ Record changes here with a date and one line of rationale.
 | D43 | Archive drivers are read-only, permanently | Accepted |
 | D44 | Shared archive code lives in `filer_api::archive`, for now | Accepted |
 | D45 | 100% Rust: no dependency may compile or bundle C code | Accepted |
+| D46 | `filer-fat` is a lazy driver; exFAT is `filer-exfat` | Accepted |
+| D47 | Async first, no panics, illegal states unrepresentable | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
