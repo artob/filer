@@ -2486,7 +2486,10 @@ node's separating entries after its children. Reparse points differ by
 design too: `ntfs3` keeps a drive in absolute targets (`C:/path`), makes
 junctions `./path`, reads WSL symlinks as files and other tags' `$DATA`
 as contents; the script lists those entries and leaves them to the
-fixture tests.
+fixture tests. `tests/fuzz.rs` mutates the fixtures' boot sectors, MFTs,
+and index records and walks each result, as for `filer-fat`, and
+`fuzz/` has `cargo-fuzz` targets for the boot sector, the MFT, indexes,
+and compressed data (D50).
 
 ### 17.15 Later
 

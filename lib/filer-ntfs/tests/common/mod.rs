@@ -7,6 +7,8 @@
 
 use std::collections::BTreeMap;
 
+pub mod exercise;
+
 const SECTOR: usize = 512;
 
 /// The modification time `tests/fixtures/make.sh` gives files:

@@ -109,7 +109,9 @@ jobs:
           done
       - name: Build fuzz targets
         # Outside the workspace, as libFuzzer is C++ (DESIGN.md D50).
-        run: cargo build --manifest-path lib/filer-fat/fuzz/Cargo.toml --locked
+        run: |
+          cargo build --manifest-path lib/filer-fat/fuzz/Cargo.toml --locked
+          cargo build --manifest-path lib/filer-ntfs/fuzz/Cargo.toml --locked
       - name: Check for C code in dependencies
         run: |
           # 100% Rust (DESIGN.md D45): these build tools mean C is compiled.

@@ -685,8 +685,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-09: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when
-  both run clean.
 - [ ] **NTFS-10: Later.** Named streams, attributes (with FAT-11),
   Windows-made fixtures, and Interix symlinks (system files holding
   `IntxLNK`, which older ntfs-3g made).
@@ -742,8 +740,9 @@ Blocked on ASK-01; `filer-system` (§17.10) may make it unnecessary.
   tests select fixtures by environment variable and skip cleanly without.
 - [ ] **CI-02: Miri.** For `filer-api`, `filer-heap`, routing drivers, and
   pure parts of `sys` modules. Done when green.
-- [ ] **CI-03: Fuzz build check.** `filer-fat`'s `fuzz/` builds in CI;
-  extend the job to each new `fuzz/` crate (D50). Done when all build.
+- [ ] **CI-03: Fuzz build check.** The `fuzz/` crates of `filer-fat` and
+  `filer-ntfs` build in CI; extend the job to each new one (D50). Done
+  when all build.
 - [ ] **CI-04: `cargo-semver-checks`.** Once a release exists, per crate.
 - [ ] **DOC-01: Crate overviews.** Rustdoc landing pages with feature-gated
   examples passing the packaged-doctest job in all four feature modes.

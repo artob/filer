@@ -1,0 +1,51 @@
+# Coverage-guided fuzzing of `filer-ntfs` with `cargo-fuzz` (nightly):
+# `cargo fuzz run boot_sector` from `lib/filer-ntfs`. libFuzzer is C++, so
+# this crate stays outside the workspace and is never a dependency of a
+# published crate (DESIGN.md D50); `tests/fuzz.rs` is the pure-Rust fuzzer.
+
+[package]
+name = "filer-ntfs-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+filer-api = { path = "../../filer-api" }
+filer-ntfs = { path = ".." }
+filer-spec = { path = "../../filer-spec" }
+libfuzzer-sys = "0.4"
+
+# Its own workspace, apart from the repository's.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "boot_sector"
+path = "fuzz_targets/boot_sector.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mft"
+path = "fuzz_targets/mft.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "index"
+path = "fuzz_targets/index.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "compressed"
+path = "fuzz_targets/compressed.rs"
+test = false
+doc = false
+bench = false
