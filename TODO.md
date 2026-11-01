@@ -474,7 +474,9 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
   submission.
 
 - [ ] **COPY-03: Extents, allocation, holes.**
-  Done when a sparse file's extents survive a sparse-preserving copy.
+  `punch_hole` is also the discard path for filesystem images (D51), so
+  land it before FAT-08 starts. Done when a sparse file's extents survive
+  a sparse-preserving copy, and holes report whether they read as zeros.
 
 - [ ] **COPY-04: Preservation reporting.**
   Done when copying an xattr-bearing file to a filesystem without xattrs
@@ -682,8 +684,11 @@ Read-only first, designed for writing (§17.13, D46). One commit per item.
   `stat` reports each, and agrees with Linux's `FAT_IOCTL_GET_ATTRIBUTES`
   in `tests/differential.sh`.
 - [ ] **FAT-08: Writing (later).** Allocation, mirrored FATs, FSInfo, the
-  dirty bit, write ordering, locking (§17.13). Done when designed in
-  `DESIGN.md` against `filer-spec`'s write cases.
+  dirty bit, write ordering, locking, and discard (D51: a `WriteAt` source
+  with a barrier and optional `deallocate`; free before discarding, no
+  allocation racing a trim, deferred frees for open handles; online
+  discard off by default, plus a batch trim) (§17.13). Done when designed
+  in `DESIGN.md` against `filer-spec`'s write cases.
 
 - [ ] **LINT-01: No-panic lints everywhere.** Adopt the `filer-fat` lint
   set (D47) in every existing library crate, replacing `unwrap`, `expect`,

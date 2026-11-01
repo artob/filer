@@ -1315,6 +1315,10 @@ impl<M: Readable, D: Driver> File<M, D> {
 - `Never` exists because sometimes independent extents are the point: a
   backup that must survive corruption of the original's blocks, or avoiding
   shared-extent fragmentation.
+- `punch_hole` is also how a filesystem image tells its host which of its
+  ranges are free (§17.13, D51), so it should land with or before write
+  support for any filesystem driver; its report must say whether holes
+  read as zeros.
 - Mapping: `FICLONE` / `FICLONERANGE` and `copy_file_range` on Linux (btrfs,
   XFS with reflink, bcachefs, NFS 4.2; not ext4); `clonefileat` on APFS;
   `FSCTL_DUPLICATE_EXTENTS_TO_FILE` on ReFS and Dev Drive. `FIDEDUPERANGE`
@@ -2335,6 +2339,51 @@ mutations, ordering of writes so a crash leaves at most lost clusters
 rather than cross-linked files (FAT has no journal; see §15), and
 in-process locking of shared state (§7.7).
 
+**Discard (TRIM) (D51).** Writing must design discard in from the start.
+The split: only the filesystem driver knows which ranges stop being used;
+only the storage below knows how to drop them. So the writable source
+trait (a `WriteAt` beside `ReadAt`, with a durability barrier) carries an
+optional `deallocate(range)`: afterwards the range's contents are
+unspecified. Each source maps it on its own, one layer at a time:
+
+- a disk-image `File` of another driver punches a hole (`punch_hole`,
+  §12: `fallocate(PUNCH_HOLE)`, `F_PUNCHHOLE`, `FSCTL_SET_ZERO_DATA`);
+- a raw block device discards (`BLKDISCARD` on Linux, `DKIOCUNMAP` on
+  macOS, the trim data-set management action on Windows);
+- a partition window (backlog) translates and clips to its partition;
+- memory ignores it or zeroes.
+
+This composes: a FAT image on ext4 on an SSD frees clusters, ext4 frees
+the punched blocks, and ext4's own discard reaches the device; no layer
+reaches past the one below. The source reports whether `deallocate` works
+on this medium (`Unsupported` is a normal answer, not an error), its
+granularity and alignment (the driver coalesces free clusters into runs
+and discards only whole aligned units), and whether deallocated ranges
+read back as zeros (holes do; SSD TRIM need not). The filesystem never
+relies on that last one: it still zeroes new directory clusters.
+
+The hazards are orderings, all inside the filesystem driver:
+
+1. Free first: mark the clusters free in every FAT copy and pass the
+   barrier before discarding them, or a crash leaves a chain pointing at
+   lost contents (worse than FAT's usual lost clusters).
+2. No allocation may race a discard: a batch trim reserves each free run,
+   discards it, awaits completion (devices reorder queued requests), and
+   only then releases it to the allocator, as the Linux kernel's ext4
+   locks a block group during `FITRIM`.
+3. Open handles hold immutable run lists, so a file deleted while open
+   frees (and discards) its clusters only when its last handle closes,
+   as the Linux kernel defers freeing an unlinked open inode.
+4. Discard is not erasure: SSD TRIM is advisory and old contents may
+   survive. It is never documented or offered as a privacy feature.
+
+Policy follows Linux: online discard (per free) is off by default, as an
+`Options` setting, since many small discards hurt some devices; an
+explicit batch trim, like `fstrim`, scans the durable FAT's free
+clusters and reports the bytes discarded. Both need `WRITE` and `MUTATE`
+rights on the volume. A driver-generic trim operation can follow later;
+on POSIX it would wrap `FITRIM`, which needs `CAP_SYS_ADMIN`.
+
 **Backlog, not now:** partitioned images (MBR and GPT), best served by a
 general window adapter over any `ReadAt`; exFAT, in `filer-exfat`.
 
@@ -2897,6 +2946,7 @@ Record changes here with a date and one line of rationale.
 | D48 | `Resolver` is async; `BlockingResolver` shares its walk | Accepted |
 | D49 | Code pages in `known-codepages`, a support crate to spin out | Accepted |
 | D50 | `cargo-fuzz` (C++ libFuzzer) allowed in `fuzz/` crates only | Accepted |
+| D51 | Discard is an optional `deallocate` on writable sources | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
