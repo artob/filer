@@ -2,7 +2,8 @@
 
 use crate::{
     Completion, Driver, DynDriver, EntryName, Error, ErrorKind, File, Handle, HandleKind,
-    LinkTarget, MetaMask, Metadata, Op, OpKind, OpenHow, Output, ReadOnly, Resolve, Rights, Target,
+    LinkTarget, MetaMask, Metadata, Op, OpKind, OpenHow, Output, ReadDir, ReadOnly, Resolve,
+    Rights, Target,
     path::{RelPath, RelPathBuf},
 };
 use alloc::{borrow::ToOwned, sync::Arc};
@@ -207,6 +208,21 @@ impl<D: Driver> Dir<D> {
         P::Error: core::error::Error + Send + Sync + 'static,
     {
         self.stat(path, mask, false).await
+    }
+
+    /// Lists this directory.
+    ///
+    /// # Errors
+    ///
+    /// [`RightsDenied`](ErrorKind::RightsDenied) without [`Rights::READ`].
+    /// Errors from the driver come from [`ReadDir::next`].
+    pub fn entries(&self) -> crate::Result<ReadDir<D>> {
+        self.check(Rights::READ, OpKind::ReadDir, RelPath::empty())?;
+        Ok(ReadDir::new(
+            self.driver.clone(),
+            self.handle.clone(),
+            self.label.clone(),
+        ))
     }
 
     /// Reads the target of the symlink at `path`.
@@ -462,6 +478,19 @@ mod tests {
         let metadata = block_on(file.metadata(MetaMask::LEN)).unwrap();
         assert_eq!(metadata.len, Some(5));
         assert_eq!(file.rights(), Rights::all().for_file());
+    }
+
+    #[test]
+    fn ends_listings_after_an_error() {
+        let (dir, count) = root(&[]);
+        // The toy driver does not list directories.
+        let mut entries = dir.entries().unwrap();
+        let error = block_on(entries.next()).unwrap().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Unsupported);
+        assert!(block_on(entries.next()).is_none());
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+        let blind = dir.restrict(Rights::empty());
+        assert_eq!(blind.entries().unwrap_err().kind(), ErrorKind::RightsDenied);
     }
 
     #[test]

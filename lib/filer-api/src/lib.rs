@@ -5,7 +5,8 @@
 //! This crate will define the types and traits that platform backends such as
 //! `filer-posix` implement. Applications use the frontend: a [`Dir`] is an
 //! open directory, the unit of authority, through which files ([`File`])
-//! are opened and paths resolved, confined beneath it. Below the frontend
+//! are opened, entries listed ([`ReadDir`]), and paths resolved, confined
+//! beneath it. Below the frontend
 //! is the driver boundary: a [`Driver`] receives each operation as an
 //! [`Op`] value and answers with a [`Completion`]. So far only read
 //! operations exist.
@@ -125,6 +126,9 @@ pub use output::*;
 
 mod raw_os_error;
 pub use raw_os_error::*;
+
+mod read_dir;
+pub use read_dir::*;
 
 mod resolve;
 pub use resolve::*;

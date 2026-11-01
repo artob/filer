@@ -252,10 +252,10 @@ The executable specification and test bed; it comes before any OS driver.
   `set_len`, and `read_to_string`. Done when tests on `filer-heap` cover
   every mode.
 
-- [ ] **API-03: Directory streams.**
-  `ReadDir` and `Entry` with an inherent `next()`; `futures-core` `Stream`
-  under the `futures` feature (§9). Done when foreign names are yielded and
-  `.`/`..` never are.
+- [ ] **API-03: `Stream` for `ReadDir`.**
+  `ReadDir` exists with an inherent `next()`. Still missing: the
+  `futures-core` `Stream` impl under a `futures` feature (§9). Done when a
+  listing works through `StreamExt`.
 
 - [ ] **API-04: Namespace operations.**
   `create_dir`, `remove_file`, `remove_dir`, `rename` (`NoReplace`,

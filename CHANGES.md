@@ -32,5 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-api`: `Dir` and `File`, the read-only frontend, with `Mode` and
   `ReadOnly`; `ErrorKind::UnexpectedEof`; `Resolve::with_symlinks` and
   `From<Symlinks>`. **Breaking:** `Target::Entry` gains `resolve`.
+- `filer-api`: `ReadDir` and `Dir::entries`, batched directory listings.
 - `filer-heap`: `Heap::root_dir`.
 - `filer-posix`: `Posix::open_ambient`, returning a labeled `Dir`.

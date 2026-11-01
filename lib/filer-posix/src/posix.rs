@@ -844,6 +844,13 @@ mod frontend_tests {
         let error = block_on(root.open_file("nope")).unwrap_err();
         let label = path.to_string_lossy().to_string();
         assert_eq!(error.label(), Some(label.as_str()));
+        let mut entries = root.entries().unwrap();
+        let entry = block_on(entries.next()).unwrap().unwrap();
+        assert_eq!(
+            (entry.name.to_string(), entry.kind),
+            ("sub".to_string(), Some(FileKind::Dir))
+        );
+        assert!(block_on(entries.next()).is_none());
         fs::remove_dir_all(&path).unwrap();
     }
 }

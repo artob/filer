@@ -99,3 +99,23 @@ fn erases_the_driver_type() {
     let file = block_on(root.open_file("config/app.toml")).unwrap();
     assert_eq!(block_on(file.read_to_end()).unwrap(), b"debug = true");
 }
+
+#[test]
+fn lists_directories_across_batches() {
+    let mut builder = Heap::builder();
+    for i in 0..600 {
+        builder = builder.file(format!("many/f{i:03}"), "");
+    }
+    let root = builder.build().root_dir();
+    let many = block_on(root.open_dir("many")).unwrap();
+    let mut entries = many.entries().unwrap();
+    let mut names = Vec::new();
+    while let Some(entry) = block_on(entries.next()) {
+        let entry = entry.unwrap();
+        assert_eq!(entry.kind, Some(FileKind::File));
+        names.push(entry.name.to_string());
+    }
+    let expected: Vec<String> = (0..600).map(|i| format!("f{i:03}")).collect();
+    assert_eq!(names, expected);
+    assert!(block_on(entries.next()).is_none());
+}
