@@ -108,6 +108,38 @@ pub enum NtfsError {
         kind: u32,
     },
 
+    /// A directory's index root is malformed.
+    BadIndex {
+        /// The directory's record number.
+        record: u64,
+    },
+
+    /// An index record (`INDX`) of a directory is malformed, torn, or not
+    /// the one its VCN names.
+    BadIndexRecord {
+        /// The directory's record number.
+        record: u64,
+        /// The index record's VCN.
+        vcn: u64,
+    },
+
+    /// A directory's index reaches one of its nodes twice: it loops.
+    IndexLoop {
+        /// The directory's record number.
+        record: u64,
+        /// The VCN reached twice.
+        vcn: u64,
+    },
+
+    /// A `$FILE_NAME` attribute is malformed.
+    BadFileName {
+        /// The record's number.
+        record: u64,
+    },
+
+    /// `$UpCase` is not a table of 65,536 units.
+    BadUpCase,
+
     /// The volume is larger than its source.
     Truncated {
         /// The volume's size in bytes, per its boot sector.
@@ -176,6 +208,18 @@ impl core::fmt::Display for NtfsError {
             Self::MissingAttribute { record, kind } => {
                 write!(f, "file {record} lacks attribute {kind:#X}")
             },
+            Self::BadIndex { record } => write!(f, "directory {record} has an invalid index"),
+            Self::BadIndexRecord { record, vcn } => {
+                write!(
+                    f,
+                    "directory {record} has an invalid index record at VCN {vcn}"
+                )
+            },
+            Self::IndexLoop { record, vcn } => {
+                write!(f, "directory {record}'s index loops at VCN {vcn}")
+            },
+            Self::BadFileName { record } => write!(f, "file {record} has an invalid name"),
+            Self::BadUpCase => f.write_str("invalid $UpCase table"),
             Self::Truncated { volume, source } => {
                 write!(f, "volume of {volume} bytes in a source of {source}")
             },

@@ -685,8 +685,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-04: Names and indexes.** `$FILE_NAME`, `$UpCase`, `$I30`
-  traversal and lookup. Done when bounded against loops.
 - [ ] **NTFS-05: Driver.** Open, read, stat, list, close, dirty-volume
   refusal with an opt-in. Done when an `mkntfs` image reads.
 - [ ] **NTFS-06: Fixtures and verification.** `mkntfs` and ntfs-3g
@@ -700,6 +698,11 @@ Read-only NTFS, clean room (§17.14). One step per item, each committed.
   both run clean.
 - [ ] **NTFS-10: Later.** Named streams, attributes (with FAT-11),
   Windows-made fixtures.
+- [ ] **NTFS-11: Index descent.** Lookups walk a whole `$I30` index in
+  order, which is correct whatever its collation, but linear. Descend the
+  B+ tree by `$UpCase` collation instead, falling back to the walk if a
+  node is out of order. Done when Windows-made fixtures with large
+  directories agree with the walk.
 
 ## `filer-fat`
 

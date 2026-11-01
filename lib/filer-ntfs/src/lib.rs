@@ -74,9 +74,13 @@ extern crate alloc;
 mod ntfs_error;
 pub use ntfs_error::*;
 
+mod file_name;
 mod fixup;
 mod geometry;
+mod index;
 mod mft;
 mod record;
 mod runs;
 mod stream;
+mod upcase;
+mod wtf8;
