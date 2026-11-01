@@ -4,9 +4,8 @@
 //!
 //! [`Ntfs`] implements [`filer_api::Driver`] over NTFS volumes, read from
 //! any [`filer_api::ReadAt`] source, reporting each inconsistency it finds
-//! as an [`NtfsError`]. Writing is out of scope for now; compressed files,
-//! reparse points, and verification against real images are in progress
-//! (see `DESIGN.md` §17.14).
+//! as an [`NtfsError`]. Writing is out of scope for now; compressed files
+//! and reparse points are in progress (see `DESIGN.md` §17.14).
 //!
 //! **Clean room.** The mature NTFS implementations are GPL, so this
 //! public-domain crate is written from public descriptions of the format
@@ -27,9 +26,10 @@
 //! can be confined); and a volume marked dirty, whose `$LogFile` has not
 //! been replayed.
 //!
-//! **Development.** Fixtures are made with `mkntfs` and written through
-//! the FUSE driver `ntfs-3g`, both in the `ntfs-3g` package on Debian and
-//! Ubuntu; the differential test compares with the Linux kernel's `ntfs3`
+//! **Development.** `tests/fixtures/make.sh` makes the fixtures with
+//! `mkntfs` and fills them through the FUSE driver `ntfs-3g`, both in the
+//! `ntfs-3g` package on Debian and Ubuntu, and needs `python3` and `sudo`.
+//! `tests/differential.sh` compares with the Linux kernel's `ntfs3`
 //! driver, a module that Ubuntu ships in `linux-modules-extra-$(uname -r)`
 //! (kept current by `linux-generic`).
 //!

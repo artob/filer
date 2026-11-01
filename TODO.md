@@ -685,9 +685,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-06: Fixtures and verification.** `mkntfs` and ntfs-3g
-  fixtures stored sparsely, `filer-spec`, and the differential test
-  against the Linux kernel's `ntfs3`. Done when all agree.
 - [ ] **NTFS-07: LZNT1.** Compressed files, per [MS-XCA]. Done when
   ntfs-3g-compressed fixtures read.
 - [ ] **NTFS-08: Reparse points.** Symlinks, junctions, WSL symlinks.

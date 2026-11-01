@@ -12,6 +12,8 @@ license.workspace = true
 keywords = ["ntfs", "windows", "filesystem", "mft", "no-std"]
 categories.workspace = true
 publish.workspace = true
+# The fixtures are large; tests run from the repository.
+exclude = ["tests/fixtures/*.sparse"]
 
 [lints]
 workspace = true

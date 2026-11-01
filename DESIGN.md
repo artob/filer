@@ -2469,6 +2469,15 @@ run lists, attribute lists, and index trees are bounded (a loop in the
 index or in extension records is an error, not a hang); fixups are
 verified before a record is used.
 
+**Verification.** Fixtures in four layouts (4 KiB, 512-byte, and 64 KiB
+clusters, and 4 KiB sectors with 4 KiB records), made by `mkntfs` and
+filled through ntfs-3g, are read in tests; one more holds `filer-spec`'s
+tree. `tests/differential.sh` compares them, and fresh ones, with the
+Linux kernel's `ntfs3`: every name, kind, size, content, and time agrees.
+Listings are compared sorted, as the order differs by design: Filer lists
+an index in collation order, as Windows does, where `ntfs3` lists a
+node's separating entries after its children.
+
 ### 17.15 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
