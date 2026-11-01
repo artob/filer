@@ -326,6 +326,9 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-tokio` | Tokio spawner and I/O trait adapters | no |
 | `filer-conformance` | driver conformance suite, as a library | no |
 | `filer-fuse` | FUSE export of any driver | no |
+| `filer-uefi` | UEFI driver (planned, §17.12) | TBD |
+| `filer-9p`, `-smb`, `-nfs`, `-sftp` | remote drivers (planned) | no |
+| `filer-fat` and others | on-disk formats (planned, low priority) | no |
 | `filer-system` | the native driver for the target, plus the API | no |
 | `filer-cli` | the `filer` binary over the native driver | no |
 | umbrella (Q11) | re-exports and feature forwarding | no |
@@ -733,10 +736,25 @@ operation against the parent handle. This keeps every mutating syscall a
 
 Rights are enforced by the library. In safe Rust that is a strong
 bug-prevention boundary, but it is not a sandbox against hostile native code
-in the same process. When that matters, pair Filer with Landlock
-(Linux 5.13+), Capsicum (FreeBSD), or AppContainer (Windows). The capability
-model maps onto them cleanly, and a future `sandbox` helper could derive a
-Landlock ruleset from the set of `Dir`s and rights a program holds.
+in the same process. The kernels that offer capability-style restriction
+will be supported within `filer-posix` (§17.1, D39), so that what the
+library enforces can also be enforced by the OS:
+
+- **Capsicum** (FreeBSD): `cap_rights_limit` attaches rights to a
+  descriptor, so a `Dir` restricted to `READ` can be read-only to the
+  kernel too, and `cap_enter` closes the ambient namespace entirely. The
+  closest match to this design anywhere.
+- **Landlock** (Linux 5.13+): a process-wide ruleset, derivable from the
+  `Dir`s and rights a program holds.
+- **`unveil` and `pledge`** (OpenBSD): path visibility and system-call
+  restriction, also process-wide.
+
+These live in `filer-posix` because each is a Unix kernel feature over the
+same descriptors, as further restriction of handles that driver already
+manages. A separate `filer-sandbox` crate abstracting over all three was
+considered but is not committed to. Windows AppContainer and the macOS App
+Sandbox are usually imposed by packaging rather than by a library, and are
+out of scope.
 
 ## 7. Async model
 
@@ -1769,6 +1787,12 @@ instead. A debug assertion in the errno mapping enforces this.
 `ErrorKind::Interrupted` is thus reserved for interruptions a driver
 cannot retry. Verified on macOS and, in Docker, Linux at 1.97.
 
+Planned kernel restriction (§6.7, D39): Capsicum rights on FreeBSD
+descriptors, mirroring each handle's `Rights`; Landlock rulesets on Linux;
+`unveil` and `pledge` on OpenBSD. Each is opt-in, per driver instance or
+per call, since the process-wide ones (Landlock, `unveil`, `pledge`) are
+irreversible.
+
 ### 17.2 `filer-windows`
 
 Built directly on `windows-sys` (D22), with all `unsafe` in its `sys`
@@ -1993,12 +2017,26 @@ Naming (D38), decided 2026-11-01 after weighing three names:
   "OPFS") are met by the crate's first doc line and its crates.io keywords
   (`opfs`, `browser`, `wasm`, `file-system-access`, `whatwg`).
 
-### 17.12 Later
+### 17.12 Planned drivers
+
+Recorded 2026-11-01 (D40); none exists yet:
+
+- **`filer-uefi`:** UEFI's `EFI_SIMPLE_FILE_SYSTEM_PROTOCOL` on
+  `*-unknown-uefi` targets, for bootloaders and firmware tools, selected
+  there by `filer-system`.
+- **Remote drivers:** `filer-9p` (9P2000.L, as used by WSL and
+  `virtio-9p`), `filer-smb`, `filer-nfs`, and `filer-sftp`. They meet the
+  network semantics of §21.5 head on (`Features::remote`, `Stale`, errors
+  deferred to close) and are not selected by `filer-system`.
+- **On-disk formats, low priority:** `filer-fat` (FAT12/16/32 and exFAT),
+  and other file systems such as littlefs, over a block device, for
+  embedded and `no_std` use and for reading disk images.
+
+### 17.13 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
   mapping the capability model one to one.
-- Remote drivers (9P, SFTP) only if a real use case appears.
 
 ## 18. Middleware
 
@@ -2169,9 +2207,10 @@ Built on the walker:
 ### 21.2 FreeBSD
 
 `O_RESOLVE_BENEATH` for kernel confinement (present in `rustix`, checked
-2026-10-31), Capsicum as the sandboxing complement, `extattr` namespaces
-(user and system) for xattrs, `copy_file_range` (block cloning on ZFS in
-recent releases, **VERIFY**). Not in CI; best effort until it is.
+2026-10-31), Capsicum rights on descriptors (planned, §6.7), `extattr`
+namespaces (user and system) for xattrs, `copy_file_range` (block cloning
+on ZFS in recent releases, **VERIFY**). Not in CI; best effort until it
+is.
 
 ### 21.3 macOS
 
@@ -2528,6 +2567,8 @@ Record changes here with a date and one line of rationale.
 | D36 | Frontend methods are `async fn`s borrowing `self` (§7.2) | Accepted |
 | D37 | `filer-system` is the one cross-platform dependency | Accepted |
 | D38 | The browser driver is `filer-whatwg`, after its standard | Accepted |
+| D39 | Capsicum, Landlock, `unveil`/`pledge` live in `filer-posix` | Accepted |
+| D40 | Planned: `filer-uefi`; 9P, SMB, NFS, SFTP; FAT and others | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

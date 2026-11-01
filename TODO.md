@@ -354,6 +354,20 @@ The executable specification and test bed; it comes before any OS driver.
   and the README's crate table updated. Done when the wrapper is tested and
   linked to its UP item for removal.
 
+- [ ] **POSIX-11: Capsicum rights (FreeBSD).**
+  Opt-in `cap_rights_limit` on descriptors, mirroring each handle's
+  `Rights`, and documented `cap_enter` interplay (§6.7, D39). Done when a
+  `READ`-only `Dir` is read-only to the kernel in a FreeBSD VM test.
+
+- [ ] **POSIX-12: Landlock (Linux).**
+  Opt-in ruleset derived from the `Dir`s and rights a program holds
+  (§6.7). Done when, after restricting, a path outside every held `Dir`
+  fails to open even through raw `std::fs`.
+
+- [ ] **POSIX-13: `unveil` and `pledge` (OpenBSD).**
+  The OpenBSD equivalent of POSIX-12 (§6.7). Done when tested in an
+  OpenBSD VM.
+
 ## `filer-windows`
 
 - [ ] **WIN-01: Crate, payload, ambient roots.**
@@ -613,18 +627,36 @@ Created with `publish = false` (D16).
 - [ ] **PLAT-02: WASI.** Implement the `filer-wasi` shell per §17.8
   (syscall layer per VER-02). Done when a conformance subset passes under
   Wasmtime on `wasm32-wasip1` and `wasm32-wasip2`.
-- [ ] **PLAT-03: Landlock helper (idea).** Derive a ruleset from held
-  `Dir`s (§6.7). Done when designed in `DESIGN.md`.
 - [ ] **EXP-01: `filer-fuse`.** Done when `filer-heap` mounts and
   `ls`/`cat` work in a Linux CI job.
 - [ ] **EXP-02: `filer-wasi-host`.** Done when a WASI 0.3 guest lists a
   `filer-heap` directory.
 
+## Planned drivers
+
+From §17.12 (D40). Create each crate when its item starts.
+
+- [ ] **UEFI-01: `filer-uefi`.** `EFI_SIMPLE_FILE_SYSTEM_PROTOCOL` on
+  `*-unknown-uefi`, selected by `filer-system`. Done when a read-only
+  subset passes under QEMU with OVMF.
+- [ ] **NET-01: `filer-9p`.** 9P2000.L. Done when the read-only subset
+  passes against a local 9P server.
+- [ ] **NET-02: `filer-sftp`.** Done when the read-only subset passes
+  against a local OpenSSH server.
+- [ ] **NET-03: `filer-smb`.** Done when the read-only subset passes
+  against Samba.
+- [ ] **NET-04: `filer-nfs`.** Done when the read-only subset passes
+  against a local NFS server.
+- [ ] **FMT-01: `filer-fat` (low priority).** FAT12/16/32 and exFAT over a
+  block device, `no_std`. Done when it reads a disk image.
+- [ ] **FMT-02: Other on-disk formats (low priority).** Such as littlefs.
+  Done when each reads an image.
+
 ## `filer-system`
 
 - [ ] **SYS-01: Wire in new native drivers.**
   Replace the `Unsupported` stub with `filer_windows::Windows`, the
-  `filer-wasi` driver, and the `filer-whatwg` driver as each gains a
+  `filer-wasi`, `filer-whatwg`, and `filer-uefi` drivers as each gains a
   constructor and a way to open roots, and add `System::thread_pool` after
   POSIX-01. Done when `filer-system`'s tests pass on Windows, under
   Wasmtime, and in a browser.
