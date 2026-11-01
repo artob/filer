@@ -56,4 +56,5 @@ pub use fat_error::*;
 mod fat_type;
 pub use fat_type::*;
 
+mod chain;
 mod geometry;

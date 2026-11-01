@@ -669,10 +669,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only first, designed for writing (§17.13, D46). One commit per item.
 
-- [ ] **FAT-02: FAT table and chains.** Entry reads for all three widths
-  (FAT12 straddling sectors), chain walking into run lists bounded by the
-  cluster count. Done when loops, out-of-range, bad, and short chains are
-  `Corrupt`.
 - [ ] **FAT-03: Directory entries.** Short names (with NT case flags and
   `0x05`), long names (checksum and order), deleted entries and labels,
   times. Done when unit tests cover each, including orphaned long names

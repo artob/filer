@@ -73,6 +73,62 @@ pub enum FatError {
         /// The source's size in bytes.
         source: u64,
     },
+
+    /// A cluster chain has more clusters than the volume: it loops.
+    ChainLoop {
+        /// The chain's first cluster.
+        start: u32,
+    },
+
+    /// A cluster chain reaches a free cluster.
+    FreeInChain {
+        /// The chain's first cluster.
+        start: u32,
+        /// The cluster whose entry is free.
+        cluster: u32,
+    },
+
+    /// A cluster chain reaches a cluster marked bad.
+    BadInChain {
+        /// The chain's first cluster.
+        start: u32,
+        /// The cluster whose entry is bad.
+        cluster: u32,
+    },
+
+    /// A cluster chain links to a value that is no data cluster.
+    BadNext {
+        /// The chain's first cluster.
+        start: u32,
+        /// The cluster whose entry holds the value.
+        cluster: u32,
+        /// The value.
+        next: u32,
+    },
+
+    /// A file's cluster chain ends before its size does.
+    ShortChain {
+        /// The chain's first cluster.
+        start: u32,
+        /// The clusters the file's size needs.
+        expected: u32,
+        /// The clusters in the chain.
+        found: u32,
+    },
+
+    /// A file's cluster chain continues past its size.
+    LongChain {
+        /// The chain's first cluster.
+        start: u32,
+        /// The clusters the file's size needs.
+        expected: u32,
+    },
+
+    /// A directory's cluster chain is longer than any directory may be.
+    DirectoryTooLarge {
+        /// The chain's first cluster.
+        start: u32,
+    },
 }
 
 impl FatError {
@@ -123,6 +179,42 @@ impl core::fmt::Display for FatError {
             },
             Self::Truncated { volume, source } => {
                 write!(f, "volume of {volume} bytes in a source of {source}")
+            },
+            Self::ChainLoop { start } => write!(f, "chain from cluster {start} loops"),
+            Self::FreeInChain { start, cluster } => {
+                write!(
+                    f,
+                    "chain from cluster {start} reaches free cluster {cluster}"
+                )
+            },
+            Self::BadInChain { start, cluster } => {
+                write!(
+                    f,
+                    "chain from cluster {start} reaches bad cluster {cluster}"
+                )
+            },
+            Self::BadNext {
+                start,
+                cluster,
+                next,
+            } => write!(
+                f,
+                "chain from cluster {start} links cluster {cluster} to invalid {next:#X}"
+            ),
+            Self::ShortChain {
+                start,
+                expected,
+                found,
+            } => write!(
+                f,
+                "chain from cluster {start} has {found} clusters, needs {expected}"
+            ),
+            Self::LongChain { start, expected } => write!(
+                f,
+                "chain from cluster {start} is longer than its {expected} clusters"
+            ),
+            Self::DirectoryTooLarge { start } => {
+                write!(f, "directory from cluster {start} is too large")
             },
         }
     }
