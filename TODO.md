@@ -180,7 +180,8 @@ No OS access; everything builds without `std` (§7.6).
   The read subset of `Op`, `Output`, and `Completion` exists, with
   `ErasedBufMut`. Still missing (§16.1): the write and namespace ops,
   `OpenHow` write modes and creation, `RenameFlags`, and `ErasedBuf` with
-  its slot in `Completion`. Done when an erased buffer round-trips to its
+  its slot in `Completion`; a `Resolve` policy on `Target::Entry` (following
+  stats now use the default). Done when an erased buffer round-trips to its
   original type for every sealed buffer impl.
 
 - [ ] **DRV-03: Chains.**
@@ -204,14 +205,6 @@ No OS access; everything builds without `std` (§7.6).
   idle timeout, named threads) per §7.5. Done when tests cover saturation
   and shutdown.
 
-- [ ] **DRV-07: Generic userspace resolver.**
-  The component-by-component walk of §6.5 in `filer_api::resolver`,
-  written against a small trait of primitives (open one component without
-  following, read a link, identify a handle), with `Beneath`, `InRoot`,
-  `Deny`, mount crossing, and a hop limit of 40. Done when tests against a
-  toy primitive set cover every escape case; `filer-heap`,
-  `filer-posix`, and `filer-windows` reuse it.
-
 ## `filer-heap`
 
 The executable specification and test bed; it comes before any OS driver.
@@ -222,10 +215,6 @@ The executable specification and test bed; it comes before any OS driver.
   write, mkdir, remove, rename (with flags), link, and symlink ops; an
   injectable `Clock` and timestamps. Done when it builds on
   `thumbv7em-none-eabihf` and unit tests cover each op.
-
-- [ ] **HEAP-02: Resolution through the generic resolver.**
-  Done when escape attempts via absolute targets, `..` in targets, and
-  loops fail as specified.
 
 - [ ] **HEAP-03: Personalities and foreign names.**
   Configurable `NamingRules`, feature toggles, timestamp granularity, and
@@ -325,7 +314,7 @@ The executable specification and test bed; it comes before any OS driver.
   CONF-02 passes on Linux.
 
 - [ ] **POSIX-03: Userspace walk.**
-  The generic resolver (DRV-07) over `O_NOFOLLOW` primitives; forcible via
+  The generic `Resolver` (§6.5) over `O_NOFOLLOW` primitives; forcible via
   configuration. Done when CONF-02 passes with the walk forced on Linux and
   by default on macOS.
 

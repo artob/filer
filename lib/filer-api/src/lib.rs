@@ -114,6 +114,9 @@ pub use raw_os_error::*;
 mod resolve;
 pub use resolve::*;
 
+mod resolver;
+pub use resolver::*;
+
 mod target;
 pub use target::*;
 

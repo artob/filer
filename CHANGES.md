@@ -24,4 +24,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filer-api`: `Driver`, the trait every driver implements.
 - `filer-api`: `DynDriver`, a type-erased `Driver`.
 - `filer-api`: `ErrorKind::NotASymlink`.
+- `filer-api`: `Resolver`, confined userspace path resolution.
 - `filer-heap`: New crate for the in-memory driver, read-only so far.

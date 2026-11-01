@@ -8,8 +8,8 @@ use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
     Completion, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error, ErrorKind, FileId,
-    FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpenHow, Output, Symlinks,
-    Target, path::RelPath,
+    FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow, Output,
+    Resolve, Resolver, Target, path::RelPath,
 };
 
 /// An in-memory filesystem driver.
@@ -19,10 +19,10 @@ use filer_api::{
 /// listings are sorted by the bytes of each name, and [`DirCookie`]s are
 /// entry indexes.
 ///
-/// Symlink resolution is not implemented yet: a symlink met while
-/// resolving a path fails with [`SymlinkLoop`](ErrorKind::SymlinkLoop)
-/// under [`Symlinks::Deny`] and with [`Unsupported`](ErrorKind::Unsupported)
-/// otherwise. Reading a link and stat-ing it without following work.
+/// Paths resolve through the generic [`Resolver`], confined beneath the
+/// directory handle they are resolved against, following symlinks per the
+/// operation's [`Resolve`] policy. Following a single entry, as a
+/// following stat does, uses the default policy.
 ///
 /// Metadata has kind, length, and id; no timestamps yet. File ids use
 /// volume 0 and the inode number.
@@ -83,21 +83,20 @@ impl Heap {
     /// Performs `op` synchronously.
     fn perform(&self, op: Op) -> Completion {
         let kind = op.kind();
+        let error = |error| Error::new(error, kind);
         match op {
             Op::Open { at, path, how } => Completion::new(
                 self.open(&at, &path, how)
-                    .map_err(|error| Error::new(error, kind).with_path(&*path)),
+                    .map_err(|error| error.with_path(&*path)),
             ),
-            Op::Close { handle } => Completion::new(
-                self.ino(&handle)
-                    .map(|_| Output::Done)
-                    .map_err(|error| Error::new(error, kind)),
-            ),
+            Op::Close { handle } => {
+                Completion::new(self.ino(&handle).map(|_| Output::Done).map_err(error))
+            },
             Op::Read { file, mut buf, off } => {
                 let result = self
                     .ino(&file)
                     .and_then(|ino| self.contents(ino))
-                    .map_err(|error| Error::new(error, kind))
+                    .map_err(error)
                     .and_then(|data| {
                         let start = usize::try_from(off).unwrap_or(usize::MAX);
                         let data = data.get(start..).unwrap_or_default();
@@ -111,41 +110,27 @@ impl Heap {
                 Completion::new(result).with_buf(buf)
             },
             Op::Stat { target, .. } => {
-                let (ino, name) = match &target {
-                    Target::Handle(handle) => (self.ino(handle), None),
-                    Target::Entry { at, name, follow } => {
-                        (self.entry(at, name, *follow), Some(name))
-                    },
+                let ino = match &target {
+                    Target::Handle(handle) => self.ino(handle).map_err(error),
+                    Target::Entry { at, name, follow } => self
+                        .entry(at, name, *follow, kind)
+                        .map_err(|error| with_name(error, name)),
                 };
-                let result = ino.map(|ino| Output::Metadata(self.metadata(ino)));
-                Completion::new(result.map_err(|error| {
-                    let error = Error::new(error, kind);
-                    match name {
-                        Some(EntryName::Utf8(name)) => error.with_path(&**name),
-                        _ => error,
-                    }
-                }))
+                Completion::new(ino.map(|ino| Output::Metadata(self.metadata(ino))))
             },
-            Op::ReadDir { dir, cookie, max } => Completion::new(
-                self.read_dir(&dir, cookie, max)
-                    .map_err(|error| Error::new(error, kind)),
-            ),
+            Op::ReadDir { dir, cookie, max } => {
+                Completion::new(self.read_dir(&dir, cookie, max).map_err(error))
+            },
             Op::ReadLink { at, name } => {
-                let result =
-                    self.entry(&at, &name, false)
-                        .and_then(|ino| match &self.tree.nodes[ino] {
-                            Node::Symlink(target) => {
-                                Ok(Output::LinkTarget(LinkTarget::Utf8(target.clone())))
-                            },
-                            _ => Err(ErrorKind::NotASymlink),
-                        });
-                Completion::new(result.map_err(|error| {
-                    let error = Error::new(error, kind);
-                    match name.as_name() {
-                        Some(name) => error.with_path(name),
-                        None => error,
+                let result = self.entry(&at, &name, false, kind).and_then(|ino| {
+                    match &self.tree.nodes[ino] {
+                        Node::Symlink(target) => {
+                            Ok(Output::LinkTarget(LinkTarget::Utf8(target.clone())))
+                        },
+                        _ => Err(error(ErrorKind::NotASymlink)),
                     }
-                }))
+                });
+                Completion::new(result.map_err(|error| with_name(error, &name)))
             },
             op => Completion::new(Err(Error::new(ErrorKind::Unsupported, op.kind()))),
         }
@@ -177,50 +162,36 @@ impl Heap {
         }
     }
 
-    /// Fails resolution at a symlink, until resolution is implemented.
-    fn symlink_error(symlinks: Symlinks) -> ErrorKind {
-        match symlinks {
-            Symlinks::Deny => ErrorKind::SymlinkLoop,
-            _ => ErrorKind::Unsupported,
+    fn open(&self, at: &Handle, path: &RelPath, how: OpenHow) -> Result<Output, Error> {
+        let op = OpKind::Open;
+        let dir = self.dir(at).map_err(|error| Error::new(error, op))?;
+        let ino = self.resolve(&dir, path.as_str().as_bytes(), how.resolve, true, op)?;
+        let mismatch = match (&self.tree.nodes[ino], how.kind) {
+            (Node::Dir(_), HandleKind::Dir) | (Node::File(_), HandleKind::File) => None,
+            (Node::Dir(_), HandleKind::File) => Some(ErrorKind::IsADirectory),
+            (_, HandleKind::Dir) => Some(ErrorKind::NotADirectory),
+            (_, HandleKind::File) => Some(ErrorKind::NotRegularFile),
+            _ => Some(ErrorKind::Unsupported),
+        };
+        match mismatch {
+            None => Ok(Output::Opened(self.key.handle(how.kind, ino))),
+            Some(error) => Err(Error::new(error, op)),
         }
     }
 
-    fn open(&self, at: &Handle, path: &RelPath, how: OpenHow) -> Result<Output, ErrorKind> {
-        let mut ino = self.dir(at)?;
-        for name in path.components() {
-            if !matches!(self.tree.nodes[ino], Node::Dir(_)) {
-                return Err(ErrorKind::NotADirectory);
-            }
-            ino = self
-                .tree
-                .child(ino, name.as_str().as_bytes())
-                .ok_or(ErrorKind::NotFound)?;
-            if let Node::Symlink(_) = self.tree.nodes[ino] {
-                return Err(Self::symlink_error(how.resolve.symlinks));
-            }
-        }
-        match (&self.tree.nodes[ino], how.kind) {
-            (Node::Dir(_), HandleKind::Dir) | (Node::File(_), HandleKind::File) => {},
-            (Node::Dir(_), _) => return Err(ErrorKind::IsADirectory),
-            (_, HandleKind::Dir) => return Err(ErrorKind::NotADirectory),
-            _ => return Err(ErrorKind::Unsupported),
-        }
-        Ok(Output::Opened(self.key.handle(how.kind, ino)))
-    }
-
-    /// Looks up one entry of a directory.
-    fn entry(&self, at: &Handle, name: &EntryName, follow: bool) -> Result<Ino, ErrorKind> {
-        let dir = self.dir(at)?;
+    /// Looks up one entry of a directory, following it if it is a symlink
+    /// and `follow` is set.
+    ///
+    /// Operations naming a single entry carry no resolution policy yet, so
+    /// following uses the default, [`Symlinks::Beneath`].
+    fn entry(&self, at: &Handle, name: &EntryName, follow: bool, op: OpKind) -> Result<Ino, Error> {
+        let dir = self.dir(at).map_err(|error| Error::new(error, op))?;
         let bytes = match name {
             EntryName::Utf8(name) => name.as_str().as_bytes(),
             EntryName::Foreign(name) if name.origin() == self.key.id() => name.as_bytes(),
-            EntryName::Foreign(_) => return Err(ErrorKind::ForeignNameMismatch),
+            EntryName::Foreign(_) => return Err(Error::new(ErrorKind::ForeignNameMismatch, op)),
         };
-        let ino = self.tree.child(dir, bytes).ok_or(ErrorKind::NotFound)?;
-        if follow && matches!(self.tree.nodes[ino], Node::Symlink(_)) {
-            return Err(Self::symlink_error(Symlinks::default()));
-        }
-        Ok(ino)
+        self.resolve(&dir, bytes, Resolve::default(), follow, op)
     }
 
     fn metadata(&self, ino: Ino) -> Metadata {
@@ -280,6 +251,43 @@ impl Driver for Heap {
     }
 }
 
+impl Resolver for Heap {
+    type Node = Ino;
+
+    fn lookup(&self, dir: &Ino, name: &[u8], op: OpKind) -> Result<Ino, Error> {
+        match &self.tree.nodes[*dir] {
+            Node::Dir(entries) => entries
+                .get(name)
+                .copied()
+                .ok_or_else(|| Error::new(ErrorKind::NotFound, op)),
+            _ => Err(Error::new(ErrorKind::NotADirectory, op)),
+        }
+    }
+
+    fn kind(&self, node: &Ino) -> FileKind {
+        match self.tree.nodes[*node] {
+            Node::Dir(_) => FileKind::Dir,
+            Node::File(_) => FileKind::File,
+            Node::Symlink(_) => FileKind::Symlink,
+        }
+    }
+
+    fn read_link(&self, dir: &Ino, name: &[u8], op: OpKind) -> Result<LinkTarget, Error> {
+        match &self.tree.nodes[self.lookup(dir, name, op)?] {
+            Node::Symlink(target) => Ok(LinkTarget::Utf8(target.clone())),
+            _ => Err(Error::new(ErrorKind::NotASymlink, op)),
+        }
+    }
+}
+
+/// Adds an entry's name to an error, if it is UTF-8.
+fn with_name(error: Error, name: &EntryName) -> Error {
+    match name.as_name() {
+        Some(name) => error.with_path(name),
+        None => error,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,7 +297,7 @@ mod tests {
         vec,
     };
     use core::task::{Context, Poll, Waker};
-    use filer_api::{ErasedBufMut, MetaMask, OpKind, name, rel};
+    use filer_api::{ErasedBufMut, MetaMask, Symlinks, name, rel};
 
     fn block_on<F: Future>(future: F) -> F::Output {
         let mut future = core::pin::pin!(future);
@@ -406,14 +414,67 @@ mod tests {
     }
 
     #[test]
-    fn refuses_symlinks_until_resolution_exists() {
-        let heap = fixture();
+    fn follows_symlinks_beneath_the_handle() {
+        let heap = Heap::builder()
+            .file("a/b/c.txt", "contents")
+            .symlink("a/link", "b/c.txt")
+            .symlink("a/up", "../a/b/c.txt")
+            .symlink("a/abs", "/a/b/c.txt")
+            .build();
         let root = heap.root();
-        let mut deny = OpenHow::file();
-        deny.resolve.symlinks = Symlinks::Deny;
-        let kind = |how| open(&heap, &root, rel!("a/link"), how).unwrap_err().kind();
-        assert_eq!(kind(deny), ErrorKind::SymlinkLoop);
-        assert_eq!(kind(OpenHow::file()), ErrorKind::Unsupported);
+        let a = open(&heap, &root, rel!("a"), OpenHow::dir()).unwrap();
+        let how = |symlinks| {
+            let mut how = OpenHow::file();
+            how.resolve.symlinks = symlinks;
+            how
+        };
+        let contents = |at: &Handle, path, symlinks| {
+            let file = open(&heap, at, path, how(symlinks))?;
+            read(&heap, &file, 0, 64)
+        };
+        let kind = |at, path, symlinks| contents(at, path, symlinks).unwrap_err().kind();
+
+        assert_eq!(
+            contents(&root, rel!("a/link"), Symlinks::Beneath).unwrap(),
+            b"contents"
+        );
+        // `..` stays beneath the root, but not beneath `a`.
+        assert_eq!(
+            contents(&root, rel!("a/up"), Symlinks::Beneath).unwrap(),
+            b"contents"
+        );
+        assert_eq!(
+            kind(&a, rel!("up"), Symlinks::Beneath),
+            ErrorKind::EscapeBlocked
+        );
+        // Absolute targets escape, unless the handle is treated as the root.
+        assert_eq!(
+            kind(&root, rel!("a/abs"), Symlinks::Beneath),
+            ErrorKind::EscapeBlocked
+        );
+        assert_eq!(
+            contents(&root, rel!("a/abs"), Symlinks::InRoot).unwrap(),
+            b"contents"
+        );
+        assert_eq!(
+            kind(&root, rel!("a/link"), Symlinks::Deny),
+            ErrorKind::SymlinkLoop
+        );
+
+        let stat_link = |follow| {
+            stat(
+                &heap,
+                Target::Entry {
+                    at: a.clone(),
+                    name: EntryName::from(name!("link")),
+                    follow,
+                },
+            )
+            .unwrap()
+            .kind
+        };
+        assert_eq!(stat_link(true), Some(FileKind::File));
+        assert_eq!(stat_link(false), Some(FileKind::Symlink));
     }
 
     #[test]

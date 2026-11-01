@@ -693,6 +693,21 @@ Linux `MAXSYMLINKS`). It is slower but still race-free, because no step
 re-parses a string from the root. `Features::enforcement` reports which
 mechanism applies, per directory.
 
+As built (2026-11-01), the walk is the `filer_api::Resolver` trait: drivers
+implement four synchronous primitives (`lookup` one name without
+following, `kind`, `read_link`, and optionally `crosses_mount`), and the
+provided `resolve` method walks a byte path (so non-UTF-8 targets and
+foreign names work) under a `Resolve` policy, with `follow_final` choosing
+whether a final symlink is followed. It keeps the chain of directories it
+entered; `..` pops that chain, so it cannot reach anything outside it.
+Confinement is relative to the start handle: `..` above it or an absolute
+target is `EscapeBlocked` under `Beneath`, and clamps to or restarts from
+it under `InRoot`; any symlink to follow is `SymlinkLoop` under `Deny`
+(as `RESOLVE_NO_SYMLINKS` gives `ELOOP`), as is a 41st hop
+(`MAX_SYMLINK_HOPS`). A driver with kernel confinement can override
+`resolve`. Synchronous primitives fit every executor: a thread-pool
+driver runs the whole walk as one job.
+
 On Linux, `openat2` can fail with `EAGAIN` under `RESOLVE_*` when a rename
 races the lookup; the driver retries a bounded number of times, then falls
 back to the userspace walk. `ENOSYS` (old kernel, seccomp filter) selects the
@@ -1844,9 +1859,9 @@ the tree is then immutable behind an `Arc`, so no locks are needed yet.
 Inodes are indexes into a `Vec`; directories map
 raw name bytes to inodes in a `BTreeMap`, so listings are sorted by bytes,
 foreign names will fit, and a `DirCookie` is an entry index. Handle
-payloads are inode numbers; `FileId`s are `(0, inode)`. Until the generic
-resolver exists (DRV-07), a symlink met during resolution fails with
-`SymlinkLoop` under `Symlinks::Deny` and `Unsupported` otherwise.
+payloads are inode numbers; `FileId`s are `(0, inode)`. Paths resolve
+through the generic `Resolver` (§6.5); following a single entry (a stat
+with `follow`) uses the default policy, since `Op::Stat` carries none yet.
 `ReadLink` on a non-symlink is the new `ErrorKind::NotASymlink`.
 
 ### 17.5 `filer-vfs`
