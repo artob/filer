@@ -36,9 +36,11 @@ filer-heap = { version = "0.0.0", path = "lib/filer-heap", default-features = fa
 filer-posix = { version = "0.0.0", path = "lib/filer-posix", default-features = false }
 filer-spec = { version = "0.0.0", path = "lib/filer-spec", default-features = false }
 filer-system = { version = "0.0.0", path = "lib/filer-system", default-features = false }
+filer-tar = { version = "0.0.0", path = "lib/filer-tar", default-features = false }
 filer-wasi = { version = "0.0.0", path = "lib/filer-wasi", default-features = false }
 filer-whatwg = { version = "0.0.0", path = "lib/filer-whatwg", default-features = false }
 filer-windows = { version = "0.0.0", path = "lib/filer-windows", default-features = false }
+filer-zip = { version = "0.0.0", path = "lib/filer-zip", default-features = false }
 bitflags = { version = "2.13", default-features = false }
 ref-cast = { version = "1.0.27", default-features = false }
 rustix = { version = "1.1", default-features = false }
@@ -49,6 +51,8 @@ filer-heap = { path = "lib/filer-heap" }
 filer-posix = { path = "lib/filer-posix" }
 filer-spec = { path = "lib/filer-spec" }
 filer-system = { path = "lib/filer-system" }
+filer-tar = { path = "lib/filer-tar" }
 filer-wasi = { path = "lib/filer-wasi" }
 filer-whatwg = { path = "lib/filer-whatwg" }
 filer-windows = { path = "lib/filer-windows" }
+filer-zip = { path = "lib/filer-zip" }

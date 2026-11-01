@@ -22,9 +22,11 @@
 | `filer-posix` | Unix | POSIX backend |
 | `filer-spec` | All | Executable driver specification, for tests |
 | `filer-system` | All | Native backend for the target, plus the API |
+| `filer-tar` | All | TAR archive driver |
 | `filer-wasi` | WASI | WASI backend |
 | `filer-whatwg` | Browsers | WHATWG File System (OPFS) backend |
 | `filer-windows` | Windows | Windows backend |
+| `filer-zip` | All | ZIP archive driver |
 | `filer-cli` | All | `filer` command-line interface |
 
 ## 👨‍💻 Development

@@ -334,8 +334,9 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | umbrella (Q11) | re-exports and feature forwarding | no |
 
 Existing so far (2026-11-01): `filer-api`, `filer-heap`, and `filer-posix`
-(read-only), `filer-system`, and as empty skeletons `filer-wasi`,
-`filer-whatwg`, `filer-windows`, and `filer-cli` (D30, D38). The rest are
+(read-only), `filer-system`, `filer-spec`, and as empty skeletons
+`filer-wasi`, `filer-whatwg`, `filer-windows`, `filer-tar`, `filer-zip`,
+and `filer-cli` (D30, D38, D41). The rest are
 created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators

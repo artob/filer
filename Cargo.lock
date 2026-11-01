@@ -69,6 +69,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-tar"
+version = "0.0.0"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-wasi"
 version = "0.0.0"
 dependencies = [
@@ -84,6 +91,13 @@ dependencies = [
 
 [[package]]
 name = "filer-windows"
+version = "0.0.0"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
+name = "filer-zip"
 version = "0.0.0"
 dependencies = [
  "filer-api",
