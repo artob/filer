@@ -734,19 +734,28 @@ re-parses a string from the root. `Features::enforcement` reports which
 mechanism applies, per directory.
 
 As built (2026-11-01), the walk is the `filer_api::Resolver` trait: drivers
-implement four synchronous primitives (`lookup` one name without
-following, `kind`, `read_link`, and optionally `crosses_mount`), and the
-provided `resolve` method walks a byte path (so non-UTF-8 targets and
-foreign names work) under a `Resolve` policy, with `follow_final` choosing
-whether a final symlink is followed. It keeps the chain of directories it
-entered; `..` pops that chain, so it cannot reach anything outside it.
-Confinement is relative to the start handle: `..` above it or an absolute
-target is `EscapeBlocked` under `Beneath`, and clamps to or restarts from
-it under `InRoot`; any symlink to follow is `SymlinkLoop` under `Deny`
-(as `RESOLVE_NO_SYMLINKS` gives `ELOOP`), as is a 41st hop
+implement four primitives (`lookup` one name without following, `kind`,
+`read_link`, and optionally `crosses_mount`), and the provided `resolve`
+method walks a byte path (so non-UTF-8 targets and foreign names work)
+under a `Resolve` policy, with `follow_final` choosing whether a final
+symlink is followed. It keeps the chain of directories it entered; `..`
+pops that chain, so it cannot reach anything outside it. Confinement is
+relative to the start handle: `..` above it or an absolute target is
+`EscapeBlocked` under `Beneath`, and clamps to or restarts from it under
+`InRoot`; any symlink to follow is `SymlinkLoop` under `Deny` (as
+`RESOLVE_NO_SYMLINKS` gives `ELOOP`), as is a 41st hop
 (`MAX_SYMLINK_HOPS`). A driver with kernel confinement can override
-`resolve`. Synchronous primitives fit every executor: a thread-pool
-driver runs the whole walk as one job.
+`resolve`.
+
+Being async first, `Resolver`'s primitives return `Send` futures, for
+drivers whose lookups await I/O (a filesystem image over `ReadAt`,
+network protocols, the browser's file system API). Drivers whose
+primitives block (system calls, memory accesses) implement
+`BlockingResolver` instead, whose synchronous primitives fit every
+executor: a thread-pool driver runs the whole walk as one job (D48). Both
+traits drive one private state machine, `Walk`, which holds the policy and
+the chain of directories and does no I/O, so the confinement logic exists
+once and both are tested against each other.
 
 On Linux, `openat2` can fail with `EAGAIN` under `RESOLVE_*` when a rename
 races the lookup; the driver retries a bounded number of times, then falls
@@ -1824,8 +1833,8 @@ uses to prove the kernel path ran. `Posix::with_userspace_resolution()`
 forces the walk; the specification runs both ways, and a third time on
 `Posix::thread_pool(DefaultPool::new())`, which wraps the same synchronous
 operation in `run_on` (a panicking job fails the operation with
-`Other`). Everything else, and other systems, use the generic `Resolver`
-(§6.5) on a private `Walker`: `lookup` is `statat` with
+`Other`). Everything else, and other systems, use the generic
+`BlockingResolver` (§6.5) on a private `Walker`: `lookup` is `statat` with
 `AT_SYMLINK_NOFOLLOW`, then directories open with `O_DIRECTORY |
 O_NOFOLLOW` (a swap to a symlink in between fails rather than escapes);
 files open with `O_NOFOLLOW | O_NONBLOCK`, are `fstat`-checked to be
@@ -1973,7 +1982,7 @@ behind an `Arc`, so no locks are needed yet. Directories map raw name
 bytes to inodes in a `BTreeMap`, so listings are sorted by bytes, foreign
 names will fit, and a `DirCookie` is an entry index. Handle payloads are
 inode numbers; `FileId`s are `(0, inode)`. Paths resolve through the
-tree's `Resolver` (§6.5), and a following single-entry stat uses the
+tree's `BlockingResolver` (§6.5), and a following single-entry stat uses the
 policy `Target::Entry` carries. `ReadLink` on a non-symlink is
 `ErrorKind::NotASymlink`.
 
@@ -2000,8 +2009,8 @@ Read-only archive drivers, one crate per format (D41, answering Q7's
 packaging question): they need different dependencies and codec features,
 and users rarely need both. Both are virtual drivers like `filer-heap`:
 `Enforcement` is `Virtual`, rights are at most `READ`, paths resolve
-through the generic `Resolver` (so archive symlinks are confined beneath
-the archive root), and no `AmbientAuthority` is needed, because the
+through the generic `BlockingResolver` (so archive symlinks are confined
+beneath the archive root), and no `AmbientAuthority` is needed, because the
 archive's `Dir` derives from a capability the caller already holds:
 
 ```rust
@@ -2074,9 +2083,9 @@ a test reads an archive stored as a `File` in `filer-heap`.
 bytes. As built (2026-11-01), that tree is `filer_api::tree::Tree<F>`,
 generic over the file payload: `Node::{Dir, File(F), Symlink(bytes),
 Special(FileKind)}`, policy-free primitives (`add`, `link` returning the
-replaced inode, `make_dir`), and a `Resolver` impl. Drivers apply their
-own policies (`Heap` panics on duplicates; archives let the later entry
-win) and keep their tree private.
+replaced inode, `make_dir`), and a `BlockingResolver` impl. Drivers apply their
+own policies (`Heap` panics on duplicates; archives let the later entry win)
+and keep their tree private.
 
 **Shared machinery (D44).** Everything but header parsing lives in
 `filer_api::archive`: `Index` (the shared rules: safe names, implied
@@ -2563,6 +2572,7 @@ filer/
         driver.rs  dyn_driver.rs  layer.rs  hybrid.rs  read_only.rs
         spawner.rs  default_pool.rs (std)
         resolver.rs           generic userspace walk (§6.5)
+        blocking_resolver.rs  its blocking variant
         dir.rs  file.rs  open.rs  read_dir.rs  entry.rs
         copy.rs  atomic_writer.rs  walker.rs
     filer-posix/   src/ { lib.rs, executor.rs, ops/, sys/ (stopgaps) }
@@ -2841,6 +2851,7 @@ Record changes here with a date and one line of rationale.
 | D45 | 100% Rust: no dependency may compile or bundle C code | Accepted |
 | D46 | `filer-fat` is a lazy driver; exFAT is `filer-exfat` | Accepted |
 | D47 | Async first, no panics, illegal states unrepresentable | Accepted |
+| D48 | `Resolver` is async; `BlockingResolver` shares its walk | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

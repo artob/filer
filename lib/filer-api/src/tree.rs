@@ -7,8 +7,8 @@
 //! [`Tree`] is that shape, generic over what a file leaf holds (its bytes
 //! for an in-memory driver; an offset, size, and codec for an archive).
 //! Drivers build a tree, then serve it, resolving paths through its
-//! [`Resolver`] implementation, which confines them beneath the starting
-//! directory.
+//! [`BlockingResolver`] implementation, which confines them beneath the
+//! starting directory.
 //!
 //! The tree only provides primitives; policies belong to the driver: what
 //! a duplicate name means, how hostile names are quarantined, what limits
@@ -33,7 +33,7 @@
 //! assert_eq!(tree.child(ROOT, b"README"), tree.child(docs, b"README"));
 //! ```
 
-use crate::{Error, ErrorKind, FileKind, LinkTarget, OpKind, Resolver};
+use crate::{BlockingResolver, Error, ErrorKind, FileKind, LinkTarget, OpKind};
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 /// An inode number: a node's index in its [`Tree`].
@@ -183,7 +183,7 @@ fn is_entry_name(name: &[u8]) -> bool {
     !matches!(name, [] | b"." | b"..") && !name.iter().any(|&b| b == b'/' || b == 0)
 }
 
-impl<F> Resolver for Tree<F> {
+impl<F> BlockingResolver for Tree<F> {
     type Node = Ino;
 
     fn lookup(&self, dir: &Ino, name: &[u8], op: OpKind) -> Result<Ino, Error> {

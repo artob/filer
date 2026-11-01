@@ -1,9 +1,9 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    BufResult, Completion, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error,
-    ErrorKind, FileId, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow,
-    Output, ReadAt, Resolve, Resolver, Target,
+    BlockingResolver, BufResult, Completion, DirCookie, Driver, DriverId, DriverKey, Entry,
+    EntryName, Error, ErrorKind, FileId, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op,
+    OpKind, OpenHow, Output, ReadAt, Resolve, Target,
     archive::Member,
     path::RelPath,
     tree::{Ino, Node, ROOT, Tree},
@@ -22,9 +22,9 @@ use core::future::Future;
 /// [`Rights::READ`](crate::Rights::READ).
 ///
 /// It answers the read operations: paths resolve through the tree's
-/// [`Resolver`], so symlinks in the archive stay confined to it; metadata
-/// has kind, length, id, and, for members, the modification time; listings
-/// are sorted by name bytes. Everything else is
+/// [`BlockingResolver`], so symlinks in the archive stay confined to it;
+/// metadata has kind, length, id, and, for members, the modification time;
+/// listings are sorted by name bytes. Everything else is
 /// [`Unsupported`](ErrorKind::Unsupported): archives are read-only,
 /// permanently.
 ///

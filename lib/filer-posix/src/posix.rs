@@ -7,9 +7,9 @@ use crate::{
 };
 use core::future::Future;
 use filer_api::{
-    AmbientAuthority, Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName,
-    Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Op, OpKind,
-    OpenHow, Output, Resolve, Resolver, Spawner, Target, path::RelPath, run_on,
+    AmbientAuthority, BlockingResolver, Completion, Dir, DirCookie, Driver, DriverId, DriverKey,
+    Entry, EntryName, Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget,
+    Op, OpKind, OpenHow, Output, Resolve, Spawner, Target, path::RelPath, run_on,
 };
 use rustix::{
     fd::{AsFd, BorrowedFd, OwnedFd},
@@ -41,9 +41,9 @@ const KERNEL_FALLBACK: filer_api::Fallback = filer_api::Fallback::new("openat2",
 /// the driver instance uses the userspace walk from then on.
 ///
 /// Elsewhere, and for every other operation, paths resolve through the
-/// generic [`Resolver`], one component at a time: each directory is opened
-/// with `O_DIRECTORY | O_NOFOLLOW` relative to the previous one, and
-/// symlinks are read and followed by the resolver under the policy, so
+/// generic [`BlockingResolver`], one component at a time: each directory
+/// is opened with `O_DIRECTORY | O_NOFOLLOW` relative to the previous one,
+/// and symlinks are read and followed by the resolver under the policy, so
 /// resolution stays beneath the handle even if entries are renamed
 /// concurrently. [`with_userspace_resolution`](Self::with_userspace_resolution)
 /// forces this walk everywhere.
@@ -449,11 +449,11 @@ impl core::fmt::Debug for Posix {
     }
 }
 
-/// The [`Resolver`] primitives over `rustix`. A private type, so that
+/// The [`BlockingResolver`] primitives over `rustix`. A private type, so that
 /// callers cannot resolve from descriptors they were never handed.
 pub(crate) struct Walker;
 
-impl Resolver for Walker {
+impl BlockingResolver for Walker {
     type Node = Node;
 
     fn lookup(&self, dir: &Node, name: &[u8], op: OpKind) -> Result<Node, Error> {

@@ -4,9 +4,9 @@ use crate::HeapBuilder;
 use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
-    Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error, ErrorKind,
-    FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow,
-    Output, Resolve, Resolver, Target,
+    BlockingResolver, Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName,
+    Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op,
+    OpKind, OpenHow, Output, Resolve, Target,
     path::RelPath,
     tree::{Ino, Node, ROOT, Tree},
 };
@@ -18,9 +18,9 @@ use filer_api::{
 /// listings are sorted by the bytes of each name, and [`DirCookie`]s are
 /// entry indexes.
 ///
-/// Paths resolve through the generic [`Resolver`], confined beneath the
-/// directory handle they are resolved against, following symlinks per the
-/// operation's [`Resolve`] policy. Following a single entry, as a
+/// Paths resolve through the generic [`BlockingResolver`], confined
+/// beneath the directory handle they are resolved against, following
+/// symlinks per the operation's [`Resolve`] policy. Following a single entry, as a
 /// following stat does, uses the default policy.
 ///
 /// Metadata has kind, length, and id; no timestamps yet. File ids use

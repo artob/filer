@@ -5,7 +5,7 @@
 //! [`Posix`] implements [`filer_api::Driver`] on Unix platforms (Linux,
 //! macOS, the BSDs) over [`rustix`]. So far it supports the read
 //! operations, executed by the [blocking](Posix::blocking) executor, with
-//! paths confined by the generic [`filer_api::Resolver`].
+//! paths confined by the generic [`filer_api::BlockingResolver`].
 //!
 //! Items are gated on `cfg(unix)` and the `std` feature, enabled by
 //! default, so the crate still builds, empty, without `std` and on other

@@ -20,6 +20,9 @@ so any release may break compatibility.
 - `filer-api`: `archive`, the shared machinery of archive drivers:
   `Archive`, `Index`, `Member`, `Limits`, and `ArchiveError`.
 ### Changed
+- `filer-api`: `Resolver` is now asynchronous, as async-first; the
+  synchronous walk is `BlockingResolver`, and both share one
+  implementation.
 - `filer-tar`: `Tar` is a thin wrapper around `filer_api::archive::Archive`;
   `filer_tar::Limits` is now a re-export of `filer_api::archive::Limits`.
 

@@ -15,8 +15,8 @@
 //! ([`EntryName`], [`ForeignName`], [`LinkTarget`]), driver identity and
 //! handles ([`DriverKey`], [`DriverId`], [`Handle`]), [`Metadata`], owned
 //! I/O buffers ([`IoBuf`], [`IoBufMut`], [`BufResult`]), the [`Error`]
-//! type, and for drivers, the generic [`Resolver`] and the [`tree`] of
-//! virtual drivers.
+//! type, and for drivers, the generic [`Resolver`] (and
+//! [`BlockingResolver`]) and the [`tree`] of virtual drivers.
 //!
 //! It builds with `#![no_std]` but requires `alloc`; the `std` feature,
 //! enabled by default, adds `std::io::Error` interop. `all` currently
@@ -37,6 +37,9 @@ pub mod tree;
 
 mod ambient_authority;
 pub use ambient_authority::*;
+
+mod blocking_resolver;
+pub use blocking_resolver::*;
 
 mod buf_result;
 pub use buf_result::*;
@@ -146,6 +149,8 @@ pub use resolve::*;
 
 mod resolver;
 pub use resolver::*;
+
+mod walk;
 
 mod rights;
 pub use rights::*;

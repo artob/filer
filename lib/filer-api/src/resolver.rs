@@ -1,7 +1,12 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{Error, ErrorKind, FileKind, LinkTarget, OpKind, Resolve, Symlinks};
-use alloc::vec::Vec;
+#[cfg(doc)]
+use crate::{BlockingResolver, ErrorKind, Symlinks};
+use crate::{
+    Error, FileKind, LinkTarget, OpKind, Resolve,
+    walk::{Next, Walk},
+};
+use core::future::Future;
 
 /// The most symlinks one resolution follows before failing with
 /// [`SymlinkLoop`](ErrorKind::SymlinkLoop), as Linux `MAXSYMLINKS`.
@@ -9,12 +14,15 @@ pub const MAX_SYMLINK_HOPS: usize = 40;
 
 /// Confined path resolution in userspace, one component at a time.
 ///
-/// Drivers whose OS cannot confine resolution itself (macOS, Windows, older
-/// Linux) or that have no OS at all (the in-memory driver) implement the
+/// Drivers that cannot rely on an OS to confine resolution implement the
 /// four primitives below; the provided [`resolve`](Self::resolve) method
 /// then walks a path beneath a starting directory under a [`Resolve`]
-/// policy. A driver with kernel-confined resolution, such as Linux
-/// `openat2`, may override `resolve` instead.
+/// policy. The primitives are asynchronous, for drivers whose lookups
+/// await I/O: a filesystem image read through [`ReadAt`](crate::ReadAt),
+/// a network protocol, the browser's file system API. Drivers whose
+/// primitives are system calls or memory accesses implement
+/// [`BlockingResolver`] instead, which walks the same steps under the same
+/// policy with the same errors.
 ///
 /// The walk is race-free as long as the primitives are: every step looks up
 /// one name in a directory node already held, so no step re-parses a path
@@ -30,10 +38,9 @@ pub const MAX_SYMLINK_HOPS: usize = 40;
 /// nodes are raw references such as inode numbers, and a public
 /// implementation would let callers resolve from nodes they were never
 /// handed as capabilities.
-pub trait Resolver {
-    /// A driver's reference to a file, directory, or symlink, such as an
-    /// open descriptor or an inode number.
-    type Node: Clone;
+pub trait Resolver: Sync {
+    /// A driver's reference to a file, directory, or symlink.
+    type Node: Clone + Send + Sync;
 
     /// Returns the entry `name` of directory `dir`, without following it if
     /// it is a symlink.
@@ -41,7 +48,12 @@ pub trait Resolver {
     /// # Errors
     ///
     /// Typically [`NotFound`](ErrorKind::NotFound).
-    fn lookup(&self, dir: &Self::Node, name: &[u8], op: OpKind) -> Result<Self::Node, Error>;
+    fn lookup(
+        &self,
+        dir: &Self::Node,
+        name: &[u8],
+        op: OpKind,
+    ) -> impl Future<Output = Result<Self::Node, Error>> + Send;
 
     /// Returns the type of `node`.
     fn kind(&self, node: &Self::Node) -> FileKind;
@@ -51,7 +63,12 @@ pub trait Resolver {
     /// # Errors
     ///
     /// Any error reading the link.
-    fn read_link(&self, dir: &Self::Node, name: &[u8], op: OpKind) -> Result<LinkTarget, Error>;
+    fn read_link(
+        &self,
+        dir: &Self::Node,
+        name: &[u8],
+        op: OpKind,
+    ) -> impl Future<Output = Result<LinkTarget, Error>> + Send;
 
     /// Returns `true` if entering `child` from `dir` crosses a mount point.
     /// The default never does, which suits drivers without mounts.
@@ -94,74 +111,31 @@ pub trait Resolver {
         policy: Resolve,
         follow_final: bool,
         op: OpKind,
-    ) -> Result<Self::Node, Error> {
-        let error = |kind| Error::new(kind, op);
-        // The directories entered so far, from `start`; `..` pops them.
-        let mut dirs = alloc::vec![start.clone()];
-        // Components still to resolve, the next one last.
-        let mut pending: Vec<Vec<u8>> = Vec::new();
-        push_components(&mut pending, path);
-        let mut hops = 0;
-
-        while let Some(component) = pending.pop() {
-            match component.as_slice() {
-                b"" | b"." => {},
-                b".." => {
-                    if dirs.len() > 1 {
-                        dirs.pop();
-                    } else if policy.symlinks != Symlinks::InRoot {
-                        return Err(error(ErrorKind::EscapeBlocked));
-                    }
-                },
-                name => {
-                    let dir = dirs.last().expect("`start` is never popped");
-                    let child = self.lookup(dir, name, op)?;
-                    if !policy.cross_mounts && self.crosses_mount(dir, &child) {
-                        return Err(error(ErrorKind::CrossesDevices));
-                    }
-                    match self.kind(&child) {
-                        FileKind::Symlink if follow_final || !pending.is_empty() => {
-                            if policy.symlinks == Symlinks::Deny {
-                                return Err(error(ErrorKind::SymlinkLoop));
-                            }
-                            hops += 1;
-                            if hops > MAX_SYMLINK_HOPS {
-                                return Err(error(ErrorKind::SymlinkLoop));
-                            }
-                            let target = self.read_link(dir, name, op)?;
-                            let target = target.as_bytes();
-                            if target.starts_with(b"/") {
-                                if policy.symlinks != Symlinks::InRoot {
-                                    return Err(error(ErrorKind::EscapeBlocked));
-                                }
-                                dirs.truncate(1);
-                            }
-                            push_components(&mut pending, target);
-                        },
-                        FileKind::Dir => dirs.push(child),
-                        _ if pending.is_empty() => return Ok(child),
-                        _ => return Err(error(ErrorKind::NotADirectory)),
-                    }
-                },
+    ) -> impl Future<Output = Result<Self::Node, Error>> + Send {
+        let mut walk = Walk::new(start.clone(), path, policy, follow_final, op);
+        async move {
+            loop {
+                let name = match walk.next()? {
+                    Next::Lookup(name) => name,
+                    Next::Done(node) => return Ok(node),
+                };
+                let child = self.lookup(walk.dir(), &name, op).await?;
+                let crosses = !policy.cross_mounts && self.crosses_mount(walk.dir(), &child);
+                let kind = self.kind(&child);
+                if walk.found(child, kind, crosses)? {
+                    let target = self.read_link(walk.dir(), &name, op).await?;
+                    walk.follow(target.as_bytes())?;
+                }
             }
         }
-        Ok(dirs.pop().expect("`start` is never popped"))
     }
-}
-
-/// Queues the `/`-separated components of `path` so that the first is
-/// resolved next.
-fn push_components(pending: &mut Vec<Vec<u8>>, path: &[u8]) {
-    if path.is_empty() {
-        return;
-    }
-    pending.extend(path.split(|&b| b == b'/').rev().map(<[u8]>::to_vec));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::{collections::BTreeMap, vec};
+    use crate::{BlockingResolver, ErrorKind, Symlinks, driver::tests::block_on};
+    use alloc::{collections::BTreeMap, vec, vec::Vec};
 
     /// A toy filesystem: nodes by index, each with a mount number.
     struct Toy {
@@ -220,7 +194,7 @@ mod tests {
                 symlinks,
                 ..Resolve::default()
             };
-            self.resolve(
+            self.both(
                 &self.find(start),
                 path.as_bytes(),
                 policy,
@@ -230,12 +204,67 @@ mod tests {
             .map_err(|error| error.kind())
         }
 
+        /// Resolves with both [`BlockingResolver`] and [`Resolver`], which
+        /// must agree.
+        fn both(
+            &self,
+            start: &usize,
+            path: &[u8],
+            policy: Resolve,
+            follow_final: bool,
+            op: OpKind,
+        ) -> Result<usize, Error> {
+            let blocking = self.resolve(start, path, policy, follow_final, op);
+            let not_blocking = block_on(Async(self).resolve(start, path, policy, follow_final, op));
+            let summary = |result: &Result<usize, Error>| {
+                result
+                    .as_ref()
+                    .map(|&node| node)
+                    .map_err(|e| (e.kind(), e.op()))
+            };
+            assert_eq!(summary(&blocking), summary(&not_blocking), "{path:?}");
+            blocking
+        }
+
         fn resolve_path(&self, path: &str, symlinks: Symlinks) -> Result<usize, ErrorKind> {
             self.resolve_from("", path, symlinks)
         }
     }
 
-    impl Resolver for Toy {
+    /// [`Toy`] as a [`Resolver`], over its blocking primitives.
+    struct Async<'a>(&'a Toy);
+
+    impl Resolver for Async<'_> {
+        type Node = usize;
+
+        fn lookup(
+            &self,
+            dir: &usize,
+            name: &[u8],
+            op: OpKind,
+        ) -> impl Future<Output = Result<usize, Error>> + Send {
+            core::future::ready(BlockingResolver::lookup(self.0, dir, name, op))
+        }
+
+        fn kind(&self, node: &usize) -> FileKind {
+            BlockingResolver::kind(self.0, node)
+        }
+
+        fn read_link(
+            &self,
+            dir: &usize,
+            name: &[u8],
+            op: OpKind,
+        ) -> impl Future<Output = Result<LinkTarget, Error>> + Send {
+            core::future::ready(BlockingResolver::read_link(self.0, dir, name, op))
+        }
+
+        fn crosses_mount(&self, dir: &usize, child: &usize) -> bool {
+            BlockingResolver::crosses_mount(self.0, dir, child)
+        }
+    }
+
+    impl BlockingResolver for Toy {
         type Node = usize;
 
         fn lookup(&self, dir: &usize, name: &[u8], op: OpKind) -> Result<usize, Error> {
@@ -390,7 +419,7 @@ mod tests {
                 symlinks,
                 ..Resolve::default()
             };
-            let resolved = toy.resolve(&start, b"f2", policy, false, OpKind::Stat);
+            let resolved = toy.both(&start, b"f2", policy, false, OpKind::Stat);
             assert_eq!(resolved.unwrap(), link);
         }
     }
@@ -448,13 +477,10 @@ mod tests {
     fn honors_mount_crossing() {
         let toy = fixture();
         let mut policy = Resolve::default();
-        assert!(
-            toy.resolve(&0, b"a/mnt", policy, true, OpKind::Open)
-                .is_ok()
-        );
+        assert!(toy.both(&0, b"a/mnt", policy, true, OpKind::Open).is_ok());
         policy.cross_mounts = false;
         let error = toy
-            .resolve(&0, b"a/mnt", policy, true, OpKind::Open)
+            .both(&0, b"a/mnt", policy, true, OpKind::Open)
             .unwrap_err();
         assert_eq!(
             (error.kind(), error.op()),
