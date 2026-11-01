@@ -34,7 +34,9 @@
 - 100% Rust: never add a dependency that compiles or bundles C/C++ (no `cc`,
   `cmake`, `pkg-config`, `bindgen`, or C-wrapping `-sys` crates; CI checks).
   Rust bindings to the OS's own APIs (`libc` on macOS, `windows-sys`) are
-  fine. Codecs must be pure-Rust decoders.
+  fine. Codecs must be pure-Rust decoders. Sole exemption (D50):
+  `cargo-fuzz` targets in a crate's `fuzz/` (own `[workspace]`, never a
+  dependency); keep a pure-Rust fuzz test in `tests/` too.
 - Builders maximize usability: paths take `P: TryInto<RelPathBuf>` (plain
   strings or `rel!`), panicking under `#[track_caller]`; ops and driver APIs
   stay strictly typed.

@@ -676,8 +676,6 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only first, designed for writing (§17.13, D46). One commit per item.
 
-- [ ] **FAT-07: Fuzzing.** Targets for the boot sector, FAT, and directory
-  parsers. Done when they build in CI.
 - [ ] **FAT-11: Attributes.** Report hidden, system, and archive through
   `FileAttrs` (XATTR-02), which needs these Windows attributes first
   (shared with `filer-windows`), and read-only as a permission. Done when
@@ -717,7 +715,8 @@ Blocked on ASK-01; `filer-system` (§17.10) may make it unnecessary.
   tests select fixtures by environment variable and skip cleanly without.
 - [ ] **CI-02: Miri.** For `filer-api`, `filer-heap`, routing drivers, and
   pure parts of `sys` modules. Done when green.
-- [ ] **CI-03: Fuzz build check.** Done when fuzz targets build in CI.
+- [ ] **CI-03: Fuzz build check.** `filer-fat`'s `fuzz/` builds in CI;
+  extend the job to each new `fuzz/` crate (D50). Done when all build.
 - [ ] **CI-04: `cargo-semver-checks`.** Once a release exists, per crate.
 - [ ] **DOC-01: Crate overviews.** Rustdoc landing pages with feature-gated
   examples passing the packaged-doctest job in all four feature modes.

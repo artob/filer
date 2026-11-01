@@ -290,6 +290,15 @@ read; `filer-fuse` must use a FUSE mount path that needs no `libfuse`
 `cmake`, `pkg-config`, or `bindgen` enters the dependency tree on any
 target.
 
+**Fuzzing tooling (D50).** The one exemption: `cargo-fuzz` targets, in a
+`fuzz/` crate inside the crate they fuzz, may depend on `libfuzzer-sys`,
+which compiles LLVM's C++ libFuzzer, as coverage guidance has no
+maintained pure-Rust equivalent. Such a crate has its own `[workspace]`,
+so it is outside the repository's workspace and its C-code check, is left
+out of the packaged crate, and is never a dependency of a published
+crate. A pure-Rust fuzz test in `tests/` remains the baseline, running
+with every `cargo test`.
+
 ### 3.8 The umbrella crate
 
 Following Dogma.rs, an umbrella crate re-exports `filer-api` at the top
@@ -2313,7 +2322,9 @@ a dependency-free, structure-aware fuzzer, mutates the fixtures and
 writer images where their structures are and walks each result, checking
 that errors are only `Corrupt` and that listings, stats, and reads agree;
 it runs briefly in every `cargo test` and for as long as asked by
-environment variable.
+environment variable. `fuzz/` has `cargo-fuzz` targets (D50) that lay
+their input over the boot sector, the FAT, and the root directory of a
+valid volume, and run the same walk.
 
 **Ready for writing.** The layers are the boot sector and geometry
 (validated once, immutable), the FAT table (entry reads now, writes
@@ -2745,8 +2756,10 @@ of leverage:
    dedupe, Windows sharing violations (hold a file open without
    `FILE_SHARE_DELETE` and rename it), case-insensitive directories, APFS
    clones on the macOS job.
-6. **Fuzzing.** `cargo-fuzz` targets for name and path validation, the
-   journal parser, Windows reparse-data parsing, and archive member names.
+6. **Fuzzing.** Pure-Rust fuzz tests, plus `cargo-fuzz` targets under the
+   D50 exemption, for on-disk parsers (`filer-fat` has both), name and
+   path validation, the journal parser, Windows reparse-data parsing, and
+   archive member names.
 7. **Miri.** `filer-api`, `filer-heap`, and the routing drivers run under
    Miri (no FFI there). The `sys` modules of `unsafe` crates keep their
    pure logic (buffer bookkeeping, reparse parsing) in functions testable
@@ -2883,6 +2896,7 @@ Record changes here with a date and one line of rationale.
 | D47 | Async first, no panics, illegal states unrepresentable | Accepted |
 | D48 | `Resolver` is async; `BlockingResolver` shares its walk | Accepted |
 | D49 | Code pages in `known-codepages`, a support crate to spin out | Accepted |
+| D50 | `cargo-fuzz` (C++ libFuzzer) allowed in `fuzz/` crates only | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
