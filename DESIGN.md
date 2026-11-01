@@ -1788,10 +1788,12 @@ for this open, and `ENOSYS` or `EPERM` switch the instance to the walk for
 good (which errno seccomp filters return is still VER-04). Errors after a
 fallback carry `Fallback("openat2", "userspace walk")`, which a Linux test
 uses to prove the kernel path ran. `Posix::with_userspace_resolution()`
-forces the walk; the specification runs both ways. Everything else, and
-other systems, use the generic `Resolver` (§6.5) on a private `Walker`:
-`lookup` is `statat`
-with `AT_SYMLINK_NOFOLLOW`, then directories open with `O_DIRECTORY |
+forces the walk; the specification runs both ways, and a third time on
+`Posix::thread_pool(DefaultPool::new())`, which wraps the same synchronous
+operation in `run_on` (a panicking job fails the operation with
+`Other`). Everything else, and other systems, use the generic `Resolver`
+(§6.5) on a private `Walker`: `lookup` is `statat` with
+`AT_SYMLINK_NOFOLLOW`, then directories open with `O_DIRECTORY |
 O_NOFOLLOW` (a swap to a symlink in between fails rather than escapes);
 files open with `O_NOFOLLOW | O_NONBLOCK`, are `fstat`-checked to be
 regular, and have `O_NONBLOCK` cleared. Metadata is `fstat`/`statat`

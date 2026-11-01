@@ -297,11 +297,11 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
 
 ## `filer-posix`
 
-- [ ] **POSIX-01: Thread-pool executor and public payload.**
-  `Posix::blocking()` exists with the six read ops. Still missing:
-  `Posix::thread_pool(spawner)` (after DRV-06) and a public `OwnedFd`-based
-  payload type for `filer-uring`. Done when both executors pass the same
-  tests.
+- [ ] **POSIX-01: Public payload for `filer-uring`.**
+  `Posix::blocking()` and `Posix::thread_pool(spawner)` exist. Still
+  missing: a public `OwnedFd`-based payload type, and a way to share a
+  `DriverKey`, for `filer-uring` (§16.2). Done when a test mints a handle
+  outside `filer-posix` that `Posix` accepts.
 
 - [ ] **POSIX-04: Write ops and `statx`.**
   Read and `fstat`/`statat` metadata exist. Still missing: write,
@@ -659,9 +659,8 @@ From §17.12 (D40). Create each crate when its item starts.
 - [ ] **SYS-01: Wire in new native drivers.**
   Replace the `Unsupported` stub with `filer_windows::Windows`, the
   `filer-wasi`, `filer-whatwg`, and `filer-uefi` drivers as each gains a
-  constructor and a way to open roots, and add `System::thread_pool` after
-  POSIX-01. Done when `filer-system`'s tests pass on Windows, under
-  Wasmtime, and in a browser.
+  constructor and a way to open roots. Done when `filer-system`'s tests
+  pass on Windows, under Wasmtime, and in a browser.
 
 ## Umbrella crate
 

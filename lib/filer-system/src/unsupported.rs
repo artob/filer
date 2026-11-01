@@ -20,6 +20,12 @@ impl Unsupported {
         }
     }
 
+    /// There are no system calls to run, so the spawner goes unused.
+    pub(crate) fn thread_pool(spawner: impl filer_api::Spawner) -> Self {
+        let _ = spawner;
+        Self::blocking()
+    }
+
     pub(crate) fn open_ambient_dir(
         &self,
         path: &Path,

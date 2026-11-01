@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use core::future::Future;
-use filer_api::{AmbientAuthority, Completion, Dir, Driver, DriverId, Error, Op};
+use filer_api::{AmbientAuthority, Completion, Dir, Driver, DriverId, Error, Op, Spawner};
 use std::path::Path;
 
 /// The native driver for this target.
@@ -27,10 +27,19 @@ impl System {
     ///
     /// That suits command-line tools, tests, and single-threaded programs;
     /// on a multi-threaded async runtime, a slow call stalls every task
-    /// sharing the thread.
+    /// sharing the thread, so use [`thread_pool`](Self::thread_pool) there.
     #[must_use]
     pub fn blocking() -> Self {
         Self(Native::blocking())
+    }
+
+    /// Returns a driver that performs each operation as a job on
+    /// `spawner`, such as a [`DefaultPool`](filer_api::DefaultPool), so
+    /// that system calls block a worker thread rather than the async
+    /// executor.
+    #[must_use]
+    pub fn thread_pool(spawner: impl Spawner) -> Self {
+        Self(Native::thread_pool(spawner))
     }
 
     /// Opens the directory at the native `path` as a root [`Dir`], with all

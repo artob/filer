@@ -83,3 +83,8 @@ fn passes_the_specification() {
 fn passes_the_specification_with_the_userspace_walk() {
     run(|| Posix::blocking().with_userspace_resolution()).assert_passed();
 }
+
+#[test]
+fn passes_the_specification_on_a_thread_pool() {
+    run(|| Posix::thread_pool(filer_api::DefaultPool::new())).assert_passed();
+}

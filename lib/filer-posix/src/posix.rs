@@ -9,7 +9,7 @@ use core::future::Future;
 use filer_api::{
     AmbientAuthority, Completion, Dir, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName,
     Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Op, OpKind,
-    OpenHow, Output, Resolve, Resolver, Target, path::RelPath,
+    OpenHow, Output, Resolve, Resolver, Spawner, Target, path::RelPath, run_on,
 };
 use rustix::{
     fd::{AsFd, BorrowedFd, OwnedFd},
@@ -87,13 +87,16 @@ const KERNEL_FALLBACK: filer_api::Fallback = filer_api::Fallback::new("openat2",
 /// # }
 /// # Ok::<(), filer_api::Error>(())
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Posix {
     key: Arc<DriverKey>,
     /// Whether to try kernel-confined resolution (`openat2`) first; only
     /// read on Linux.
     #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
     kernel: Arc<AtomicBool>,
+    /// Where operations run: on a spawner's threads, or, if `None`, inside
+    /// `poll`.
+    spawner: Option<Arc<dyn Spawner>>,
 }
 
 impl Posix {
@@ -103,8 +106,8 @@ impl Posix {
     ///
     /// That suits command-line tools, tests, and single-threaded programs.
     /// On a multi-threaded async runtime, a slow call (a cold disk, a hung
-    /// network mount) stalls every task sharing the thread; a thread-pool
-    /// executor will cover that case.
+    /// network mount) stalls every task sharing the thread; use
+    /// [`thread_pool`](Self::thread_pool) there.
     #[must_use]
     pub fn blocking() -> Self {
         Self {
@@ -113,6 +116,31 @@ impl Posix {
                 target_os = "linux",
                 target_os = "android"
             )))),
+            spawner: None,
+        }
+    }
+
+    /// Returns a driver that performs each operation as a job on
+    /// `spawner`, such as a [`DefaultPool`](filer_api::DefaultPool), so
+    /// that the system calls block a worker thread rather than the async
+    /// executor.
+    ///
+    /// The job is submitted when the operation's future is first polled.
+    /// Once submitted, it runs to completion even if the future is
+    /// dropped. If the job panics, the operation fails with
+    /// [`ErrorKind::Other`].
+    ///
+    /// ```
+    /// use filer_api::DefaultPool;
+    /// use filer_posix::Posix;
+    ///
+    /// let posix = Posix::thread_pool(DefaultPool::new());
+    /// ```
+    #[must_use]
+    pub fn thread_pool(spawner: impl Spawner) -> Self {
+        Self {
+            spawner: Some(Arc::new(spawner)),
+            ..Self::blocking()
         }
     }
 
@@ -122,8 +150,8 @@ impl Posix {
     #[must_use]
     pub fn with_userspace_resolution(self) -> Self {
         Self {
-            key: self.key,
             kernel: Arc::new(AtomicBool::new(false)),
+            ..self
         }
     }
 
@@ -397,7 +425,27 @@ impl Driver for Posix {
 
     fn submit(&self, op: Op) -> impl Future<Output = Completion> + Send + use<> {
         let posix = self.clone();
-        async move { posix.perform(op) }
+        async move {
+            let Some(spawner) = posix.spawner.clone() else {
+                return posix.perform(op);
+            };
+            let kind = op.kind();
+            match run_on(spawner, move || posix.perform(op)).await {
+                Some(completion) => completion,
+                // The job panicked; its buffer, if any, is lost with it.
+                None => Completion::new(Err(Error::new(ErrorKind::Other, kind))),
+            }
+        }
+    }
+}
+
+impl core::fmt::Debug for Posix {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Posix")
+            .field("id", &self.key.id())
+            .field("kernel", &self.kernel)
+            .field("thread_pool", &self.spawner.is_some())
+            .finish()
     }
 }
 
