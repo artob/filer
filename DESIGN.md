@@ -2457,10 +2457,16 @@ Documentation* (a description of the on-disk format, not code).
 - Metadata: from `$STANDARD_INFORMATION`: modified, changed (the MFT
   record's change time), created, and accessed, at 100 ns; length from
   the unnamed `$DATA`.
-- Reparse points: symlinks, junctions, and WSL symlinks become symlinks,
-  confined by the `Resolver`; other tags, encrypted files, and files
-  compressed by WOF read as `Unsupported`. Named data streams are not
-  exposed yet.
+- Reparse points: symbolic links, junctions, and WSL symlinks become
+  symlinks, confined by the `Resolver`. A relative target's `\` become
+  `/`; an absolute one on a drive (`\??\C:\path`) becomes `/path`, from
+  the volume's root, which is assumed to be that drive: resolving it needs
+  `Symlinks::InRoot`, and under `Beneath` it is `EscapeBlocked`, as any
+  absolute target is. Other absolute forms (UNC, volume GUID paths) keep
+  their text and dangle. Reparse points of other tags (cloud
+  placeholders, files compressed by WOF) and encrypted files keep their
+  kind and metadata, but opening them to read is `Unsupported`, as their
+  `$DATA` is not their contents. Named data streams are not exposed yet.
 - A volume marked dirty (its `$LogFile` not replayed) is refused unless
   the caller opts in: it is never read as if clean (§17.12).
 
@@ -2476,7 +2482,11 @@ compressed, and another `filer-spec`'s tree. `tests/differential.sh` compares th
 Linux kernel's `ntfs3`: every name, kind, size, content, and time agrees.
 Listings are compared sorted, as the order differs by design: Filer lists
 an index in collation order, as Windows does, where `ntfs3` lists a
-node's separating entries after its children.
+node's separating entries after its children. Reparse points differ by
+design too: `ntfs3` keeps a drive in absolute targets (`C:/path`), makes
+junctions `./path`, reads WSL symlinks as files and other tags' `$DATA`
+as contents; the script lists those entries and leaves them to the
+fixture tests.
 
 ### 17.15 Later
 

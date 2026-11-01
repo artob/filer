@@ -158,14 +158,100 @@ os.utime(os.path.join(directory, "sparse.bin"), (MTIME, MTIME))
 PY
 }
 
+# Reparse points: links of each kind, and a tag Filer cannot read.
+links() {
+    python3 -I - "$mnt" <<'PY'
+import os, struct, sys
+root = sys.argv[1]
+MTIME = 1_704_164_646
+
+def utf16(s):
+    return s.encode("utf-16-le")
+
+def windows_link(substitute, print_name, flags):
+    """A symbolic link (`flags` given) or junction (`flags` None)."""
+    sub, pr = utf16(substitute), utf16(print_name)
+    data = struct.pack("<HHHH", 0, len(sub), len(sub), len(pr))
+    if flags is not None:
+        data += struct.pack("<I", flags)
+    data += sub + pr
+    tag = 0xA000000C if flags is not None else 0xA0000003
+    return struct.pack("<IHH", tag, len(data), 0) + data
+
+def wsl_link(target):
+    data = struct.pack("<I", 2) + target.encode()
+    return struct.pack("<IHH", 0xA000001D, len(data), 0) + data
+
+def reparse(path, value, directory=False):
+    full = os.path.join(root, path)
+    if directory:
+        os.mkdir(full)
+    else:
+        open(full, "wb").close()
+    os.setxattr(full, "system.ntfs_reparse_data", value)
+
+def put(path, data):
+    full = os.path.join(root, path)
+    with open(full, "wb") as f:
+        f.write(data)
+    os.utime(full, (MTIME, MTIME))
+
+put("target.txt", b"target")
+os.mkdir(os.path.join(root, "Sub"))
+put("Sub/nested.txt", b"nested")
+reparse("link", windows_link("target.txt", "target.txt", 1))
+reparse("deep", windows_link("Sub\\nested.txt", "Sub\\nested.txt", 1))
+reparse("dirlink", windows_link("Sub", "Sub", 1), directory=True)
+reparse("abs", windows_link("\\??\\C:\\target.txt", "C:\\target.txt", 0))
+reparse("junction", windows_link("\\??\\C:\\Sub", "C:\\Sub", None), directory=True)
+reparse("wsl", wsl_link("target.txt"))
+reparse("dangling", windows_link("nope", "nope", 1))
+reparse("cloud.bin", struct.pack("<IHH", 0x9000001A, 4, 0) + b"data")
+PY
+}
+
 spec() {
     python3 -I - "$mnt" <<'PY'
-import os, sys
+import os, struct, sys
 root = sys.argv[1]
+
+def utf16(s):
+    return s.encode("utf-16-le")
+
+def windows_link(substitute, print_name, flags):
+    """A symbolic link (`flags` given) or junction (`flags` None)."""
+    sub, pr = utf16(substitute), utf16(print_name)
+    data = struct.pack("<HHHH", 0, len(sub), len(sub), len(pr))
+    if flags is not None:
+        data += struct.pack("<I", flags)
+    data += sub + pr
+    tag = 0xA000000C if flags is not None else 0xA0000003
+    return struct.pack("<IHH", tag, len(data), 0) + data
+
+def wsl_link(target):
+    data = struct.pack("<I", 2) + target.encode()
+    return struct.pack("<IHH", 0xA000001D, len(data), 0) + data
+
+def reparse(path, value, directory=False):
+    full = os.path.join(root, path)
+    if directory:
+        os.mkdir(full)
+    else:
+        open(full, "wb").close()
+    os.setxattr(full, "system.ntfs_reparse_data", value)
+
 os.makedirs(os.path.join(root, "a", "b"))
 open(os.path.join(root, "a", "b", "c.txt"), "wb").write(b"contents")
 open(os.path.join(root, "a", "z.txt"), "wb").close()
 os.mkdir(os.path.join(root, "a", "empty"))
+# The specification's symlinks, as Windows links where Windows can
+# express them, and an absolute one on drive C:.
+reparse("a/link", windows_link("b\\c.txt", "b\\c.txt", 1))
+reparse("a/up", windows_link("..\\a\\b\\c.txt", "..\\a\\b\\c.txt", 1))
+reparse("a/abs", windows_link("\\??\\C:\\a\\b\\c.txt", "C:\\a\\b\\c.txt", 0))
+reparse("a/escape", windows_link("..\\..\\c.txt", "..\\..\\c.txt", 1))
+reparse("a/loop", windows_link("loop", "loop", 1))
+reparse("a/dangling", windows_link("nope", "nope", 1))
 os.mkdir(os.path.join(root, "many"))
 for i in range(600):
     open(os.path.join(root, "many", f"f{i:03}"), "wb").close()
@@ -189,4 +275,5 @@ make ntfs-512 512 512 fill
 make ntfs-64k 512 65536 fill
 make ntfs-4kn 4096 4096 fill
 make ntfs-compressed 512 4096 compressed
+make ntfs-links 512 4096 links
 make spec 512 4096 spec

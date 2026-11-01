@@ -4,6 +4,7 @@ use crate::{
     NtfsError, Options,
     file_name::FileName,
     index::Index,
+    reparse,
     stream::Stream,
     time,
     volume::{
@@ -32,7 +33,12 @@ use filer_api::{
 /// system files (`$MFT`, `$LogFile`, and the rest). A file's id is its MFT
 /// record number, so hard links share it. Times are UTC, at 100 ns.
 ///
-/// Compressed files (LZNT1) read as any other. Writing is out of scope:
+/// Compressed files (LZNT1) read as any other. Symbolic links, junctions,
+/// and WSL symlinks are symlinks, confined like any other: a target that
+/// is an absolute path on a drive (`C:\\path`) is taken from the root of
+/// the volume, assumed to be that drive. Reparse points of other tags,
+/// such as cloud placeholders, read as
+/// [`Unsupported`](ErrorKind::Unsupported). Writing is out of scope:
 /// everything but reading is [`Unsupported`](ErrorKind::Unsupported), as
 /// are encrypted files.
 ///
@@ -119,8 +125,11 @@ impl<S: ReadAt> Ntfs<S> {
                         .payload(handle, kind)
                         .and_then(|payload| self.metadata(payload.node(), Some(payload), kind)),
                     Target::Entry {
-                        at, name, resolve, ..
-                    } => match self.entry(at, name, *resolve, kind).await {
+                        at,
+                        name,
+                        follow,
+                        resolve,
+                    } => match self.entry(at, name, *follow, *resolve, kind).await {
                         Ok(node) => self.metadata(&node, None, kind),
                         Err(error) => Err(error),
                     }
@@ -133,9 +142,12 @@ impl<S: ReadAt> Ntfs<S> {
             },
             Op::ReadLink { at, name } => {
                 let result = self
-                    .entry(&at, &name, Resolve::default(), kind)
+                    .entry(&at, &name, false, Resolve::default(), kind)
                     .await
-                    .and_then(|_| Err::<LinkTarget, _>(Error::new(ErrorKind::NotASymlink, kind)));
+                    .and_then(|node| match node.link() {
+                        Some(target) => Ok(LinkTarget::from_bytes(target.to_vec())),
+                        None => Err(Error::new(ErrorKind::NotASymlink, kind)),
+                    });
                 Completion::new(
                     result
                         .map(Output::LinkTarget)
@@ -171,6 +183,9 @@ impl<S: ReadAt> Ntfs<S> {
                 let index = self.0.index(&node, op)?;
                 Payload::Dir { node, index }
             },
+            (FileKind::File, HandleKind::File) if node.is_opaque() => {
+                return Err(Error::new(ErrorKind::Unsupported, op));
+            },
             (FileKind::File, HandleKind::File) => {
                 let data = self.0.data(&node, op)?;
                 Payload::File { node, data }
@@ -205,6 +220,7 @@ impl<S: ReadAt> Ntfs<S> {
         &self,
         at: &Handle,
         name: &EntryName,
+        follow: bool,
         resolve: Resolve,
         op: OpKind,
     ) -> Result<Node, Error> {
@@ -214,7 +230,9 @@ impl<S: ReadAt> Ntfs<S> {
             EntryName::Foreign(name) if name.origin() == self.0.key.id() => name.as_bytes(),
             EntryName::Foreign(_) => return Err(Error::new(ErrorKind::ForeignNameMismatch, op)),
         };
-        Walker(&self.0).resolve(dir, bytes, resolve, true, op).await
+        Walker(&self.0)
+            .resolve(dir, bytes, resolve, follow, op)
+            .await
     }
 
     /// Returns the id of the file with record `number`: the volume serial
@@ -231,14 +249,16 @@ impl<S: ReadAt> Ntfs<S> {
         payload: Option<&Payload>,
         op: OpKind,
     ) -> Result<Metadata, Error> {
-        let information = StandardInformation::of(&node.0).map_err(|error| error.into_error(op))?;
+        let information =
+            StandardInformation::of(node.file()).map_err(|error| error.into_error(op))?;
         let mut metadata = Metadata::default();
         metadata.kind = Some(node.kind());
         metadata.id = Some(self.id(node.number()));
-        metadata.len = match (payload, node.kind()) {
-            (Some(Payload::File { data, .. }), _) => Some(data.len()),
-            (_, FileKind::Dir) => None,
-            (_, _) => Some(self.0.data(node, op)?.len()),
+        metadata.len = match (payload, node.kind(), node.link()) {
+            (Some(Payload::File { data, .. }), _, _) => Some(data.len()),
+            (_, _, Some(target)) => u64::try_from(target.len()).ok(),
+            (_, FileKind::Dir, _) => None,
+            (_, _, None) => Some(self.0.data(node, op)?.len()),
         };
         metadata.created = time::timestamp(information.created);
         metadata.modified = time::timestamp(information.modified);
@@ -302,10 +322,12 @@ impl<S: ReadAt> Ntfs<S> {
     }
 }
 
-/// Returns the kind of the file an index entry names, by the directory
-/// flag its `$FILE_NAME` carries.
+/// Returns the kind of the file an index entry names, by the attributes
+/// and reparse tag its `$FILE_NAME` carries.
 fn kind_of(entry: &FileName) -> FileKind {
-    if entry.attributes & FileName::DIRECTORY != 0 {
+    if entry.attributes & FileName::REPARSE_POINT != 0 && reparse::is_link(entry.reparse_tag) {
+        FileKind::Symlink
+    } else if entry.attributes & FileName::DIRECTORY != 0 {
         FileKind::Dir
     } else {
         FileKind::File

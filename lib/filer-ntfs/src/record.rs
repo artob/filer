@@ -18,7 +18,6 @@ impl AttrType {
     pub(crate) const INDEX_ALLOCATION: Self = Self(0xA0);
     #[allow(dead_code, reason = "for index and MFT bitmaps, later")]
     pub(crate) const BITMAP: Self = Self(0xB0);
-    #[allow(dead_code, reason = "for reparse points (NTFS-08)")]
     pub(crate) const REPARSE_POINT: Self = Self(0xC0);
     /// Ends the attributes of a record.
     const END: u32 = 0xFFFF_FFFF;

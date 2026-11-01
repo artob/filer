@@ -28,17 +28,23 @@ pub(crate) struct FileName {
     pub(crate) name: Box<[u16]>,
     /// The file attributes, as of the last change to this name.
     pub(crate) attributes: u32,
+    /// The reparse tag, if the file is a reparse point.
+    pub(crate) reparse_tag: u32,
 }
 
 impl FileName {
     /// The file attribute marking a directory in `$FILE_NAME`.
     pub(crate) const DIRECTORY: u32 = 0x1000_0000;
 
+    /// The file attribute marking a reparse point.
+    pub(crate) const REPARSE_POINT: u32 = 0x0000_0400;
+
     /// Parses a `$FILE_NAME` value, or returns `None` if it does not fit
     /// or its name or namespace is invalid.
     pub(crate) fn parse(value: &[u8]) -> Option<Self> {
         let parent = u64::from_le_bytes(*value.first_chunk()?);
         let attributes = u32::from_le_bytes(*value.get(0x38..)?.first_chunk()?);
+        let reparse_tag = u32::from_le_bytes(*value.get(0x3C..)?.first_chunk()?);
         let len = usize::from(*value.get(0x40)?);
         let namespace = match *value.get(0x41)? {
             0 => Namespace::Posix,
@@ -62,6 +68,7 @@ impl FileName {
             namespace,
             name: name.into_boxed_slice(),
             attributes,
+            reparse_tag,
         })
     }
 

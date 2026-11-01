@@ -10,10 +10,9 @@ use filer_spec::{Profile, TreeEntry};
 
 #[test]
 fn passes_the_specification() {
-    // No symlinks or FIFOs yet (NTFS-08), and the specification's foreign
-    // name is not WTF-8 (SPEC-06).
+    // NTFS has no FIFOs, and the specification's foreign name is not
+    // WTF-8 (SPEC-06).
     let profile = Profile::default()
-        .with_symlinks(false)
         .with_fifos(false)
         .with_foreign_names(false);
     let report = filer_spec::run_blocking(profile, |tree| {
@@ -25,6 +24,7 @@ fn passes_the_specification() {
             .map(|entry| match entry {
                 TreeEntry::Dir(path) => format!("{path}/"),
                 TreeEntry::File(path, contents) => format!("{path}={}", contents.len()),
+                TreeEntry::Symlink(path, target) => format!("{path}->{target}"),
                 entry => panic!("unexpected entry: {entry:?}"),
             })
             .collect();
@@ -34,6 +34,12 @@ fn passes_the_specification() {
             "a/b/c.txt=8",
             "a/z.txt=0",
             "a/empty/",
+            "a/link->b/c.txt",
+            "a/up->../a/b/c.txt",
+            "a/abs->/a/b/c.txt",
+            "a/escape->../../c.txt",
+            "a/loop->loop",
+            "a/dangling->nope",
             "many/",
         ]
         .into_iter()

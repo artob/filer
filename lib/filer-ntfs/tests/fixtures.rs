@@ -6,7 +6,7 @@
 mod common;
 
 use common::{Expected, MTIME, expected, expected_compressed, unsparse};
-use filer_api::{Dir, FileKind, MetaMask};
+use filer_api::{Dir, ErrorKind, FileKind, MetaMask, Symlinks};
 use filer_ntfs::Ntfs;
 use filer_spec::block_on;
 use std::collections::BTreeMap;
@@ -107,4 +107,73 @@ fn reads_compressed_files() {
     for (path, contents) in &expected {
         assert!(&found[path] == contents, "{path}");
     }
+}
+
+#[test]
+fn reads_links() {
+    let root = block_on(Ntfs::open(unsparse(include_bytes!(
+        "fixtures/ntfs-links.sparse"
+    ))))
+    .unwrap();
+    let target = |path: &str| block_on(root.read_link(path)).unwrap().as_bytes().to_vec();
+    assert_eq!(target("link"), b"target.txt");
+    assert_eq!(target("deep"), b"Sub/nested.txt");
+    assert_eq!(target("dirlink"), b"Sub");
+    assert_eq!(target("wsl"), b"target.txt");
+    assert_eq!(target("dangling"), b"nope");
+    // Absolute paths on a drive, from the volume's root.
+    assert_eq!(target("abs"), b"/target.txt");
+    assert_eq!(target("junction"), b"/Sub");
+
+    // Listings and stats agree that these are symlinks.
+    let dir = block_on(root.open_dir("")).unwrap();
+    let mut entries = dir.entries().unwrap();
+    while let Some(entry) = block_on(entries.next()) {
+        let entry = entry.unwrap();
+        let name = entry.name.as_name().unwrap().as_str().to_owned();
+        let metadata = block_on(root.symlink_metadata(name.as_str(), MetaMask::all())).unwrap();
+        assert_eq!(entry.kind, metadata.kind, "{name}");
+        let link = [
+            "link", "deep", "dirlink", "wsl", "dangling", "abs", "junction",
+        ];
+        let expected = if link.contains(&name.as_str()) {
+            FileKind::Symlink
+        } else if name == "Sub" {
+            FileKind::Dir
+        } else {
+            FileKind::File
+        };
+        assert_eq!(metadata.kind, Some(expected), "{name}");
+    }
+
+    let read = |root: &Root, path: &str| {
+        let file = block_on(root.open_file(path))?;
+        block_on(file.read_to_end())
+    };
+    assert_eq!(read(&root, "link").unwrap(), b"target");
+    assert_eq!(read(&root, "deep").unwrap(), b"nested");
+    assert_eq!(read(&root, "wsl").unwrap(), b"target");
+    assert_eq!(read(&root, "dirlink/nested.txt").unwrap(), b"nested");
+    assert_eq!(
+        read(&root, "dangling").unwrap_err().kind(),
+        ErrorKind::NotFound
+    );
+    // Absolute targets escape a directory confined beneath it, and resolve
+    // from it as a root.
+    assert_eq!(
+        read(&root, "abs").unwrap_err().kind(),
+        ErrorKind::EscapeBlocked
+    );
+    let in_root = root.clone().with_resolve(Symlinks::InRoot);
+    assert_eq!(read(&in_root, "abs").unwrap(), b"target");
+    assert_eq!(read(&in_root, "junction/nested.txt").unwrap(), b"nested");
+    // Another tag's data is not the file's contents.
+    assert_eq!(
+        read(&root, "cloud.bin").unwrap_err().kind(),
+        ErrorKind::Unsupported
+    );
+    assert_eq!(
+        block_on(root.read_link("target.txt")).unwrap_err().kind(),
+        ErrorKind::NotASymlink
+    );
 }

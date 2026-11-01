@@ -131,6 +131,12 @@ pub enum NtfsError {
         vcn: u64,
     },
 
+    /// A file's `$REPARSE_POINT` is malformed, or too large.
+    BadReparse {
+        /// The record's number.
+        record: u64,
+    },
+
     /// A `$FILE_NAME` attribute is malformed.
     BadFileName {
         /// The record's number.
@@ -237,6 +243,9 @@ impl core::fmt::Display for NtfsError {
                 write!(f, "directory {record}'s index loops at VCN {vcn}")
             },
             Self::BadFileName { record } => write!(f, "file {record} has an invalid name"),
+            Self::BadReparse { record } => {
+                write!(f, "file {record} has an invalid reparse point")
+            },
             Self::BadUpCase => f.write_str("invalid $UpCase table"),
             Self::Dirty => f.write_str("marked dirty: its log was not replayed"),
             Self::UnsupportedVersion { major, minor } => {

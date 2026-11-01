@@ -4,8 +4,8 @@
 //! directory order:
 //!
 //! ```text
-//! path <TAB> kind (d or f) <TAB> size <TAB> modified <TAB> created
-//!      <TAB> accessed <TAB> FNV-1a hash of the contents
+//! path <TAB> kind (d, f, or l) <TAB> size <TAB> modified <TAB> created
+//!      <TAB> accessed <TAB> FNV-1a hash of the contents, or link target
 //! ```
 //!
 //! Directories have no size here. Times are whole seconds
@@ -77,8 +77,21 @@ async fn walk<S: ReadAt + 'static>(
             "" => entry.name.to_string(),
             dir => format!("{dir}/{}", entry.name),
         };
-        let metadata = root.metadata(path.as_str(), MetaMask::all()).await?;
+        let metadata = root
+            .symlink_metadata(path.as_str(), MetaMask::all())
+            .await?;
         let (kind, size, hash) = match metadata.kind {
+            Some(FileKind::Symlink) => {
+                let target = root.read_link(path.as_str()).await?;
+                let size = metadata
+                    .len
+                    .map_or_else(|| "-".to_owned(), |len| len.to_string());
+                (
+                    "l",
+                    size,
+                    String::from_utf8_lossy(target.as_bytes()).into_owned(),
+                )
+            },
             Some(FileKind::Dir) => {
                 let size = metadata
                     .len
@@ -86,9 +99,15 @@ async fn walk<S: ReadAt + 'static>(
                 ("d", size, "-".to_owned())
             },
             _ => {
-                let contents = root.open_file(path.as_str()).await?.read_to_end().await?;
-                let size = contents.len().to_string();
-                ("f", size, format!("{:016x}", fnv1a(&contents)))
+                let size = metadata
+                    .len
+                    .map_or_else(|| "-".to_owned(), |len| len.to_string());
+                // A file whose contents cannot be read, such as a cloud
+                // placeholder, is listed with `!error` for its hash.
+                match read(root, &path).await {
+                    Ok(contents) => ("f", size, format!("{:016x}", fnv1a(&contents))),
+                    Err(_) => ("f", size, "!error".to_owned()),
+                }
             },
         };
         writeln!(out, "{path}\t{kind}\t{size}\t{}\t{hash}", times(&metadata))?;
@@ -99,6 +118,13 @@ async fn walk<S: ReadAt + 'static>(
         }
     }
     Ok(())
+}
+
+async fn read<S: ReadAt + 'static>(
+    root: &Dir<Ntfs<S>>,
+    path: &str,
+) -> filer_system::Result<Vec<u8>> {
+    root.open_file(path).await?.read_to_end().await
 }
 
 fn times(metadata: &Metadata) -> String {

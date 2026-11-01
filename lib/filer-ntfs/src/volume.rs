@@ -10,6 +10,7 @@ use crate::{
     index::Index,
     mft::{File, Mft},
     record::{AttrType, Body, FileRef},
+    reparse::Reparse,
     stream::Stream,
     upcase::UpCase,
     wtf8,
@@ -41,21 +42,49 @@ pub(crate) struct Volume<S> {
     pub(crate) upcase: UpCase,
 }
 
-/// A file or directory that a path resolved to.
+/// The most bytes a reparse point holds.
+const MAX_REPARSE: u64 = 16 * 1024;
+
+/// A file, directory, or symlink that a path resolved to.
 #[derive(Clone, Debug)]
-pub(crate) struct Node(pub(crate) Arc<File>);
+pub(crate) struct Node(Arc<Loaded>);
+
+#[derive(Debug)]
+struct Loaded {
+    file: File,
+    reparse: Option<Reparse>,
+}
 
 impl Node {
     pub(crate) fn kind(&self) -> FileKind {
-        if self.0.base().is_directory() {
-            FileKind::Dir
-        } else {
-            FileKind::File
+        match self.0.reparse {
+            Some(Reparse::Link(_)) => FileKind::Symlink,
+            _ if self.0.file.base().is_directory() => FileKind::Dir,
+            _ => FileKind::File,
         }
     }
 
+    pub(crate) fn file(&self) -> &File {
+        &self.0.file
+    }
+
     pub(crate) fn number(&self) -> u64 {
-        self.0.number()
+        self.0.file.number()
+    }
+
+    /// Returns `true` for a reparse point of a tag Filer cannot read, such
+    /// as a cloud placeholder or a file compressed by WOF: its unnamed
+    /// `$DATA` is not its contents.
+    pub(crate) fn is_opaque(&self) -> bool {
+        matches!(self.0.reparse, Some(Reparse::Other(_)))
+    }
+
+    /// Returns the target of a symlink.
+    pub(crate) fn link(&self) -> Option<&[u8]> {
+        match &self.0.reparse {
+            Some(Reparse::Link(target)) => Some(target),
+            _ => None,
+        }
     }
 }
 
@@ -117,7 +146,7 @@ impl<S: ReadAt> Volume<S> {
             .mft
             .file(&self.source, &self.geometry, reference, op)
             .await?;
-        Ok(Node(Arc::new(file)))
+        self.load(file, op).await
     }
 
     /// Reads the root directory.
@@ -126,14 +155,38 @@ impl<S: ReadAt> Volume<S> {
         if !file.base().is_directory() {
             return Err(NtfsError::BadReference { record: ROOT }.into_error(op));
         }
-        Ok(Node(Arc::new(file)))
+        self.load(file, op).await
+    }
+
+    /// Makes a node of `file`, with its reparse point, if any.
+    async fn load(&self, file: File, op: OpKind) -> Result<Node, Error> {
+        let record = file.number();
+        let bad = || NtfsError::BadReparse { record }.into_error(op);
+        let reparse = match file
+            .stream(&self.geometry, AttrType::REPARSE_POINT, "")
+            .map_err(|error| error.into_error(op))?
+        {
+            None => None,
+            Some(stream) => {
+                let len = stream.len();
+                if len > MAX_REPARSE {
+                    return Err(bad());
+                }
+                let len = usize::try_from(len).map_err(|_| bad())?;
+                let value = stream
+                    .read_exact(&self.source, &self.geometry, 0, len, op)
+                    .await?;
+                Some(Reparse::parse(&value).ok_or_else(bad)?)
+            },
+        };
+        Ok(Node(Arc::new(Loaded { file, reparse })))
     }
 
     /// Returns the index of directory `node`.
     pub(crate) fn index(&self, node: &Node, op: OpKind) -> Result<Index, Error> {
         let fail = |error: NtfsError| error.into_error(op);
-        let file = &node.0;
-        if !file.base().is_directory() {
+        let file = node.file();
+        if node.kind() != FileKind::Dir {
             return Err(Error::new(ErrorKind::NotADirectory, op));
         }
         let record = file.number();
@@ -158,7 +211,7 @@ impl<S: ReadAt> Volume<S> {
     /// Returns the unnamed `$DATA` of file `node`, empty if it has none.
     pub(crate) fn data(&self, node: &Node, op: OpKind) -> Result<Stream, Error> {
         let fail = |error: NtfsError| error.into_error(op);
-        let extents = node.0.extents(AttrType::DATA, "").map_err(fail)?;
+        let extents = node.file().extents(AttrType::DATA, "").map_err(fail)?;
         if extents.iter().any(|extent| extent.is_encrypted()) {
             return Err(Error::new(ErrorKind::Unsupported, op));
         }
@@ -287,14 +340,11 @@ impl<S: ReadAt> Resolver for Walker<'_, S> {
         node.kind()
     }
 
-    /// Reparse points are not followed yet (NTFS-08), so the walk never
-    /// asks.
-    fn read_link(
-        &self,
-        _dir: &Node,
-        _name: &[u8],
-        op: OpKind,
-    ) -> impl Future<Output = Result<LinkTarget, Error>> + Send {
-        core::future::ready(Err(Error::new(ErrorKind::NotASymlink, op)))
+    async fn read_link(&self, dir: &Node, name: &[u8], op: OpKind) -> Result<LinkTarget, Error> {
+        let node = self.0.lookup(dir, name, op).await?;
+        match node.link() {
+            Some(target) => Ok(LinkTarget::from_bytes(target.to_vec())),
+            None => Err(Error::new(ErrorKind::NotASymlink, op)),
+        }
     }
 }

@@ -11,6 +11,13 @@
 # index's collation order, as Windows does, while `ntfs3` lists the
 # entries of an index node that separate its children after them.
 #
+# Some entries differ by design, and `tests/fixtures.rs` checks them
+# instead: absolute links and junctions (`ntfs3` keeps the drive, as in
+# `C:/target.txt`, or makes `./Sub`, where Filer resolves from the
+# volume's root), WSL symlinks (plain files to `ntfs3`), and reparse
+# points of other tags (`ntfs3` reads their `$DATA` as contents, where
+# Filer refuses to). `ntfs3` also reports no birth time for symlinks.
+#
 # Usage: lib/filer-ntfs/tests/differential.sh, from the repository root,
 # on Linux with ntfs-3g, python3, GNU coreutils, the `ntfs3` module, and
 # `sudo` for mounting.
@@ -73,12 +80,19 @@ def walk(rel):
                                capture_output=True, text=True).stdout.strip()
         birth = "-" if birth == "0" else birth
         times = f"{int(st.st_mtime)}\t{birth}\t{int(st.st_atime)}"
-        if stat.S_ISDIR(st.st_mode):
+        if stat.S_ISLNK(st.st_mode):
+            target = os.readlink(full)
+            lines.append(f"{path}\tl\t{st.st_size}\t{times}\t{target}")
+        elif stat.S_ISDIR(st.st_mode):
             lines.append(f"{path}\td\t-\t{times}\t-")
             walk(path)
         else:
-            data = open(full, "rb").read()
-            lines.append(f"{path}\tf\t{len(data)}\t{times}\t{fnv1a(data):016x}")
+            try:
+                data = open(full, "rb").read()
+                digest = f"{fnv1a(data):016x}"
+            except OSError:
+                digest = "!error"
+            lines.append(f"{path}\tf\t{st.st_size}\t{times}\t{digest}")
 
 walk("")
 print("\n".join(lines))
@@ -92,8 +106,22 @@ for img in "$work"/*.img; do
     kernel_manifest "$mnt" > "$work/$name.kernel"
     sudo umount "$mnt"
     "$manifest" "$img" > "$work/$name.filer"
-    sort "$work/$name.kernel" > "$work/$name.k"
-    sort "$work/$name.filer" > "$work/$name.f"
+    for side in kernel filer; do
+        python3 -I - "$work/$name.$side" > "$work/$name.$side.normal" <<'PY'
+import sys
+# Entries that differ by design, by path (see above).
+by_design = {"abs", "junction", "wsl", "cloud.bin", "a/abs"}
+for line in open(sys.argv[1], encoding="utf-8"):
+    fields = line.rstrip("\n").split("\t")
+    if fields[0] in by_design:
+        continue
+    if fields[1] == "l":
+        fields[4] = "-"
+    print("\t".join(fields))
+PY
+    done
+    sort "$work/$name.kernel.normal" > "$work/$name.k"
+    sort "$work/$name.filer.normal" > "$work/$name.f"
     if diff -u "$work/$name.k" "$work/$name.f" > "$work/$name.diff"; then
         echo "same: $name ($(wc -l < "$work/$name.filer") entries)"
     else
