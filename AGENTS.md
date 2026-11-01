@@ -39,7 +39,8 @@
   (`filer-whatwg`, the WHATWG File System API); `filer-heap` is the
   in-memory driver; `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and
   `filer-rar` are archive drivers (no OS, build everywhere, read from
-  `ReadAt` sources, read-only forever: never add archive writing);
+  `ReadAt` sources, read-only forever: never add archive writing; each is
+  a header parser over the shared `filer_api::archive` module);
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.

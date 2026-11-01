@@ -3,13 +3,14 @@
 /// Safety limits applied while indexing an archive.
 ///
 /// Archives are untrusted input; the defaults are strict and suit typical
-/// source and release tarballs. Exceeding a limit fails the open with
-/// [`LimitExceeded`](filer_api::ErrorKind::LimitExceeded).
+/// source and release archives. Exceeding a limit fails the open with
+/// [`LimitExceeded`](crate::ErrorKind::LimitExceeded). Formats with more to
+/// bound, such as ZIP's decompression ratios, will add fields.
 ///
 /// # Examples
 ///
 /// ```
-/// use filer_tar::Limits;
+/// use filer_api::archive::Limits;
 ///
 /// let limits = Limits::default().with_max_entries(1_000_000);
 /// assert_eq!(limits.max_entries, 1_000_000);
@@ -24,8 +25,8 @@ pub struct Limits {
     /// The longest member name or link target, in bytes. Default: 4,096.
     pub max_path_len: usize,
 
-    /// The largest PAX extended header or GNU long-name record, in bytes.
-    /// Default: 64 KiB.
+    /// The largest extended header record (such as a TAR PAX header or GNU
+    /// long name), in bytes. Default: 64 KiB.
     pub max_extension_len: u64,
 }
 

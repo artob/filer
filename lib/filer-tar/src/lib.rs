@@ -30,8 +30,9 @@ mod header;
 
 mod index;
 
-mod limits;
-pub use limits::*;
+/// Re-exported from [`filer_api::archive`], where all archive drivers share
+/// it.
+pub use filer_api::archive::Limits;
 
 mod tar;
 pub use tar::*;

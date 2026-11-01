@@ -31,6 +31,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod archive;
 pub mod path;
 pub mod tree;
 

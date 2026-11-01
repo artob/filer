@@ -15,6 +15,11 @@ so any release may break compatibility.
 - `filer-posix`, `filer-system`: `thread_pool(spawner)` constructors, which
   run each operation on a `Spawner` instead of inside `poll`.
 - `filer-ar`, `filer-cpio`, and `filer-rar`: New crates, with no items yet.
+- `filer-api`: `archive`, the shared machinery of archive drivers:
+  `Archive`, `Index`, `Member`, `Limits`, and `ArchiveError`.
+### Changed
+- `filer-tar`: `Tar` is a thin wrapper around `filer_api::archive::Archive`;
+  `filer_tar::Limits` is now a re-export of `filer_api::archive::Limits`.
 
 ## 0.0.1 - 2026-11-01
 The first usable version: read-only access through a capability-based

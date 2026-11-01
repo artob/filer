@@ -2045,6 +2045,16 @@ replaced inode, `make_dir`), and a `Resolver` impl. Drivers apply their
 own policies (`Heap` panics on duplicates; archives let the later entry
 win) and keep their tree private.
 
+**Shared machinery (D44).** Everything but header parsing lives in
+`filer_api::archive`: `Index` (the shared rules: safe names, implied
+directories, later duplicates win, hardlinks share a node), `Archive<S>`
+(the read-only driver serving a `Tree<Member>` from a `ReadAt` source),
+`Member`, `Limits`, and `ArchiveError` (format, offset, reason). Each
+format crate is then a parser feeding an `Index` and a thin wrapper type
+delegating to `Archive`, as `filer_tar::Tar` is. This bends the placement
+rule (D20: state and semantics get their own crate) for convenience while
+the formats settle; it may move to its own crate later.
+
 **Read-only, permanently (D43).** Archive drivers read archives as
 directories and will never create or modify them: writing archives is out
 of scope for this project, not merely deferred. It also does not fit the
@@ -2702,6 +2712,7 @@ Record changes here with a date and one line of rationale.
 | D41 | Archives are `filer-tar` and `filer-zip`, one per format | Accepted |
 | D42 | Byte sources are `ReadAt`: positional reads, length | Accepted |
 | D43 | Archive drivers are read-only, permanently | Accepted |
+| D44 | Shared archive code lives in `filer_api::archive`, for now | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
