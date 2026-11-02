@@ -673,8 +673,16 @@ pub(crate) mod tests {
         let read = |off, max| {
             block_on(stream.read(source, &volume.geometry, off, max, OpKind::Read)).unwrap()
         };
-        // A read stops at the end of a run.
-        assert_eq!(read(0, 100_000), vec![1; 3 * 4096]);
+        // A read goes on across runs, the sparse one too, up to the
+        // initialized size.
+        let mut first = vec![1; 3 * 4096];
+        first.extend([0; 4096]);
+        first.extend([5; 18000 - 4 * 4096]);
+        assert_eq!(read(0, 100_000), first);
+        assert_eq!(
+            read(4096, 3 * 4096),
+            [&[1; 2 * 4096][..], &[0; 4096]].concat()
+        );
         assert_eq!(read(3 * 4096, 100), vec![0; 100]);
         assert_eq!(read(4 * 4096, 100_000), vec![5; 18000 - 4 * 4096]);
         assert_eq!(read(18000, 100_000), vec![0; 2000]);

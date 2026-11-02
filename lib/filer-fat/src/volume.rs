@@ -5,7 +5,7 @@
 
 use crate::{
     CodePage, FatError, Options,
-    chain::{Chain, FatReader, Length},
+    chain::{Chain, FatReader, Length, OnVolume},
     dir_entry::{Assembler, Body, DirEntry, Item, MAX_LONG_NAME, SLOT, Step},
     geometry::{Cluster, Geometry, Root},
 };
@@ -14,7 +14,7 @@ use core::{future::Future, num::NonZeroU32};
 use filer_api::{
     DriverKey, EntryName, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver,
 };
-use filer_fs::read_exact;
+use filer_fs::{map, read_exact};
 
 /// The most slots a directory may have, per the specification.
 const MAX_DIR_SLOTS: u64 = 65_536;
@@ -163,7 +163,8 @@ impl<S: ReadAt> Volume<S> {
         }
     }
 
-    /// Reads up to `max` bytes of `data` at `off`, never past its size.
+    /// Reads up to `max` bytes of `data` at `off`, never past its size,
+    /// across runs of clusters.
     pub(crate) async fn read_file(
         &self,
         data: &FileData,
@@ -174,13 +175,16 @@ impl<S: ReadAt> Volume<S> {
         let FileData::Chain { chain, size } = data else {
             return Ok(Vec::new());
         };
-        let left = size.saturating_sub(off);
-        let Some((at, contiguous)) = chain.locate(&self.geometry, off).filter(|_| left > 0) else {
-            return Ok(Vec::new());
-        };
-        let wanted = left.min(contiguous);
-        let wanted = usize::try_from(wanted).map_or(max, |wanted| wanted.min(max));
-        read_exact(&self.source, at, wanted, op).await
+        let geometry = &self.geometry;
+        map::read(
+            &OnVolume { chain, geometry },
+            &self.source,
+            *size,
+            off,
+            max,
+            op,
+        )
+        .await
     }
 
     /// Finds the entry `name` in the directory `node`.

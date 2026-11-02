@@ -7,9 +7,12 @@ use crate::{
     geometry::{Cluster, Geometry},
 };
 use alloc::vec::Vec;
-use core::num::NonZeroU32;
-use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::read_exact;
+use core::num::{NonZeroU32, NonZeroU64};
+use filer_api::{Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::{
+    map::{self, Mapping},
+    read_exact,
+};
 
 /// How much of the FAT is read at a time while walking a chain.
 const WINDOW: u64 = 4096;
@@ -274,6 +277,25 @@ impl Chain {
         u64::from(self.clusters).saturating_mul(u64::from(self.cluster_size))
     }
 
+    /// Returns the run of at most `max` clusters from cluster `index` of
+    /// the chain, its physical blocks cluster numbers, or `None` past the
+    /// chain's end.
+    pub(crate) fn run(&self, index: u64, max: u64) -> Option<map::Run> {
+        let index = u32::try_from(index).ok()?;
+        // The last run starting at or before `index`.
+        let run = self.runs.get(
+            self.runs
+                .partition_point(|run| run.start <= index)
+                .checked_sub(1)?,
+        )?;
+        let within = index.checked_sub(run.start)?;
+        let left = run.len.get().checked_sub(within).filter(|&left| left > 0)?;
+        Some(map::Run {
+            len: u64::from(left).min(max),
+            physical: Some(u64::from(run.first.get().checked_add(within)?)),
+        })
+    }
+
     /// Maps `offset` within the chain to an offset on the volume and the
     /// number of bytes contiguous from there to the end of its run, or
     /// `None` if `offset` is past the chain's end.
@@ -299,6 +321,40 @@ impl Chain {
             .checked_mul(cluster_size)?
             .checked_sub(into)?;
         Some((at, left))
+    }
+}
+
+/// A chain on its volume, as [`map::read`] reads through it: its blocks
+/// are clusters, numbered as the FAT numbers them.
+pub(crate) struct OnVolume<'a> {
+    pub(crate) chain: &'a Chain,
+    pub(crate) geometry: &'a Geometry,
+}
+
+impl Mapping for OnVolume<'_> {
+    fn block_size(&self) -> NonZeroU64 {
+        NonZeroU64::new(u64::from(self.geometry.cluster_size())).unwrap_or(NonZeroU64::MIN)
+    }
+
+    fn offset(&self, block: u64) -> Option<u64> {
+        let cluster = self.geometry.cluster(u32::try_from(block).ok()?)?;
+        self.geometry.cluster_offset(cluster)
+    }
+
+    async fn map<S: ReadAt + ?Sized>(
+        &self,
+        _source: &S,
+        logical: u64,
+        max: u64,
+        op: OpKind,
+    ) -> Result<map::Run, Error> {
+        self.chain.run(logical, max).ok_or_else(|| self.corrupt(op))
+    }
+
+    /// A chain is checked against its file's size when read, so this is
+    /// never reached.
+    fn corrupt(&self, op: OpKind) -> Error {
+        Error::new(ErrorKind::Corrupt, op)
     }
 }
 

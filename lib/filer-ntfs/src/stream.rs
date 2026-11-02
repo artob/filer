@@ -11,8 +11,12 @@ use crate::{
     runs::{self, Run},
 };
 use alloc::{vec, vec::Vec};
+use core::num::NonZeroU64;
 use filer_api::{Error, ErrorKind, OpKind, ReadAt};
-use filer_fs::read_exact;
+use filer_fs::{
+    map::{self, Mapping},
+    read_exact,
+};
 
 /// The largest compression unit read, in bytes: 16 clusters of 4 KiB.
 const MAX_UNIT: u64 = 64 * 1024;
@@ -138,9 +142,10 @@ impl Stream {
         }
     }
 
-    /// Reads up to `max` bytes at `off`, never past the value's end: as
-    /// many as are contiguous on the volume, or zeros where sparse or past
-    /// the initialized size. Returns no bytes at or past the end.
+    /// Reads up to `max` bytes at `off`, never past the value's end, nor
+    /// past the initialized size, after which it reads only zeros; zeros
+    /// where sparse, and in a compressed value no further than the end of
+    /// a compression unit. Returns no bytes at or past the end.
     pub(crate) async fn read<S: ReadAt + ?Sized>(
         &self,
         source: &S,
@@ -183,18 +188,7 @@ impl Stream {
         {
             return Ok(bytes);
         }
-        let vcn = off.checked_div(cluster_size).ok_or_else(corrupt)?;
-        let run = runs::find(runs, vcn).ok_or_else(corrupt)?;
-        let within = off
-            .checked_sub(run.vcn.checked_mul(cluster_size).ok_or_else(corrupt)?)
-            .ok_or_else(corrupt)?;
-        let contiguous = run
-            .len
-            .get()
-            .checked_mul(cluster_size)
-            .and_then(|len| len.checked_sub(within))
-            .ok_or_else(corrupt)?;
-        let mut n = want.min(cap(contiguous));
+        let mut n = want;
         if let Self::NonResident {
             compression: Some(unit),
             ..
@@ -208,14 +202,8 @@ impl Stream {
                 .ok_or_else(corrupt)?;
             n = n.min(cap(left));
         }
-        let Some(lcn) = run.lcn else {
-            return Ok(vec![0; n]);
-        };
-        let at = geometry
-            .cluster_offset(lcn)
-            .and_then(|at| at.checked_add(within))
-            .ok_or_else(corrupt)?;
-        read_exact(source, at, n, op).await
+        let clusters = OnVolume { runs, geometry };
+        map::read(&clusters, source, initialized, off, n, op).await
     }
 
     /// Reads up to `want` bytes at `off` from the compression unit of
@@ -311,5 +299,48 @@ impl Stream {
             bytes.extend(chunk);
         }
         Ok(bytes)
+    }
+}
+
+/// A value's runs on its volume, as [`map::read`] reads through them: its
+/// blocks are clusters, by VCN in the value and by LCN on the volume.
+struct OnVolume<'a> {
+    runs: &'a [Run],
+    geometry: &'a Geometry,
+}
+
+impl Mapping for OnVolume<'_> {
+    fn block_size(&self) -> NonZeroU64 {
+        NonZeroU64::new(u64::from(self.geometry.cluster_size())).unwrap_or(NonZeroU64::MIN)
+    }
+
+    fn offset(&self, block: u64) -> Option<u64> {
+        self.geometry.cluster_offset(block)
+    }
+
+    async fn map<S: ReadAt + ?Sized>(
+        &self,
+        _source: &S,
+        logical: u64,
+        max: u64,
+        op: OpKind,
+    ) -> Result<map::Run, Error> {
+        let corrupt = || self.corrupt(op);
+        let run = runs::find(self.runs, logical).ok_or_else(corrupt)?;
+        let skip = logical.checked_sub(run.vcn).ok_or_else(corrupt)?;
+        let physical = match run.lcn {
+            Some(lcn) => Some(lcn.checked_add(skip).ok_or_else(corrupt)?),
+            None => None,
+        };
+        Ok(map::Run {
+            len: run.end().saturating_sub(logical).min(max),
+            physical,
+        })
+    }
+
+    /// Runs are checked to cover a value's clusters when it is built, so
+    /// this is reached only past them.
+    fn corrupt(&self, op: OpKind) -> Error {
+        Error::new(ErrorKind::Corrupt, op)
     }
 }

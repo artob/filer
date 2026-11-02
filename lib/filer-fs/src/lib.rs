@@ -14,7 +14,8 @@
 //! So far: [`le`] and [`be`] read little- and big-endian fields, and
 //! [`read_exact`] reads them from a source; [`wtf8`] encodes UTF-16
 //! names; [`unix`] decodes Unix file types, and [`posix_acl`] encodes
-//! POSIX ACLs as Linux returns them.
+//! POSIX ACLs as Linux returns them; [`map`] reads files through maps of
+//! their blocks.
 //!
 //! Like the drivers, it treats volumes as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
@@ -60,6 +61,7 @@ pub mod le;
 mod read;
 pub use read::*;
 
+pub mod map;
 pub mod posix_acl;
 pub mod unix;
 pub mod wtf8;

@@ -14,8 +14,13 @@ use crate::{
     superblock::Superblock,
 };
 use alloc::vec::Vec;
+use core::num::NonZeroU64;
 use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::{be, read_exact};
+use filer_fs::{
+    be,
+    map::{self, Mapping, Run},
+    read_exact,
+};
 
 /// A B+ tree block's magic number: `BMAP`, or with version 5 `BMA3`.
 const BMAP_MAGIC: u32 = 0x424D_4150;
@@ -81,14 +86,6 @@ fn decode_all(bytes: &[u8]) -> impl Iterator<Item = Extent> {
         .0
         .iter()
         .map(Extent::decode)
-}
-
-/// A run of a file's blocks: `len` blocks, all stored contiguously from
-/// linear block `physical`, or all reading as zeros if it is `None`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Run {
-    pub(crate) len: u64,
-    pub(crate) physical: Option<u64>,
 }
 
 /// Where a fork's records are.
@@ -250,45 +247,41 @@ impl FileMap {
         len: usize,
         op: OpKind,
     ) -> Result<Vec<u8>, Error> {
-        let bad = || XfsError::BadMap { inode: self.inode }.into_error(op);
-        let block = u64::from(sb.block_size());
-        let end = u64::try_from(len)
-            .ok()
-            .and_then(|len| off.checked_add(len))
-            .map_or(size, |end| end.min(size));
-        let mut out = Vec::new();
-        let mut at = off;
-        while at < end {
-            let logical = at.checked_div(block).ok_or_else(bad)?;
-            let within = at.checked_rem(block).ok_or_else(bad)?;
-            let max = end
-                .saturating_sub(at.saturating_sub(within))
-                .div_ceil(block);
-            let run = self.map(source, sb, logical, max, op).await?;
-            let run_end = logical
-                .checked_add(run.len)
-                .and_then(|blocks| blocks.checked_mul(block))
-                .ok_or_else(bad)?
-                .min(end);
-            let n = run_end.saturating_sub(at);
-            let n = usize::try_from(n).map_err(|_| bad())?;
-            match run.physical {
-                None => out.resize(out.len().saturating_add(n), 0),
-                Some(physical) => {
-                    let from = sb
-                        .block_offset(physical)
-                        .and_then(|from| from.checked_add(within))
-                        .ok_or_else(bad)?;
-                    out.extend(read_exact(source, from, n, op).await?);
-                },
-            }
-            if n == 0 {
-                // A run is at least one block, so this cannot happen.
-                return Err(bad());
-            }
-            at = run_end;
+        map::read(&OnVolume { map: self, sb }, source, size, off, len, op).await
+    }
+}
+
+/// A file map on its volume, as [`map::read`] reads through it. Its runs'
+/// blocks are linear blocks of the volume.
+struct OnVolume<'a> {
+    map: &'a FileMap,
+    sb: &'a Superblock,
+}
+
+impl Mapping for OnVolume<'_> {
+    fn block_size(&self) -> NonZeroU64 {
+        NonZeroU64::new(u64::from(self.sb.block_size())).unwrap_or(NonZeroU64::MIN)
+    }
+
+    fn offset(&self, block: u64) -> Option<u64> {
+        self.sb.block_offset(block)
+    }
+
+    async fn map<S: ReadAt + ?Sized>(
+        &self,
+        source: &S,
+        logical: u64,
+        max: u64,
+        op: OpKind,
+    ) -> Result<Run, Error> {
+        self.map.map(source, self.sb, logical, max, op).await
+    }
+
+    fn corrupt(&self, op: OpKind) -> Error {
+        XfsError::BadMap {
+            inode: self.map.inode,
         }
-        Ok(out)
+        .into_error(op)
     }
 }
 

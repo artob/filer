@@ -685,9 +685,6 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-08: Mapped reads.** A run (`len` blocks, at a block or a
-  hole), a trait mapping a file block to one, and one read loop filling a
-  request across runs. Done when all four drivers read files through it.
 - [ ] **FS-09: Shared test tooling (`filer-spec`).** The corruption
   exerciser and its overlay source, the mutation loop of `tests/fuzz.rs`,
   and sparse fixtures. Done when each driver's tests keep only what is
