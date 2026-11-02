@@ -406,6 +406,12 @@ impl Superblock {
         }
     }
 
+    /// Returns `true` if block numbers have 64 bits, and inodes' attribute
+    /// blocks 48.
+    pub(crate) const fn is_64bit(&self) -> bool {
+        self.features.incompat & feature::INCOMPAT_64BIT != 0
+    }
+
     /// Returns `true` if inodes may count their blocks in 48 bits.
     pub(crate) const fn has_huge_files(&self) -> bool {
         self.features.ro_compat & feature::RO_COMPAT_HUGE_FILE != 0
@@ -455,11 +461,6 @@ impl Superblock {
             0 => None,
             inode => Some(inode),
         }
-    }
-
-    #[allow(dead_code, reason = "for checksums, later")]
-    pub(crate) const fn uuid(&self) -> [u8; 16] {
-        self.uuid
     }
 
     /// Returns a 64-bit volume identifier: the UUID's halves, folded.

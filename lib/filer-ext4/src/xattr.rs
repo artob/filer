@@ -155,7 +155,7 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
 ) -> Result<Vec<Xattr>, Error> {
     let fail = |error: Ext4Error| error.into_error(op);
     let mut xattrs = in_inode(inode).map_err(fail)?;
-    let block = u64::from(inode.file_acl());
+    let block = inode.file_acl(sb);
     if block != 0 {
         let bad = || {
             fail(Ext4Error::BadBlockNumber {

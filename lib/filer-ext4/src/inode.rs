@@ -51,7 +51,9 @@ pub(crate) struct Inode {
     flags: u32,
     block: [u8; I_BLOCK_SIZE],
     generation: u32,
+    /// `i_file_acl`, and its high 16 bits under `64bit`.
     file_acl: u32,
+    file_acl_high: u16,
     times: Times,
     /// What follows the base and its extra fields in the record: in-inode
     /// extended attributes.
@@ -123,6 +125,7 @@ impl Inode {
             block,
             generation: u32_at(0x64)?,
             file_acl: u32_at(0x68)?,
+            file_acl_high: u16_at(0x76)?,
             times,
             tail: bytes.get(end..).unwrap_or_default().to_vec(),
         })
@@ -167,14 +170,20 @@ impl Inode {
         &self.block
     }
 
-    #[allow(dead_code, reason = "for checksums, later")]
+    /// Returns the inode's generation, which seeds its checksums.
     pub(crate) const fn generation(&self) -> u32 {
         self.generation
     }
 
-    /// Returns the block of the file's extended attributes, or 0.
-    pub(crate) const fn file_acl(&self) -> u32 {
-        self.file_acl
+    /// Returns the block of the inode's extended attributes, or 0.
+    pub(crate) fn file_acl(&self, sb: &Superblock) -> u64 {
+        let [l0, l1, l2, l3] = self.file_acl.to_le_bytes();
+        let [h0, h1] = if sb.is_64bit() {
+            self.file_acl_high.to_le_bytes()
+        } else {
+            [0; 2]
+        };
+        u64::from_le_bytes([l0, l1, l2, l3, h0, h1, 0, 0])
     }
 
     /// Returns `true` if the inode maps its blocks by an extent tree.
@@ -307,6 +316,24 @@ pub(crate) mod tests {
             }
             b
         }
+    }
+
+    /// Under `64bit`, attribute block numbers have 16 more bits.
+    #[test]
+    fn reads_48_bit_attribute_blocks() {
+        let mut raw = Raw::file(0);
+        raw.file_acl = 7;
+        let mut bytes = raw.bytes(256);
+        bytes[0x76..0x78].copy_from_slice(&1u16.to_le_bytes());
+        let inode = Inode::parse(&bytes, 12).unwrap();
+        let sb = Superblock::parse(&Fields::new().bytes()).unwrap();
+        assert_eq!(inode.file_acl(&sb), 7);
+        let mut f = Fields::new();
+        f.features.incompat |= 0x80;
+        let mut b = f.bytes();
+        b[0xFE..0x100].copy_from_slice(&64u16.to_le_bytes());
+        let sb = Superblock::parse(&b).unwrap();
+        assert_eq!(inode.file_acl(&sb), (1 << 32) + 7);
     }
 
     /// Under `huge_file`, block counts have 16 more bits, and are in

@@ -15,7 +15,7 @@ use filer_api::{Error, OpKind, ReadAt};
 /// target under 60 bytes is kept there unless the inode has data blocks,
 /// which its sector count tells, less its extended attribute block's.
 pub(crate) fn is_fast(inode: &Inode, sb: &Superblock) -> bool {
-    let attributes = if inode.file_acl() == 0 {
+    let attributes = if inode.file_acl(sb) == 0 {
         0
     } else {
         sb.block_size() / 512
