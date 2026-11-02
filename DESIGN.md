@@ -2286,8 +2286,9 @@ Recorded 2026-11-01 (D40); none exists yet:
   D46), and, at low priority, other file systems such as littlefs, over a
   block device, for embedded and `no_std` use and for reading disk images.
 - **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4;
-  §17.15, in progress), `filer-ntfs` (§17.14, in progress), `filer-udf`, and `filer-xfs`,
-  published as stubs to reserve their names. Each would follow `filer-fat`'s model: a lazy
+  §17.15, in progress), `filer-ntfs` (§17.14, in progress), `filer-udf`,
+  and `filer-xfs` (§17.16, in progress), published as stubs to reserve
+  their names. Each would follow `filer-fat`'s model: a lazy
   driver over any `ReadAt` source, the async `Resolver`, panic-free by
   lint, fixtures from the real tools, and a differential test against the
   Linux kernel's driver. Writing them is out of scope for now: their
@@ -2702,7 +2703,143 @@ tables, root directories, and attribute blocks and walks each result,
 as for `filer-fat`, and `fuzz/` has `cargo-fuzz` targets for the same
 structures (D50).
 
-### 17.16 Later
+### 17.16 `filer-xfs`
+
+A read-only driver for XFS volumes, v4 and v5, following `filer-fat`'s
+model (§17.13): a lazy driver over any `ReadAt` source, the async
+`Resolver`, panic-free by lint (D47), pure Rust (D45), fixtures from the
+real tools, and a differential test against the Linux kernel's `xfs`
+driver. Writing is out of scope. It is built in the order the format
+grew: v4 volumes first (the oldest that `mkfs.xfs` still makes, deprecated
+but mounted by Linux 7.0), then v5's self-describing metadata and CRCs,
+then v5's later features one by one, each refused by its feature flag
+until it lands. Version 1 directories and inodes, older than any tool
+that still runs, are refused.
+
+**Clean room (D52).** The Linux kernel's `xfs` and xfsprogs (`libxfs`)
+are GPL. The driver is written from descriptions of the format only: the
+*XFS Algorithms & Data Structures* book (the `xfs-documentation`
+repository) and what `mkfs.xfs`, `xfs_db`, `xfs_info`, and `xfs_logprint`
+show of real volumes. No implementation's source is consulted. Where the
+book names a flag but not its value, the value is found by setting the bit
+with `xfs_db -x` and reading back the name `xfs_db` prints (done
+2026-11-01 for the superblock's feature sets).
+
+**On-disk facts the parser relies on:**
+
+- Everything is big-endian but CRCs (little-endian) and log payloads
+  (the writer's order). Sizes are powers of two, recorded with their
+  logarithms.
+- The superblock: sector 0 of each allocation group (AG); AG 0's is
+  primary. Magic `XFSB`; block size 512 B to 64 KiB; sector size, inode
+  size (256 B to 2 KiB, at most a block), and inodes per block; AG size
+  (`sb_agblocks`, with `sb_agblklog` its logarithm rounded up) and count;
+  `sb_dblocks`; the root inode; the directory block size (2^`dirblklog`
+  blocks, at most 64 KiB); the internal log's start and length. The low
+  nibble of `sb_versionnum` is 4 (v4) or 5 (v5).
+- v4 features are bits of `sb_versionnum` above the nibble: `ATTR`
+  0x10, `NLINK` 0x20 (required), `QUOTA` 0x40, `ALIGN` 0x80, `DALIGN`
+  0x100, `SHARED` 0x200 (refused), `LOGV2` 0x400, `SECTOR` 0x800,
+  `EXTFLG` 0x1000 and `DIRV2` 0x2000 (both required), `ASCII_CI`
+  0x4000, `MOREBITS` 0x8000; and, with `MOREBITS`, of `sb_features2`
+  (mirrored in `sb_bad_features2`): `LAZYSBCOUNT` 0x2, `ATTR2` 0x8,
+  `PROJID32BIT` 0x80, `CRC` 0x100 (v5 only), `FTYPE` 0x200.
+- v5 adds four sets: compatible (none defined), read-only compatible
+  (`FINOBT` 0x1, `RMAPBT` 0x2, `REFLINK` 0x4, `INOBTCNT` 0x8; a reader
+  may ignore them), incompatible (`FTYPE` 0x1, `SPINODES` 0x2,
+  `META_UUID` 0x4, `BIGTIME` 0x8, `NEEDSREPAIR` 0x10, `NREXT64` 0x20,
+  `EXCHANGE` 0x40, `PARENT` 0x80, `METADIR` 0x100), and log-incompatible.
+  Unknown incompatible bits in any set must stop a reader.
+- Block numbers in file maps pack the AG above `sb_agblklog` bits of AG
+  block; the byte offset is (AG × `sb_agblocks` + AG block) × block size.
+  Inode numbers pack the AG, AG block, and slot in the block likewise
+  (`sb_agblklog` + `sb_inopblog` bits below the AG), so an inode is found
+  without the inode B+ trees.
+- Inodes: magic `IN`; version 1 or 2 (v4; 1 only with a 16-bit link
+  count) or 3 (v5); a 100-byte core (176 with v3) holding the mode,
+  owner, links, times (signed seconds and nanoseconds, or with `BIGTIME`
+  nanoseconds since 1901-12-13T20:45:52Z), size, extent counts, flags,
+  the data fork's format, and the attribute fork's offset (`di_forkoff`
+  × 8 into the literal area after the core) and format. v3 adds the
+  CRC, `di_flags2`, the creation time, the inode's own number, and the
+  UUID. Fork formats: device, local (in the inode), extents, B+ tree.
+- File maps: 128-bit extent records (unwritten flag, 54-bit file block,
+  52-bit volume block, 21-bit length), sorted and disjoint; unwritten
+  extents read as zeros, and gaps are holes. A `BMAP` (v5 `BMA3`) B+ tree
+  is rooted in the fork (level, record count, keys, then pointers at the
+  offset the fork's capacity sets) with 64-bit pointers; its blocks carry
+  a 24-byte header (72 with v5).
+- Directories (version 2): short form in the inode (a 32- or 64-bit
+  parent, and entries of name, offset tag, optional type, and 32- or
+  64-bit inode); else data blocks of the directory block size at fork
+  offsets below 32 GiB, holding 8-byte-aligned entries (inode, name,
+  optional type, tag) and unused regions (`0xFFFF`, length), with `.`
+  and `..` explicit. One block holds everything (`XD2B`), or data blocks
+  (`XD2D`) are indexed by hash leaves at 32 GiB (`0xD2F1`, or
+  `0xD2FF` under `0xFEBE` nodes) and free-space blocks at 64 GiB; a
+  linear read of the data blocks sees exactly the entries.
+- Symlinks: local, or in blocks of the data fork; with v5 each extent's
+  first block starts with an `XSLM` header.
+- v5 metadata blocks are self-describing: their magic, the volume's UUID
+  (or `sb_meta_uuid` with `META_UUID`), their own disk address, their
+  owner (inode or AG), and a CRC32C of the block with the CRC field
+  zeroed. The superblock's CRC covers its sector.
+- The log: a circle of 512-byte sectors, each stamped with its cycle
+  number; records with `0xFEEDBABE` headers. A volume whose last record
+  is not an unmount record with nothing pending needs recovery.
+
+**How it maps onto Filer:**
+
+- Ids: the inode number, with a volume id folded from the UUID, so hard
+  links share an id.
+- Names are bytes: UTF-8 ones are names, others `ForeignName`s. Lookups
+  match bytes exactly (case-insensitively in ASCII with `ASCII_CI`).
+  Listings are in directory order, skip `.`, `..`, and unused space, and
+  take their kind from the type byte (none without `FTYPE`); a
+  `DirCookie` is the directory offset of the next entry (its tag in a
+  short-form directory), so a listing resumes wherever a cookie points.
+- Metadata: kind and length (`di_size`) from the inode; modified,
+  changed, and accessed times at 1 ns, and created with v3 inodes;
+  flags: immutable, append-only, and DAX. FIFOs, sockets, and devices
+  are what they say, and do not open.
+- Symlinks: local or remote, confined by the `Resolver`.
+- Extended attributes: short form, leaf, node, and B+ tree attribute
+  forks, with remote values, in their namespaces; POSIX ACLs are
+  converted to the form Linux's `getxattr` returns; parent pointers
+  (`PARENT`) are not attributes and stay hidden, as Linux hides them.
+- Shared (reflinked) extents are read like any other. Files on a
+  realtime subvolume keep their metadata, but their contents are
+  `Unsupported`: the driver reads one source, the data device.
+- The log: a clean log changes nothing for a reader. A volume that needs
+  recovery is refused until the log is replayed in memory, never read as
+  if clean (§17.12); so is one with an external log, whose state the
+  driver cannot see, unless the caller opts in to reading either as it
+  is.
+
+**Robustness** follows §17.13: every block number is checked against its
+AG and the volume before it is read; B+ trees are bounded by their level
+(which must fall by one per step), records by their block, and extents
+must be sorted, disjoint, and within the file's possible range; directory
+entries must fit their block and be aligned; inode numbers are checked
+against the AG geometry, and an inode must carry its magic and, with v5,
+its own number, the UUID, and a valid CRC. Reads map blocks lazily, a
+read's range at a time, merging contiguous blocks into one source read,
+so no file's whole map is ever held.
+
+**Verification.** `tests/fixtures/make.sh` formats volumes with
+`mkfs.xfs` (v4 and v5; 512 B to 64 KiB blocks; 256 B to 2 KiB inodes;
+large directory blocks; without `FTYPE`; and v5's later features each on
+and off), fills them through the Linux kernel (fragmented and sparse
+files whose maps become B+ trees, directories of every form, local and
+remote symlinks, special files, names that are not UTF-8, extended
+attributes of every form), and stores them sparsely; `filer-spec` runs
+on its own tree. `tests/differential.sh` compares each, and fresh ones,
+with the kernel: names, kinds, sizes, contents, link targets, times, flags,
+and extended attributes; listings are compared sorted. `tests/fuzz.rs`
+and `cargo-fuzz` targets in `fuzz/` mutate the superblock, inodes,
+directory blocks, B+ tree blocks, and attribute forks (D50).
+
+### 17.17 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
@@ -3265,6 +3402,7 @@ Record changes here with a date and one line of rationale.
 | D50 | `cargo-fuzz` (C++ libFuzzer) allowed in `fuzz/` crates only | Accepted |
 | D51 | Discard is an optional `deallocate` on writable sources | Accepted |
 | D52 | Formats implemented only in GPL code are written clean room | Accepted |
+| D53 | Checksums drivers share live in `filer_api::checksum` | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

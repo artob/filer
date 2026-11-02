@@ -676,8 +676,6 @@ From §17.12 (D40). Create each crate when its item starts.
   Done when each reads an image.
 - [ ] **FMT-06: `filer-udf`.** Read-only UDF. Done when `mkudffs` images
   of revisions 1.02, 2.01, and 2.50 read.
-- [ ] **FMT-07: `filer-xfs`.** Read-only XFS, v5 with CRCs. Done when
-  `mkfs.xfs` fixtures read and agree with the Linux kernel.
 
 ## `filer-ext4`
 
@@ -713,6 +711,62 @@ format grew; one step per item, each committed.
 - [ ] **EXT-18: Case-insensitive lookups.** Unicode case folding and
   normalization for case-folded directories, through a pure-Rust
   dependency. Done when lookups agree with the kernel's.
+
+## `filer-xfs`
+
+Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
+grew; one step per item, each committed.
+
+- [ ] **XFS-01: Superblock.** `XfsError` and a validated superblock:
+  geometry, v4 version bits and `features2`, v5 feature sets, refusing
+  unknown incompatible features and those not read yet. Done when unit
+  tests cover every field and rejection.
+- [ ] **XFS-02: Inodes.** Inode numbers to AG, block, and slot; v1 and v2
+  cores: kind, permissions, size, links, times, flags, fork formats and
+  offsets. Done when unit tests cover each, and bad numbers are
+  `Corrupt`.
+- [ ] **XFS-03: File maps.** Extent records (unwritten extents read as
+  zeros, holes), extent lists in the inode, and `BMAP` B+ trees, mapped
+  lazily per read. Done when unit tests cover each, and blocks outside
+  the volume are `Corrupt`.
+- [ ] **XFS-04: Directories and symlinks.** Short-form, block, leaf, and
+  node directories, read linearly; local and remote symlinks. Done when
+  malformed entries are `Corrupt`.
+- [ ] **XFS-05: Driver.** `Xfs`: open, read, stat, list, read links,
+  close. Done when a `mkfs.xfs -m crc=0` image reads.
+- [ ] **XFS-06: Log check.** Find the log's head; a volume that needs
+  recovery, or has an external log, is refused, with an opt-in to read it
+  as it is. Done when volumes shut down mid-write are refused and clean
+  ones read.
+- [ ] **XFS-07: Fixtures and verification.** v4 fixtures (512 B to
+  64 KiB blocks, 256 B to 2 KiB inodes, large directory blocks, without
+  `FTYPE`) filled through the kernel, `filer-spec`, and the differential
+  test. Done when all agree.
+- [ ] **XFS-08: Extended attributes and flags.** Short-form, leaf, node,
+  and B+ tree attribute forks, remote values, `attr1` and `attr2`; POSIX
+  ACLs as Linux returns them; inode flags. Done when fixtures agree with
+  the kernel.
+- [ ] **XFS-09: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when
+  both run clean. Ends v4 parity.
+- [ ] **XFS-10: Hashed lookups.** The directory name hash, checked
+  against `xfs_db hash`; descend leaf and node blocks, falling back to the
+  scan on inconsistency; `ASCII_CI` directories. Done when large
+  directories agree with the scan.
+- [ ] **XFS-11: v5 metadata.** CRC32C in `filer_api::checksum` (D53),
+  shared with EXT-14; v3 inodes; self-describing headers on every block,
+  verified; `FTYPE` and `META_UUID`. Done when `mkfs.xfs` fixtures with
+  later features off read, and corrupted checksums are `Corrupt`.
+- [ ] **XFS-12: Later v5 features.** In the order they came: sparse
+  inodes, reverse maps and reflinks (shared extents read like any other),
+  `BIGTIME`, `NREXT64`. Done when default `mkfs.xfs` fixtures read and
+  agree with the kernel.
+- [ ] **XFS-13: Newest v5 features.** `EXCHANGE`, parent pointers
+  (hidden), `METADIR` and realtime groups; realtime files' contents
+  `Unsupported`. Done when fixtures of each read and agree with the
+  kernel.
+- [ ] **XFS-14: Log replay.** In memory: transactions, buffer and inode
+  items, intents. Done when volumes shut down mid-write read as the
+  kernel recovers them.
 
 ## `filer-ntfs`
 
