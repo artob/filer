@@ -42,6 +42,8 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// The driver comes in a later step; its parts are tested meanwhile.
+#![allow(dead_code)]
 // No input may make this crate panic (DESIGN.md D47).
 #![deny(
     clippy::arithmetic_side_effects,
@@ -74,4 +76,8 @@ extern crate alloc;
 mod ext4_error;
 pub use ext4_error::*;
 
+mod group;
+mod inode;
+mod io;
+mod le;
 mod superblock;

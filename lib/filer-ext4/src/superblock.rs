@@ -2,9 +2,7 @@
 
 //! The superblock, and the volume layout it describes.
 
-#![allow(dead_code, reason = "used by the driver, which comes later")]
-
-use crate::Ext4Error;
+use crate::{Ext4Error, le};
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
 
@@ -72,19 +70,11 @@ pub(crate) struct Superblock {
 }
 
 fn u16_at(bytes: &[u8], at: usize) -> Result<u16, Ext4Error> {
-    bytes
-        .get(at..)
-        .and_then(<[u8]>::first_chunk)
-        .map(|b| u16::from_le_bytes(*b))
-        .ok_or(Ext4Error::ShortSuperblock)
+    le::u16_at(bytes, at).ok_or(Ext4Error::ShortSuperblock)
 }
 
 fn u32_at(bytes: &[u8], at: usize) -> Result<u32, Ext4Error> {
-    bytes
-        .get(at..)
-        .and_then(<[u8]>::first_chunk)
-        .map(|b| u32::from_le_bytes(*b))
-        .ok_or(Ext4Error::ShortSuperblock)
+    le::u32_at(bytes, at).ok_or(Ext4Error::ShortSuperblock)
 }
 
 impl Superblock {
@@ -154,6 +144,18 @@ impl Superblock {
         {
             return Err(Ext4Error::BadInodeSize(inode_size));
         }
+        // The descriptors follow the superblock's block.
+        let block = u64::from(block_size);
+        let descriptors = u64::from(groups)
+            .saturating_mul(u64::from(DESC_SIZE))
+            .saturating_add(
+                u64::from(first_data_block)
+                    .saturating_add(1)
+                    .saturating_mul(block),
+            );
+        if descriptors > blocks.saturating_mul(block) {
+            return Err(Ext4Error::BadGroupCount(groups));
+        }
         let unknown = features.incompat & !(SUPPORTED_INCOMPAT | feature::INCOMPAT_RECOVER);
         if unknown != 0 {
             return Err(Ext4Error::UnsupportedFeatures { incompat: unknown });
@@ -222,6 +224,27 @@ impl Superblock {
     /// Returns the size of an inode's record in the inode table.
     pub(crate) const fn inode_size(&self) -> u16 {
         self.inode_size
+    }
+
+    /// Returns the number of blocks each group's inode table spans.
+    pub(crate) fn inode_table_blocks(&self) -> u64 {
+        // Below 2^32 inodes of at most 2^16 bytes.
+        let bytes = u64::from(self.inodes_per_group).saturating_mul(u64::from(self.inode_size));
+        bytes.div_ceil(u64::from(self.block_size()))
+    }
+
+    /// Returns the size of a group descriptor.
+    pub(crate) const fn desc_size(&self) -> u16 {
+        DESC_SIZE
+    }
+
+    /// Returns the offset of the group descriptor table: the block after
+    /// the superblock's.
+    pub(crate) fn descriptors_offset(&self) -> u64 {
+        // The first data block is 0 or 1.
+        u64::from(self.first_data_block)
+            .saturating_add(1)
+            .saturating_mul(u64::from(self.block_size()))
     }
 
     pub(crate) const fn features(&self) -> Features {
@@ -441,6 +464,8 @@ pub(crate) mod tests {
         check(|f| f.blocks = 0, Ext4Error::NoBlocks);
         check(|f| f.inodes = 1, Ext4Error::BadInodeCount(1));
         check(|f| f.inodes = 1025, Ext4Error::BadInodeCount(1025));
+        // A volume of two 1 KiB blocks has no room for descriptors.
+        check(|f| f.blocks = 2, Ext4Error::BadGroupCount(1));
         check(|f| f.inode_size = 64, Ext4Error::BadInodeSize(64));
         check(|f| f.inode_size = 384, Ext4Error::BadInodeSize(384));
         check(|f| f.inode_size = 2048, Ext4Error::BadInodeSize(2048));

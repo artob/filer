@@ -48,6 +48,32 @@ pub enum Ext4Error {
     /// size.
     BadInodeSize(u16),
 
+    /// The group descriptors of this many groups do not fit in the volume.
+    BadGroupCount(u32),
+
+    /// A group's descriptor is malformed: its inode table lies outside the
+    /// volume, or the group does not exist.
+    BadGroupDescriptor {
+        /// The group's number.
+        group: u32,
+    },
+
+    /// A reference to an inode is out of range: 0, or past the inode count.
+    BadInodeNumber(u32),
+
+    /// A reference to an inode names one that is not in use.
+    UnusedInode {
+        /// The inode's number.
+        inode: u32,
+    },
+
+    /// An inode is malformed: an unknown file type, extra fields larger
+    /// than its record, or a time's nanoseconds of a second or more.
+    BadInode {
+        /// The inode's number.
+        inode: u32,
+    },
+
     /// The volume uses incompatible features this driver does not read.
     UnsupportedFeatures {
         /// The incompatible feature flags not understood.
@@ -104,6 +130,17 @@ impl core::fmt::Display for Ext4Error {
             Self::NoBlocks => f.write_str("no data blocks"),
             Self::BadInodeCount(count) => write!(f, "invalid inode count {count}"),
             Self::BadInodeSize(size) => write!(f, "invalid inode size {size}"),
+            Self::BadGroupCount(groups) => {
+                write!(f, "descriptors of {groups} groups do not fit the volume")
+            },
+            Self::BadGroupDescriptor { group } => {
+                write!(f, "group {group} has an invalid descriptor")
+            },
+            Self::BadInodeNumber(inode) => write!(f, "reference to invalid inode {inode}"),
+            Self::UnusedInode { inode } => {
+                write!(f, "reference to inode {inode}, which is not in use")
+            },
+            Self::BadInode { inode } => write!(f, "inode {inode} is invalid"),
             Self::UnsupportedFeatures { incompat } => {
                 write!(f, "unsupported incompatible features {incompat:#X}")
             },
