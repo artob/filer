@@ -685,9 +685,6 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-07: POSIX ACLs.** Encoding an ACL as Linux's `getxattr`
-  returns it, with the tag checks. Done when `filer-ext4`'s and
-  `filer-xfs`'s converters only decode their on-disk forms.
 - [ ] **FS-08: Mapped reads.** A run (`len` blocks, at a block or a
   hole), a trait mapping a file block to one, and one read loop filling a
   request across runs. Done when all four drivers read files through it.

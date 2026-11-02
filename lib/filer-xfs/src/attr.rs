@@ -27,7 +27,7 @@ use crate::{
 };
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use filer_api::{Error, ErrorKind, OpKind, ReadAt, XattrNs};
-use filer_fs::{be, read_exact};
+use filer_fs::{be, posix_acl, read_exact};
 
 /// The magic number of a leaf block, and with version 5.
 const LEAF_MAGIC: u16 = 0xFBEE;
@@ -118,34 +118,20 @@ fn named(flags: u8, name: &[u8], value: Vec<u8>, bad: XfsError) -> Result<Vec<Xa
 
 /// Converts a POSIX ACL from XFS's form, big-endian: a count, then for
 /// each entry its tag, id, and permissions, and two bytes of padding. To
-/// the one Linux's `getxattr` returns, little-endian: version 2, then for
-/// each entry its tag, permissions, and id, which is `u32::MAX` for the
-/// owner, owning group, mask, and others.
+/// the one Linux's `getxattr` returns.
 fn acl(value: &[u8]) -> Option<Vec<u8>> {
     const ENTRY: usize = 12;
-    const NO_ID: u32 = u32::MAX;
     let count = usize::try_from(be::u32_at(value, 0)?).ok()?;
     let entries = value.get(4..)?;
     if count.checked_mul(ENTRY)? != entries.len() {
         return None;
     }
-    let mut out = Vec::with_capacity(count.checked_mul(8)?.checked_add(4)?);
-    out.extend_from_slice(&2u32.to_le_bytes());
+    let mut out = posix_acl::Encoder::new();
     for entry in entries.as_chunks::<ENTRY>().0 {
         let tag = u16::try_from(be::u32_at(entry, 0)?).ok()?;
-        let id = match tag {
-            // Named users and groups.
-            0x02 | 0x08 => be::u32_at(entry, 4)?,
-            // The owner, owning group, mask, and others.
-            0x01 | 0x04 | 0x10 | 0x20 => NO_ID,
-            _ => return None,
-        };
-        let perm = be::u16_at(entry, 8)?;
-        out.extend_from_slice(&tag.to_le_bytes());
-        out.extend_from_slice(&perm.to_le_bytes());
-        out.extend_from_slice(&id.to_le_bytes());
+        out.push(tag, be::u16_at(entry, 8)?, be::u32_at(entry, 4)?)?;
     }
-    Some(out)
+    Some(out.finish())
 }
 
 /// Parses a short-form fork: its size and count, then entries of a name's

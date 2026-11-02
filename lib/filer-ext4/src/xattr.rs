@@ -7,7 +7,7 @@
 use crate::{Ext4Error, inode::Inode, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt, XattrNs};
-use filer_fs::{le, read_exact};
+use filer_fs::{le, posix_acl, read_exact};
 
 /// The magic number of both an attribute block and in-inode attributes.
 const MAGIC: u32 = 0xEA02_0000;
@@ -102,40 +102,29 @@ fn parse(
     }
 }
 
-/// Converts a POSIX ACL from its form on disk to the one Linux's
-/// `getxattr` returns: version 1 becomes 2, and every entry takes eight
-/// bytes, those of the owner, owning group, mask, and others having the
-/// id `u32::MAX`, which on disk they lack.
+/// Converts a POSIX ACL from its form on disk, little-endian: version 1,
+/// then for each entry its tag and permissions, and an id only for a named
+/// user or group. To the one Linux's `getxattr` returns.
 fn acl(value: &[u8]) -> Option<Vec<u8>> {
-    const NO_ID: u32 = u32::MAX;
     if le::u32_at(value, 0)? != 1 {
         return None;
     }
-    let mut out = Vec::new();
-    out.extend_from_slice(&2u32.to_le_bytes());
+    let mut out = posix_acl::Encoder::new();
     let mut at = 4usize;
     while at < value.len() {
         let tag = le::u16_at(value, at)?;
         let perm = le::u16_at(value, at.checked_add(2)?)?;
-        let id = match tag {
-            // Named users and groups.
-            0x02 | 0x08 => {
-                let id = le::u32_at(value, at.checked_add(4)?)?;
-                at = at.checked_add(8)?;
-                id
-            },
-            // The owner, owning group, mask, and others.
-            0x01 | 0x04 | 0x10 | 0x20 => {
-                at = at.checked_add(4)?;
-                NO_ID
-            },
-            _ => return None,
+        let id = if posix_acl::is_named(tag) {
+            let id = le::u32_at(value, at.checked_add(4)?)?;
+            at = at.checked_add(8)?;
+            id
+        } else {
+            at = at.checked_add(4)?;
+            0
         };
-        out.extend_from_slice(&tag.to_le_bytes());
-        out.extend_from_slice(&perm.to_le_bytes());
-        out.extend_from_slice(&id.to_le_bytes());
+        out.push(tag, perm, id)?;
     }
-    Some(out)
+    Some(out.finish())
 }
 
 /// Parses the attributes in `inode` itself, if it has any.
