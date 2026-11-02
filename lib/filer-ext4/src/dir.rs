@@ -128,6 +128,11 @@ impl Directory {
         Ok(Self { inode, map, size })
     }
 
+    /// Returns the directory's inode number.
+    pub(crate) const fn inode(&self) -> u32 {
+        self.inode
+    }
+
     /// Returns the number of blocks in the directory.
     pub(crate) fn blocks(&self, sb: &Superblock) -> u64 {
         self.size

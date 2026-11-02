@@ -31,7 +31,6 @@ pub(crate) struct Times {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Inode {
     number: u32,
-    mode: u16,
     kind: FileKind,
     size: u64,
     links: u16,
@@ -112,7 +111,6 @@ impl Inode {
         };
         Ok(Self {
             number,
-            mode,
             kind,
             size,
             links,
@@ -135,17 +133,12 @@ impl Inode {
         self.kind
     }
 
-    /// Returns the permission bits, with set-user-ID, set-group-ID, and
-    /// sticky.
-    pub(crate) const fn permissions(&self) -> u16 {
-        self.mode & 0o7777
-    }
-
     /// Returns the size in bytes.
     pub(crate) const fn size(&self) -> u64 {
         self.size
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn links(&self) -> u16 {
         self.links
     }
@@ -156,6 +149,7 @@ impl Inode {
     }
 
     /// Returns the inode flags (`i_flags`).
+    #[allow(dead_code, reason = "for reporting flags, later")]
     pub(crate) const fn flags(&self) -> u32 {
         self.flags
     }
@@ -165,6 +159,7 @@ impl Inode {
         &self.block
     }
 
+    #[allow(dead_code, reason = "for checksums, later")]
     pub(crate) const fn generation(&self) -> u32 {
         self.generation
     }
@@ -179,6 +174,7 @@ impl Inode {
     }
 
     /// Returns what follows the inode's fields in its record.
+    #[allow(dead_code, reason = "for in-inode extended attributes, later")]
     pub(crate) fn tail(&self) -> &[u8] {
         &self.tail
     }
@@ -280,7 +276,6 @@ pub(crate) mod tests {
         let inode = Inode::parse(&raw.bytes(128), 12).unwrap();
         assert_eq!(inode.number(), 12);
         assert_eq!(inode.kind(), FileKind::File);
-        assert_eq!(inode.permissions(), 0o644);
         assert_eq!(inode.size(), 0x1_2345_6789);
         assert_eq!(
             (inode.links(), inode.flags(), inode.generation()),

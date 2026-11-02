@@ -30,3 +30,8 @@ filer-api.workspace = true
 
 [dev-dependencies]
 filer-spec = { workspace = true, features = ["std"] }
+filer-system = { workspace = true, features = ["std"] }
+
+[[example]]
+name = "manifest"
+required-features = ["std"]

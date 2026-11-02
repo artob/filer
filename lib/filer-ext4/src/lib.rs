@@ -2,10 +2,11 @@
 
 //! Read-only ext2, ext3, and ext4 file system driver for the Filer API.
 //!
-//! This crate will provide a driver over ext2, ext3, and ext4 volumes,
-//! read from any [`filer_api::ReadAt`] source, reporting each
-//! inconsistency it finds as an [`Ext4Error`]. It parses superblocks so
-//! far. Writing is out of scope for now (see `DESIGN.md` §17.15).
+//! [`Ext4`] implements [`filer_api::Driver`] over ext2, ext3, and ext4
+//! volumes, read from any [`filer_api::ReadAt`] source, reporting each
+//! inconsistency it finds as an [`Ext4Error`]. It reads ext2 so far;
+//! volumes using later features are refused by their feature flags.
+//! Writing is out of scope for now (see `DESIGN.md` §17.15).
 //!
 //! **Clean room.** The mature implementations (the Linux kernel's `ext4`
 //! and `jbd2`, e2fsprogs, GRUB) are GPL, so this public-domain crate is
@@ -42,8 +43,6 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-// The driver comes in a later step; its parts are tested meanwhile.
-#![allow(dead_code)]
 // No input may make this crate panic (DESIGN.md D47).
 #![deny(
     clippy::arithmetic_side_effects,
@@ -78,9 +77,14 @@ pub use ext4_error::*;
 
 mod block_map;
 mod dir;
+
+mod ext4;
+pub use ext4::*;
+
 mod group;
 mod inode;
 mod io;
 mod le;
 mod superblock;
 mod symlink;
+mod volume;

@@ -183,6 +183,7 @@ impl Superblock {
     }
 
     /// Returns the revision level: 0 (original) or 1 (dynamic).
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn revision(&self) -> u32 {
         self.revision
     }
@@ -203,6 +204,7 @@ impl Superblock {
         self.first_data_block
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn blocks_per_group(&self) -> u32 {
         self.blocks_per_group
     }
@@ -247,6 +249,7 @@ impl Superblock {
             .saturating_mul(u64::from(self.block_size()))
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn features(&self) -> Features {
         self.features
     }
@@ -256,6 +259,7 @@ impl Superblock {
         self.features.incompat & feature::INCOMPAT_FILETYPE != 0
     }
 
+    #[allow(dead_code, reason = "for checksums, later")]
     pub(crate) const fn uuid(&self) -> [u8; 16] {
         self.uuid
     }
