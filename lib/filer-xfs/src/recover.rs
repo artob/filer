@@ -39,17 +39,15 @@ use crate::{
     superblock::Superblock,
 };
 use alloc::{collections::BTreeMap, vec, vec::Vec};
-use core::future::Future;
-use filer_api::{BufResult, Error, IoBufMut, OpKind, ReadAt};
-use filer_fs::read_exact;
-use filer_fs::{be, le};
+use filer_api::{Error, OpKind, ReadAt};
+use filer_fs::{
+    be, le, read_exact,
+    recover::{CHUNK, Overlay},
+};
 
-/// The size of a sector, of the chunks buffers are logged in, and of what
-/// an overlay keeps.
+/// The size of a sector, of which buffers are logged in 128-byte chunks.
 const SECTOR: u64 = 512;
 const SECTOR_LEN: usize = 512;
-const CHUNK: usize = 128;
-const CHUNK_SIZE: u64 = 128;
 
 /// A record header's magic number, and where it keeps its fields.
 const RECORD_MAGIC: u32 = 0xFEED_BABE;
@@ -146,83 +144,6 @@ const ROOT_HEADER: usize = 4;
 
 /// The largest buffer replayed: twice the largest directory block.
 const MAX_BUFFER: u64 = 128 << 10;
-
-/// Bytes replayed over a volume's: 128-byte chunks, by their offsets.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Overlay {
-    chunks: BTreeMap<u64, [u8; CHUNK]>,
-}
-
-impl Overlay {
-    /// Lays the chunks over `out`, read from offset `at`.
-    fn lay(&self, at: u64, out: &mut [u8]) {
-        let len = u64::try_from(out.len()).unwrap_or(u64::MAX);
-        let first = at
-            .checked_div(CHUNK_SIZE)
-            .unwrap_or(0)
-            .saturating_mul(CHUNK_SIZE);
-        for (&chunk, bytes) in self.chunks.range(first..at.saturating_add(len)) {
-            for (i, &byte) in bytes.iter().enumerate() {
-                let pos = chunk.saturating_add(u64::try_from(i).unwrap_or(0));
-                if let Some(slot) = pos
-                    .checked_sub(at)
-                    .and_then(|i| usize::try_from(i).ok())
-                    .and_then(|i| out.get_mut(i))
-                {
-                    *slot = byte;
-                }
-            }
-        }
-    }
-
-    /// Writes `bytes`, of whole chunks, at `at`, a chunk's offset.
-    fn put(&mut self, at: u64, bytes: &[u8]) {
-        let (chunks, _) = bytes.as_chunks::<CHUNK>();
-        for (i, chunk) in chunks.iter().enumerate() {
-            let offset = u64::try_from(i)
-                .ok()
-                .and_then(|i| i.checked_mul(CHUNK_SIZE))
-                .and_then(|i| at.checked_add(i));
-            if let Some(offset) = offset {
-                self.chunks.insert(offset, *chunk);
-            }
-        }
-    }
-
-    /// Returns `true` if nothing is replayed.
-    pub(crate) fn is_empty(&self) -> bool {
-        self.chunks.is_empty()
-    }
-}
-
-/// A source, with an overlay laid over it.
-pub(crate) struct Recovered<S> {
-    pub(crate) source: S,
-    pub(crate) overlay: Overlay,
-}
-
-impl<S: ReadAt> ReadAt for Recovered<S> {
-    async fn read_at<B: IoBufMut>(&self, mut buf: B, off: u64) -> BufResult<usize, B> {
-        if self.overlay.is_empty() {
-            return self.source.read_at(buf, off).await;
-        }
-        // Read, lay the overlay over what was read, and hand it on.
-        let BufResult(result, mut read) = self
-            .source
-            .read_at(Vec::with_capacity(buf.spare()), off)
-            .await;
-        if let Err(error) = result {
-            return BufResult(Err(error), buf);
-        }
-        self.overlay.lay(off, &mut read);
-        let result = Ok(buf.fill_from(&read));
-        BufResult(result, buf)
-    }
-
-    fn size(&self) -> impl Future<Output = filer_api::Result<u64>> + Send {
-        self.source.size()
-    }
-}
 
 /// How the machine that wrote items ordered their bytes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -652,7 +573,9 @@ impl<S: ReadAt + ?Sized> Replayer<'_, S> {
         if self.sb.is_v5() {
             reseal(&mut bytes);
         }
-        self.overlay.put(at, &bytes);
+        if !self.overlay.put(at, &bytes) {
+            return Err(self.fail());
+        }
         Ok(())
     }
 
@@ -752,7 +675,9 @@ impl<S: ReadAt + ?Sized> Replayer<'_, S> {
             lsn.copy_from_slice(&self.lsn.to_be_bytes());
             crc::seal(&mut inode, INODE_CRC);
         }
-        self.overlay.put(at, &inode);
+        if !self.overlay.put(at, &inode) {
+            return Err(self.fail());
+        }
         Ok(())
     }
 }

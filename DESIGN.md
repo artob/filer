@@ -2941,9 +2941,10 @@ That moves here, step by step, each driver keeping only its format:
   GPTs, at 512- and 4096-byte sectors, by their backup header if need be;
   and a `Window` over one partition, which a driver opens as it would a
   volume;
-- later, when a second driver needs them: the in-memory overlay that XFS
-  log recovery lays over its source (for ext4's journal), and FAT's local
-  times (for exFAT).
+- recovery in memory: the `Overlay` of 128-byte chunks that replaying a
+  log or journal puts, and `Recovered`, a source read through it (XFS,
+  and ext4's journal);
+- later, when a second driver needs them: FAT's local times (for exFAT).
 
 What stays elsewhere: helpers every driver needs, not only file systems
 (copying a slice into an `IoBufMut`, naming an entry in an error, the

@@ -8,8 +8,7 @@ use crate::{
     dir::Directory,
     file_map::FileMap,
     inode::{self, Inode},
-    log,
-    recover::{self, Overlay, Recovered},
+    log, recover,
     superblock::{self, Superblock},
     symlink,
 };
@@ -19,7 +18,10 @@ use filer_api::{
     DirCookie, DriverKey, Entry, Error, ErrorKind, FileId, FileKind, LinkTarget, MetaMask,
     Metadata, OpKind, ReadAt, XattrEntry, XattrNs,
 };
-use filer_fs::{FileSystem, Opened};
+use filer_fs::{
+    FileSystem, Opened,
+    recover::{Overlay, Recovered},
+};
 
 /// A volume: what every operation reads from, through what its log
 /// replays.
@@ -56,8 +58,8 @@ impl<S: ReadAt> Volume<S> {
             let log = log::of(&source, &sb)?;
             overlay = recover::replay(&source, &sb, &log, dirty).await?;
         }
-        let source = Recovered { source, overlay };
-        if !source.overlay.is_empty() {
+        let source = Recovered::new(source, overlay);
+        if !source.overlay().is_empty() {
             sb = superblock::read(&source).await?;
         }
         Ok(Self {

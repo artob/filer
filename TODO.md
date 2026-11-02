@@ -681,10 +681,9 @@ Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
 - [ ] **EXT-10: Journal replay.** JBD2 in memory: descriptor, commit, and
-  revoke blocks; 64-bit and checksummed tags, laid over the source as
-  `filer-xfs` lays its log's, moving its `recover::Overlay` and
-  `Recovered` to `filer-fs` (§17.17). Done when volumes shut down
-  mid-write read as the kernel recovers them.
+  revoke blocks; 64-bit and checksummed tags, laid over the source
+  through `filer_fs::recover`, as `filer-xfs` lays its log's (§17.17).
+  Done when volumes shut down mid-write read as the kernel recovers them.
 - [ ] **EXT-11: Hashed lookups.** Descend htrees by legacy, half-MD4, and
   TEA hashes, signed and unsigned, checked against `debugfs dx_hash`,
   falling back to the linear scan on inconsistency. Done when large

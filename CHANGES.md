@@ -39,7 +39,9 @@ so any release may break compatibility.
   for Unix file types; `posix_acl`, for POSIX ACLs; and `map`, reading
   files through maps of their blocks; `FileSystem` and `Mounted`, the
   driver shell, and `Opened`; `partition`, reading MBR and GPT partition
-  tables, with `Window`, a source of one partition.
+  tables, with `Window`, a source of one partition; `recover`, with
+  `Overlay` and `Recovered`, reading a volume as replaying its journal
+  would leave it.
 - `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
   FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`;
   the `code-pages` feature decodes short names in any `CodePage`.
