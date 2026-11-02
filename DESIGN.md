@@ -2596,6 +2596,12 @@ reads WSL symlinks as files and other tags' `$DATA` as contents, and
 decompresses WOF files, which Filer refuses; the script lists those
 entries and leaves them to the fixture tests. `ntfs3` reads Interix files
 as regular files, so those are compared with ntfs-3g only.
+`tests/external.sh` tests against other projects' disk images
+(`CREDITS.md`), never committed, fetched at a pinned commit, checked by
+their SHA-256 sums, and their NTFS partitions unpacked: walked, compared
+with `ntfs3` and ntfs-3g, and checked for the artifacts their makers
+describe (times taken from records, not index entries; no entry from MFT
+slack; no slack in any file's contents; clusters of 2 MiB).
 `tests/fuzz.rs` mutates the fixtures' boot sectors, MFTs, and index
 records, Windows' among them, and walks each result, as for `filer-fat`,
 and `fuzz/` has `cargo-fuzz` targets for the boot sector, the MFT,

@@ -36,6 +36,8 @@ set -eu
 export TZ=UTC LC_ALL=C.UTF-8
 # shellcheck source=lib/filer-spec/tests/jobs.sh
 . lib/filer-spec/tests/jobs.sh
+# shellcheck source=lib/filer-ntfs/tests/linux.sh
+. lib/filer-ntfs/tests/linux.sh
 
 # Expands sparse fixture `$1` into image `$2`.
 unsparse() {
@@ -55,187 +57,11 @@ open(sys.argv[2], "wb").write(image)
 PY
 }
 
-# Prints what the Linux kernel shows, in the manifest's format.
-kernel_manifest() {
-    python3 -I - "$1" <<'PY'
-import os, stat, subprocess, sys
-root = sys.argv[1]
-lines = []
-
-def fnv1a(data):
-    h = 0xCBF29CE484222325
-    for b in data:
-        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
-    return h
-
-def walk(rel):
-    # `listdir` returns entries in the order the directory holds them.
-    for name in os.listdir(os.path.join(root, rel)):
-        path = os.path.join(rel, name)
-        full = os.path.join(root, path)
-        st = os.lstat(full)
-        birth = subprocess.run(["stat", "-c", "%W", "--", full], check=True,
-                               capture_output=True, text=True).stdout.strip()
-        birth = "-" if birth == "0" else birth
-        times = f"{int(st.st_mtime)}\t{birth}\t{int(st.st_atime)}"
-        if stat.S_ISLNK(st.st_mode):
-            target = os.readlink(full)
-            lines.append(f"{path}\tl\t{st.st_size}\t{times}\t{target}")
-        elif stat.S_ISDIR(st.st_mode):
-            lines.append(f"{path}\td\t-\t{times}\t-")
-            walk(path)
-        else:
-            try:
-                data = open(full, "rb").read()
-                digest = f"{fnv1a(data):016x}"
-            except OSError:
-                digest = "!error"
-            lines.append(f"{path}\tf\t{st.st_size}\t{times}\t{digest}")
-
-walk("")
-print("\n".join(lines))
-PY
-}
-
-# Prints what ntfs-3g shows: path, kind, flags, and extended attributes,
-# in the manifest's format. A stream larger than Linux lets an attribute
-# value be is left as `@big@`, and listed in `$2` (path, tab, name), for
-# `ntfs3g_big` to read as a file.
-ntfs3g_manifest() {
-    python3 -I - "$1" "$2" <<'PY'
-import errno, os, stat, sys
-root = sys.argv[1]
-big = open(sys.argv[2], "w", encoding="utf-8")
-# File attributes and the flags Filer reports them as.
-FLAGS = [(0x2, "hidden"), (0x4, "system"), (0x20, "archive"),
-         (0x200, "sparse"), (0x800, "compressed"), (0x1000, "offline"),
-         (0x4000, "encrypted"), (0x40000 | 0x400000, "dataless")]
-
-def fnv1a(data):
-    h = 0xCBF29CE484222325
-    for b in data:
-        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
-    return h
-
-def joined(items):
-    return ",".join(sorted(items)) or "-"
-
-def walk(rel):
-    for name in os.listdir(os.path.join(root, rel)):
-        path = os.path.join(rel, name)
-        full = os.path.join(root, path)
-        st = os.lstat(full)
-        if stat.S_ISLNK(st.st_mode):
-            print(f"{path}\tl\t-\t-")
-            continue
-        bits = int.from_bytes(os.getxattr(full, "system.ntfs_attrib_be"), "big")
-        flags = joined(flag for mask, flag in FLAGS if bits & mask)
-        pairs = []
-        for attr in os.listxattr(full):
-            if not attr.startswith("user."):
-                continue
-            try:
-                pairs.append(f"{attr}={fnv1a(os.getxattr(full, attr)):016x}")
-            except OSError as error:
-                if error.errno != errno.E2BIG:
-                    raise
-                pairs.append(f"{attr}=@big@")
-                print(f"{path}\t{attr}", file=big)
-        xattrs = joined(pairs)
-        kind = next((letter for test, letter in [
-            (stat.S_ISDIR, "d"), (stat.S_ISFIFO, "p"), (stat.S_ISSOCK, "s"),
-            (stat.S_ISCHR, "c"), (stat.S_ISBLK, "b")] if test(st.st_mode)), "f")
-        print(f"{path}\t{kind}\t{flags}\t{xattrs}")
-        if kind == "d":
-            walk(path)
-
-walk("")
-PY
-}
-
-# Fills in the streams `ntfs3g_manifest` listed in `$2` as too large, in
-# listing `$3`, reading them as `file:stream` through ntfs-3g mounted at
-# `$1` with `streams_interface=windows`.
-ntfs3g_big() {
-    python3 -I - "$1" "$2" "$3" <<'PY'
-import os, sys
-root = sys.argv[1]
-
-def fnv1a(data):
-    h = 0xCBF29CE484222325
-    for b in data:
-        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
-    return h
-
-lines = open(sys.argv[3], encoding="utf-8").read().splitlines()
-for entry in open(sys.argv[2], encoding="utf-8").read().splitlines():
-    path, attr = entry.split("\t")
-    data = open(os.path.join(root, path) + ":" + attr[len("user."):], "rb").read()
-    lines = [line.replace(f"{attr}=@big@", f"{attr}={fnv1a(data):016x}")
-             if line.split("\t")[0] == path else line for line in lines]
-with open(sys.argv[3], "w", encoding="utf-8") as out:
-    out.write("".join(line + "\n" for line in lines))
-PY
-}
-
-# Normalizes listing `$1`, keeping fields `$2` (0-based, comma-separated),
-# into `$1.$3`, sorted: `k` for comparing with `ntfs3`, `x` with ntfs-3g.
-normalize() {
-    python3 -I - "$1" "$2" "$3" <<'PY' | sort > "$1.$3"
-import sys
-# Entries that differ by design, by path (see above).
-by_design = {"abs", "junction", "wsl", "cloud.bin", "a/abs", "wof.bin",
-             "secret.txt"}
-if sys.argv[3] == "k":
-    by_design |= {"ilink", "idirlink", "ichr", "iblk", "fifo", "sock",
-                  "special/fifo"}
-keep = [int(field) for field in sys.argv[2].split(",")]
-for line in open(sys.argv[1], encoding="utf-8"):
-    fields = line.rstrip("\n").split("\t")
-    if fields[0] in by_design:
-        continue
-    if fields[1] == "l":
-        # Link targets differ in form, and links have no flags here.
-        fields = fields[:4] + ["-"] * (len(fields) - 4)
-    print("\t".join(fields[i] for i in keep))
-PY
-}
-
-# Compares listings `$1` and `$2`, of what is called `$3`.
-compare() {
-    if diff -u "$1" "$2" > "$scratch/diff"; then
-        echo "same: $3 ($(wc -l < "$2") entries)"
-    else
-        echo "DIFFERENT: $3"
-        head -40 "$scratch/diff"
-        failed=1
-    fi
-}
-
 # Compares image `$3`, expanded from sparse fixture `$2`, with what
 # `ntfs3` and ntfs-3g show of it: the one kind of job.
 perform() {
-    img="$scratch/$3.img"
-    unsparse "$2" "$img"
-    sudo mount -t ntfs3 -o "loop,ro,iocharset=utf8,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
-    kernel_manifest "$mnt" > "$scratch/kernel"
-    sudo umount "$mnt"
-    sudo mount -t ntfs-3g -o "ro,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
-    ntfs3g_manifest "$mnt" "$scratch/big" > "$scratch/ntfs3g"
-    sudo umount "$mnt"
-    if [ -s "$scratch/big" ]; then
-        sudo mount -t ntfs-3g \
-            -o "ro,streams_interface=windows,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
-        ntfs3g_big "$mnt" "$scratch/big" "$scratch/ntfs3g"
-        sudo umount "$mnt"
-    fi
-    "$manifest" "$img" > "$scratch/filer"
-    normalize "$scratch/kernel" 0,1,2,3,4,5,6 k
-    normalize "$scratch/filer" 0,1,2,3,4,5,6 k
-    normalize "$scratch/ntfs3g" 0,1,2,3 x
-    normalize "$scratch/filer" 0,1,7,8 x
-    compare "$scratch/kernel.k" "$scratch/filer.k" "$3, ntfs3"
-    compare "$scratch/ntfs3g.x" "$scratch/filer.x" "$3, ntfs-3g"
+    unsparse "$2" "$scratch/$3.img"
+    check "$scratch/$3.img" "$3"
 }
 
 if [ "${1:-}" = --job ]; then
