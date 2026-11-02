@@ -9,7 +9,7 @@
 # On Linux, it then compares the `manifest` example with what the kernel
 # shows of each image it mounts, as `tests/differential.sh` does: of a
 # copy it recovered, as images may need that, each image a job, as many
-# at once as there are cores (or `FILER_XFS_JOBS`). None of the projects'
+# at once as there are cores (or `FILER_JOBS`). None of the projects'
 # code is fetched, or to be read.
 #
 # Usage: lib/filer-xfs/tests/external.sh, from the repository root, with
@@ -19,6 +19,8 @@
 set -eu
 export TZ=UTC LC_ALL=C.UTF-8
 repo=$PWD
+# shellcheck source=lib/filer-spec/tests/jobs.sh
+. "$repo/lib/filer-spec/tests/jobs.sh"
 # shellcheck source=lib/filer-xfs/tests/linux.sh
 . "$repo/lib/filer-xfs/tests/linux.sh"
 
@@ -29,8 +31,6 @@ perform() {
 }
 
 if [ "${1:-}" = --job ]; then
-    work=$FILER_XFS_WORK
-    manifest=$FILER_XFS_MANIFEST
     job "$2"
 fi
 

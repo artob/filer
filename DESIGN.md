@@ -2931,7 +2931,8 @@ What stays elsewhere: helpers every driver needs, not only file systems
 (copying a slice into an `IoBufMut`, naming an entry in an error, the
 rule every entry name meets), go to `filer-api`; checksums stay in `filer_api::checksum` (D53); test tooling
 the drivers share (the corruption exerciser, the mutation fuzz loop,
-sparse fixtures) goes to `filer-spec`. Each format keeps its own error
+sparse fixtures, and `tests/jobs.sh`, which runs a differential test's
+comparisons at once) goes to `filer-spec`. Each format keeps its own error
 enum, `Options`, and on-disk parsing.
 
 Unlike `filer_api::archive` (D44), this is a crate of its own, per the

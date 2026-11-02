@@ -7,23 +7,83 @@
 # writer's samples, and volumes made by `mkfs.fat` and written by the
 # Linux kernel itself, with names and sizes chosen to probe edge cases.
 #
+# Each image is a job of its own, as many at once as there are cores (or
+# `FILER_JOBS`), each one's report printed whole, in order.
+#
 # Usage: lib/filer-fat/tests/differential.sh, from the repository root, on
 # Linux with dosfstools, python3, GNU coreutils, and `sudo` for mounting.
 
 set -eu
 export TZ=UTC LC_ALL=C.UTF-8
-work=$(mktemp -d)
-mnt="$work/mnt"
-mkdir "$mnt"
-cleanup() {
-    mountpoint -q "$mnt" && sudo umount "$mnt"
-    rm -rf "$work"
-}
-trap cleanup EXIT
+# shellcheck source=lib/filer-spec/tests/jobs.sh
+. lib/filer-spec/tests/jobs.sh
 options="loop,utf8,tz=UTC,uid=$(id -u),gid=$(id -g)"
 
-cargo build -q -p filer-fat --example manifest --features code-pages
-manifest="$PWD/target/debug/examples/manifest"
+# Prints what the Linux kernel shows, in the manifest's format.
+kernel_manifest() {
+    python3 -I - "$1" <<'EOF'
+import os, stat, subprocess, sys
+root = sys.argv[1]
+lines = []
+
+def fnv1a(data):
+    h = 0xCBF29CE484222325
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+def walk(rel):
+    # `listdir` returns entries in the order the directory holds them.
+    for name in os.listdir(os.path.join(root, rel)):
+        path = os.path.join(rel, name)
+        full = os.path.join(root, path)
+        st = os.lstat(full)
+        birth = subprocess.run(["stat", "-c", "%W", "--", full], check=True,
+                               capture_output=True, text=True).stdout.strip()
+        birth = "-" if birth == "0" else birth
+        times = f"{int(st.st_mtime)}\t{birth}\t{int(st.st_atime)}"
+        if stat.S_ISDIR(st.st_mode):
+            lines.append(f"{path}\td\t{st.st_size}\t{times}\t-")
+            walk(path)
+        else:
+            data = open(full, "rb").read()
+            lines.append(f"{path}\tf\t{len(data)}\t{times}\t{fnv1a(data):016x}")
+
+walk("")
+print("\n".join(lines))
+EOF
+}
+
+# Compares image `$2`, called `$3`, with what Linux shows of it, in the
+# code page its name says, or 437: the one kind of job.
+perform() {
+    page=437
+    case $3 in codepage-*) page=${3#codepage-} ;; esac
+    sudo mount -o "ro,$options,codepage=$page" "$2" "$mnt"
+    kernel_manifest "$mnt" > "$scratch/kernel"
+    sudo umount "$mnt"
+    "$manifest" --code-page "$page" "$2" > "$scratch/filer"
+    if diff -u "$scratch/kernel" "$scratch/filer" > "$scratch/diff"; then
+        echo "same: $3 ($(wc -l < "$scratch/filer") entries)"
+    else
+        echo "DIFFERENT: $3"
+        head -40 "$scratch/diff"
+        failed=1
+    fi
+}
+
+if [ "${1:-}" = --job ]; then
+    job "$2"
+fi
+
+work=$(mktemp -d -p /var/tmp)
+mnt="$work/mnt"
+mkdir "$mnt"
+trap clean_work EXIT
+
+# A release build, as a debug one reads each volume many times slower.
+cargo build -q --release -p filer-fat --example manifest --features code-pages
+manifest="$PWD/target/release/examples/manifest"
 
 # The fixtures.
 for sparse in lib/filer-fat/tests/fixtures/*.sparse; do
@@ -135,58 +195,13 @@ EOF
 codepage 850 'ØRE.TXT' 'ÆBLE' 'ÅR.ÉTÉ' 'NIÑO.ÇÃ' 'ÜBER.ÖL'
 codepage 866 'ПРИВЕТ.TXT' 'МИР' 'ЁЖ.ДОК' 'ЩУКА.ЯЯЯ'
 
-# Prints what the Linux kernel shows, in the manifest's format.
-kernel_manifest() {
-    python3 -I - "$1" <<'EOF'
-import os, stat, subprocess, sys
-root = sys.argv[1]
-lines = []
 
-def fnv1a(data):
-    h = 0xCBF29CE484222325
-    for b in data:
-        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
-    return h
-
-def walk(rel):
-    # `listdir` returns entries in the order the directory holds them.
-    for name in os.listdir(os.path.join(root, rel)):
-        path = os.path.join(rel, name)
-        full = os.path.join(root, path)
-        st = os.lstat(full)
-        birth = subprocess.run(["stat", "-c", "%W", "--", full], check=True,
-                               capture_output=True, text=True).stdout.strip()
-        birth = "-" if birth == "0" else birth
-        times = f"{int(st.st_mtime)}\t{birth}\t{int(st.st_atime)}"
-        if stat.S_ISDIR(st.st_mode):
-            lines.append(f"{path}\td\t{st.st_size}\t{times}\t-")
-            walk(path)
-        else:
-            data = open(full, "rb").read()
-            lines.append(f"{path}\tf\t{len(data)}\t{times}\t{fnv1a(data):016x}")
-
-walk("")
-print("\n".join(lines))
-EOF
-}
-
+# Each image a job.
 failed=0
 for img in "$work"/*.img; do
-    name=$(basename "$img" .img)
-    page=437
-    case $name in codepage-*) page=${name#codepage-} ;; esac
-    sudo mount -o "ro,$options,codepage=$page" "$img" "$mnt"
-    kernel_manifest "$mnt" > "$work/$name.kernel"
-    sudo umount "$mnt"
-    "$manifest" --code-page "$page" "$img" > "$work/$name.filer"
-    if diff -u "$work/$name.kernel" "$work/$name.filer" > "$work/$name.diff"; then
-        echo "same: $name ($(wc -l < "$work/$name.filer") entries)"
-    else
-        echo "DIFFERENT: $name"
-        head -40 "$work/$name.diff"
-        failed=1
-    fi
+    add image "$img" "$(basename "$img" .img)"
 done
+run
 # 1 for a difference, 2 if some case could not run.
 if [ $failed -eq 0 ] && [ $skipped -ne 0 ]; then
     exit 2

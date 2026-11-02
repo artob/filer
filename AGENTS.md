@@ -57,7 +57,8 @@
   it; shared code goes there, not into one driver): a format implements
   `filer_fs::FileSystem`, its public type wraps `filer_fs::Mounted`, and
   its tests use `filer-spec`'s `Sparse`, `Overlay`, `exercise`, and
-  `fuzz`;
+  `fuzz`, and its `tests/differential.sh` runs a release `manifest` in
+  parallel jobs through `lib/filer-spec/tests/jobs.sh`;
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `filer-system` re-exports `filer-api` plus `System`, the target's native

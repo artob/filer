@@ -28,7 +28,7 @@
 #
 # Each image and each log set-up is a job of its own, with its own mount
 # point and files; as many run at once as there are cores (or
-# `FILER_XFS_JOBS`), and each one's report is printed whole, in order,
+# `FILER_JOBS`), and each one's report is printed whole, in order,
 # when its phase ends, with how long the run has taken.
 #
 # Usage: lib/filer-xfs/tests/differential.sh [images] [logs], from the
@@ -37,6 +37,8 @@
 
 set -eu
 export TZ=UTC LC_ALL=C.UTF-8
+# shellcheck source=lib/filer-spec/tests/jobs.sh
+. lib/filer-spec/tests/jobs.sh
 # shellcheck source=lib/filer-xfs/tests/linux.sh
 . lib/filer-xfs/tests/linux.sh
 
@@ -190,8 +192,6 @@ perform() {
 }
 
 if [ "${1:-}" = --job ]; then
-    work=$FILER_XFS_WORK
-    manifest=$FILER_XFS_MANIFEST
     job "$2"
 fi
 

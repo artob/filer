@@ -25,30 +25,21 @@
 # devices) are regular files to `ntfs3`, and are compared with ntfs-3g
 # only. `ntfs3` also reports no birth time for symlinks.
 #
+# Each image is a job of its own, as many at once as there are cores (or
+# `FILER_JOBS`), each one's report printed whole, in order.
+#
 # Usage: lib/filer-ntfs/tests/differential.sh, from the repository root,
 # on Linux with ntfs-3g, python3, GNU coreutils, the `ntfs3` module, and
 # `sudo` for mounting.
 
 set -eu
 export TZ=UTC LC_ALL=C.UTF-8
-work=$(mktemp -d)
-mnt="$work/mnt"
-mkdir "$mnt"
-cleanup() {
-    mountpoint -q "$mnt" && sudo umount "$mnt"
-    rm -rf "$work"
-}
-trap cleanup EXIT
+# shellcheck source=lib/filer-spec/tests/jobs.sh
+. lib/filer-spec/tests/jobs.sh
 
-cargo build -q -p filer-ntfs --example manifest
-manifest="$PWD/target/debug/examples/manifest"
-
-# The committed fixtures, and fresh ones.
-mkdir "$work/fresh"
-lib/filer-ntfs/tests/fixtures/make.sh "$work/fresh"
-for sparse in lib/filer-ntfs/tests/fixtures/*.sparse "$work"/fresh/*.sparse; do
-    case $sparse in "$work"/*) kind=fresh ;; *) kind=fixture ;; esac
-    python3 -I - "$sparse" "$work/$kind-$(basename "$sparse" .sparse).img" <<'PY'
+# Expands sparse fixture `$1` into image `$2`.
+unsparse() {
+    python3 -I - "$1" "$2" <<'PY'
 import struct, sys
 data = open(sys.argv[1], "rb").read()
 assert data[:15] == b"FILER-SPARSE-2\n"
@@ -62,7 +53,7 @@ while rest:
     rest = rest[520:]
 open(sys.argv[2], "wb").write(image)
 PY
-done
+}
 
 # Prints what the Linux kernel shows, in the manifest's format.
 kernel_manifest() {
@@ -210,36 +201,62 @@ for line in open(sys.argv[1], encoding="utf-8"):
 PY
 }
 
-failed=0
+# Compares listings `$1` and `$2`, of what is called `$3`.
 compare() {
-    if diff -u "$1" "$2" > "$work/diff"; then
+    if diff -u "$1" "$2" > "$scratch/diff"; then
         echo "same: $3 ($(wc -l < "$2") entries)"
     else
         echo "DIFFERENT: $3"
-        head -40 "$work/diff"
+        head -40 "$scratch/diff"
         failed=1
     fi
 }
-for img in "$work"/*.img; do
-    name=$(basename "$img" .img)
+
+# Compares image `$3`, expanded from sparse fixture `$2`, with what
+# `ntfs3` and ntfs-3g show of it: the one kind of job.
+perform() {
+    img="$scratch/$3.img"
+    unsparse "$2" "$img"
     sudo mount -t ntfs3 -o "loop,ro,iocharset=utf8,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
-    kernel_manifest "$mnt" > "$work/$name.kernel"
+    kernel_manifest "$mnt" > "$scratch/kernel"
     sudo umount "$mnt"
     sudo mount -t ntfs-3g -o "ro,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
-    ntfs3g_manifest "$mnt" "$work/big" > "$work/$name.ntfs3g"
+    ntfs3g_manifest "$mnt" "$scratch/big" > "$scratch/ntfs3g"
     sudo umount "$mnt"
-    if [ -s "$work/big" ]; then
+    if [ -s "$scratch/big" ]; then
         sudo mount -t ntfs-3g \
             -o "ro,streams_interface=windows,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
-        ntfs3g_big "$mnt" "$work/big" "$work/$name.ntfs3g"
+        ntfs3g_big "$mnt" "$scratch/big" "$scratch/ntfs3g"
         sudo umount "$mnt"
     fi
-    "$manifest" "$img" > "$work/$name.filer"
-    normalize "$work/$name.kernel" 0,1,2,3,4,5,6 k
-    normalize "$work/$name.filer" 0,1,2,3,4,5,6 k
-    normalize "$work/$name.ntfs3g" 0,1,2,3 x
-    normalize "$work/$name.filer" 0,1,7,8 x
-    compare "$work/$name.kernel.k" "$work/$name.filer.k" "$name, ntfs3"
-    compare "$work/$name.ntfs3g.x" "$work/$name.filer.x" "$name, ntfs-3g"
+    "$manifest" "$img" > "$scratch/filer"
+    normalize "$scratch/kernel" 0,1,2,3,4,5,6 k
+    normalize "$scratch/filer" 0,1,2,3,4,5,6 k
+    normalize "$scratch/ntfs3g" 0,1,2,3 x
+    normalize "$scratch/filer" 0,1,7,8 x
+    compare "$scratch/kernel.k" "$scratch/filer.k" "$3, ntfs3"
+    compare "$scratch/ntfs3g.x" "$scratch/filer.x" "$3, ntfs-3g"
+}
+
+if [ "${1:-}" = --job ]; then
+    job "$2"
+fi
+
+work=$(mktemp -d -p /var/tmp)
+trap clean_work EXIT
+failed=0
+
+# A release build, as a debug one reads each volume some twenty times
+# slower.
+cargo build -q --release -p filer-ntfs --example manifest
+manifest="$PWD/target/release/examples/manifest"
+
+# The committed fixtures, and fresh ones, each a job.
+mkdir "$work/fresh"
+lib/filer-ntfs/tests/fixtures/make.sh "$work/fresh"
+for sparse in lib/filer-ntfs/tests/fixtures/*.sparse "$work"/fresh/*.sparse; do
+    case $sparse in "$work"/*) kind=fresh ;; *) kind=fixture ;; esac
+    add image "$sparse" "$kind-$(basename "$sparse" .sparse)"
 done
+run
 exit $failed

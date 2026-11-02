@@ -2,9 +2,9 @@
 #
 # What `tests/differential.sh` and `tests/external.sh` share, sourced by
 # them: printing what the Linux kernel shows of an image in the `manifest`
-# example's format, and comparing the two; and running comparisons at
-# once. They set `work`, a directory of their own; `mnt`, a mount point in
-# it; `manifest`, the example; and `failed`, set to 1 by any difference.
+# example's format, and comparing the two. They set `work`, a directory of
+# their own; `mnt`, a mount point in it; `manifest`, the example; and
+# `failed`, set to 1 by any difference.
 # Comparisons keep their files in `scratch`, or in `work` if it is unset,
 # so that several can run at once, each with a `scratch` and `mnt` of its
 # own. If `FILER_XFS_KEEP` names a directory, the image of each comparison
@@ -152,53 +152,4 @@ recovered() {
     sudo mount -o loop "$files/recovered.img" "$mnt"
     sudo umount "$mnt"
     compare "$files/recovered.img" "$2" "$1"
-}
-
-# Jobs: a script lists them with `add`, and runs them with `run`, which
-# runs the script again as `$0 --job N` for each, as many at once as there
-# are cores (or `FILER_XFS_JOBS`), then prints their reports in order. Run
-# so, the script sets `work` and `manifest` from `FILER_XFS_WORK` and
-# `FILER_XFS_MANIFEST` and calls `job`, which calls the script's `perform`
-# with the job's kind and arguments.
-tab=$(printf '\t')
-
-# Adds a job of kind `$1`, with arguments `$2` and `$3`, to the list.
-add() {
-    printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$work/jobs"
-}
-
-# Runs the jobs listed, then prints their reports in order.
-run() {
-    mkdir "$work/out"
-    export FILER_XFS_WORK="$work" FILER_XFS_MANIFEST="$manifest"
-    count=$(wc -l < "$work/jobs")
-    seq "$count" | xargs -P "${FILER_XFS_JOBS:-$(nproc)}" -n 1 sh "$0" --job || failed=1
-    for n in $(seq "$count"); do
-        cat "$work/out/$n"
-    done
-    rm -r "$work/jobs" "$work/out"
-}
-
-# Runs job `$1` of the list, with a `scratch` and `mnt` of its own: its
-# report goes to `$work/out/$1`, and it fails if anything differs.
-job() {
-    exec > "$work/out/$1" 2>&1
-    scratch=$(mktemp -d -p "$work")
-    mnt="$scratch/mnt"
-    mkdir "$mnt"
-    trap 'if mountpoint -q "$mnt"; then sudo umount "$mnt"; fi; sudo rm -rf "$scratch"' EXIT
-    failed=0
-    spec=$(sed -n "$1p" "$work/jobs")
-    kind=${spec%%"$tab"*}
-    rest=${spec#*"$tab"}
-    perform "$kind" "${rest%%"$tab"*}" "${rest#*"$tab"}"
-    exit $failed
-}
-
-# Unmounts what jobs left mounted in `$work`, and removes it.
-clean_work() {
-    for mounted in "$work"/mnt "$work"/*/mnt; do
-        if mountpoint -q "$mounted"; then sudo umount "$mounted"; fi
-    done
-    sudo rm -rf "$work"
 }

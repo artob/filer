@@ -17,29 +17,20 @@
 # escapes, and such entries are compared by their metadata only: Filer's
 # paths are UTF-8.
 #
+# Each image is a job of its own, as many at once as there are cores (or
+# `FILER_JOBS`), each one's report printed whole, in order.
+#
 # Usage: lib/filer-ext4/tests/differential.sh, from the repository root,
 # on Linux with e2fsprogs, python3, and `sudo` for mounting.
 
 set -eu
 export TZ=UTC LC_ALL=C.UTF-8
-work=$(mktemp -d)
-mnt="$work/mnt"
-mkdir "$mnt"
-cleanup() {
-    mountpoint -q "$mnt" && sudo umount "$mnt"
-    rm -rf "$work"
-}
-trap cleanup EXIT
+# shellcheck source=lib/filer-spec/tests/jobs.sh
+. lib/filer-spec/tests/jobs.sh
 
-cargo build -q -p filer-ext4 --example manifest
-manifest="$PWD/target/debug/examples/manifest"
-
-# The committed fixtures, and fresh ones.
-mkdir "$work/fresh"
-lib/filer-ext4/tests/fixtures/make.sh "$work/fresh"
-for sparse in lib/filer-ext4/tests/fixtures/*.sparse "$work"/fresh/*.sparse; do
-    case $sparse in "$work"/*) kind=fresh ;; *) kind=fixture ;; esac
-    python3 -I - "$sparse" "$work/$kind-$(basename "$sparse" .sparse).img" <<'PY'
+# Expands sparse fixture `$1` into image `$2`.
+unsparse() {
+    python3 -I - "$1" "$2" <<'PY'
 import struct, sys
 data = open(sys.argv[1], "rb").read()
 assert data[:15] == b"FILER-SPARSE-2\n"
@@ -53,7 +44,7 @@ while rest:
     rest = rest[520:]
 open(sys.argv[2], "wb").write(image)
 PY
-done
+}
 
 # Prints what the Linux kernel shows, in the manifest's format.
 kernel_manifest() {
@@ -150,22 +141,46 @@ walk(b"", "")
 PY
 }
 
-failed=0
-for img in "$work"/*.img; do
-    name=$(basename "$img" .img)
+# Compares image `$3`, expanded from sparse fixture `$2`, with what Linux
+# shows of it: the one kind of job.
+perform() {
+    img="$scratch/$3.img"
+    unsparse "$2" "$img"
     if ! sudo mount -o loop,ro "$img" "$mnt" 2>/dev/null; then
-        echo "skipped: $name (Linux cannot mount it here)"
-        continue
+        echo "skipped: $3 (Linux cannot mount it here)"
+        return
     fi
-    kernel_manifest "$mnt" | sort > "$work/$name.kernel"
+    kernel_manifest "$mnt" | sort > "$scratch/kernel"
     sudo umount "$mnt"
-    "$manifest" "$img" | sort > "$work/$name.filer"
-    if diff -u "$work/$name.kernel" "$work/$name.filer" > "$work/diff"; then
-        echo "same: $name ($(wc -l < "$work/$name.filer") entries)"
+    "$manifest" "$img" | sort > "$scratch/filer"
+    if diff -u "$scratch/kernel" "$scratch/filer" > "$scratch/diff"; then
+        echo "same: $3 ($(wc -l < "$scratch/filer") entries)"
     else
-        echo "DIFFERENT: $name"
-        head -40 "$work/diff"
+        echo "DIFFERENT: $3"
+        head -40 "$scratch/diff"
         failed=1
     fi
+}
+
+if [ "${1:-}" = --job ]; then
+    job "$2"
+fi
+
+work=$(mktemp -d -p /var/tmp)
+trap clean_work EXIT
+failed=0
+
+# A release build, as a debug one reads each volume some twenty times
+# slower.
+cargo build -q --release -p filer-ext4 --example manifest
+manifest="$PWD/target/release/examples/manifest"
+
+# The committed fixtures, and fresh ones, each a job.
+mkdir "$work/fresh"
+lib/filer-ext4/tests/fixtures/make.sh "$work/fresh"
+for sparse in lib/filer-ext4/tests/fixtures/*.sparse "$work"/fresh/*.sparse; do
+    case $sparse in "$work"/*) kind=fresh ;; *) kind=fixture ;; esac
+    add image "$sparse" "$kind-$(basename "$sparse" .sparse)"
 done
+run
 exit $failed
