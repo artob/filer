@@ -674,13 +674,68 @@ From §17.12 (D40). Create each crate when its item starts.
   Done when a partitioned image's FAT partition opens.
 - [ ] **FMT-02: Other on-disk formats (low priority).** Such as littlefs.
   Done when each reads an image.
-- [ ] **FMT-04: `filer-ext4`.** Read-only ext2/3/4 (crate docs list the
-  structures). Done when `mke2fs` fixtures of each revision read, and the
-  differential test agrees with the Linux kernel.
 - [ ] **FMT-06: `filer-udf`.** Read-only UDF. Done when `mkudffs` images
   of revisions 1.02, 2.01, and 2.50 read.
 - [ ] **FMT-07: `filer-xfs`.** Read-only XFS, v5 with CRCs. Done when
   `mkfs.xfs` fixtures read and agree with the Linux kernel.
+
+## `filer-ext4`
+
+Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
+format grew; one step per item, each committed.
+
+- [ ] **EXT-01: Superblock.** Crate scaffolding, `Ext4Error`, and a
+  validated superblock: geometry, revision, and feature sets, refusing
+  unknown incompatible features. Done when unit tests cover every field
+  and rejection.
+- [ ] **EXT-02: Groups and inodes.** Group descriptors (32 bytes), inode
+  location, and decoding: kind, size, times (with the extra fields),
+  flags. Done when unit tests cover each, and bad numbers are `Corrupt`.
+- [ ] **EXT-03: Block maps.** Direct, indirect, double, and triple
+  indirect blocks, with holes, mapped lazily per read. Done when unit
+  tests cover each level and out-of-range blocks are `Corrupt`.
+- [ ] **EXT-04: Directories and symlinks.** Linear entries in both
+  formats (htree blocks read linearly), fast and slow symlinks. Done when
+  malformed entries are `Corrupt`.
+- [ ] **EXT-05: Driver.** `Ext4`: open, read, stat, list, read links,
+  close. Done when an `mke2fs` image reads.
+- [ ] **EXT-06: Fixtures and verification.** `mke2fs` fixtures
+  (revisions 0 and 1; 1, 2, 4, and 64 KiB blocks) filled through the
+  kernel, `filer-spec`, and the differential test. Done when all agree.
+- [ ] **EXT-07: Extended attributes and flags.** In-inode and block
+  attributes, POSIX ACLs as Linux returns them, and inode flags. Done
+  when fixtures agree with the kernel.
+- [ ] **EXT-08: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when
+  both run clean. Ends ext2 parity.
+- [ ] **EXT-09: ext3 journals.** Clean journals read as ext2; volumes
+  needing recovery are refused, with an opt-in to read them as they are.
+  Done when `mke2fs -t ext3` fixtures read and agree with the kernel.
+- [ ] **EXT-10: Journal replay.** JBD2 in memory: descriptor, commit, and
+  revoke blocks; 64-bit and checksummed tags. Done when volumes shut down
+  mid-write read as the kernel recovers them.
+- [ ] **EXT-11: Hashed lookups.** Descend htrees by legacy, half-MD4, and
+  TEA hashes, signed and unsigned, checked against `debugfs dx_hash`,
+  falling back to the linear scan on inconsistency. Done when large
+  directories agree with the scan.
+- [ ] **EXT-12: Extents.** Extent trees, uninitialized extents as zeros.
+  Done when `extent` fixtures read.
+- [ ] **EXT-13: Large volumes.** `64bit` descriptors and block numbers,
+  `flex_bg`, `meta_bg`, `huge_file`. Done when fixtures of each read.
+- [ ] **EXT-14: Checksums.** CRC32C and CRC16 in pure Rust;
+  `metadata_csum` (with `metadata_csum_seed`) and `gdt_csum`, verified.
+  Done when default `mke2fs -t ext4` fixtures read and corrupted
+  checksums are `Corrupt`.
+- [ ] **EXT-15: Inline data.** Files and directories in the inode. Done
+  when `inline_data` fixtures read.
+- [ ] **EXT-16: Remaining features.** `large_dir`, `ea_inode`, `bigalloc`,
+  `orphan_file`, `sparse_super2`, `mmp`, `verity`. Done when fixtures of
+  each read.
+- [ ] **EXT-17: Encryption and case folding.** Encrypted entries keep
+  kind and metadata, their names and contents `Unsupported`; case-folded
+  directories match exactly. Done when fixtures of each read.
+- [ ] **EXT-18: Case-insensitive lookups.** Unicode case folding and
+  normalization for case-folded directories, through a pure-Rust
+  dependency. Done when lookups agree with the kernel's.
 
 ## `filer-ntfs`
 

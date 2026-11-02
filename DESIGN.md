@@ -2285,8 +2285,8 @@ Recorded 2026-11-01 (D40); none exists yet:
   (exFAT shares almost nothing on disk with FAT, so it is its own crate,
   D46), and, at low priority, other file systems such as littlefs, over a
   block device, for embedded and `no_std` use and for reading disk images.
-- **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4),
-  `filer-ntfs` (§17.14, in progress), `filer-udf`, and `filer-xfs`,
+- **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4;
+  §17.15, in progress), `filer-ntfs` (§17.14, in progress), `filer-udf`, and `filer-xfs`,
   published as stubs to reserve their names. Each would follow `filer-fat`'s model: a lazy
   driver over any `ReadAt` source, the async `Resolver`, panic-free by
   lint, fixtures from the real tools, and a differential test against the
@@ -2574,7 +2574,103 @@ and index records and walks each result, as for `filer-fat`, and
 `fuzz/` has `cargo-fuzz` targets for the boot sector, the MFT, indexes,
 and compressed data (D50).
 
-### 17.15 Later
+### 17.15 `filer-ext4`
+
+A read-only driver for ext2, ext3, and ext4 volumes, following
+`filer-fat`'s model (§17.13): a lazy driver over any `ReadAt` source, the
+async `Resolver`, panic-free by lint (D47), pure Rust (D45), fixtures from
+the real tools, and a differential test against the Linux kernel's `ext4`
+driver, which mounts all three. Writing is out of scope. It is built in
+the order the format grew: ext2 first, then ext3 (the journal and hashed
+directories), then ext4's features one by one, each refused by its
+feature flag until it lands.
+
+**Clean room (D52).** The Linux kernel's `ext4` and `jbd2`, e2fsprogs,
+and GRUB are GPL. The driver is written from descriptions of the format
+only: the kernel's prose documentation (*ext4 Data Structures and
+Algorithms*, `Documentation/filesystems/ext4/`, which also describes
+JBD2) and Dave Poirier's *The Second Extended File System*; and from what
+`mke2fs`, `debugfs`, and `dumpe2fs` show of real volumes. No
+implementation's source is consulted. The directory hashes, which only
+code defines exactly, are built from RFC 1320 (MD4) and the published
+TEA cipher, and checked against `debugfs`'s `dx_hash`.
+
+**On-disk facts the parser relies on:**
+
+- The superblock: 1024 bytes at byte 1024, magic `0xEF53` at 0x38; block
+  size 2^(10 + n), 1 KiB to 64 KiB; the first data block (1 for 1 KiB
+  blocks, else 0); blocks, inodes, and the per-group counts of both;
+  revision 0 (128-byte inodes, first inode 11, no features) or 1
+  (`s_inode_size`, `s_first_ino`, and three feature sets). An unknown
+  incompatible feature must stop a reader; read-only-compatible ones may
+  not, as a reader writes nothing.
+- Block groups: their descriptors follow the superblock's block, 32 bytes
+  each (64 or more with `64bit`); each names its inode table.
+- Inodes: number n is entry (n - 1) mod `s_inodes_per_group` of group
+  (n - 1) / `s_inodes_per_group`; there is no inode 0, and 2 is the root.
+  The 128-byte base holds the mode (kind and permissions), owner, size
+  (64 bits, the high half once called `i_dir_acl`), four times as signed
+  32-bit seconds, links, flags, `i_block` (60 bytes), and the extended
+  attribute block; larger inodes add `i_extra_isize` bytes of fields
+  (each time's nanoseconds and two epoch bits, the creation time), then
+  in-inode extended attributes.
+- `i_block` is, by kind and flags: 12 direct, one indirect, one double
+  and one triple indirect block numbers (0 is a hole); an extent tree
+  (ext4); inline data (ext4); a symlink target under 60 bytes; or a
+  device number.
+- Directories: blocks of entries (inode, record length, name length,
+  and with `filetype` a type byte), never split across blocks; inode 0
+  marks an unused entry. Hashed (htree) directories hide their index in
+  blocks that read as one unused entry, so a linear read sees exactly the
+  entries.
+- Extended attributes: in-inode (after `i_extra_isize`, magic
+  `0xEA020000`) and in one block (`i_file_acl`, a 32-byte header); entries
+  name a prefix by index (`user.`, `trusted.`, `security.`, `system.`,
+  and the POSIX ACLs), and values sit at offsets in the same region.
+
+**How it maps onto Filer:**
+
+- Ids: the inode number, with a volume id folded from the UUID, so hard
+  links share an id.
+- Names are bytes: UTF-8 ones are names, others `ForeignName`s. Lookups
+  match bytes exactly. Listings are in directory order, skip `.`, `..`,
+  and unused entries, and take their kind from the type byte (none
+  without `filetype`); a `DirCookie` is the byte offset of the next
+  entry, so a listing resumes wherever a cookie points, never mid-entry.
+- Metadata: kind and length (`i_size`, for directories too, as Linux
+  reports) from the inode; modified, changed, and accessed times, and
+  created where the inode has room for it, at 1 s, or 1 ns with the extra
+  fields; flags: immutable, append-only, compressed, encrypted, and
+  verity. FIFOs, sockets, and devices are what they say, and do not open.
+- Symlinks: fast (the target in `i_block`) or slow (in data blocks),
+  confined by the `Resolver`.
+- Extended attributes: both places, in their namespaces; POSIX ACLs are
+  converted from the on-disk form to the one Linux's `getxattr` returns.
+- Journals: a clean ext3 or ext4 journal changes nothing for a reader.
+  A volume that needs recovery is refused until the journal is replayed
+  in memory (ext3 step), never read as if clean (§17.12).
+- Encrypted files and directories keep their kind and metadata, but
+  reading their contents or names is `Unsupported`. Case-folded
+  directories match names exactly (case-insensitive lookups wait for
+  Unicode folding tables).
+
+**Robustness** follows §17.13: every block number is checked against the
+volume before it is read; indirect trees are bounded by their depth and
+by the file's size; directory entries must fit their block and their
+record; inodes, groups, and attribute entries are range-checked. Reads
+map blocks lazily, a read's range at a time, merging contiguous blocks
+into one source read, so no file's whole map is ever held.
+
+**Verification.** `tests/fixtures/make.sh` formats volumes with
+`mke2fs` (revisions 0 and 1; 1, 2, and 4 KiB blocks; and 64 KiB, which
+x86 Linux cannot mount, so it is filled by `mke2fs -d`), fills them
+through the kernel, and stores them sparsely; `tests/differential.sh`
+compares each, and fresh ones, with the kernel: names, kinds, sizes,
+contents, times, flags, and extended attributes. `tests/fuzz.rs` and
+`fuzz/` mutate the superblock, the descriptors, inode tables, and
+directories, as for `filer-fat`.
+
+### 17.16 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
