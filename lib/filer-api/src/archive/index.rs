@@ -2,7 +2,7 @@
 
 use crate::{
     Error, ErrorKind, FileKind,
-    archive::{ArchiveError, Member},
+    archive::{ArchiveError, Member, Stored},
     tree::{Ino, Node, ROOT, Tree},
 };
 use alloc::vec::Vec;
@@ -10,7 +10,8 @@ use alloc::vec::Vec;
 /// The index of an archive under construction, applying the rules every
 /// archive format shares.
 ///
-/// A format's parser reads its headers in order and records each member
+/// `C` is the format's [`Codec`](crate::archive::Codec), [`Stored`] for
+/// formats without compression. A format's parser reads its headers in order and records each member
 /// here by its raw name, a `/`-separated byte string. The index then:
 ///
 /// - refuses names that could escape the archive root (absolute, or with a
@@ -40,12 +41,12 @@ use alloc::vec::Vec;
 /// # Ok::<(), filer_api::Error>(())
 /// ```
 #[derive(Clone, Debug)]
-pub struct Index {
+pub struct Index<C = Stored> {
     format: &'static str,
-    tree: Tree<Member>,
+    tree: Tree<Member<C>>,
 }
 
-impl Index {
+impl<C> Index<C> {
     /// Returns an empty index for an archive of `format`, such as `"tar"`,
     /// which errors name.
     #[must_use]
@@ -75,7 +76,7 @@ impl Index {
     ///
     /// [`InvalidName`](ErrorKind::InvalidName) if `name` could escape the
     /// archive root or names the root itself.
-    pub fn insert(&mut self, name: &[u8], node: Node<Member>, offset: u64) -> Result<(), Error> {
+    pub fn insert(&mut self, name: &[u8], node: Node<Member<C>>, offset: u64) -> Result<(), Error> {
         let components = self.components(name, offset)?;
         let Some((&last, parents)) = components.split_last() else {
             return Err(self.fail(ErrorKind::InvalidName, offset, "member names the root"));
@@ -116,13 +117,13 @@ impl Index {
 
     /// Returns the tree built so far.
     #[must_use]
-    pub fn tree(&self) -> &Tree<Member> {
+    pub fn tree(&self) -> &Tree<Member<C>> {
         &self.tree
     }
 
     /// Returns the finished tree, for an [`Archive`](crate::archive::Archive).
     #[must_use]
-    pub fn into_tree(self) -> Tree<Member> {
+    pub fn into_tree(self) -> Tree<Member<C>> {
         self.tree
     }
 

@@ -2149,6 +2149,19 @@ delegating to `Archive`, as `filer_tar::Tar` is. This bends the placement
 rule (D20: state and semantics get their own crate) for convenience while
 the formats settle; it may move to its own crate later.
 
+**Compressed members** (as built, 2026-11-01). `Member<C>`, `Index<C>`,
+and `Archive<S, C>` are generic over the format's `Codec`, defaulting to
+`Stored` (TAR's, which never decodes). A member records its `packed`
+length and its codec value (for ZIP, the method and CRC); a codec that
+is not stored gives a boxed streaming `Decoder`. `Archive` keeps up to
+four streams part way through members, behind a lock per §7.7 (`spin`
+without `std`): a read continues the furthest stream not past its
+offset, or starts one, and decodes exactly to the read's end, so a
+sequential pass costs one decode and seeking backwards restarts. Output
+never passes the declared size, which bounds decompression bombs by what
+the index accepted; `Decoder::finish` checks a member (its CRC) only when
+a read reaches its end.
+
 **Read-only, permanently (D43).** Archive drivers read archives as
 directories and will never create or modify them: writing archives is out
 of scope for this project, not merely deferred. It also does not fit the

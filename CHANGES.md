@@ -38,6 +38,10 @@ so any release may break compatibility.
   `reads_xattrs` case.
 - `filer-ntfs`: Named data streams, read as `user.` extended attributes,
   and file attributes, as `FileAttrs`; `NtfsError::BadStreamName`.
+- `filer-api`: `archive::Codec`, `Decoder`, and `Stored`, so archive
+  drivers can serve compressed members; `Member`, `Index`, and `Archive`
+  take the format's codec as a type parameter, defaulting to `Stored`;
+  `Member::packed` and `Member::encoded`.
 - `filer-zip`: `Zip`, a read-only driver over ZIP archives with stored
   members, including ZIP64; `filer_zip::Limits` re-exports
   `filer_api::archive::Limits`.

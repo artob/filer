@@ -28,3 +28,4 @@ std = []
 [dependencies]
 bitflags.workspace = true
 ref-cast.workspace = true
+spin = { workspace = true, features = ["spin_mutex"] }

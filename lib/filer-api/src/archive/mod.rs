@@ -14,6 +14,8 @@
 //!   by names are created, the later of duplicate members wins, and
 //!   hardlinks share one node;
 //! - [`Archive`] serves the finished tree as a read-only [`Driver`];
+//! - [`Codec`] and [`Decoder`] decode compressed members, which
+//!   [`Member`] records with their format's codec;
 //! - [`Limits`] bounds what an untrusted archive may make the index hold;
 //! - [`ArchiveError`] names the format, header offset, and reason of a
 //!   failed open.
@@ -27,11 +29,16 @@
 mod archive_error;
 pub use archive_error::*;
 
+mod codec;
+pub use codec::*;
+
 mod driver;
 pub use driver::*;
 
 mod index;
 pub use index::*;
+
+mod lock;
 
 mod limits;
 pub use limits::*;

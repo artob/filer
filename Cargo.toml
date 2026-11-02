@@ -53,6 +53,7 @@ known-codepages = { version = "0.0.1", path = "lib/known-codepages", default-fea
 bitflags = { version = "2.13", default-features = false }
 ref-cast = { version = "1.0.27", default-features = false }
 rustix = { version = "1.1", default-features = false }
+spin = { version = "0.12", default-features = false }
 
 [patch.crates-io]
 filer-api = { path = "lib/filer-api" }
