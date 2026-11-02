@@ -15,16 +15,16 @@ use filer_fs::Mounted;
 ///
 /// Names are bytes, matched exactly, or on an `ASCII_CI` volume folded to
 /// lower case as Linux folds them, Latin-1's letters too; those that are
-/// not UTF-8 are [`ForeignName`](filer_api::ForeignName)s. Listings are in directory
-/// order, without `.` and `..`. A file's id is its inode number, so hard
-/// links share it. Times are UTC, at 1 ns. Metadata reports the flags
-/// immutable and append-only. Extended attributes are read in the `user`,
-/// `trusted`, `security`, and `system` namespaces; POSIX ACLs read as
-/// Linux's `getxattr` returns them, as `system` attributes converted and
-/// as `trusted` ones as they are. Symlinks are confined like any other;
-/// FIFOs, sockets, and devices are what they say, and do not open. Writing
-/// is out of scope: everything but reading is
-/// [`Unsupported`](filer_api::ErrorKind::Unsupported).
+/// not UTF-8 are [`ForeignName`](filer_api::ForeignName)s. Listings are
+/// in directory order, without `.` and `..`. A file's id is its inode
+/// number, so hard links share it. Times are UTC, at 1 ns. Metadata
+/// reports the flags immutable and append-only. Extended attributes are
+/// read in the `user`, `trusted`, `security`, and `system` namespaces;
+/// POSIX ACLs read as Linux's `getxattr` returns them, as `system`
+/// attributes converted and as `trusted` ones as they are. Symlinks are
+/// confined like any other; FIFOs, sockets, and devices are what they
+/// say, and do not open. Writing is out of scope: everything but reading
+/// is [`Unsupported`](filer_api::ErrorKind::Unsupported).
 ///
 /// # Examples
 ///
