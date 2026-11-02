@@ -15,7 +15,8 @@
 //!
 //! Drivers that read volume images also share their tests' tooling here:
 //! [`Sparse`] fixtures, [`Overlay`]s that mutate them, and [`exercise`],
-//! which walks what a driver makes of a mutated volume.
+//! which walks what a driver makes of a mutated volume; with `std`,
+//! [`fuzz`] mutates volumes and walks each.
 //!
 //! # Examples
 //!
@@ -48,6 +49,10 @@ mod cases;
 
 mod exercise;
 pub use exercise::*;
+
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+pub mod fuzz;
 
 mod image;
 pub use image::*;

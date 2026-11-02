@@ -15,7 +15,8 @@ so any release may break compatibility.
 - `filer-spec`: `Sparse`, `Overlay`, and `Image`: sparse fixtures, and
   images mutated without copying, for drivers that read volume images;
   `exercise`, with `Checks` and `Outcome`, walking what a driver makes of
-  a corrupt volume.
+  a corrupt volume; with `std`, `fuzz`, a structure-aware fuzzer of
+  volume images.
 - `filer-posix`: Kernel-confined opens with `openat2` on Linux, falling
   back to the userspace walk; `Posix::with_userspace_resolution`.
 - `filer-api`: `Spawner` and `Job`; under `std`, `run_on` and
