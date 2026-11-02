@@ -367,6 +367,26 @@ fn reads_deep_extent_trees_and_unwritten_extents() {
     assert!(unwritten[middle + 4096..].iter().all(|&b| b == 0));
 }
 
+/// ext4 as `mke2fs -t ext4` makes it: `64bit` descriptors, `flex_bg`,
+/// `huge_file`, and `metadata_csum`, whose checksums are not yet checked;
+/// and with `meta_bg`, in two metagroups, the root's subdirectories in
+/// the second.
+#[test]
+fn reads_ext4() {
+    check(
+        include_bytes!("fixtures/ext4-1k.sparse"),
+        Times::Nanoseconds,
+    );
+    check(
+        include_bytes!("fixtures/ext4-4k.sparse"),
+        Times::Nanoseconds,
+    );
+    check(
+        include_bytes!("fixtures/ext4-meta-bg.sparse"),
+        Times::Nanoseconds,
+    );
+}
+
 #[test]
 fn reads_128_byte_inodes() {
     check(include_bytes!("fixtures/ext2-128.sparse"), Times::Seconds);

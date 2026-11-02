@@ -24,6 +24,9 @@ const NANOSECONDS: Duration = Duration::from_nanos(1);
 const INDEX_FL: u32 = 0x1000;
 const EXTENTS_FL: u32 = 0x8_0000;
 
+/// The inode flag of an inode counting its blocks in blocks, not sectors.
+const HUGE_FILE_FL: u32 = 0x4_0000;
+
 /// An inode's four times. Creation is recorded only in the extra fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Times {
@@ -40,8 +43,11 @@ pub(crate) struct Inode {
     kind: FileKind,
     size: u64,
     links: u16,
-    /// `i_blocks`: 512-byte sectors in use, data and metadata.
+    /// `i_blocks`, and its high 16 bits under `huge_file`: 512-byte
+    /// sectors in use, data and metadata, or blocks with the huge file
+    /// flag.
     sectors: u32,
+    sectors_high: u16,
     flags: u32,
     block: [u8; I_BLOCK_SIZE],
     generation: u32,
@@ -112,6 +118,7 @@ impl Inode {
             size,
             links,
             sectors: u32_at(0x1C)?,
+            sectors_high: u16_at(0x74)?,
             flags: u32_at(0x20)?,
             block,
             generation: u32_at(0x64)?,
@@ -141,8 +148,18 @@ impl Inode {
     }
 
     /// Returns the number of 512-byte sectors the file uses.
-    pub(crate) const fn sectors(&self) -> u32 {
-        self.sectors
+    pub(crate) fn sectors(&self, sb: &Superblock) -> u64 {
+        if !sb.has_huge_files() {
+            return u64::from(self.sectors);
+        }
+        let [l0, l1, l2, l3] = self.sectors.to_le_bytes();
+        let [h0, h1] = self.sectors_high.to_le_bytes();
+        let count = u64::from_le_bytes([l0, l1, l2, l3, h0, h1, 0, 0]);
+        if self.flags & HUGE_FILE_FL == 0 {
+            count
+        } else {
+            count.saturating_mul(u64::from(sb.block_size() / 512))
+        }
     }
 
     /// Returns `i_block`.
@@ -284,6 +301,26 @@ pub(crate) mod tests {
             }
             b
         }
+    }
+
+    /// Under `huge_file`, block counts have 16 more bits, and are in
+    /// blocks for inodes with the huge file flag.
+    #[test]
+    fn counts_blocks_of_huge_files() {
+        let mut f = Fields::new();
+        let parse = |flags: u32, f: &Fields| {
+            let mut raw = Raw::file(0);
+            raw.sectors = 6;
+            raw.flags = flags;
+            let mut bytes = raw.bytes(256);
+            bytes[0x74..0x76].copy_from_slice(&1u16.to_le_bytes());
+            let sb = Superblock::parse(&f.bytes()).unwrap();
+            Inode::parse(&bytes, 12).unwrap().sectors(&sb)
+        };
+        assert_eq!(parse(0, &f), 6);
+        f.features.ro_compat |= 0x8;
+        assert_eq!(parse(0, &f), (1 << 32) + 6);
+        assert_eq!(parse(HUGE_FILE_FL, &f), ((1 << 32) + 6) * 2);
     }
 
     #[test]

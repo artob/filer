@@ -48,6 +48,9 @@ pub enum Ext4Error {
     /// size.
     BadInodeSize(u16),
 
+    /// The group descriptor size, under `64bit`, is not a power of two from
+    /// 64 bytes to the block size or 1 KiB.
+    BadDescriptorSize(u16),
     /// The group descriptors of this many groups do not fit in the volume.
     BadGroupCount(u32),
 
@@ -198,6 +201,7 @@ impl core::fmt::Display for Ext4Error {
             Self::NoBlocks => f.write_str("no data blocks"),
             Self::BadInodeCount(count) => write!(f, "invalid inode count {count}"),
             Self::BadInodeSize(size) => write!(f, "invalid inode size {size}"),
+            Self::BadDescriptorSize(size) => write!(f, "invalid descriptor size {size}"),
             Self::BadGroupCount(groups) => {
                 write!(f, "descriptors of {groups} groups do not fit the volume")
             },

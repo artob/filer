@@ -18,7 +18,13 @@ impl GroupDesc {
     /// its inode table lies within the volume, past the superblock.
     pub(crate) fn parse(bytes: &[u8], group: u32, sb: &Superblock) -> Result<Self, Ext4Error> {
         let bad = Ext4Error::BadGroupDescriptor { group };
-        let inode_table = u64::from(le::u32_at(bytes, 0x8).ok_or(bad)?);
+        let [l0, l1, l2, l3] = le::u32_at(bytes, 0x8).ok_or(bad)?.to_le_bytes();
+        // The high half, in descriptors of 64 bytes or more.
+        let [h0, h1, h2, h3] = match le::u32_at(bytes, 0x28) {
+            Some(high) if sb.desc_size() >= 64 => high.to_le_bytes(),
+            _ => [0; 4],
+        };
+        let inode_table = u64::from_le_bytes([l0, l1, l2, l3, h0, h1, h2, h3]);
         let end = inode_table
             .checked_add(sb.inode_table_blocks())
             .ok_or(bad)?;
@@ -47,10 +53,7 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         return Err(bad());
     }
     let size = sb.desc_size();
-    let off = u64::from(group)
-        .checked_mul(u64::from(size))
-        .and_then(|at| at.checked_add(sb.descriptors_offset()))
-        .ok_or_else(bad)?;
+    let off = sb.descriptor_offset(group).ok_or_else(bad)?;
     let bytes = read_exact(source, off, usize::from(size), op).await?;
     GroupDesc::parse(&bytes, group, sb).map_err(fail)
 }
@@ -82,6 +85,28 @@ mod tests {
         assert_eq!(parse(0), bad);
         assert_eq!(parse(u32::MAX), bad);
         assert_eq!(GroupDesc::parse(&[0; 8], 0, &sb), bad);
+    }
+
+    /// Descriptors of 64 bytes or more hold the high half of the inode
+    /// table's block.
+    #[test]
+    fn reads_64bit_inode_tables() {
+        let mut f = Fields::new();
+        f.features.incompat |= 0x80;
+        let mut b = f.bytes();
+        b[0xFE..0x100].copy_from_slice(&64u16.to_le_bytes());
+        let sb = Superblock::parse(&b).unwrap();
+        let mut d = [0; 64];
+        d[..32].copy_from_slice(&desc(7));
+        assert_eq!(GroupDesc::parse(&d, 0, &sb).unwrap().inode_table(), 7);
+        d[0x28] = 1;
+        assert_eq!(
+            GroupDesc::parse(&d, 0, &sb),
+            Err(Ext4Error::BadGroupDescriptor { group: 0 })
+        );
+        // In descriptors of 32 bytes, those bytes are another's.
+        let sb = Superblock::parse(&Fields::new().bytes()).unwrap();
+        assert_eq!(GroupDesc::parse(&d, 0, &sb).unwrap().inode_table(), 7);
     }
 
     #[test]

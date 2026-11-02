@@ -4,10 +4,11 @@
 //!
 //! [`Ext4`] implements [`filer_api::Driver`] over ext2, ext3, and ext4
 //! volumes, read from any [`filer_api::ReadAt`] source, reporting each
-//! inconsistency it finds as an [`Ext4Error`]. It reads ext2 and ext3 so
-//! far, and extents, replaying in memory a journal that needs recovery,
+//! inconsistency it finds as an [`Ext4Error`]. It reads ext2, ext3, and
+//! ext4 as `mke2fs` makes them by default, though without checking their
+//! checksums yet, replaying in memory a journal that needs recovery,
 //! unless [`Options`] ask to read the volume as it is; volumes using
-//! later features are refused by their feature flags.
+//! other features are refused by their feature flags.
 //! Writing is out of scope for now (see `DESIGN.md` §17.15).
 //!
 //! **Clean room.** The mature implementations (the Linux kernel's `ext4`

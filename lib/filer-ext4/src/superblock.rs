@@ -29,22 +29,49 @@ const MAX_LOG_BLOCK_SIZE: u32 = 6;
 /// The size of a group descriptor without the `64bit` feature.
 pub(crate) const DESC_SIZE: u16 = 32;
 
+/// The least and most descriptor sizes under `64bit`.
+const MIN_DESC_SIZE_64: u16 = 64;
+const MAX_DESC_SIZE: u16 = 1024;
+
 /// The feature flags of the three sets, as far as this driver knows them.
 pub(crate) mod feature {
     /// Compatible: the volume has a journal.
     pub(crate) const COMPAT_HAS_JOURNAL: u32 = 0x4;
     /// Compatible: directories may be hashed (htree) and indexed.
     pub(crate) const COMPAT_DIR_INDEX: u32 = 0x20;
+    /// Compatible: superblock backups only in the two groups named.
+    pub(crate) const COMPAT_SPARSE_SUPER2: u32 = 0x200;
+    /// Read-only compatible: superblock backups only in groups 0, 1, and
+    /// powers of 3, 5, and 7.
+    pub(crate) const RO_COMPAT_SPARSE_SUPER: u32 = 0x1;
+    /// Read-only compatible: block counts of 48 bits, and in blocks for
+    /// inodes with the huge file flag.
+    pub(crate) const RO_COMPAT_HUGE_FILE: u32 = 0x8;
     /// Incompatible: directory entries record the file type.
     pub(crate) const INCOMPAT_FILETYPE: u32 = 0x2;
     /// Incompatible: the journal holds changes not yet applied.
     pub(crate) const INCOMPAT_RECOVER: u32 = 0x4;
+    /// Incompatible: group descriptors in each metagroup's first group.
+    pub(crate) const INCOMPAT_META_BG: u32 = 0x10;
     /// Incompatible: files may be mapped by extent trees.
     pub(crate) const INCOMPAT_EXTENTS: u32 = 0x40;
+    /// Incompatible: block numbers of 64 bits, and larger descriptors.
+    pub(crate) const INCOMPAT_64BIT: u32 = 0x80;
+    /// Incompatible: groups' metadata may lie in other groups.
+    pub(crate) const INCOMPAT_FLEX_BG: u32 = 0x200;
+    /// Incompatible: the seed of `metadata_csum` checksums is kept in the
+    /// superblock, not derived from the UUID, which a reader that does
+    /// not check them may ignore.
+    pub(crate) const INCOMPAT_CSUM_SEED: u32 = 0x2000;
 }
 
 /// The incompatible features this driver reads.
-const SUPPORTED_INCOMPAT: u32 = feature::INCOMPAT_FILETYPE | feature::INCOMPAT_EXTENTS;
+const SUPPORTED_INCOMPAT: u32 = feature::INCOMPAT_FILETYPE
+    | feature::INCOMPAT_META_BG
+    | feature::INCOMPAT_EXTENTS
+    | feature::INCOMPAT_64BIT
+    | feature::INCOMPAT_FLEX_BG
+    | feature::INCOMPAT_CSUM_SEED;
 
 /// A volume's feature sets. Revision 0 volumes have none.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -71,6 +98,12 @@ pub(crate) struct Superblock {
     inodes_per_group: u32,
     groups: u32,
     inode_size: u16,
+    /// The size of a group descriptor: 32, or with `64bit` at least 64.
+    desc_size: u16,
+    /// The first metagroup whose descriptors are in it, under `meta_bg`.
+    first_meta_bg: u32,
+    /// The groups holding superblock backups, under `sparse_super2`.
+    backup_groups: [u32; 2],
     features: Features,
     uuid: [u8; 16],
     /// The journal's inode, or 0 if there is none in the volume.
@@ -126,7 +159,23 @@ impl Superblock {
         if inodes_per_group == 0 || inodes_per_group > bits {
             return Err(Ext4Error::BadInodesPerGroup(inodes_per_group));
         }
-        let blocks = u64::from(u32_at(bytes, 0x4)?);
+        let features = if revision == GOOD_OLD_REV {
+            Features::default()
+        } else {
+            Features {
+                compat: u32_at(bytes, 0x5C)?,
+                incompat: u32_at(bytes, 0x60)?,
+                ro_compat: u32_at(bytes, 0x64)?,
+            }
+        };
+        let wide = features.incompat & feature::INCOMPAT_64BIT != 0;
+        let [l0, l1, l2, l3] = u32_at(bytes, 0x4)?.to_le_bytes();
+        let [h0, h1, h2, h3] = if wide {
+            u32_at(bytes, 0x150)?.to_le_bytes()
+        } else {
+            [0; 4]
+        };
+        let blocks = u64::from_le_bytes([l0, l1, l2, l3, h0, h1, h2, h3]);
         let data_blocks = blocks
             .checked_sub(u64::from(first_data_block))
             .filter(|&n| n > 0)
@@ -139,15 +188,10 @@ impl Superblock {
         if inodes < ROOT_INODE || u64::from(inodes) > capacity {
             return Err(Ext4Error::BadInodeCount(inodes));
         }
-        let (inode_size, features) = if revision == GOOD_OLD_REV {
-            (GOOD_OLD_INODE_SIZE, Features::default())
+        let inode_size = if revision == GOOD_OLD_REV {
+            GOOD_OLD_INODE_SIZE
         } else {
-            let features = Features {
-                compat: u32_at(bytes, 0x5C)?,
-                incompat: u32_at(bytes, 0x60)?,
-                ro_compat: u32_at(bytes, 0x64)?,
-            };
-            (u16_at(bytes, 0x58)?, features)
+            u16_at(bytes, 0x58)?
         };
         if !inode_size.is_power_of_two()
             || inode_size < GOOD_OLD_INODE_SIZE
@@ -155,10 +199,32 @@ impl Superblock {
         {
             return Err(Ext4Error::BadInodeSize(inode_size));
         }
-        // The descriptors follow the superblock's block.
+        let desc_size = if wide {
+            let size = u16_at(bytes, 0xFE)?;
+            if !size.is_power_of_two()
+                || !(MIN_DESC_SIZE_64..=MAX_DESC_SIZE).contains(&size)
+                || u32::from(size) > block_size
+            {
+                return Err(Ext4Error::BadDescriptorSize(size));
+            }
+            size
+        } else {
+            DESC_SIZE
+        };
+        // The descriptors follow the superblock's block, but for those of
+        // metagroups from the first under `meta_bg`, each in its own.
         let block = u64::from(block_size);
-        let descriptors = u64::from(groups)
-            .saturating_mul(u64::from(DESC_SIZE))
+        let meta_bg = features.incompat & feature::INCOMPAT_META_BG != 0;
+        let first_meta_bg = if meta_bg { u32_at(bytes, 0x104)? } else { 0 };
+        let per_block = block.checked_div(u64::from(desc_size)).unwrap_or(1);
+        let contiguous = if meta_bg {
+            u64::from(first_meta_bg).saturating_mul(per_block)
+        } else {
+            u64::from(groups)
+        };
+        let descriptors = contiguous
+            .min(u64::from(groups))
+            .saturating_mul(u64::from(desc_size))
             .saturating_add(
                 u64::from(first_data_block)
                     .saturating_add(1)
@@ -181,6 +247,7 @@ impl Superblock {
         }
         // `s_flags`: 1 for signed directory hashes, 2 for unsigned.
         let unsigned_hash = u32_at(bytes, 0x160)? & 0x2 != 0;
+        let backup_groups = [u32_at(bytes, 0x24C)?, u32_at(bytes, 0x250)?];
         let journal_inode = if features.compat & feature::COMPAT_HAS_JOURNAL != 0 {
             u32_at(bytes, 0xE0)?
         } else {
@@ -196,6 +263,9 @@ impl Superblock {
             inodes_per_group,
             groups,
             inode_size,
+            desc_size,
+            first_meta_bg,
+            backup_groups,
             features,
             uuid,
             journal_inode,
@@ -259,16 +329,62 @@ impl Superblock {
 
     /// Returns the size of a group descriptor.
     pub(crate) const fn desc_size(&self) -> u16 {
-        DESC_SIZE
+        self.desc_size
     }
 
-    /// Returns the offset of the group descriptor table: the block after
-    /// the superblock's.
-    pub(crate) fn descriptors_offset(&self) -> u64 {
-        // The first data block is 0 or 1.
-        u64::from(self.first_data_block)
-            .saturating_add(1)
-            .saturating_mul(u64::from(self.block_size()))
+    /// Returns the offset of group `group`'s descriptor: in the table of
+    /// blocks after the superblock's, or under `meta_bg`, from its first
+    /// metagroup on, in the first block of its metagroup's first group,
+    /// past any superblock backup there. Each metagroup is the groups whose
+    /// descriptors one block holds.
+    pub(crate) fn descriptor_offset(&self, group: u32) -> Option<u64> {
+        let size = u64::from(self.desc_size);
+        let per_block = u64::from(self.block_size()).checked_div(size)?;
+        let index = u64::from(group).checked_div(per_block)?;
+        let within = u64::from(group).checked_rem(per_block)?;
+        let meta_bg = self.features.incompat & feature::INCOMPAT_META_BG != 0;
+        let block = if meta_bg && index >= u64::from(self.first_meta_bg) {
+            // The first block of the metagroup's first group, past its
+            // superblock backup.
+            let first = u32::try_from(index.checked_mul(per_block)?).ok()?;
+            let backup = u64::from(self.has_superblock(first));
+            self.group_first_block(first)?.checked_add(backup)?
+        } else {
+            // The first data block is 0 or 1.
+            u64::from(self.first_data_block)
+                .checked_add(1)?
+                .checked_add(index)?
+        };
+        self.block_offset(block)?
+            .checked_add(within.checked_mul(size)?)
+    }
+
+    /// Returns the first block of group `group`.
+    fn group_first_block(&self, group: u32) -> Option<u64> {
+        u64::from(group)
+            .checked_mul(u64::from(self.blocks_per_group))?
+            .checked_add(u64::from(self.first_data_block))
+    }
+
+    /// Returns `true` if group `group` holds the superblock or a backup.
+    fn has_superblock(&self, group: u32) -> bool {
+        let Features {
+            compat, ro_compat, ..
+        } = self.features;
+        if group == 0 {
+            true
+        } else if compat & feature::COMPAT_SPARSE_SUPER2 != 0 {
+            self.backup_groups.contains(&group)
+        } else if ro_compat & feature::RO_COMPAT_SPARSE_SUPER != 0 {
+            group == 1 || [3, 5, 7].iter().any(|&base| is_power_of(group, base))
+        } else {
+            true
+        }
+    }
+
+    /// Returns `true` if inodes may count their blocks in 48 bits.
+    pub(crate) const fn has_huge_files(&self) -> bool {
+        self.features.ro_compat & feature::RO_COMPAT_HUGE_FILE != 0
     }
 
     #[allow(dead_code, reason = "used by tests")]
@@ -334,6 +450,19 @@ impl Superblock {
         // Below 2^32 blocks of at most 2^16 bytes.
         self.blocks.saturating_mul(u64::from(self.block_size()))
     }
+}
+
+/// Returns `true` if `n` is a power of `base`: `base`, its square, and so
+/// on.
+fn is_power_of(n: u32, base: u32) -> bool {
+    let mut power = base;
+    while power < n {
+        let Some(next) = power.checked_mul(base) else {
+            return false;
+        };
+        power = next;
+    }
+    power == n
 }
 
 /// Reads and validates the superblock of the volume in `source`, which
@@ -523,6 +652,83 @@ pub(crate) mod tests {
         check(|f| f.inode_size = 64, Ext4Error::BadInodeSize(64));
         check(|f| f.inode_size = 384, Ext4Error::BadInodeSize(384));
         check(|f| f.inode_size = 2048, Ext4Error::BadInodeSize(2048));
+    }
+
+    /// `64bit` volumes: block counts of 64 bits, and descriptors of a
+    /// power of two from 64 bytes to the block size.
+    #[test]
+    fn reads_64bit_counts_and_descriptor_sizes() {
+        let mut f = Fields::new();
+        f.features.incompat |= feature::INCOMPAT_64BIT;
+        let parse = |desc: u16, high: u32| {
+            let mut b = f.bytes();
+            b[0xFE..0x100].copy_from_slice(&desc.to_le_bytes());
+            b[0x150..0x154].copy_from_slice(&high.to_le_bytes());
+            Superblock::parse(&b)
+        };
+        let sb = parse(64, 0).unwrap();
+        assert_eq!((sb.blocks(), sb.desc_size()), (4096, 64));
+        assert_eq!(parse(64, 1).unwrap().blocks(), (1 << 32) + 4096);
+        for size in [0, 32, 48, 96, 2048] {
+            assert_eq!(parse(size, 0), Err(Ext4Error::BadDescriptorSize(size)));
+        }
+        // Without `64bit`, the fields are not read.
+        let mut b = Fields::new().bytes();
+        b[0xFE] = 64;
+        b[0x150] = 1;
+        let sb = Superblock::parse(&b).unwrap();
+        assert_eq!((sb.blocks(), sb.desc_size()), (4096, 32));
+    }
+
+    /// Under `meta_bg`, each metagroup's descriptors are in its first
+    /// group's first block, past a superblock backup there, from the
+    /// first metagroup the superblock names; before it, they are in the
+    /// table after the superblock.
+    #[test]
+    fn locates_descriptors_of_metagroups() {
+        let mut f = Fields::new();
+        f.blocks = 8192 * 40 + 1;
+        f.inodes_per_group = 128;
+        f.inodes = 128 * 40;
+        f.features.incompat |= feature::INCOMPAT_META_BG | feature::INCOMPAT_64BIT;
+        let parse = |first_meta_bg: u32| {
+            let mut b = f.bytes();
+            b[0xFE..0x100].copy_from_slice(&64u16.to_le_bytes());
+            b[0x104..0x108].copy_from_slice(&first_meta_bg.to_le_bytes());
+            Superblock::parse(&b).unwrap()
+        };
+        // Sixteen descriptors a block, and groups of 8192 blocks from 1.
+        let sb = parse(1);
+        let block = |group: u64| (1 + group * 8192) * 1024;
+        assert_eq!(sb.descriptor_offset(0), Some(2048));
+        assert_eq!(sb.descriptor_offset(5), Some(2048 + 5 * 64));
+        assert_eq!(sb.descriptor_offset(16), Some(block(16)));
+        assert_eq!(sb.descriptor_offset(33), Some(block(32) + 64));
+        // Group 0 holds the superblock, so its descriptors follow it.
+        let sb = parse(0);
+        assert_eq!(sb.descriptor_offset(1), Some(2048 + 64));
+        // Past the volume.
+        assert_eq!(sb.descriptor_offset(48), None);
+    }
+
+    #[test]
+    fn tells_groups_with_superblock_backups() {
+        let sb = Superblock::parse(&Fields::new().bytes()).unwrap();
+        let backups: alloc::vec::Vec<u32> = (0..60).filter(|&g| sb.has_superblock(g)).collect();
+        assert_eq!(backups, [0, 1, 3, 5, 7, 9, 25, 27, 49]);
+        // Without `sparse_super`, every group; with `sparse_super2`, the
+        // two the superblock names.
+        let mut f = Fields::new();
+        f.features.ro_compat = 0;
+        let sb = Superblock::parse(&f.bytes()).unwrap();
+        assert!((0..60).all(|g| sb.has_superblock(g)));
+        f.features.compat |= feature::COMPAT_SPARSE_SUPER2;
+        let mut b = f.bytes();
+        b[0x24C..0x250].copy_from_slice(&1u32.to_le_bytes());
+        b[0x250..0x254].copy_from_slice(&30u32.to_le_bytes());
+        let sb = Superblock::parse(&b).unwrap();
+        let backups: alloc::vec::Vec<u32> = (0..60).filter(|&g| sb.has_superblock(g)).collect();
+        assert_eq!(backups, [0, 1, 30]);
     }
 
     #[test]

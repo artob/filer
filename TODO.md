@@ -680,8 +680,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-13: Large volumes.** `64bit` descriptors and block numbers,
-  `flex_bg`, `meta_bg`, `huge_file`. Done when fixtures of each read.
 - [ ] **EXT-14: Checksums.** CRC32C and CRC16 in pure Rust;
   `metadata_csum` (with `metadata_csum_seed`) and `gdt_csum`, verified.
   Done when default `mke2fs -t ext4` fixtures read and corrupted

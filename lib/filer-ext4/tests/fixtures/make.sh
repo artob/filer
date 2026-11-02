@@ -367,6 +367,9 @@ make spec 32M "-t ext2 -b 4096" spec
 make ext3-1k 32M "-t ext3 -b 1024" fill
 make ext3-4k 32M "-t ext3 -b 4096" fill
 make ext3-extents-1k 32M "-t ext3 -b 1024 -O extent" fill
+make ext4-1k 32M "-t ext4 -b 1024" fill
+make ext4-4k 32M "-t ext4 -b 4096" fill
+make ext4-meta-bg 256M "-t ext4 -b 1024 -O meta_bg,^resize_inode" fill
 make ext3-extents-4k 32M "-t ext3 -b 4096 -O extent" fill
 make ext3-extents-deep 16M "-t ext3 -b 1024 -O extent" deep
 hashed ext2-htree-tea 16M "-t ext2 -b 1024" tea unsigned

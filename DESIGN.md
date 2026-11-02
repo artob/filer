@@ -2642,7 +2642,17 @@ TEA cipher, and checked against `debugfs`'s `dx_hash`.
   incompatible feature must stop a reader; read-only-compatible ones may
   not, as a reader writes nothing.
 - Block groups: their descriptors follow the superblock's block, 32 bytes
-  each (64 or more with `64bit`); each names its inode table.
+  each (with `64bit`, a power of two from 64, holding the high halves of
+  block numbers, as the superblock holds its count's); each names its
+  inode table, which with `flex_bg` may lie in another group. Under
+  `meta_bg`, from `s_first_meta_bg` on, each metagroup (the groups one
+  block of descriptors covers) keeps its descriptors in its first
+  group's first block, past any superblock backup there: groups 0, 1,
+  and powers of 3, 5, and 7 with `sparse_super`, the two the superblock
+  names with `sparse_super2`, else every group. `huge_file` adds 16 bits
+  to inodes' block counts, in blocks rather than sectors for inodes with
+  its flag. `metadata_csum_seed` only moves the checksums' seed into the
+  superblock.
 - Inodes: number n is entry (n - 1) mod `s_inodes_per_group` of group
   (n - 1) / `s_inodes_per_group`; there is no inode 0, and 2 is the root.
   The 128-byte base holds the mode (kind and permissions), owner, size
@@ -2725,7 +2735,9 @@ block two files share, POSIX ACLs, a name that is not UTF-8) and inode
 flags; two of a hashed directory of 700 long names, by TEA over
 unsigned bytes two levels deep, and by the legacy hash over signed ones,
 whose every name the index finds as the linear read lists it; ext3
-volumes of 1 and 4 KiB blocks, with and without extents, and one of a
+volumes of 1 and 4 KiB blocks, with and without extents; ext4 volumes
+as `mke2fs -t ext4` makes them, of 1 and 4 KiB blocks, and one with
+`meta_bg` of two metagroups; and one of a
 file of 2000 extents two levels deep and one allocated but unwritten
 but for its middle; and three that need
 recovery, of 1 and 4 KiB blocks and with `metadata_csum`, copied while

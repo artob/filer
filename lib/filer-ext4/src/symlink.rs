@@ -20,7 +20,8 @@ pub(crate) fn is_fast(inode: &Inode, sb: &Superblock) -> bool {
     } else {
         sb.block_size() / 512
     };
-    inode.size() < u64::try_from(I_BLOCK_SIZE).unwrap_or(u64::MAX) && inode.sectors() == attributes
+    inode.size() < u64::try_from(I_BLOCK_SIZE).unwrap_or(u64::MAX)
+        && inode.sectors(sb) == u64::from(attributes)
 }
 
 /// Reads the target of symlink `inode`, which must not be empty, contain
