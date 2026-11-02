@@ -8,8 +8,6 @@
 //! Blocks are mapped lazily, a run at a time, reading the B+ tree's blocks
 //! on the way down: no file's whole map is ever held.
 
-#![allow(dead_code, reason = "used by the driver, which comes later")]
-
 use crate::{
     XfsError, be,
     inode::{EXTENT_SIZE, Fork, Format, Inode},

@@ -2,8 +2,6 @@
 
 //! The superblock, and the volume layout it describes.
 
-#![allow(dead_code, reason = "used by the driver, which comes later")]
-
 use crate::{FeatureSet, XfsError, be};
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
@@ -361,6 +359,7 @@ impl Superblock {
 
     /// Returns the sector size in bytes: a power of two from 512 bytes to
     /// the block size.
+    #[allow(dead_code, reason = "for the log, later")]
     pub(crate) const fn sector_size(&self) -> u32 {
         1 << self.sector_log
     }
@@ -378,16 +377,19 @@ impl Superblock {
 
     /// Returns the number of blocks in an allocation group, but perhaps the
     /// last.
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn ag_blocks(&self) -> u32 {
         self.ag_blocks
     }
 
     /// Returns the number of allocation groups.
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn ag_count(&self) -> u32 {
         self.ag_count
     }
 
     /// Returns the number of blocks in the volume.
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn blocks(&self) -> u64 {
         self.blocks
     }
@@ -399,10 +401,12 @@ impl Superblock {
 
     /// Returns the internal log's first block and length in blocks, or
     /// `None` for an external log.
+    #[allow(dead_code, reason = "for the log, later")]
     pub(crate) fn internal_log(&self) -> Option<(u64, u32)> {
         self.log_start.map(|start| (start, self.log_blocks))
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn features(&self) -> Features {
         self.features
     }

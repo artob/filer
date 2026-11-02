@@ -717,8 +717,6 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-05: Driver.** `Xfs`: open, read, stat, list, read links,
-  close. Done when a `mkfs.xfs -m crc=0` image reads.
 - [ ] **XFS-06: Log check.** Find the log's head; a volume that needs
   recovery, or has an external log, is refused, with an opt-in to read it
   as it is. Done when volumes shut down mid-write are refused and clean

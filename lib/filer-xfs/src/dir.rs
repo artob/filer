@@ -13,8 +13,6 @@
 //! a short-form directory the tag it keeps for the same purpose; offsets
 //! ascend through a directory, so they serve as cookies.
 
-#![allow(dead_code, reason = "used by the driver, which comes later")]
-
 use crate::{
     XfsError, be,
     file_map::FileMap,

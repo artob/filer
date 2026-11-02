@@ -2,8 +2,6 @@
 
 //! Symlink targets: local ones in the inode, remote ones in data blocks.
 
-#![allow(dead_code, reason = "used by the driver, which comes later")]
-
 use crate::{
     XfsError,
     file_map::FileMap,

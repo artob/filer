@@ -13,6 +13,9 @@ keywords = ["xfs", "linux", "filesystem", "no-std"]
 categories.workspace = true
 publish.workspace = true
 
+# The fixtures are large; tests run from the repository.
+exclude = ["tests/fixtures/*.sparse"]
+
 [lints]
 workspace = true
 
@@ -30,3 +33,8 @@ filer-api.workspace = true
 
 [dev-dependencies]
 filer-spec = { workspace = true, features = ["std"] }
+filer-system = { workspace = true, features = ["std"] }
+
+[[example]]
+name = "manifest"
+required-features = ["std"]

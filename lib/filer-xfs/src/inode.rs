@@ -2,8 +2,6 @@
 
 //! Inodes: finding them by number, and decoding their cores and forks.
 
-#![allow(dead_code, reason = "used by the driver, which comes later")]
-
 use crate::{
     XfsError, be, io,
     superblock::{Superblock, Version},
@@ -219,11 +217,13 @@ impl Inode {
         self.size
     }
 
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn links(&self) -> u32 {
         self.links
     }
 
     /// Returns the number of blocks the file uses for data and its map.
+    #[allow(dead_code, reason = "used by tests")]
     pub(crate) const fn blocks(&self) -> u64 {
         self.blocks
     }
@@ -243,6 +243,7 @@ impl Inode {
     }
 
     /// Returns the attribute fork, if the inode has one.
+    #[allow(dead_code, reason = "for extended attributes, later")]
     pub(crate) const fn attr(&self) -> Option<&Fork> {
         self.attr.as_ref()
     }

@@ -2,8 +2,6 @@
 
 //! Big-endian fields of on-disk structures, read without panicking.
 
-#![allow(dead_code, reason = "used by the driver, which comes later")]
-
 /// Returns the `u16` at byte `at` of `bytes`, if it fits.
 pub(crate) fn u16_at(bytes: &[u8], at: usize) -> Option<u16> {
     bytes
