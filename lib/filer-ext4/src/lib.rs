@@ -86,7 +86,6 @@ pub use ext4::*;
 mod group;
 mod inode;
 mod io;
-mod le;
 mod superblock;
 mod symlink;
 mod volume;

@@ -685,10 +685,6 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-01: Field readers.** Little- and big-endian `u16_at`,
-  `u32_at`, and `u64_at`, returning `Option`. Done when `filer-ext4`'s
-  `le.rs`, `filer-xfs`'s `be.rs`, and the private copies in `filer-fat`
-  and `filer-ntfs` are gone.
 - [ ] **FS-02: Source reads.** One exact read of `len` bytes at an
   offset, its error naming the caller's operation, as `filer-fat`'s and
   `filer-ntfs`'s do. Done when the drivers' `io.rs` files and copies are

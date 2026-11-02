@@ -14,18 +14,7 @@ use crate::{
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use filer_api::{Error, OpKind, ReadAt};
-
-fn u16_at(bytes: &[u8], at: usize) -> Option<u16> {
-    Some(u16::from_le_bytes(*bytes.get(at..)?.first_chunk()?))
-}
-
-fn u32_at(bytes: &[u8], at: usize) -> Option<u32> {
-    Some(u32::from_le_bytes(*bytes.get(at..)?.first_chunk()?))
-}
-
-fn u64_at(bytes: &[u8], at: usize) -> Option<u64> {
-    Some(u64::from_le_bytes(*bytes.get(at..)?.first_chunk()?))
-}
+use filer_fs::le;
 
 /// An index entry: a name of a file, or the node's last entry, which has
 /// none; either may lead to a subnode of lesser keys.
@@ -41,23 +30,23 @@ struct Entry {
 fn entries(bytes: &[u8]) -> Option<Vec<Entry>> {
     const SUBNODE: u16 = 0x01;
     const LAST: u16 = 0x02;
-    let first = usize::try_from(u32_at(bytes, 0)?).ok()?;
-    let used = usize::try_from(u32_at(bytes, 4)?).ok()?;
+    let first = usize::try_from(le::u32_at(bytes, 0)?).ok()?;
+    let used = usize::try_from(le::u32_at(bytes, 4)?).ok()?;
     let node = bytes.get(..used)?;
     let mut entries = Vec::new();
     let mut at = first;
     loop {
         let entry = node.get(at..)?;
-        let len = usize::from(u16_at(entry, 8)?);
-        let key_len = usize::from(u16_at(entry, 0x0A)?);
-        let flags = u16_at(entry, 0x0C)?;
+        let len = usize::from(le::u16_at(entry, 8)?);
+        let key_len = usize::from(le::u16_at(entry, 0x0A)?);
+        let flags = le::u16_at(entry, 0x0C)?;
         let entry = entry.get(..len)?;
         if len < 0x10 || !len.is_multiple_of(8) {
             return None;
         }
         let subnode = match flags & SUBNODE {
             0 => None,
-            _ => Some(u64_at(entry, len.checked_sub(8)?)?),
+            _ => Some(le::u64_at(entry, len.checked_sub(8)?)?),
         };
         let last = flags & LAST != 0;
         let name = match last {
@@ -65,7 +54,7 @@ fn entries(bytes: &[u8]) -> Option<Vec<Entry>> {
             false => Some(FileName::parse(entry.get(0x10..)?.get(..key_len)?)?),
         };
         entries.push(Entry {
-            file: FileRef::from_u64(u64_at(entry, 0)?),
+            file: FileRef::from_u64(le::u64_at(entry, 0)?),
             name,
             subnode,
         });
@@ -99,10 +88,10 @@ impl Index {
         record: u64,
     ) -> Result<Self, NtfsError> {
         let bad = NtfsError::BadIndex { record };
-        if u32_at(root, 0) != Some(AttrType::FILE_NAME.0) {
+        if le::u32_at(root, 0) != Some(AttrType::FILE_NAME.0) {
             return Err(bad);
         }
-        let record_size = u32_at(root, 8).ok_or(bad)?;
+        let record_size = le::u32_at(root, 8).ok_or(bad)?;
         if !record_size.is_power_of_two() || !(512..=65536).contains(&record_size) {
             return Err(bad);
         }
@@ -152,9 +141,10 @@ impl Index {
         if bytes.get(..4) != Some(b"INDX".as_slice()) {
             return Err(bad());
         }
-        let usa_offset = u16_at(&bytes, 4).ok_or_else(bad)?;
-        let usa_count = u16_at(&bytes, 6).ok_or_else(bad)?;
-        if !fixup::apply(&mut bytes, usa_offset, usa_count) || u64_at(&bytes, 0x10) != Some(vcn) {
+        let usa_offset = le::u16_at(&bytes, 4).ok_or_else(bad)?;
+        let usa_count = le::u16_at(&bytes, 6).ok_or_else(bad)?;
+        if !fixup::apply(&mut bytes, usa_offset, usa_count) || le::u64_at(&bytes, 0x10) != Some(vcn)
+        {
             return Err(bad());
         }
         bytes.get(0x18..).and_then(entries).ok_or_else(bad)

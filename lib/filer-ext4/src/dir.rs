@@ -4,9 +4,10 @@
 //! directories hide their index in blocks that read as one unused entry,
 //! so a linear read sees exactly their entries too.
 
-use crate::{Ext4Error, block_map::BlockMap, le, superblock::Superblock};
+use crate::{Ext4Error, block_map::BlockMap, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{Error, FileKind, OpKind, ReadAt};
+use filer_fs::le;
 
 /// The longest name an entry holds.
 const MAX_NAME: usize = 255;

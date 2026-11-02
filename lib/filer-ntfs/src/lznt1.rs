@@ -12,6 +12,8 @@
 //! decompressed: the displacement has 4 bits up to 16 bytes, and one more
 //! each time that doubles, up to 12.
 
+use filer_fs::le;
+
 /// The output of one chunk.
 pub(crate) const CHUNK: usize = 4096;
 
@@ -65,7 +67,7 @@ fn chunk(data: &[u8], output: &mut [u8]) -> Option<()> {
                 at = at.checked_add(1)?;
                 continue;
             }
-            let token = u16::from_le_bytes(*data.get(at..)?.first_chunk::<2>()?);
+            let token = le::u16_at(data, at)?;
             at = at.checked_add(2)?;
             // A reference needs output before it.
             let mut length_bits = 12u32;

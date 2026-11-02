@@ -13,9 +13,10 @@
 //! volume does not have yet: from the tail that record names on, which
 //! `recover` replays.
 
-use crate::{XfsError, be, io, superblock::Superblock};
+use crate::{XfsError, io, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
+use filer_fs::be;
 
 /// The size of a log sector.
 const SECTOR: u64 = 512;

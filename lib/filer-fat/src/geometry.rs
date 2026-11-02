@@ -5,6 +5,7 @@
 use crate::{FatError, FatType};
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::le;
 
 /// The size of the boot sector read, which holds every field parsed here
 /// and the signature at bytes 510 and 511, whatever the sector size.
@@ -65,20 +66,12 @@ fn u8_at(sector: &[u8], at: usize) -> Result<u8, FatError> {
 
 /// Reads the little-endian `u16` at `at`.
 fn u16_at(sector: &[u8], at: usize) -> Result<u16, FatError> {
-    sector
-        .get(at..)
-        .and_then(<[u8]>::first_chunk)
-        .map(|bytes| u16::from_le_bytes(*bytes))
-        .ok_or(FatError::ShortBootSector)
+    le::u16_at(sector, at).ok_or(FatError::ShortBootSector)
 }
 
 /// Reads the little-endian `u32` at `at`.
 fn u32_at(sector: &[u8], at: usize) -> Result<u32, FatError> {
-    sector
-        .get(at..)
-        .and_then(<[u8]>::first_chunk)
-        .map(|bytes| u32::from_le_bytes(*bytes))
-        .ok_or(FatError::ShortBootSector)
+    le::u32_at(sector, at).ok_or(FatError::ShortBootSector)
 }
 
 impl Geometry {

@@ -21,7 +21,7 @@
 //! each is read.
 
 use crate::{
-    XfsError, be, crc, da,
+    XfsError, crc, da,
     file_map::FileMap,
     hash,
     inode::{Format, Inode},
@@ -29,6 +29,7 @@ use crate::{
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use filer_api::{Error, ErrorKind, FileKind, OpKind, ReadAt};
+use filer_fs::be;
 
 /// The size of a single-block directory's tail (the leaf count and the
 /// stale count), and of each leaf entry before it.

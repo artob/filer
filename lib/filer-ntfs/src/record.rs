@@ -4,6 +4,7 @@
 
 use crate::{NtfsError, fixup};
 use alloc::vec::Vec;
+use filer_fs::le;
 
 /// The type of an attribute.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -41,18 +42,6 @@ impl FileRef {
     }
 }
 
-fn u16_at(bytes: &[u8], at: usize) -> Option<u16> {
-    Some(u16::from_le_bytes(*bytes.get(at..)?.first_chunk()?))
-}
-
-fn u32_at(bytes: &[u8], at: usize) -> Option<u32> {
-    Some(u32::from_le_bytes(*bytes.get(at..)?.first_chunk()?))
-}
-
-fn u64_at(bytes: &[u8], at: usize) -> Option<u64> {
-    Some(u64::from_le_bytes(*bytes.get(at..)?.first_chunk()?))
-}
-
 /// A valid MFT record, with its update sequence removed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Record {
@@ -79,13 +68,13 @@ impl Record {
         if bytes.get(..4) != Some(b"FILE".as_slice()) {
             return Err(bad());
         }
-        let usa_offset = u16_at(&bytes, 4).ok_or_else(bad)?;
-        let usa_count = u16_at(&bytes, 6).ok_or_else(bad)?;
+        let usa_offset = le::u16_at(&bytes, 4).ok_or_else(bad)?;
+        let usa_count = le::u16_at(&bytes, 6).ok_or_else(bad)?;
         if !fixup::apply(&mut bytes, usa_offset, usa_count) {
             return Err(NtfsError::TornRecord { record: number });
         }
-        let attributes = usize::from(u16_at(&bytes, 0x14).ok_or_else(bad)?);
-        let used = usize::try_from(u32_at(&bytes, 0x18).ok_or_else(bad)?).map_err(|_| bad())?;
+        let attributes = usize::from(le::u16_at(&bytes, 0x14).ok_or_else(bad)?);
+        let used = usize::try_from(le::u32_at(&bytes, 0x18).ok_or_else(bad)?).map_err(|_| bad())?;
         let usa_end =
             usize::from(usa_offset).saturating_add(usize::from(usa_count).saturating_mul(2));
         if attributes < usa_end
@@ -97,19 +86,19 @@ impl Record {
         }
         // NTFS 3.1 records their own number: a misplaced record is caught.
         if usize::from(usa_offset) >= 0x30 {
-            let own = u32_at(&bytes, 0x2C).ok_or_else(bad)?;
+            let own = le::u32_at(&bytes, 0x2C).ok_or_else(bad)?;
             if u64::from(own) != number & 0xFFFF_FFFF {
                 return Err(bad());
             }
         }
         // No base is the whole reference being zero: `$MFT`'s extension
         // records refer to record 0, with its sequence number.
-        let base = u64_at(&bytes, 0x20).ok_or_else(bad)?;
+        let base = le::u64_at(&bytes, 0x20).ok_or_else(bad)?;
         Ok(Self {
             number,
-            sequence: u16_at(&bytes, 0x10).ok_or_else(bad)?,
-            links: u16_at(&bytes, 0x12).ok_or_else(bad)?,
-            flags: u16_at(&bytes, 0x16).ok_or_else(bad)?,
+            sequence: le::u16_at(&bytes, 0x10).ok_or_else(bad)?,
+            links: le::u16_at(&bytes, 0x12).ok_or_else(bad)?,
+            flags: le::u16_at(&bytes, 0x16).ok_or_else(bad)?,
             base: (base != 0).then(|| FileRef::from_u64(base)),
             attributes,
             used,
@@ -175,12 +164,12 @@ impl<'a> Iterator for Attributes<'a> {
             record: record.number,
             offset: u32::try_from(self.at).unwrap_or(u32::MAX),
         };
-        let kind = u32_at(used, self.at);
+        let kind = le::u32_at(used, self.at);
         if kind == Some(AttrType::END) {
             return None;
         }
         let parsed = kind.and_then(|kind| {
-            let len = usize::try_from(u32_at(used, self.at.checked_add(4)?)?).ok()?;
+            let len = usize::try_from(le::u32_at(used, self.at.checked_add(4)?)?).ok()?;
             let end = self.at.checked_add(len)?;
             let bytes = used.get(self.at..end)?;
             len.is_multiple_of(8).then_some(())?;
@@ -247,26 +236,26 @@ impl<'a> Attribute<'a> {
     fn parse(kind: AttrType, bytes: &'a [u8]) -> Option<Self> {
         let non_resident = *bytes.get(8)?;
         let name_len = usize::from(*bytes.get(9)?).checked_mul(2)?;
-        let name_at = usize::from(u16_at(bytes, 0x0A)?);
+        let name_at = usize::from(le::u16_at(bytes, 0x0A)?);
         let name = bytes.get(name_at..)?.get(..name_len)?;
-        let flags = u16_at(bytes, 0x0C)?;
-        let id = u16_at(bytes, 0x0E)?;
+        let flags = le::u16_at(bytes, 0x0C)?;
+        let id = le::u16_at(bytes, 0x0E)?;
         let body = match non_resident {
             0 => {
-                let len = usize::try_from(u32_at(bytes, 0x10)?).ok()?;
-                let at = usize::from(u16_at(bytes, 0x14)?);
+                let len = usize::try_from(le::u32_at(bytes, 0x10)?).ok()?;
+                let at = usize::from(le::u16_at(bytes, 0x14)?);
                 Body::Resident(bytes.get(at..)?.get(..len)?)
             },
             1 => {
-                let runs_at = usize::from(u16_at(bytes, 0x20)?);
+                let runs_at = usize::from(le::u16_at(bytes, 0x20)?);
                 let header = NonResident {
-                    first_vcn: u64_at(bytes, 0x10)?,
-                    last_vcn: u64_at(bytes, 0x18)?,
+                    first_vcn: le::u64_at(bytes, 0x10)?,
+                    last_vcn: le::u64_at(bytes, 0x18)?,
                     runs: bytes.get(runs_at..)?,
-                    compression_unit: u16_at(bytes, 0x22)?,
-                    allocated: u64_at(bytes, 0x28)?,
-                    size: u64_at(bytes, 0x30)?,
-                    initialized: u64_at(bytes, 0x38)?,
+                    compression_unit: le::u16_at(bytes, 0x22)?,
+                    allocated: le::u64_at(bytes, 0x28)?,
+                    size: le::u64_at(bytes, 0x30)?,
+                    initialized: le::u64_at(bytes, 0x38)?,
                 };
                 // An empty attribute's last VCN is -1, stored as `u64::MAX`.
                 if runs_at < 0x40 || header.last_vcn.wrapping_add(1) < header.first_vcn {

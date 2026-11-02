@@ -9,13 +9,14 @@
 //! on the way down: no file's whole map is ever held.
 
 use crate::{
-    XfsError, be, crc,
+    XfsError, crc,
     inode::{EXTENT_SIZE, Fork, Format, Inode},
     io,
     superblock::Superblock,
 };
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
+use filer_fs::be;
 
 /// A B+ tree block's magic number: `BMAP`, or with version 5 `BMA3`.
 const BMAP_MAGIC: u32 = 0x424D_4150;

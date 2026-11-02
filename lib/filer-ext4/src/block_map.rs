@@ -8,9 +8,10 @@
 //! Blocks are mapped lazily, a run at a time, reading the indirect blocks
 //! on the way: no file's whole map is ever held.
 
-use crate::{Ext4Error, inode::Inode, io, le, superblock::Superblock};
+use crate::{Ext4Error, inode::Inode, io, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
+use filer_fs::le;
 
 /// The number of direct block numbers, and where the indirect, double
 /// indirect, and triple indirect ones are in `i_block`.

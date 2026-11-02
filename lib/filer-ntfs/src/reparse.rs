@@ -10,6 +10,7 @@
 
 use crate::wtf8;
 use alloc::{boxed::Box, vec::Vec};
+use filer_fs::le;
 
 /// A symbolic link.
 pub(crate) const SYMLINK: u32 = 0xA000_000C;
@@ -44,17 +45,17 @@ impl Reparse {
     /// Parses a `$REPARSE_POINT` value, or returns `None` if it does not
     /// fit, or a link's target is empty or holds NUL.
     pub(crate) fn parse(value: &[u8]) -> Option<Self> {
-        let tag = u32::from_le_bytes(*value.first_chunk()?);
-        let len = usize::from(u16::from_le_bytes(*value.get(4..)?.first_chunk()?));
+        let tag = le::u32_at(value, 0)?;
+        let len = usize::from(le::u16_at(value, 4)?);
         let data = value.get(8..)?.get(..len)?;
         let target = match tag {
             SYMLINK => {
-                let flags = u32::from_le_bytes(*data.get(8..)?.first_chunk()?);
+                let flags = le::u32_at(data, 8)?;
                 windows_target(data, 12, flags & SYMLINK_FLAG_RELATIVE != 0)?
             },
             MOUNT_POINT => windows_target(data, 8, false)?,
             LX_SYMLINK => {
-                let version = u32::from_le_bytes(*data.first_chunk()?);
+                let version = le::u32_at(data, 0)?;
                 (version == 2).then_some(())?;
                 data.get(4..)?.to_vec()
             },
@@ -70,11 +71,7 @@ impl Reparse {
 /// Reads the substitute name of a symbolic link or junction, whose path
 /// buffer starts at `buffer` in `data`, and makes it a Filer target.
 fn windows_target(data: &[u8], buffer: usize, relative: bool) -> Option<Vec<u8>> {
-    let field = |at: usize| {
-        Some(usize::from(u16::from_le_bytes(
-            *data.get(at..)?.first_chunk()?,
-        )))
-    };
+    let field = |at: usize| le::u16_at(data, at).map(usize::from);
     let (offset, len) = (field(0)?, field(2)?);
     let bytes = data.get(buffer..)?.get(offset..)?.get(..len)?;
     let (units, rest) = bytes.as_chunks::<2>();

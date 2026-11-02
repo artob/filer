@@ -4,6 +4,7 @@
 
 use crate::record::FileRef;
 use alloc::{boxed::Box, vec::Vec};
+use filer_fs::le;
 
 /// The namespace of a name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -46,9 +47,9 @@ impl FileName {
     /// Parses a `$FILE_NAME` value, or returns `None` if it does not fit
     /// or its name or namespace is invalid.
     pub(crate) fn parse(value: &[u8]) -> Option<Self> {
-        let parent = u64::from_le_bytes(*value.first_chunk()?);
-        let attributes = u32::from_le_bytes(*value.get(0x38..)?.first_chunk()?);
-        let reparse_tag = u32::from_le_bytes(*value.get(0x3C..)?.first_chunk()?);
+        let parent = le::u64_at(value, 0)?;
+        let attributes = le::u32_at(value, 0x38)?;
+        let reparse_tag = le::u32_at(value, 0x3C)?;
         let len = usize::from(*value.get(0x40)?);
         let namespace = match *value.get(0x41)? {
             0 => Namespace::Posix,

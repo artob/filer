@@ -3,12 +3,13 @@
 //! Inodes: finding them in their group's table, and decoding them.
 
 use crate::{
-    Ext4Error, group, io, le,
+    Ext4Error, group, io,
     superblock::{GOOD_OLD_INODE_SIZE, Superblock},
 };
 use alloc::vec::Vec;
 use core::time::Duration;
 use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
+use filer_fs::le;
 
 /// The size of `i_block`: block numbers, an extent tree's root, inline
 /// data, a fast symlink's target, or a device number.

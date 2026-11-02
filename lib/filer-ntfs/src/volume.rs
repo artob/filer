@@ -21,6 +21,7 @@ use core::future::Future;
 use filer_api::{
     DriverKey, Error, ErrorKind, FileAttrs, FileKind, LinkTarget, OpKind, ReadAt, Resolver,
 };
+use filer_fs::le;
 
 /// The record of the root directory.
 pub(crate) const ROOT: u64 = 5;
@@ -403,19 +404,13 @@ impl StandardInformation {
         let Some(Body::Resident(value)) = extents.first().map(|extent| extent.body()) else {
             return Err(missing);
         };
-        let u64_at = |at: usize| {
-            value
-                .get(at..)?
-                .first_chunk()
-                .map(|b| u64::from_le_bytes(*b))
-        };
         let parsed = (|| {
             Some(Self {
-                created: u64_at(0)?,
-                modified: u64_at(8)?,
-                changed: u64_at(0x10)?,
-                accessed: u64_at(0x18)?,
-                attributes: u32::from_le_bytes(*value.get(0x20..)?.first_chunk()?),
+                created: le::u64_at(value, 0)?,
+                modified: le::u64_at(value, 8)?,
+                changed: le::u64_at(value, 0x10)?,
+                accessed: le::u64_at(value, 0x18)?,
+                attributes: le::u32_at(value, 0x20)?,
             })
         })();
         parsed.ok_or(NtfsError::BadDataSize { record })

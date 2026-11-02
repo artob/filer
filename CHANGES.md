@@ -22,9 +22,9 @@ so any release may break compatibility.
   driver (reading version 4 and 5 volumes, with every feature but zoned
   realtime sections, and no realtime files' contents; replaying logs
   that need recovery), `Options`, `XfsError`, and `FeatureSet`.
-- `filer-fs`: New crate, with no items yet: the shared machinery of file
-  system drivers, which `filer-fat`, `filer-ext4`, `filer-ntfs`,
-  `filer-udf`, and `filer-xfs` depend on.
+- `filer-fs`: New crate: the shared machinery of file system drivers,
+  which `filer-fat`, `filer-ext4`, `filer-ntfs`, `filer-udf`, and
+  `filer-xfs` depend on. So far `le` and `be`, field readers.
 - `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
   FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`;
   the `code-pages` feature decodes short names in any `CodePage`.

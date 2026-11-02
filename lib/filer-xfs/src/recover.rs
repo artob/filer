@@ -32,13 +32,14 @@
 //! does not do, so volumes needing them are refused.
 
 use crate::{
-    XfsError, be, crc,
+    XfsError, crc,
     log::{Dirty, Log},
     superblock::Superblock,
 };
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::future::Future;
 use filer_api::{BufResult, Error, IoBufMut, OpKind, ReadAt};
+use filer_fs::{be, le};
 
 /// The size of a sector, of the chunks buffers are logged in, and of what
 /// an overlay keeps.
@@ -236,27 +237,24 @@ enum Order {
 
 impl Order {
     fn u16_at(self, bytes: &[u8], at: usize) -> Option<u16> {
-        let b = *bytes.get(at..)?.first_chunk::<2>()?;
-        Some(match self {
-            Self::Little => u16::from_le_bytes(b),
-            Self::Big => u16::from_be_bytes(b),
-        })
+        match self {
+            Self::Little => le::u16_at(bytes, at),
+            Self::Big => be::u16_at(bytes, at),
+        }
     }
 
     fn u32_at(self, bytes: &[u8], at: usize) -> Option<u32> {
-        let b = *bytes.get(at..)?.first_chunk::<4>()?;
-        Some(match self {
-            Self::Little => u32::from_le_bytes(b),
-            Self::Big => u32::from_be_bytes(b),
-        })
+        match self {
+            Self::Little => le::u32_at(bytes, at),
+            Self::Big => be::u32_at(bytes, at),
+        }
     }
 
     fn u64_at(self, bytes: &[u8], at: usize) -> Option<u64> {
-        let b = *bytes.get(at..)?.first_chunk::<8>()?;
-        Some(match self {
-            Self::Little => u64::from_le_bytes(b),
-            Self::Big => u64::from_be_bytes(b),
-        })
+        match self {
+            Self::Little => le::u64_at(bytes, at),
+            Self::Big => be::u64_at(bytes, at),
+        }
     }
 
     /// Returns the order in which `magic` reads as `TRANS_MAGIC`.

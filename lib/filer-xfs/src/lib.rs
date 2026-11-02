@@ -76,7 +76,6 @@ mod xfs_error;
 pub use xfs_error::*;
 
 mod attr;
-mod be;
 mod crc;
 mod da;
 mod dir;

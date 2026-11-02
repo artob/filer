@@ -4,9 +4,10 @@
 //! block named by `i_file_acl`. Both hold entries naming a prefix by index,
 //! and values elsewhere in the same region.
 
-use crate::{Ext4Error, inode::Inode, io, le, superblock::Superblock};
+use crate::{Ext4Error, inode::Inode, io, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt, XattrNs};
+use filer_fs::le;
 
 /// The magic number of both an attribute block and in-inode attributes.
 const MAGIC: u32 = 0xEA02_0000;

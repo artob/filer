@@ -2,9 +2,10 @@
 
 //! The superblock, and the volume layout it describes.
 
-use crate::{Ext4Error, le};
+use crate::Ext4Error;
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::le;
 
 /// Where the superblock starts, and its size.
 pub(crate) const SUPERBLOCK_OFFSET: u64 = 1024;

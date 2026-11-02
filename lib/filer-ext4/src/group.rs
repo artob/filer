@@ -2,8 +2,9 @@
 
 //! Block group descriptors.
 
-use crate::{Ext4Error, io, le, superblock::Superblock};
+use crate::{Ext4Error, io, superblock::Superblock};
 use filer_api::{Error, OpKind, ReadAt};
+use filer_fs::le;
 
 /// A block group's descriptor, as far as reading needs it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

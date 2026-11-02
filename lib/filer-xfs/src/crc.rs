@@ -6,8 +6,9 @@
 //! computed with the CRC's own four bytes zero and stored little-endian.
 //! Blocks of a different shape keep these fields at different offsets.
 
-use crate::{XfsError, be, superblock::Superblock};
+use crate::{XfsError, superblock::Superblock};
 use filer_api::checksum::Crc32c;
+use filer_fs::be;
 
 /// Where a block's header keeps its checksum, its disk address, the
 /// metadata UUID, and its owner.

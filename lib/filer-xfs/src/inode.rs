@@ -3,12 +3,13 @@
 //! Inodes: finding them by number, and decoding their cores and forks.
 
 use crate::{
-    XfsError, be, crc, io,
+    XfsError, crc, io,
     superblock::{Superblock, Version},
 };
 use alloc::vec::Vec;
 use core::time::Duration;
 use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
+use filer_fs::be;
 
 /// An inode's magic number, `IN`.
 const MAGIC: u16 = 0x494E;
@@ -121,7 +122,7 @@ pub(crate) struct Inode {
 /// if `big`, as unsigned 64-bit nanoseconds since 1901-12-13T20:45:52Z.
 fn timestamp(bytes: &[u8], at: usize, big: bool) -> Option<Timestamp> {
     if big {
-        let since = u64::from_be_bytes(*bytes.get(at..)?.first_chunk()?);
+        let since = be::u64_at(bytes, at)?;
         let secs = i64::try_from(since.checked_div(1_000_000_000)?).ok()?;
         let nanos = u32::try_from(since.checked_rem(1_000_000_000)?).ok()?;
         let secs = secs.checked_sub(BIGTIME_EPOCH)?;

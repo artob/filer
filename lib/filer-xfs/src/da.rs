@@ -8,8 +8,8 @@
 //! of one hash may run on into the next leaf. With version 5, the header
 //! is self-describing (`crc::DA`), and longer.
 
-use crate::be;
 use alloc::vec::Vec;
+use filer_fs::be;
 
 /// A node block's magic number, and with version 5.
 pub(crate) const NODE_MAGIC: u16 = 0xFEBE;

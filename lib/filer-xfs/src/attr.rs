@@ -19,7 +19,7 @@
 //! (`crc::REMOTE`), naming the part of the value it holds.
 
 use crate::{
-    XfsError, be, crc, da,
+    XfsError, crc, da,
     file_map::FileMap,
     hash,
     inode::{Format, Inode},
@@ -28,6 +28,7 @@ use crate::{
 };
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use filer_api::{Error, ErrorKind, OpKind, ReadAt, XattrNs};
+use filer_fs::be;
 
 /// The magic number of a leaf block, and with version 5.
 const LEAF_MAGIC: u16 = 0xFBEE;

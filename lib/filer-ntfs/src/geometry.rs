@@ -5,6 +5,7 @@
 use crate::NtfsError;
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::le;
 
 /// The size of the boot sector the parser reads.
 pub(crate) const BOOT_SECTOR: usize = 512;
@@ -38,19 +39,11 @@ fn u8_at(sector: &[u8], at: usize) -> Result<u8, NtfsError> {
 }
 
 fn u16_at(sector: &[u8], at: usize) -> Result<u16, NtfsError> {
-    sector
-        .get(at..)
-        .and_then(<[u8]>::first_chunk)
-        .map(|bytes| u16::from_le_bytes(*bytes))
-        .ok_or(NtfsError::ShortBootSector)
+    le::u16_at(sector, at).ok_or(NtfsError::ShortBootSector)
 }
 
 fn u64_at(sector: &[u8], at: usize) -> Result<u64, NtfsError> {
-    sector
-        .get(at..)
-        .and_then(<[u8]>::first_chunk)
-        .map(|bytes| u64::from_le_bytes(*bytes))
-        .ok_or(NtfsError::ShortBootSector)
+    le::u64_at(sector, at).ok_or(NtfsError::ShortBootSector)
 }
 
 /// Decodes a record size: a positive count of clusters, or, if negative

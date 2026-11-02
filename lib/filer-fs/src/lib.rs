@@ -9,7 +9,9 @@
 //! maps file blocks to volume blocks, turns names and kinds into Filer's,
 //! and serves the result as a [`filer_api::Driver`]. This crate is where
 //! what they share lives, so that each driver is its format and little
-//! else (`DESIGN.md` §17.17, D54). It holds no items yet.
+//! else (`DESIGN.md` §17.17, D54).
+//!
+//! So far: [`le`] and [`be`] read little- and big-endian fields.
 //!
 //! Like the drivers, it treats volumes as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
@@ -46,3 +48,6 @@
         clippy::unwrap_used
     )
 )]
+
+pub mod be;
+pub mod le;

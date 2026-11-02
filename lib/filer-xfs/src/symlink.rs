@@ -6,13 +6,14 @@
 //! part of the target it holds after the header.
 
 use crate::{
-    XfsError, be, crc,
+    XfsError, crc,
     file_map::FileMap,
     inode::{Format, Inode},
     superblock::Superblock,
 };
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
+use filer_fs::be;
 
 /// The longest target: Linux's `PATH_MAX` less its NUL.
 const MAX_TARGET: u64 = 1024;

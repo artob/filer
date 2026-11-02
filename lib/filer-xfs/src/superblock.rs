@@ -2,9 +2,10 @@
 
 //! The superblock, and the volume layout it describes.
 
-use crate::{FeatureSet, XfsError, be, crc, io};
+use crate::{FeatureSet, XfsError, crc, io};
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::be;
 
 /// The superblock's magic number, `XFSB`.
 const MAGIC: u32 = 0x5846_5342;

@@ -10,6 +10,7 @@ use crate::{
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use filer_api::{Error, OpKind, ReadAt};
+use filer_fs::le;
 
 /// The MFT: `$MFT`'s unnamed `$DATA`, read in records.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,22 +36,8 @@ fn list(value: &[u8], record: u64) -> Result<Vec<ListEntry<'_>>, NtfsError> {
     let mut at = 0usize;
     while at < value.len() {
         let entry = value.get(at..).ok_or(bad)?;
-        let field = |offset: usize, len: usize| entry.get(offset..)?.get(..len);
-        let u16_at = |offset| {
-            field(offset, 2)?
-                .first_chunk()
-                .map(|b| u16::from_le_bytes(*b))
-        };
-        let u64_at = |offset| {
-            field(offset, 8)?
-                .first_chunk()
-                .map(|b| u64::from_le_bytes(*b))
-        };
-        let kind = field(0, 4)
-            .and_then(<[u8]>::first_chunk)
-            .map(|b| u32::from_le_bytes(*b))
-            .ok_or(bad)?;
-        let len = usize::from(u16_at(4).ok_or(bad)?);
+        let kind = le::u32_at(entry, 0).ok_or(bad)?;
+        let len = usize::from(le::u16_at(entry, 4).ok_or(bad)?);
         let name_len = usize::from(*entry.get(6).ok_or(bad)?).saturating_mul(2);
         let name_at = usize::from(*entry.get(7).ok_or(bad)?);
         if len < 0x1A || len > entry.len() {
@@ -63,8 +50,8 @@ fn list(value: &[u8], record: u64) -> Result<Vec<ListEntry<'_>>, NtfsError> {
         entries.push(ListEntry {
             kind: AttrType(kind),
             name,
-            first_vcn: u64_at(8).ok_or(bad)?,
-            record: FileRef::from_u64(u64_at(0x10).ok_or(bad)?),
+            first_vcn: le::u64_at(entry, 8).ok_or(bad)?,
+            record: FileRef::from_u64(le::u64_at(entry, 0x10).ok_or(bad)?),
         });
         at = at.checked_add(len).ok_or(bad)?;
     }
