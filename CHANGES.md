@@ -41,7 +41,9 @@ so any release may break compatibility.
 - `filer-api`: `archive::Codec`, `Decoder`, and `Stored`, so archive
   drivers can serve compressed members; `Member`, `Index`, and `Archive`
   take the format's codec as a type parameter, defaulting to `Stored`;
-  `Member::packed` and `Member::encoded`.
+  `Member::packed` and `Member::encoded`; `Limits::max_total_size`,
+  `max_ratio`, `exceeds_ratio`, and `RATIO_EXEMPT`, against
+  decompression bombs.
 - `filer-zip`: `Zip`, a read-only driver over ZIP archives with stored
   and, under the `deflate` feature, Deflate members, including ZIP64; `filer_zip::Limits` re-exports
   `filer_api::archive::Limits`.

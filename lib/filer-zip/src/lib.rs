@@ -14,9 +14,9 @@
 //! never creates or modifies them, and never will: writing archives is out
 //! of scope for this project. Use a dedicated archiving library for that.
 //!
-//! So far it reads stored and Deflate members. Limits on declared sizes
-//! against zip bombs, more codecs behind features, and legacy code-page
-//! names are planned (see `DESIGN.md` §17.7).
+//! So far it reads stored and Deflate members, with limits against zip
+//! bombs. More codecs behind features and legacy code-page names are
+//! planned (see `DESIGN.md` §17.7).
 //!
 //! It needs no OS and builds with `#![no_std]`. Features, all enabled by
 //! default:

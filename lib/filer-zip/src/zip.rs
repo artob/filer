@@ -41,9 +41,13 @@ use filer_api::{
 /// malformed or truncated, a member's local header disagrees with its
 /// central directory header, or the end record is ambiguous
 /// ([`Corrupt`](filer_api::ErrorKind::Corrupt)), since readers that trust
-/// one record over another would see different archives; or if a
+/// one record over another would see different archives; if members
+/// overlap (also `Corrupt`), as in bombs that need no recursion; or if a
 /// [`Limits`] value is exceeded
-/// ([`LimitExceeded`](filer_api::ErrorKind::LimitExceeded)). The error's
+/// ([`LimitExceeded`](filer_api::ErrorKind::LimitExceeded)), including
+/// the total of the members' declared sizes and each member's
+/// decompression ratio. Since decoding stops at a member's declared size,
+/// these bound what reading the whole archive can produce. The error's
 /// source is an [`ArchiveError`](filer_api::archive::ArchiveError) naming
 /// the offending record's offset. Directories implied by member names are
 /// created; of duplicate members, the later in the central directory

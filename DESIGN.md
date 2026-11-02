@@ -2129,7 +2129,13 @@ the DOS fields, read as UTC. Its codec records each member's method,
 CRC-32, and encryption: Deflate decodes with `miniz_oxide` (feature
 `deflate`), checked against the CRC at the member's end; other methods
 and encryption fail on read, not open, except for symlinks, whose
-targets are decoded at open. Spanned archives are `Unsupported`. The
+targets are decoded at open. Spanned archives are `Unsupported`.
+Against bombs, `Limits` gained `max_total_size` (16 GiB of declared
+sizes) and `max_ratio` (100:1, for members over 1 MiB, as Apache POI
+exempts small ones), checked at open; since decoding stops at declared
+sizes, they bound the output too. Members whose local header and data
+spans overlap are `Corrupt`, which stops David Fifield's bombs without
+recursion (2019): no archiver writes shared bytes. The
 full `filer-spec` passes on archives written from its tree, stored,
 deflated, and with ZIP64; a doc example reads an Info-ZIP archive with
 stored and deflated members.

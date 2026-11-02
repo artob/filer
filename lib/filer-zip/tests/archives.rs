@@ -342,3 +342,45 @@ fn never_decodes_past_the_declared_size() {
         ErrorKind::Corrupt
     );
 }
+
+#[test]
+fn refuses_bombs() {
+    // 4 MiB of zeros deflate to about 4 KiB: a ratio near 1000.
+    let mut entry = Entry::new(b"zeros", Some(FILE), &vec![0; 4 << 20]);
+    entry.method = 8;
+    let bomb = Writer::default().entry(entry).finish();
+    let central = bomb.len() - 22 - 46 - 5;
+    assert_eq!(
+        reason(open(bomb.clone())),
+        format!("zip header at offset {central}: compression ratio too high")
+    );
+    let limits = Limits::default().with_max_ratio(2000);
+    let root = block_on(Zip::open_with(bomb, limits)).unwrap();
+    let file = block_on(root.open_file("zeros")).unwrap();
+    assert_eq!(block_on(file.read_to_end()).unwrap().len(), 4 << 20);
+
+    // Small members are exempt from the ratio, but not from the total.
+    let mut writer = Writer {
+        deflate: true,
+        ..Writer::default()
+    };
+    writer.file(b"a", &[0; 1000]).file(b"b", &[0; 1000]);
+    let archive = writer.finish();
+    assert!(open(archive.clone()).is_ok());
+    let limits = Limits::default().with_max_total_size(1999);
+    let error = block_on(Zip::open_with(archive, limits)).unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+}
+
+#[test]
+fn refuses_overlapping_members() {
+    // Two central headers sharing one local header and its data, the
+    // basis of bombs without recursion.
+    let mut archive = Writer::default().file(b"a", b"x").file(b"a", b"x").finish();
+    let second = archive.len() - 22 - 47;
+    archive[second + 42..second + 46].copy_from_slice(&0_u32.to_le_bytes());
+    assert_eq!(
+        reason(open(archive)),
+        format!("zip header at offset {second}: overlapping members")
+    );
+}

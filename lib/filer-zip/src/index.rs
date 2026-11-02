@@ -162,6 +162,9 @@ pub(crate) async fn index<S: ReadAt>(
     }
     let mut index = Index::new("zip");
     let mut reader = Reader::new(source, eocd.cd_offset, cd_end);
+    let mut total = 0_u64;
+    // Each member's local header and data, with its central header.
+    let mut spans = Vec::new();
     for _ in 0..eocd.entries {
         let offset = reader.pos;
         let corrupt = |reason| fail(ErrorKind::Corrupt, offset, reason);
@@ -170,17 +173,40 @@ pub(crate) async fn index<S: ReadAt>(
         let central = fixed
             .complete(reader.take(fixed.variable_len()).await?)
             .ok_or_else(|| corrupt("missing ZIP64 field"))?;
-        add(source, &mut index, &central, eocd.cd_offset, offset, limits).await?;
+        // Decoding never passes the declared sizes, so bounding them
+        // bounds the output.
+        total = total.saturating_add(central.size);
+        if total > limits.max_total_size {
+            let reason = "members too large in total";
+            return Err(fail(ErrorKind::LimitExceeded, offset, reason));
+        }
+        if limits.exceeds_ratio(central.size, central.compressed) {
+            let reason = "compression ratio too high";
+            return Err(fail(ErrorKind::LimitExceeded, offset, reason));
+        }
+        let span = add(source, &mut index, &central, eocd.cd_offset, offset, limits).await?;
+        spans.push((span, offset));
     }
     if reader.pos != cd_end {
         let reason = "central directory size mismatch";
         return Err(fail(ErrorKind::Corrupt, reader.pos, reason));
     }
+    // Members sharing bytes are how bombs that need no recursion get
+    // their ratio, and no archiver writes them.
+    spans.sort_unstable();
+    for pair in spans.windows(2) {
+        if let [((_, end), _), ((start, _), offset)] = pair
+            && start < end
+        {
+            return Err(fail(ErrorKind::Corrupt, *offset, "overlapping members"));
+        }
+    }
     Ok(index.into_tree())
 }
 
 /// Adds the member `central`, from the central directory header at
-/// `offset`, after checking its local header.
+/// `offset`, after checking its local header, and returns where its local
+/// header starts and its data ends.
 async fn add<S: ReadAt>(
     source: &S,
     index: &mut Index<Method>,
@@ -188,7 +214,7 @@ async fn add<S: ReadAt>(
     cd_offset: u64,
     offset: u64,
     limits: &Limits,
-) -> Result<(), Error> {
+) -> Result<(u64, u64), Error> {
     let name = central.name.as_slice();
     if name.len() > limits.max_path_len {
         return Err(fail(ErrorKind::LimitExceeded, offset, "name too long"));
@@ -225,7 +251,11 @@ async fn add<S: ReadAt>(
             index.insert(name, Node::Symlink(Box::from(target)), offset)
         },
         Kind::Special(kind) => index.insert(name, Node::Special(kind), offset),
-    }
+    }?;
+    Ok((
+        central.local_offset,
+        data.saturating_add(central.compressed),
+    ))
 }
 
 /// Reads and decodes the target of the symlink `central`, whose data lies
