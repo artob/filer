@@ -74,6 +74,20 @@ pub enum Ext4Error {
         inode: u32,
     },
 
+    /// A file's map names a block outside the volume, or the superblock's.
+    BadBlockNumber {
+        /// The file's inode.
+        inode: u32,
+        /// The block named.
+        block: u64,
+    },
+
+    /// A file's size is more than its map can address.
+    FileTooLarge {
+        /// The file's inode.
+        inode: u32,
+    },
+
     /// The volume uses incompatible features this driver does not read.
     UnsupportedFeatures {
         /// The incompatible feature flags not understood.
@@ -141,6 +155,12 @@ impl core::fmt::Display for Ext4Error {
                 write!(f, "reference to inode {inode}, which is not in use")
             },
             Self::BadInode { inode } => write!(f, "inode {inode} is invalid"),
+            Self::BadBlockNumber { inode, block } => {
+                write!(f, "inode {inode} maps block {block}, outside the volume")
+            },
+            Self::FileTooLarge { inode } => {
+                write!(f, "inode {inode} is larger than its map addresses")
+            },
             Self::UnsupportedFeatures { incompat } => {
                 write!(f, "unsupported incompatible features {incompat:#X}")
             },

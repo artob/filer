@@ -76,6 +76,7 @@ extern crate alloc;
 mod ext4_error;
 pub use ext4_error::*;
 
+mod block_map;
 mod group;
 mod inode;
 mod io;
