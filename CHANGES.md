@@ -72,6 +72,10 @@ so any release may break compatibility.
 - `filer-ntfs`: Interix special files: symlinks, FIFOs, sockets, and
   devices.
 ### Changed
+- `filer-api`: `tree::Tree::node` returns an `Option`, `None` for a node
+  the tree lacks, where it panicked; `IoBufMut::fill` panics only in
+  debug builds when its callback claims more than it was given. Every
+  library crate now denies panicking constructs by lint (D47).
 - `filer-api`: `Resolver` is now asynchronous, as async-first; the
   synchronous walk is `BlockingResolver`, and both share one
   implementation.

@@ -85,6 +85,10 @@ impl Heap {
     /// Returns the root directory, with all rights, for the frontend.
     #[must_use]
     pub fn root_dir(&self) -> Dir<Self> {
+        #[allow(
+            clippy::expect_used,
+            reason = "the root is always this heap's directory"
+        )]
         Dir::new(self.clone(), self.root()).expect("the root is a directory of this heap")
     }
 
@@ -123,7 +127,10 @@ impl Heap {
                         .entry(at, name, *follow, *resolve, kind)
                         .map_err(|error| error.with_entry_name(name)),
                 };
-                Completion::new(ino.map(|ino| Output::Metadata(self.metadata(ino))))
+                Completion::new(
+                    ino.and_then(|ino| self.metadata(ino).map_err(error))
+                        .map(Output::Metadata),
+                )
             },
             Op::ReadDir { dir, cookie, max } => {
                 Completion::new(self.read_dir(&dir, cookie, max).map_err(error))
@@ -131,11 +138,12 @@ impl Heap {
             Op::ReadLink { at, name } => {
                 let result = self
                     .entry(&at, &name, false, Resolve::default(), kind)
-                    .and_then(|ino| match self.tree.node(ino) {
-                        Node::Symlink(target) => {
+                    .and_then(|ino| match self.node(ino) {
+                        Ok(Node::Symlink(target)) => {
                             Ok(Output::LinkTarget(LinkTarget::from_bytes(target.to_vec())))
                         },
-                        _ => Err(error(ErrorKind::NotASymlink)),
+                        Ok(_) => Err(error(ErrorKind::NotASymlink)),
+                        Err(kind) => Err(error(kind)),
                     });
                 Completion::new(result.map_err(|error| error.with_entry_name(&name)))
             },
@@ -147,7 +155,7 @@ impl Heap {
                 let result = self.xattr(&handle, &name).map_err(error).map(|value| {
                     Output::Xattr(value.map(|value| {
                         buf.fill_from(value);
-                        value.len() as u64
+                        u64::try_from(value.len()).unwrap_or(u64::MAX)
                     }))
                 });
                 Completion::new(result).with_buf(buf)
@@ -186,10 +194,16 @@ impl Heap {
             .map(Vec::as_slice))
     }
 
+    /// Returns the node `ino`, which handles and lookups name: always one
+    /// of the tree's, unless by a bug.
+    fn node(&self, ino: Ino) -> Result<&Node<Vec<u8>>, ErrorKind> {
+        self.tree.node(ino).ok_or(ErrorKind::NotFound)
+    }
+
     /// Returns the inode of a directory handle.
     fn dir(&self, handle: &Handle) -> Result<Ino, ErrorKind> {
         let ino = self.ino(handle)?;
-        match self.tree.node(ino) {
+        match self.node(ino)? {
             Node::Dir(_) => Ok(ino),
             _ => Err(ErrorKind::NotADirectory),
         }
@@ -197,7 +211,7 @@ impl Heap {
 
     /// Returns a regular file's contents.
     fn contents(&self, ino: Ino) -> Result<&[u8], ErrorKind> {
-        match self.tree.node(ino) {
+        match self.node(ino)? {
             Node::File(data) => Ok(data),
             Node::Dir(_) => Err(ErrorKind::IsADirectory),
             Node::Symlink(_) | Node::Special(_) => Err(ErrorKind::NotRegularFile),
@@ -210,7 +224,8 @@ impl Heap {
         let ino = self
             .tree
             .resolve(&dir, path.as_str().as_bytes(), how.resolve, true, op)?;
-        let mismatch = match (self.tree.node(ino), how.kind) {
+        let node = self.node(ino).map_err(|error| Error::new(error, op))?;
+        let mismatch = match (node, how.kind) {
             (Node::Dir(_), HandleKind::Dir) | (Node::File(_), HandleKind::File) => None,
             (Node::Dir(_), HandleKind::File) => Some(ErrorKind::IsADirectory),
             (_, HandleKind::Dir) => Some(ErrorKind::NotADirectory),
@@ -242,22 +257,22 @@ impl Heap {
         self.tree.resolve(&dir, bytes, resolve, follow, op)
     }
 
-    fn metadata(&self, ino: Ino) -> Metadata {
+    fn metadata(&self, ino: Ino) -> Result<Metadata, ErrorKind> {
         let mut metadata = Metadata::default();
-        let (kind, len) = match self.tree.node(ino) {
+        let (kind, len) = match self.node(ino)? {
             Node::Dir(entries) => (FileKind::Dir, entries.len()),
             Node::File(data) => (FileKind::File, data.len()),
             Node::Symlink(target) => (FileKind::Symlink, target.len()),
             Node::Special(kind) => (*kind, 0),
         };
         metadata.kind = Some(kind);
-        metadata.len = Some(len as u64);
+        metadata.len = Some(u64::try_from(len).unwrap_or(u64::MAX));
         metadata.id = Some(Self::file_id(ino));
-        metadata
+        Ok(metadata)
     }
 
     fn file_id(ino: Ino) -> FileId {
-        FileId::new(0, ino as u128)
+        FileId::new(0, u128::try_from(ino).unwrap_or(u128::MAX))
     }
 
     fn read_dir(
@@ -266,25 +281,27 @@ impl Heap {
         cookie: Option<DirCookie>,
         max: usize,
     ) -> Result<Output, ErrorKind> {
-        let Node::Dir(children) = self.tree.node(self.dir(dir)?) else {
-            unreachable!("`dir` returns directories");
+        let Node::Dir(children) = self.node(self.dir(dir)?)? else {
+            return Err(ErrorKind::NotADirectory);
         };
         let start = cookie.map_or(0, |cookie| {
             usize::try_from(cookie.get()).unwrap_or(usize::MAX)
         });
         let mut entries = Vec::new();
         for (name, &ino) in children.iter().skip(start).take(max) {
+            // Heap names are checked as they are made, so this cannot fail.
             let name = self
                 .key
                 .entry_name(name)
-                .expect("heap names are valid entry names");
+                .map_err(|_| ErrorKind::InvalidName)?;
             let mut entry = Entry::new(name);
-            entry.kind = self.metadata(ino).kind;
+            entry.kind = self.tree.node(ino).map(Node::kind);
             entry.id = Some(Self::file_id(ino));
             entries.push(entry);
         }
         let end = start.saturating_add(entries.len());
-        let next = (end < children.len()).then(|| DirCookie::new(end as u64));
+        let next =
+            (end < children.len()).then(|| DirCookie::new(u64::try_from(end).unwrap_or(u64::MAX)));
         Ok(Output::Entries { entries, next })
     }
 }

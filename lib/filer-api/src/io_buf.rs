@@ -53,7 +53,7 @@ pub trait IoBufMut: IoBuf {
 
     /// Returns how many more bytes a read can append.
     fn spare(&self) -> usize {
-        self.capacity() - self.as_bytes().len()
+        self.capacity().saturating_sub(self.as_bytes().len())
     }
 
     /// Lets `read` fill the spare capacity, then appends what it filled.
@@ -72,8 +72,9 @@ pub trait IoBufMut: IoBuf {
     ///
     /// # Panics
     ///
-    /// Panics if `read` claims to have filled more than it was given, which
-    /// is a bug in the caller.
+    /// In debug builds, if `read` claims to have filled more than it was
+    /// given, which is a bug in the caller; otherwise it is taken to have
+    /// filled all of it.
     fn fill(&mut self, read: &mut dyn FnMut(&mut [u8]) -> Result<usize>) -> Result<usize>;
 
     /// Appends as much of `bytes` as the spare capacity holds, and returns
@@ -121,14 +122,14 @@ impl IoBufMut for Vec<u8> {
         let len = self.len();
         // Resizing to exactly the capacity never reallocates.
         self.resize(Vec::capacity(self), 0);
-        let result = read(&mut self[len..]);
+        let result = read(self.get_mut(len..).unwrap_or_default());
         let filled = match &result {
             Ok(n) => *n,
             Err(_) => 0,
         };
-        let spare = self.len() - len;
-        assert!(filled <= spare, "read filled {filled} of {spare} bytes");
-        self.truncate(len + filled);
+        let spare = self.len().saturating_sub(len);
+        debug_assert!(filled <= spare, "read filled {filled} of {spare} bytes");
+        self.truncate(len.saturating_add(filled.min(spare)));
         result
     }
 }

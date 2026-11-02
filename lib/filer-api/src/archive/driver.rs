@@ -125,7 +125,10 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
                         .entry(at, name, *follow, *resolve, kind)
                         .map_err(|error| error.with_entry_name(name)),
                 };
-                Completion::new(ino.map(|ino| Output::Metadata(self.metadata(ino))))
+                Completion::new(
+                    ino.and_then(|ino| self.metadata(ino).map_err(error))
+                        .map(Output::Metadata),
+                )
             },
             Op::ReadDir { dir, cookie, max } => {
                 Completion::new(self.read_dir(&dir, cookie, max).map_err(error))
@@ -133,11 +136,12 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
             Op::ReadLink { at, name } => {
                 let result = self
                     .entry(&at, &name, false, Resolve::default(), kind)
-                    .and_then(|ino| match self.tree.node(ino) {
-                        Node::Symlink(target) => {
+                    .and_then(|ino| match self.node(ino) {
+                        Ok(Node::Symlink(target)) => {
                             Ok(Output::LinkTarget(LinkTarget::from_bytes(target.to_vec())))
                         },
-                        _ => Err(error(ErrorKind::NotASymlink)),
+                        Ok(_) => Err(error(ErrorKind::NotASymlink)),
+                        Err(kind) => Err(error(kind)),
                     });
                 Completion::new(result.map_err(|error| error.with_entry_name(&name)))
             },
@@ -196,7 +200,7 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         wanted: usize,
     ) -> Result<Vec<u8>, Error> {
         let corrupt = |_| Error::new(ErrorKind::Corrupt, OpKind::Read);
-        let end = off.saturating_add(wanted as u64).min(member.size);
+        let end = off.saturating_add(to_u64(wanted)).min(member.size);
         let mut stream = match self.take_stream(ino, off) {
             Some(stream) => stream,
             None => Stream {
@@ -212,19 +216,20 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         let mut output = vec![0; OUTPUT_CHUNK];
         while stream.decoded < end {
             if stream.used == stream.input.len() && stream.fetched < member.packed {
-                let len = usize::try_from(member.packed - stream.fetched)
+                let len = usize::try_from(member.packed.saturating_sub(stream.fetched))
                     .map_or(INPUT_CHUNK, |n| n.min(INPUT_CHUNK));
                 stream.input = self.read_packed(member, stream.fetched, len).await?;
                 stream.used = 0;
-                stream.fetched += len as u64;
+                stream.fetched = stream.fetched.saturating_add(to_u64(len));
             }
             // Stop at the end of the read, so that the kept stream can
             // continue from there, and so never pass the declared size.
-            let room =
-                usize::try_from(end - stream.decoded).map_or(OUTPUT_CHUNK, |n| n.min(OUTPUT_CHUNK));
-            let input = &stream.input[stream.used..];
-            let (consumed, produced) = stream.decoder.decode(input, &mut output[..room])?;
-            if consumed > input.len() || produced > room {
+            let room = usize::try_from(end.saturating_sub(stream.decoded))
+                .map_or(OUTPUT_CHUNK, |n| n.min(OUTPUT_CHUNK));
+            let input = stream.input.get(stream.used..).unwrap_or_default();
+            let room = output.get_mut(..room).ok_or_else(|| corrupt(()))?;
+            let (consumed, produced) = stream.decoder.decode(input, room)?;
+            if consumed > input.len() || produced > room.len() {
                 // The decoder broke its contract.
                 return Err(corrupt(()));
             }
@@ -232,13 +237,16 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
                 // No progress: the member's data ended early.
                 return Err(corrupt(()));
             }
-            stream.used += consumed;
+            stream.used = stream.used.saturating_add(consumed);
             let start = stream.decoded;
-            stream.decoded += produced as u64;
-            // Keep what falls within `off..end`.
-            let from = off.saturating_sub(start).min(produced as u64) as usize;
-            let to = end.saturating_sub(start).min(produced as u64) as usize;
-            data.extend_from_slice(&output[from..to]);
+            let produced = to_u64(produced);
+            stream.decoded = stream.decoded.saturating_add(produced);
+            // Keep what falls within `off..end`, which is below `produced`.
+            let within = |at: u64| usize::try_from(at.saturating_sub(start).min(produced));
+            let (Ok(from), Ok(to)) = (within(off), within(end)) else {
+                return Err(corrupt(()));
+            };
+            data.extend_from_slice(output.get(from..to).unwrap_or_default());
             if stream.decoded == member.size {
                 stream.decoder.finish()?;
             }
@@ -282,9 +290,15 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
             .ok_or(ErrorKind::CrossDriver)
     }
 
+    /// Returns the node `ino`, which handles and lookups name: always one
+    /// of the tree's, unless by a bug.
+    fn node(&self, ino: Ino) -> Result<&Node<Member<C>>, ErrorKind> {
+        self.tree.node(ino).ok_or(ErrorKind::NotFound)
+    }
+
     fn dir(&self, handle: &Handle) -> Result<Ino, ErrorKind> {
         let ino = self.ino(handle)?;
-        match self.tree.node(ino) {
+        match self.node(ino)? {
             Node::Dir(_) => Ok(ino),
             _ => Err(ErrorKind::NotADirectory),
         }
@@ -292,7 +306,7 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
 
     fn member(&self, handle: &Handle) -> Result<(Ino, Member<C>), ErrorKind> {
         let ino = self.ino(handle)?;
-        match self.tree.node(ino) {
+        match self.node(ino)? {
             Node::File(member) => Ok((ino, *member)),
             Node::Dir(_) => Err(ErrorKind::IsADirectory),
             _ => Err(ErrorKind::NotRegularFile),
@@ -305,7 +319,8 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         let ino = self
             .tree
             .resolve(&dir, path.as_str().as_bytes(), how.resolve, true, op)?;
-        let mismatch = match (self.tree.node(ino), how.kind) {
+        let node = self.node(ino).map_err(|error| Error::new(error, op))?;
+        let mismatch = match (node, how.kind) {
             (Node::Dir(_), HandleKind::Dir) | (Node::File(_), HandleKind::File) => None,
             (Node::Dir(_), HandleKind::File) => Some(ErrorKind::IsADirectory),
             (_, HandleKind::Dir) => Some(ErrorKind::NotADirectory),
@@ -334,21 +349,21 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         self.tree.resolve(&dir, bytes, resolve, follow, op)
     }
 
-    fn metadata(&self, ino: Ino) -> Metadata {
+    fn metadata(&self, ino: Ino) -> Result<Metadata, ErrorKind> {
         let mut metadata = Metadata::default();
-        let node = self.tree.node(ino);
+        let node = self.node(ino)?;
         metadata.kind = Some(node.kind());
         metadata.len = Some(match node {
-            Node::Dir(entries) => entries.len() as u64,
+            Node::Dir(entries) => to_u64(entries.len()),
             Node::File(member) => member.size,
-            Node::Symlink(target) => target.len() as u64,
+            Node::Symlink(target) => to_u64(target.len()),
             Node::Special(_) => 0,
         });
         if let Node::File(member) = node {
             metadata.modified = member.modified;
         }
-        metadata.id = Some(FileId::new(0, ino as u128));
-        metadata
+        metadata.id = Some(id(ino));
+        Ok(metadata)
     }
 
     fn read_dir(
@@ -360,23 +375,21 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         let children = self
             .tree
             .entries(self.dir(dir)?)
-            .expect("`dir` returns directories");
+            .ok_or(ErrorKind::NotADirectory)?;
         let start = cookie.map_or(0, |cookie| {
             usize::try_from(cookie.get()).unwrap_or(usize::MAX)
         });
         let mut entries = Vec::new();
         for (name, &ino) in children.iter().skip(start).take(max) {
-            let name = self
-                .key
-                .entry_name(name)
-                .expect("archive names are checked when indexed");
+            // Names are checked when indexed, so this cannot fail.
+            let name = self.key.entry_name(name).map_err(|_| ErrorKind::Corrupt)?;
             let mut entry = Entry::new(name);
-            entry.kind = Some(self.tree.node(ino).kind());
-            entry.id = Some(FileId::new(0, ino as u128));
+            entry.kind = self.tree.node(ino).map(Node::kind);
+            entry.id = Some(id(ino));
             entries.push(entry);
         }
         let end = start.saturating_add(entries.len());
-        let next = (end < children.len()).then(|| DirCookie::new(end as u64));
+        let next = (end < children.len()).then(|| DirCookie::new(to_u64(end)));
         Ok(Output::Entries { entries, next })
     }
 }
@@ -410,6 +423,16 @@ impl<S, C> core::fmt::Debug for Archive<S, C> {
             .field("nodes", &self.tree.node_count())
             .finish_non_exhaustive()
     }
+}
+
+/// Returns `n` as a `u64`, which it fits on every target Filer builds for.
+fn to_u64(n: usize) -> u64 {
+    u64::try_from(n).unwrap_or(u64::MAX)
+}
+
+/// Returns the id of node `ino`: archives have no volume number.
+fn id(ino: Ino) -> FileId {
+    FileId::new(0, u128::try_from(ino).unwrap_or(u128::MAX))
 }
 
 #[cfg(test)]

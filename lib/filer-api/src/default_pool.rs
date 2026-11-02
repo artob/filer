@@ -123,8 +123,8 @@ impl Spawner for DefaultPool {
         if state.threads >= self.shared.max_threads {
             return; // A busy thread will take it.
         }
-        state.threads += 1;
-        state.next_name += 1;
+        state.threads = state.threads.saturating_add(1);
+        state.next_name = state.next_name.saturating_add(1);
         let name = format!("filer-{}", state.next_name);
         drop(state);
         let shared = self.shared.clone();
@@ -133,7 +133,7 @@ impl Spawner for DefaultPool {
             .spawn(move || shared.work());
         if spawned.is_err() {
             let mut state = self.shared.lock();
-            state.threads -= 1;
+            state.threads = state.threads.saturating_sub(1);
             // With no thread to run them, run the queue here rather than
             // strand the jobs.
             if state.threads == 0 {
@@ -164,24 +164,25 @@ impl Shared {
                 state = self.lock();
                 continue;
             }
-            state.idle += 1;
+            state.idle = state.idle.saturating_add(1);
             let (guard, timeout) = self
                 .work
                 .wait_timeout(state, self.idle_timeout)
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             state = guard;
-            state.idle -= 1;
+            state.idle = state.idle.saturating_sub(1);
             if timeout.timed_out() && state.jobs.is_empty() {
-                state.threads -= 1;
+                state.threads = state.threads.saturating_sub(1);
                 return;
             }
         }
     }
 }
 
-/// Runs a job, containing a panic so that the thread survives it.
+/// Runs a job, containing a panic so that the thread survives it: the
+/// job's awaiter sees it as a job that ended without a value.
 fn run(job: Job) {
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(job));
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)).unwrap_or_default();
 }
 
 #[cfg(test)]

@@ -1,5 +1,14 @@
 // This is free and unencumbered software released into the public domain.
 
+// A builder panics, under `#[track_caller]`, on the arguments its
+// documentation rules out, so that tests can pass plain strings
+// (AGENTS.md).
+#![allow(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "builders panic on invalid arguments"
+)]
+
 use crate::{Heap, Xattrs};
 use alloc::{string::String, vec::Vec};
 use core::fmt::Display;

@@ -436,6 +436,7 @@ impl<D: Driver> core::fmt::Debug for Dir<D> {
 
 /// Reports an [`Output`] variant that does not match the operation, which
 /// is a driver bug.
+#[allow(clippy::panic, reason = "in debug builds only, to find driver bugs")]
 pub(crate) fn unexpected(output: Output, op: OpKind) -> Error {
     if cfg!(debug_assertions) {
         panic!("driver returned {output:?} for {op}");

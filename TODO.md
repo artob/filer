@@ -765,10 +765,6 @@ Read-only first, designed for writing (§17.13, D46). One commit per item.
   discard off by default, plus a batch trim) (§17.13). Done when designed
   in `DESIGN.md` against `filer-spec`'s write cases.
 
-- [ ] **LINT-01: No-panic lints everywhere.** Adopt the `filer-fat` lint
-  set (D47) in every existing library crate, replacing `unwrap`, `expect`,
-  indexing, and unchecked arithmetic. Done when the workspace denies them.
-
 ## `filer-system`
 
 - [ ] **SYS-01: Wire in new native drivers.**

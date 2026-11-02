@@ -214,11 +214,15 @@ windows; this section holds the rationale.
 - Robustness principles (D47), for all code: async first (anything that
   may touch storage is async); no panics on any input (no `unwrap`,
   `expect`, `panic!`, unchecked indexing, or unchecked arithmetic in
-  library code, enforced by Clippy lints where adopted); illegal states
-  unrepresentable (validated newtypes and enums constructed only by
-  parsing, rather than checked flags); and no error ever ignored (no
-  `let _ =` on a `Result`, no defaulting away a failure). New crates adopt
-  the lints from the start; existing crates are being brought in line.
+  library code, which every library crate's root denies by Clippy lint);
+  illegal states unrepresentable (validated newtypes and enums
+  constructed only by parsing, rather than checked flags); and no error
+  ever ignored (no `let _ =` on a `Result`, no defaulting away a
+  failure). The few panics left are allowed where they stand, each with
+  its reason: a builder's on invalid arguments, a check evaluated at
+  compile time, a driver breaking its contract, or ids running out.
+  `filer-spec` is exempt, as its assertions are how it reports failures,
+  and so are tests, binaries, and examples.
 - Builders (fixtures such as `HeapBuilder`, and later configuration
   builders) maximize developer usability: path arguments take
   `P: TryInto<RelPathBuf>` so plain strings work besides `rel!` literals,

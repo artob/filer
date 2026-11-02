@@ -8,10 +8,18 @@ use alloc::vec::Vec;
 /// The size of a header and of the unit member data is padded to.
 pub(crate) const BLOCK: usize = 512;
 
+/// [`BLOCK`], as offsets in the archive count it.
+pub(crate) const BLOCK_LEN: u64 = 512;
+
 /// One 512-byte header block.
 pub(crate) struct Header<'a>(pub(crate) &'a [u8; BLOCK]);
 
 impl Header<'_> {
+    /// Returns the bytes of the field at `range`, which is within a block.
+    fn field(&self, range: core::ops::Range<usize>) -> &[u8] {
+        self.0.get(range).unwrap_or_default()
+    }
+
     /// Returns `true` for an all-zero block, which ends the archive.
     pub(crate) fn is_zero(&self) -> bool {
         self.0.iter().all(|&b| b == 0)
@@ -20,14 +28,15 @@ impl Header<'_> {
     /// Checks the header checksum, accepting the unsigned sum POSIX
     /// specifies and the signed sum some old tools wrote.
     pub(crate) fn checksum_ok(&self) -> bool {
-        let Some(stored) = number(&self.0[148..156]) else {
+        let Some(stored) = number(self.field(148..156)) else {
             return false;
         };
+        // At most 512 bytes of 255: far within an `i64`.
         let (mut unsigned, mut signed) = (0_i64, 0_i64);
         for (i, &b) in self.0.iter().enumerate() {
             let b = if (148..156).contains(&i) { b' ' } else { b };
-            unsigned += i64::from(b);
-            signed += i64::from(b as i8);
+            unsigned = unsigned.saturating_add(i64::from(b));
+            signed = signed.saturating_add(i64::from(i8::from_le_bytes([b])));
         }
         i64::try_from(stored).is_ok_and(|stored| stored == unsigned || stored == signed)
     }
@@ -37,21 +46,22 @@ impl Header<'_> {
     }
 
     pub(crate) fn size(&self) -> Option<u64> {
-        number(&self.0[124..136])
+        number(self.field(124..136))
     }
 
     pub(crate) fn mtime(&self) -> Option<u64> {
-        number(&self.0[136..148])
+        number(self.field(136..148))
     }
 
     /// Returns the member name, joining the POSIX ustar prefix if present.
     pub(crate) fn name(&self) -> Vec<u8> {
-        let name = text(&self.0[0..100]);
-        let prefix = text(&self.0[345..500]);
+        let name = text(self.field(0..100));
+        let prefix = text(self.field(345..500));
         // POSIX ustar has a prefix field; GNU tar uses those bytes for other
         // purposes and marks itself with "ustar  ".
-        if &self.0[257..263] == b"ustar\0" && !prefix.is_empty() {
-            let mut joined = Vec::with_capacity(prefix.len() + 1 + name.len());
+        if self.field(257..263) == b"ustar\0" && !prefix.is_empty() {
+            let len = prefix.len().saturating_add(name.len()).saturating_add(1);
+            let mut joined = Vec::with_capacity(len);
             joined.extend_from_slice(prefix);
             joined.push(b'/');
             joined.extend_from_slice(name);
@@ -62,14 +72,14 @@ impl Header<'_> {
     }
 
     pub(crate) fn linkname(&self) -> &[u8] {
-        text(&self.0[157..257])
+        text(self.field(157..257))
     }
 }
 
 /// Returns a field up to its first NUL.
 pub(crate) fn text(field: &[u8]) -> &[u8] {
     let end = field.iter().position(|&b| b == 0).unwrap_or(field.len());
-    &field[..end]
+    field.get(..end).unwrap_or(field)
 }
 
 /// Parses a numeric field: octal, padded with spaces or NULs, or GNU
@@ -98,7 +108,9 @@ pub(crate) fn number(field: &[u8]) -> Option<u64> {
         if !(b'0'..=b'7').contains(&b) {
             return None;
         }
-        n = n.checked_mul(8)?.checked_add(u64::from(b - b'0'))?;
+        n = n
+            .checked_mul(8)?
+            .checked_add(u64::from(b.wrapping_sub(b'0')))?;
     }
     Some(n)
 }
@@ -109,15 +121,16 @@ pub(crate) fn pax_records(mut data: &[u8]) -> Option<Vec<(&[u8], &[u8])>> {
     let mut records = Vec::new();
     while !data.is_empty() {
         let space = data.iter().position(|&b| b == b' ')?;
-        let len = decimal(&data[..space])?;
+        let len = decimal(data.get(..space)?)?;
         let len = usize::try_from(len).ok()?;
-        if len <= space + 1 || len > data.len() {
+        let start = space.checked_add(1)?;
+        if len <= start || len > data.len() {
             return None;
         }
-        let record = data[space + 1..len].strip_suffix(b"\n")?;
+        let record = data.get(start..len)?.strip_suffix(b"\n")?;
         let equals = record.iter().position(|&b| b == b'=')?;
-        records.push((&record[..equals], &record[equals + 1..]));
-        data = &data[len..];
+        records.push((record.get(..equals)?, record.get(equals.checked_add(1)?..)?));
+        data = data.get(len..)?;
     }
     Some(records)
 }
@@ -132,7 +145,9 @@ pub(crate) fn decimal(digits: &[u8]) -> Option<u64> {
         if !b.is_ascii_digit() {
             return None;
         }
-        n = n.checked_mul(10)?.checked_add(u64::from(b - b'0'))?;
+        n = n
+            .checked_mul(10)?
+            .checked_add(u64::from(b.wrapping_sub(b'0')))?;
     }
     Some(n)
 }
@@ -145,23 +160,29 @@ pub(crate) fn pax_time(value: &[u8]) -> Option<(i64, u32)> {
         None => (false, value),
     };
     let (secs, fraction) = match value.iter().position(|&b| b == b'.') {
-        Some(dot) => (&value[..dot], &value[dot + 1..]),
+        Some(dot) => (value.get(..dot)?, value.get(dot.checked_add(1)?..)?),
         None => (value, &b""[..]),
     };
     let secs = i64::try_from(decimal(secs)?).ok()?;
     let mut nanos: u32 = 0;
-    for (i, &b) in fraction.iter().take(9).enumerate() {
+    // The place of the next digit, in nanoseconds: tenths first.
+    let mut place: u32 = 100_000_000;
+    for &b in fraction.iter().take(9) {
         if !b.is_ascii_digit() {
             return None;
         }
-        nanos += u32::from(b - b'0') * 10_u32.pow(8 - i as u32);
+        nanos = nanos.checked_add(u32::from(b.wrapping_sub(b'0')).checked_mul(place)?)?;
+        place = place.checked_div(10)?;
     }
     if negative {
         // -1.5 is 1.5 seconds before the epoch: -2 seconds plus 0.5.
         if nanos == 0 {
-            Some((-secs, 0))
+            Some((secs.checked_neg()?, 0))
         } else {
-            Some((-secs - 1, 1_000_000_000 - nanos))
+            Some((
+                secs.checked_neg()?.checked_sub(1)?,
+                1_000_000_000_u32.checked_sub(nanos)?,
+            ))
         }
     } else {
         Some((secs, nanos))

@@ -42,6 +42,7 @@ pub(crate) async fn get<D: Driver, B: IoBufMut>(
     let buf = ErasedBufMut::new(buf);
     let op = Op::Xattr(XattrOp::Get { handle, name, buf });
     let Completion { result, buf, .. } = driver.submit(op).await;
+    #[allow(clippy::expect_used, reason = "drivers return the buffer, by contract")]
     let buf = buf
         .and_then(|buf| buf.downcast::<B>().ok())
         .expect("driver returned the attribute buffer");
@@ -70,7 +71,7 @@ pub(crate) async fn read<D: Driver>(
         let Some(len) = result? else {
             return Ok(None);
         };
-        if len <= buf.len() as u64 {
+        if len <= u64::try_from(buf.len()).unwrap_or(u64::MAX) {
             return Ok(Some(buf));
         }
         want = usize::try_from(len).map_err(|_| Error::new(ErrorKind::LimitExceeded, op))?;

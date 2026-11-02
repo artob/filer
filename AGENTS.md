@@ -30,7 +30,9 @@
 - After making changes to a crate, as a last step run `cargo doc` on it.
 - Robustness (D47): async first; no panics on any input (no `unwrap`,
   `expect`, `panic!`, unchecked indexing or arithmetic in library code);
-  make illegal states unrepresentable; never ignore an error.
+  make illegal states unrepresentable; never ignore an error. Every
+  library crate's root denies these by lint (copy `filer-api`'s block
+  into new crates); allow one only where it stands, with a `reason`.
 - 100% Rust: never add a dependency that compiles or bundles C/C++ (no `cc`,
   `cmake`, `pkg-config`, `bindgen`, or C-wrapping `-sys` crates; CI checks).
   Rust bindings to the OS's own APIs (`libc` on macOS, `windows-sys`) are
@@ -51,14 +53,14 @@
   `ReadAt` sources, read-only forever: never add archive writing; each is
   a header parser over the shared `filer_api::archive` module);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
-  planned; its root denies panicking constructs by lint); `filer-ext4`,
-  `filer-ntfs`, and `filer-xfs` are read-only file system drivers, and
-  `filer-udf` a stub; `filer-fs` holds what they share (each depends on
-  it; shared code goes there, not into one driver): a format implements
-  `filer_fs::FileSystem`, its public type wraps `filer_fs::Mounted`, and
-  its tests use `filer-spec`'s `Sparse`, `Overlay`, `exercise`, and
-  `fuzz`, and its `tests/differential.sh` runs a release `manifest` in
-  parallel jobs through `lib/filer-spec/tests/jobs.sh`;
+  planned); `filer-ext4`, `filer-ntfs`, and `filer-xfs` are read-only file
+  system drivers, and `filer-udf` a stub; `filer-fs` holds what they
+  share (each depends on it; shared code goes there, not into one
+  driver): a format implements `filer_fs::FileSystem`, its public type
+  wraps `filer_fs::Mounted`, and its tests use `filer-spec`'s `Sparse`,
+  `Overlay`, `exercise`, and `fuzz`, and its `tests/differential.sh` runs
+  a release `manifest` in parallel jobs through
+  `lib/filer-spec/tests/jobs.sh`;
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `filer-system` re-exports `filer-api` plus `System`, the target's native

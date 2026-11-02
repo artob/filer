@@ -24,7 +24,11 @@ pub(crate) fn kind(stat: &Stat) -> FileKind {
 
 /// Returns the device `stat`'s file is on.
 // The field's type differs by platform and backend.
-#[allow(clippy::unnecessary_cast)]
+#[allow(
+    clippy::as_conversions,
+    clippy::unnecessary_cast,
+    reason = "a device number of any platform's type"
+)]
 pub(crate) fn device(stat: &Stat) -> u64 {
     stat.st_dev as u64
 }
@@ -34,7 +38,11 @@ pub(crate) fn device(stat: &Stat) -> u64 {
 /// platform-specific fields and are not reported yet.
 // The `stat` field types differ by platform and backend, so the casts are
 // necessary on some and not on others.
-#[allow(clippy::unnecessary_cast)]
+#[allow(
+    clippy::as_conversions,
+    clippy::unnecessary_cast,
+    reason = "times and inode numbers of any platform's types"
+)]
 pub(crate) fn metadata(stat: &Stat) -> Metadata {
     let time = |secs, nanos| Timestamp::new(secs as i64, nanos as u32);
     let mut metadata = Metadata::default();

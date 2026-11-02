@@ -349,7 +349,7 @@ impl Posix {
             _ => return Err(Error::new(ErrorKind::NotRegularFile, op)),
         }
         let flags = retry(|| rustix::fs::fcntl_getfl(&fd)).map_err(|e| error(e, op))?;
-        retry(|| rustix::fs::fcntl_setfl(&fd, flags - OFlags::NONBLOCK))
+        retry(|| rustix::fs::fcntl_setfl(&fd, flags.difference(OFlags::NONBLOCK)))
             .map_err(|e| error(e, op))?;
         Ok(Output::Opened(
             self.key.handle(HandleKind::File, FilePayload { fd }),
@@ -408,7 +408,7 @@ impl Posix {
             entry.kind = (kind != rustix::fs::FileType::Unknown).then(|| stat::file_kind(kind));
             entry.id = Some(FileId::new(device, u128::from(raw.ino())));
             entries.push(entry);
-            current.next += 1;
+            current.next = current.next.saturating_add(1);
         }
         let next = (!done).then(|| DirCookie::new(current.next));
         if !done {
@@ -535,7 +535,7 @@ fn open_listing(fd: &OwnedFd, position: u64) -> rustix::io::Result<Listing> {
         };
         while listing.next < position {
             match next_raw(&mut listing.dir) {
-                Ok(Some(_)) => listing.next += 1,
+                Ok(Some(_)) => listing.next = listing.next.saturating_add(1),
                 Ok(None) => break,
                 Err(Errno::INTR) => continue 'restart,
                 Err(errno) => return Err(errno),

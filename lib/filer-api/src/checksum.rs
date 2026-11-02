@@ -16,6 +16,14 @@ const POLY: u32 = 0x82F6_3B78;
 /// optimized away.
 static TABLES: [[u32; 256]; 8] = tables();
 
+/// Builds [`TABLES`], at compile time, where any overflow or index out of
+/// range fails the build instead of panicking.
+#[allow(
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::indexing_slicing,
+    reason = "evaluated at compile time"
+)]
 const fn tables() -> [[u32; 256]; 8] {
     let mut tables = [[0; 256]; 8];
     let mut byte = 0;
@@ -73,7 +81,14 @@ impl Crc32c {
     /// Feeds `bytes`.
     #[must_use]
     pub fn update(self, bytes: &[u8]) -> Self {
-        let table = |k: usize, byte: u8| TABLES[k][usize::from(byte)];
+        // Always found: `k` is below 8, and a byte below 256.
+        let table = |k: usize, byte: u8| {
+            TABLES
+                .get(k)
+                .and_then(|table| table.get(usize::from(byte)))
+                .copied()
+                .unwrap_or(0)
+        };
         let (groups, rest) = bytes.as_chunks::<8>();
         let mut crc = self.state;
         for group in groups {

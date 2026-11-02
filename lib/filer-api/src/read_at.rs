@@ -77,7 +77,7 @@ pub trait ReadAt: Send + Sync {
                         let error = Error::new(ErrorKind::UnexpectedEof, OpKind::Read);
                         return BufResult(Err(error), buf);
                     },
-                    Ok(n) => off += n as u64,
+                    Ok(n) => off = off.saturating_add(u64::try_from(n).unwrap_or(u64::MAX)),
                     Err(error) => return BufResult(Err(error), buf),
                 }
             }
@@ -117,7 +117,7 @@ impl<T: AsRef<[u8]> + Send + Sync + ?Sized> ReadAt for T {
     }
 
     fn size(&self) -> impl Future<Output = Result<u64>> + Send {
-        core::future::ready(Ok(self.as_ref().len() as u64))
+        core::future::ready(Ok(u64::try_from(self.as_ref().len()).unwrap_or(u64::MAX)))
     }
 }
 

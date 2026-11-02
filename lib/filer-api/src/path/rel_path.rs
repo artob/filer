@@ -190,21 +190,30 @@ const fn validate(s: &str) -> Result<(), RelPathError> {
     if rest.is_empty() {
         return Ok(());
     }
-    let mut index = 0;
+    let mut index: usize = 0;
     loop {
-        let mut end = 0;
-        while end < rest.len() && rest[end] != b'/' {
-            end += 1;
+        // The component runs to the next `/`, or to the end.
+        let mut end: usize = 0;
+        let mut scan = rest;
+        while let [byte, tail @ ..] = scan {
+            if *byte == b'/' {
+                break;
+            }
+            end = end.saturating_add(1);
+            scan = tail;
         }
-        let (component, tail) = rest.split_at(end);
+        let Some((component, tail)) = rest.split_at_checked(end) else {
+            return Ok(());
+        };
         if let Err(reason) = name::validate(component) {
             return Err(RelPathError::new(index, reason));
         }
-        if tail.is_empty() {
+        // Past the `/`, if any.
+        let [_, after @ ..] = tail else {
             return Ok(());
-        }
-        rest = tail.split_at(1).1;
-        index += 1;
+        };
+        rest = after;
+        index = index.saturating_add(1);
     }
 }
 

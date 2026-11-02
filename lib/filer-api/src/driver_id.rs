@@ -25,6 +25,9 @@ impl DriverId {
         // in favor of `try_update`, unavailable at our MSRV.
         let mut id = NEXT.load(Relaxed);
         loop {
+            // Only 2^32 drivers in one process exhaust it, on 32-bit
+            // targets; reusing an id would break drivers' isolation.
+            #[allow(clippy::expect_used, reason = "ids must never repeat")]
             let next = id.checked_add(1).expect("driver id space exhausted");
             match NEXT.compare_exchange_weak(id, next, Relaxed, Relaxed) {
                 Ok(_) => return Self(id),

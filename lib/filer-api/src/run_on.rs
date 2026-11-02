@@ -105,11 +105,9 @@ impl<T: Send + 'static> Future for RunOn<T> {
     type Output = Option<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T>> {
-        if let State::Unstarted { .. } = self.0 {
-            let State::Unstarted { spawner, job } = core::mem::replace(&mut self.0, State::Done)
-            else {
-                unreachable!("checked above");
-            };
+        if let State::Unstarted { .. } = self.0
+            && let State::Unstarted { spawner, job } = core::mem::replace(&mut self.0, State::Done)
+        {
             let slot = Arc::new(Mutex::new(Slot {
                 value: None,
                 closed: false,
@@ -119,8 +117,9 @@ impl<T: Send + 'static> Future for RunOn<T> {
             spawner.spawn_blocking(Box::new(move || sender.send(job())));
             self.0 = State::Started(slot);
         }
+        // Polled again after completion, it has nothing more to give.
         let State::Started(slot) = &self.0 else {
-            panic!("`RunOn` polled after completion");
+            return Poll::Ready(None);
         };
         let mut slot = lock(slot);
         if !slot.closed {

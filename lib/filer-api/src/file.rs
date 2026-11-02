@@ -216,6 +216,7 @@ impl<M: Readable, D: Driver> File<M, D> {
             off,
         };
         let Completion { result, buf, .. } = self.driver.submit(op).await;
+        #[allow(clippy::expect_used, reason = "drivers return the buffer, by contract")]
         let buf = buf
             .and_then(|buf| buf.downcast::<B>().ok())
             .expect("driver returned the read buffer");
@@ -243,7 +244,7 @@ impl<M: Readable, D: Driver> File<M, D> {
                     let error = Error::new(ErrorKind::UnexpectedEof, OpKind::Read);
                     return BufResult(Err(self.context(error)), buf);
                 },
-                Ok(n) => off += n as u64,
+                Ok(n) => off = off.saturating_add(u64::try_from(n).unwrap_or(u64::MAX)),
                 Err(error) => return BufResult(Err(error), buf),
             }
         }
@@ -263,7 +264,7 @@ impl<M: Readable, D: Driver> File<M, D> {
                 // buffer never moves while a driver holds it.
                 buf.reserve(buf.len());
             }
-            let off = buf.len() as u64;
+            let off = u64::try_from(buf.len()).unwrap_or(u64::MAX);
             let BufResult(result, returned) = self.read_at(buf, off).await;
             buf = returned;
             if result? == 0 {

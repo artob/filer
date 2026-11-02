@@ -47,6 +47,7 @@ impl ErasedBufMut {
             return Err(self);
         }
         let any: Box<dyn Any> = self.0;
+        #[allow(clippy::expect_used, reason = "the type is checked just above")]
         Ok(*any.downcast::<B>().expect("type checked above"))
     }
 }

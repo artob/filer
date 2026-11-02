@@ -100,14 +100,10 @@ impl<F> Tree<F> {
         self.nodes.len()
     }
 
-    /// Returns the node `ino`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `ino` is not a node of this tree.
+    /// Returns the node `ino`, or `None` if it is not one of this tree's.
     #[must_use]
-    pub fn node(&self, ino: Ino) -> &Node<F> {
-        &self.nodes[ino]
+    pub fn node(&self, ino: Ino) -> Option<&Node<F>> {
+        self.nodes.get(ino)
     }
 
     /// Returns the entries of directory `dir`, or `None` if it is not one.
@@ -129,7 +125,8 @@ impl<F> Tree<F> {
     /// inode.
     pub fn add(&mut self, node: Node<F>) -> Ino {
         self.nodes.push(node);
-        self.nodes.len() - 1
+        // Not empty, as it was just pushed to.
+        self.nodes.len().saturating_sub(1)
     }
 
     /// Links `ino` into directory `dir` as `name`, returning the inode the
@@ -162,8 +159,8 @@ impl<F> Tree<F> {
     /// directory or `name` exists and is not one.
     pub fn make_dir(&mut self, dir: Ino, name: &[u8]) -> Result<Ino, ErrorKind> {
         match self.child(dir, name) {
-            Some(child) => match self.nodes[child] {
-                Node::Dir(_) => Ok(child),
+            Some(child) => match self.nodes.get(child) {
+                Some(Node::Dir(_)) => Ok(child),
                 _ => Err(ErrorKind::NotADirectory),
             },
             None => {
@@ -191,13 +188,15 @@ impl<F> BlockingResolver for Tree<F> {
         }
     }
 
+    /// Lookups find only this tree's nodes, so a node it lacks, which only
+    /// a bug makes, is taken as a file, which a walk goes no further into.
     fn kind(&self, node: &Ino) -> FileKind {
-        self.nodes[*node].kind()
+        self.nodes.get(*node).map_or(FileKind::File, Node::kind)
     }
 
     fn read_link(&self, dir: &Ino, name: &[u8], op: OpKind) -> Result<LinkTarget, Error> {
-        match &self.nodes[self.lookup(dir, name, op)?] {
-            Node::Symlink(target) => Ok(LinkTarget::from_bytes(target.to_vec())),
+        match self.nodes.get(self.lookup(dir, name, op)?) {
+            Some(Node::Symlink(target)) => Ok(LinkTarget::from_bytes(target.to_vec())),
             _ => Err(Error::new(ErrorKind::NotASymlink, op)),
         }
     }
@@ -215,7 +214,10 @@ mod tests {
         let second = tree.add(Node::File(2));
         assert_eq!(tree.link(ROOT, b"a", first), Ok(None));
         assert_eq!(tree.link(ROOT, b"a", second), Ok(Some(first)));
-        assert_eq!(tree.node(tree.child(ROOT, b"a").unwrap()), &Node::File(2));
+        assert_eq!(
+            tree.node(tree.child(ROOT, b"a").unwrap()),
+            Some(&Node::File(2))
+        );
     }
 
     #[test]

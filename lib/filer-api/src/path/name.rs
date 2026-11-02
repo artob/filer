@@ -76,12 +76,12 @@ pub(crate) const fn validate(bytes: &[u8]) -> Result<(), NameError> {
         [b'.'] | [b'.', b'.'] => return Err(NameError::DotOrDotDot),
         _ => {},
     }
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
+    let mut rest = bytes;
+    while let [byte, tail @ ..] = rest {
+        match *byte {
             b'/' => return Err(NameError::ContainsSlash),
             0 => return Err(NameError::ContainsNul),
-            _ => i += 1,
+            _ => rest = tail,
         }
     }
     Ok(())

@@ -65,7 +65,7 @@ impl<C> Index<C> {
     /// archive root.
     pub fn dir(&mut self, name: &[u8], offset: u64) -> Result<(), Error> {
         let components = self.components(name, offset)?;
-        self.make_dirs(&components);
+        self.make_dirs(&components, offset)?;
         Ok(())
     }
 
@@ -81,10 +81,9 @@ impl<C> Index<C> {
         let Some((&last, parents)) = components.split_last() else {
             return Err(self.fail(ErrorKind::InvalidName, offset, "member names the root"));
         };
-        let parent = self.make_dirs(parents);
+        let parent = self.make_dirs(parents, offset)?;
         let ino = self.tree.add(node);
-        self.tree.link(parent, last, ino).expect("a directory");
-        Ok(())
+        self.link(parent, last, ino, offset)
     }
 
     /// Records `name` as a hardlink to the earlier member `target`, from
@@ -107,12 +106,15 @@ impl<C> Index<C> {
         let target = target
             .iter()
             .try_fold(ROOT, |dir, name| self.tree.child(dir, name))
-            .filter(|&ino| self.tree.node(ino).kind() != FileKind::Dir)
+            .filter(|&ino| {
+                self.tree
+                    .node(ino)
+                    .is_some_and(|node| node.kind() != FileKind::Dir)
+            })
             .filter(|_| !target.is_empty())
             .ok_or_else(bad)?;
-        let parent = self.make_dirs(parents);
-        self.tree.link(parent, last, target).expect("a directory");
-        Ok(())
+        let parent = self.make_dirs(parents, offset)?;
+        self.link(parent, last, target, offset)
     }
 
     /// Returns the tree built so far.
@@ -137,20 +139,30 @@ impl<C> Index<C> {
     }
 
     /// Returns the directory at `components`, creating or replacing (the
-    /// later member wins) whatever is in the way.
-    fn make_dirs(&mut self, components: &[&[u8]]) -> Ino {
+    /// later member wins) whatever is in the way, for the header at
+    /// `offset`.
+    fn make_dirs(&mut self, components: &[&[u8]], offset: u64) -> Result<Ino, Error> {
         let mut dir = ROOT;
         for &name in components {
             dir = match self.tree.make_dir(dir, name) {
                 Ok(child) => child,
                 Err(_) => {
                     let child = self.tree.add(Node::Dir(Default::default()));
-                    self.tree.link(dir, name, child).expect("a directory");
+                    self.link(dir, name, child, offset)?;
                     child
                 },
             };
         }
-        dir
+        Ok(dir)
+    }
+
+    /// Links `ino` as `name` in directory `dir`, for the header at
+    /// `offset`. `dir` is one, as `make_dirs` returns only directories.
+    fn link(&mut self, dir: Ino, name: &[u8], ino: Ino, offset: u64) -> Result<(), Error> {
+        self.tree
+            .link(dir, name, ino)
+            .map(|_| ())
+            .map_err(|kind| self.fail(kind, offset, "member's parent is not a directory"))
     }
 }
 
@@ -204,7 +216,7 @@ mod tests {
         index.insert(b"e", file(5), 0).unwrap();
         let tree = index.into_tree();
         let offset = |ino| match tree.node(ino) {
-            Node::File(member) => member.offset,
+            Some(Node::File(member)) => member.offset,
             _ => u64::MAX,
         };
         assert_eq!(offset(tree.child(ROOT, b"a").unwrap()), 2);

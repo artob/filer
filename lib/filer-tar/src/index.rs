@@ -2,7 +2,7 @@
 
 //! Building the index of an archive: one pass over its headers.
 
-use crate::header::{BLOCK, Header, decimal, pax_records, pax_time, text};
+use crate::header::{BLOCK, BLOCK_LEN, Header, decimal, pax_records, pax_time, text};
 use alloc::{boxed::Box, vec::Vec};
 use core::time::Duration;
 use filer_api::{
@@ -50,11 +50,15 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
         if offset == end {
             break;
         }
-        if end - offset < BLOCK as u64 {
+        // The last member's padding may pass the end, leaving no room.
+        if end.saturating_sub(offset) < BLOCK_LEN {
             return Err(fail(ErrorKind::Corrupt, offset, "truncated header"));
         }
         let block = read(source, offset, BLOCK).await?;
-        let block: &[u8; BLOCK] = block.as_slice().try_into().expect("read one block");
+        let block: &[u8; BLOCK] = block
+            .as_slice()
+            .try_into()
+            .map_err(|_| fail(ErrorKind::Corrupt, offset, "truncated header"))?;
         let header = Header(block);
         if header.is_zero() {
             break;
@@ -63,7 +67,9 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
             return Err(fail(ErrorKind::Corrupt, offset, "bad checksum"));
         }
         let typeflag = header.typeflag();
-        let data = offset + BLOCK as u64;
+        let data = offset
+            .checked_add(BLOCK_LEN)
+            .ok_or_else(|| fail(ErrorKind::Corrupt, offset, "truncated header"))?;
         let header_size = header
             .size()
             .ok_or_else(|| fail(ErrorKind::Corrupt, offset, "bad size"))?;
@@ -72,21 +78,34 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
             b'x' | b'g' | b'L' | b'K' => header_size,
             _ => pending.size.take().unwrap_or(header_size),
         };
-        if size > end - data {
+        if size > end.saturating_sub(data) {
             return Err(fail(
                 ErrorKind::Corrupt,
                 offset,
                 "member extends past the end",
             ));
         }
-        let next = data + size.div_ceil(BLOCK as u64) * BLOCK as u64;
+        // Within the archive, but for its padding, as `size` is.
+        let next = size
+            .div_ceil(BLOCK_LEN)
+            .checked_mul(BLOCK_LEN)
+            .and_then(|padded| data.checked_add(padded))
+            .ok_or_else(|| fail(ErrorKind::Corrupt, offset, "member extends past the end"))?;
         match typeflag {
             b'x' | b'L' | b'K' => {
                 if size > limits.max_extension_len {
                     let reason = "extended header too large";
                     return Err(fail(ErrorKind::LimitExceeded, offset, reason));
                 }
-                let record = read(source, data, size as usize).await?;
+                // Within the limit, so it fits.
+                let len = usize::try_from(size).map_err(|_| {
+                    fail(
+                        ErrorKind::LimitExceeded,
+                        offset,
+                        "extended header too large",
+                    )
+                })?;
+                let record = read(source, data, len).await?;
                 match typeflag {
                     b'x' => apply_pax(&mut pending, &record, offset)?,
                     b'L' => pending.path = Some(text(&record).to_vec()),
@@ -106,7 +125,7 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
             _ => {},
         }
 
-        entries += 1;
+        entries = entries.saturating_add(1);
         if entries > limits.max_entries {
             return Err(fail(ErrorKind::LimitExceeded, offset, "too many members"));
         }

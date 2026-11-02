@@ -22,6 +22,7 @@ impl NameError {
     /// Panics with a fixed message for this error. A `const` panic cannot
     /// format its argument, so the `name!` and `rel!` macros use this to
     /// report invalid literals at compile time.
+    #[allow(clippy::panic, reason = "evaluated at compile time, as a build error")]
     pub(super) const fn panic(self) -> ! {
         match self {
             Self::Empty => panic!("invalid literal: empty name or component"),
