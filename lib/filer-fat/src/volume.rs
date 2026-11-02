@@ -7,14 +7,16 @@ use crate::{
     CodePage, FatError, Options,
     chain::{Chain, FatReader, Length, OnVolume},
     dir_entry::{Assembler, Body, DirEntry, Item, MAX_LONG_NAME, SLOT, Step},
+    fat_time::{ONE_DAY, TEN_MILLIS, TWO_SECONDS},
     geometry::{Cluster, Geometry, Root},
 };
 use alloc::{sync::Arc, vec::Vec};
 use core::{future::Future, num::NonZeroU32};
 use filer_api::{
-    DriverKey, EntryName, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver,
+    DirCookie, DriverKey, Entry, EntryName, Error, ErrorKind, FileId, FileKind, LinkTarget,
+    MetaMask, Metadata, OpKind, ReadAt,
 };
-use filer_fs::{map, read_exact};
+use filer_fs::{FileSystem, Opened, map, read_exact};
 
 /// The most slots a directory may have, per the specification.
 const MAX_DIR_SLOTS: u64 = 65_536;
@@ -389,12 +391,31 @@ fn fold(c: char) -> char {
     }
 }
 
-/// The [`Resolver`] primitives over a volume. A private type, so that
-/// nodes cannot be resolved from without a handle.
-pub(crate) struct Walker<'a, S>(pub(crate) &'a Volume<S>);
+impl<S: ReadAt> Volume<S> {
+    /// Returns the id of `node`: the volume serial number (0 if the volume
+    /// has none) and the node's own id.
+    fn id(&self, node: &Node) -> FileId {
+        let volume = self.geometry.serial().map_or(0, u64::from);
+        FileId::new(volume, node.id())
+    }
+}
 
-impl<S: ReadAt> Resolver for Walker<'_, S> {
+impl<S: ReadAt + 'static> FileSystem for Volume<S> {
     type Node = Node;
+    type Dir = Extent;
+    type File = FileData;
+
+    fn key(&self) -> &DriverKey {
+        &self.key
+    }
+
+    async fn root(&self, _op: OpKind) -> Result<Node, Error> {
+        Ok(Node::Root)
+    }
+
+    fn kind(&self, node: &Node) -> FileKind {
+        node.kind()
+    }
 
     fn lookup(
         &self,
@@ -402,20 +423,106 @@ impl<S: ReadAt> Resolver for Walker<'_, S> {
         name: &[u8],
         op: OpKind,
     ) -> impl Future<Output = Result<Node, Error>> + Send {
-        self.0.lookup(dir, name, op)
+        Volume::lookup(self, dir, name, op)
     }
 
-    fn kind(&self, node: &Node) -> FileKind {
-        node.kind()
+    /// FAT has no symlinks, so the shell never asks.
+    async fn read_link(&self, _link: &Node, op: OpKind) -> Result<LinkTarget, Error> {
+        Err(Error::new(ErrorKind::NotASymlink, op))
     }
 
-    /// FAT has no symlinks, so the walk never asks.
-    fn read_link(
+    fn open_dir(
         &self,
-        _dir: &Node,
-        _name: &[u8],
+        dir: &Node,
         op: OpKind,
-    ) -> impl Future<Output = Result<LinkTarget, Error>> + Send {
-        core::future::ready(Err(Error::new(ErrorKind::NotASymlink, op)))
+    ) -> impl Future<Output = Result<Extent, Error>> + Send {
+        self.extent(dir, op)
+    }
+
+    async fn open_file(&self, file: &Node, op: OpKind) -> Result<FileData, Error> {
+        let Node::Entry(found) = file else {
+            return Err(Error::new(ErrorKind::IsADirectory, op));
+        };
+        self.file_chain(found, op).await
+    }
+
+    fn read(
+        &self,
+        _node: &Node,
+        data: &FileData,
+        off: u64,
+        max: usize,
+        op: OpKind,
+    ) -> impl Future<Output = Result<Vec<u8>, Error>> + Send {
+        self.read_file(data, off, max, op)
+    }
+
+    /// A directory's length is that of its cluster chain, or of the fixed
+    /// FAT12/16 root, as Linux reports it; without a handle, the chain is
+    /// read only if `mask` asks for the length.
+    async fn metadata(
+        &self,
+        node: &Node,
+        opened: Option<Opened<'_, Self>>,
+        mask: MetaMask,
+        _op: OpKind,
+    ) -> Result<Metadata, Error> {
+        let mut metadata = Metadata::default();
+        metadata.kind = Some(node.kind());
+        metadata.id = Some(self.id(node));
+        metadata.len = match (opened, node) {
+            (Some(Opened::File(data)), _) => Some(data.size()),
+            (Some(Opened::Dir(extent)), _) => Some(extent.len()),
+            (None, Node::Entry(found)) => match found.entry.body() {
+                Body::File { size, .. } => Some(u64::from(size.get())),
+                Body::EmptyFile => Some(0),
+                Body::Dir(_) if !mask.contains(MetaMask::LEN) => None,
+                Body::Dir(_) => Some(self.extent(node, OpKind::Stat).await?.len()),
+            },
+            (None, Node::Root) if !mask.contains(MetaMask::LEN) => None,
+            (None, Node::Root) => Some(self.extent(node, OpKind::Stat).await?.len()),
+        };
+        if let Node::Entry(found) = node {
+            let Found { entry, .. } = &**found;
+            let offset = self.options.utc_offset();
+            metadata.modified = entry.modified().to_timestamp(offset, TWO_SECONDS);
+            metadata.created = entry.created().to_timestamp(offset, TEN_MILLIS);
+            metadata.accessed = entry.accessed().to_timestamp(offset, ONE_DAY);
+        }
+        Ok(metadata)
+    }
+
+    async fn read_dir(
+        &self,
+        _node: &Node,
+        extent: &Extent,
+        cookie: Option<DirCookie>,
+        max: usize,
+        op: OpKind,
+    ) -> Result<(Vec<Entry>, Option<DirCookie>), Error> {
+        let slot = cookie.map_or(Some(0), |cookie| u32::try_from(cookie.get()).ok());
+        let Some(slot) = slot else {
+            return Ok((Vec::new(), None));
+        };
+        let mut stream = DirStream::new(self, extent, slot);
+        let mut entries = Vec::new();
+        while entries.len() < max {
+            let Some((dir_entry, name)) = stream.next(op).await? else {
+                return Ok((entries, None));
+            };
+            let name = self
+                .key
+                .entry_name(&name)
+                .map_err(|error| Error::new(ErrorKind::Corrupt, op).with_source(error))?;
+            let node = Node::Entry(Arc::new(Found {
+                dir: extent.id(),
+                entry: dir_entry,
+            }));
+            let mut entry = Entry::new(name);
+            entry.kind = Some(node.kind());
+            entry.id = Some(self.id(&node));
+            entries.push(entry);
+        }
+        Ok((entries, Some(DirCookie::new(u64::from(stream.slot())))))
     }
 }

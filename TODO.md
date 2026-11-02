@@ -667,8 +667,9 @@ From §17.12 (D40). Create each crate when its item starts.
   against Samba.
 - [ ] **NET-04: `filer-nfs`.** Done when the read-only subset passes
   against a local NFS server.
-- [ ] **FMT-01: `filer-exfat`.** exFAT, its own crate (D46). Done when
-  it reads an exFAT image.
+- [ ] **FMT-01: `filer-exfat`.** exFAT, its own crate (D46), over
+  `filer-fs`; FAT's local times (`fat_time.rs`, `UtcOffset`) move there
+  for it to share (§17.17). Done when it reads an exFAT image.
 - [ ] **FMT-03: Partitioned images.** MBR and GPT, through a general window
   adapter over any `ReadAt`, so `filer-fat` and others read partitions.
   Done when a partitioned image's FAT partition opens.
@@ -676,20 +677,6 @@ From §17.12 (D40). Create each crate when its item starts.
   Done when each reads an image.
 - [ ] **FMT-06: `filer-udf`.** Read-only UDF. Done when `mkudffs` images
   of revisions 1.02, 2.01, and 2.50 read.
-
-## `filer-fs`
-
-What the file system drivers share, moved out of them (§17.17, D54). In
-order; one step per item, each committed. Helpers every driver needs go to
-`filer-api`, shared test tooling to `filer-spec`. Two more wait for a
-second user: XFS's recovery overlay (with EXT-10) and FAT's local times
-(with FMT-01).
-
-- [ ] **FS-12: The driver shell, for the rest.** `filer-xfs` is served by
-  `filer_fs::Mounted` (§17.17); move `filer-ext4`, `filer-ntfs`, and
-  `filer-fat` onto it, one commit each. Done when each driver's public
-  type is a thin wrapper and its `Walker` is gone, `filer-spec` passing
-  unchanged.
 
 ## `filer-ext4`
 
@@ -700,7 +687,9 @@ format grew; one step per item, each committed.
   needing recovery are refused, with an opt-in to read them as they are.
   Done when `mke2fs -t ext3` fixtures read and agree with the kernel.
 - [ ] **EXT-10: Journal replay.** JBD2 in memory: descriptor, commit, and
-  revoke blocks; 64-bit and checksummed tags. Done when volumes shut down
+  revoke blocks; 64-bit and checksummed tags, laid over the source as
+  `filer-xfs` lays its log's, moving its `recover::Overlay` and
+  `Recovered` to `filer-fs` (§17.17). Done when volumes shut down
   mid-write read as the kernel recovers them.
 - [ ] **EXT-11: Hashed lookups.** Descend htrees by legacy, half-MD4, and
   TEA hashes, signed and unsigned, checked against `debugfs dx_hash`,
