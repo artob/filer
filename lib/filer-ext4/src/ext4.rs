@@ -203,14 +203,7 @@ impl<S: ReadAt> Ext4<S> {
         let bytes = map
             .read(&volume.source, &volume.sb, size, off, buf.spare(), op)
             .await?;
-        buf.fill(&mut |spare| {
-            let n = spare.len().min(bytes.len());
-            let (Some(to), Some(from)) = (spare.get_mut(..n), bytes.get(..n)) else {
-                return Ok(0);
-            };
-            to.copy_from_slice(from);
-            Ok(n)
-        })
+        Ok(buf.fill_from(&bytes))
     }
 
     /// Reads as much of the extended attribute `name` of `handle` as fits
@@ -239,14 +232,7 @@ impl<S: ReadAt> Ext4<S> {
             return Ok(None);
         };
         let value = found.value;
-        buf.fill(&mut |spare| {
-            let n = spare.len().min(value.len());
-            let (Some(to), Some(from)) = (spare.get_mut(..n), value.get(..n)) else {
-                return Ok(0);
-            };
-            to.copy_from_slice(from);
-            Ok(n)
-        })?;
+        buf.fill_from(&value);
         Ok(Some(u64::try_from(value.len()).unwrap_or(u64::MAX)))
     }
 

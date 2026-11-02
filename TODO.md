@@ -685,9 +685,6 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-03: Copying into buffers (`filer-api`).** An `IoBufMut` method
-  that copies a slice in and returns how much fit. Done when no crate
-  writes the `fill` closure by hand (19 now).
 - [ ] **FS-04: Naming entries in errors (`filer-api`).** An `Error`
   method adding an `EntryName` to the path if it is UTF-8. Done when the
   seven `with_name` copies are gone.

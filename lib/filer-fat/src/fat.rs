@@ -196,14 +196,7 @@ impl<S: ReadAt> Fat<S> {
             Payload::Dir { .. } => return Err(Error::new(ErrorKind::IsADirectory, op)),
         };
         let bytes = self.0.read_file(data, off, buf.spare(), op).await?;
-        buf.fill(&mut |spare| {
-            let n = spare.len().min(bytes.len());
-            let (Some(to), Some(from)) = (spare.get_mut(..n), bytes.get(..n)) else {
-                return Ok(0);
-            };
-            to.copy_from_slice(from);
-            Ok(n)
-        })
+        Ok(buf.fill_from(&bytes))
     }
 
     async fn entry(

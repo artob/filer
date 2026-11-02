@@ -8,6 +8,8 @@ so any release may break compatibility.
 
 ## Unreleased
 ### Added
+- `filer-api`: `IoBufMut::fill_from`, appending as much of a slice as
+  fits.
 - `filer-posix`: Kernel-confined opens with `openat2` on Linux, falling
   back to the userspace walk; `Posix::with_userspace_resolution`.
 - `filer-api`: `Spawner` and `Job`; under `std`, `run_on` and

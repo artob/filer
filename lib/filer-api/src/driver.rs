@@ -147,14 +147,10 @@ pub(crate) mod tests {
                 },
                 Op::Read { file, mut buf, off } => {
                     let result = match self.node(&file, kind) {
-                        Ok(Node::File(name)) => self.file(name, kind).and_then(|data| {
-                            let data = data.get(off as usize..).unwrap_or_default();
-                            buf.fill(&mut |spare| {
-                                let n = spare.len().min(data.len());
-                                spare[..n].copy_from_slice(&data[..n]);
-                                Ok(n)
-                            })
-                            .map(Output::Read)
+                        Ok(Node::File(name)) => self.file(name, kind).map(|data| {
+                            Output::Read(
+                                buf.fill_from(data.get(off as usize..).unwrap_or_default()),
+                            )
                         }),
                         Ok(Node::Root) => Err(Error::new(ErrorKind::IsADirectory, kind)),
                         Err(error) => Err(error),

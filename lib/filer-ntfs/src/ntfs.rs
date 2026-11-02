@@ -230,14 +230,7 @@ impl<S: ReadAt> Ntfs<S> {
         let bytes = data
             .read(&volume.source, &volume.geometry, off, buf.spare(), op)
             .await?;
-        buf.fill(&mut |spare| {
-            let n = spare.len().min(bytes.len());
-            let (Some(to), Some(from)) = (spare.get_mut(..n), bytes.get(..n)) else {
-                return Ok(0);
-            };
-            to.copy_from_slice(from);
-            Ok(n)
-        })
+        Ok(buf.fill_from(&bytes))
     }
 
     /// Reads as much of the extended attribute `name` of `handle`, a named
@@ -277,14 +270,7 @@ impl<S: ReadAt> Ntfs<S> {
         let bytes = stream
             .read_exact(&volume.source, &volume.geometry, 0, want, op)
             .await?;
-        buf.fill(&mut |spare| {
-            let n = spare.len().min(bytes.len());
-            let (Some(to), Some(from)) = (spare.get_mut(..n), bytes.get(..n)) else {
-                return Ok(0);
-            };
-            to.copy_from_slice(from);
-            Ok(n)
-        })?;
+        buf.fill_from(&bytes);
         Ok(Some(len))
     }
 

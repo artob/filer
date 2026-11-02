@@ -213,14 +213,7 @@ impl<S: ReadAt> ReadAt for Recovered<S> {
             return BufResult(Err(error), buf);
         }
         self.overlay.lay(off, &mut read);
-        let result = buf.fill(&mut |spare| {
-            let n = spare.len().min(read.len());
-            let (Some(to), Some(from)) = (spare.get_mut(..n), read.get(..n)) else {
-                return Ok(0);
-            };
-            to.copy_from_slice(from);
-            Ok(n)
-        });
+        let result = Ok(buf.fill_from(&read));
         BufResult(result, buf)
     }
 

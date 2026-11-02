@@ -166,10 +166,7 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         } else {
             self.decode(ino, &member, off, wanted).await?
         };
-        buf.fill(&mut |spare| {
-            spare[..data.len()].copy_from_slice(&data);
-            Ok(data.len())
-        })
+        Ok(buf.fill_from(&data))
     }
 
     /// Reads exactly `len` of `member`'s packed bytes, from `off` on.

@@ -75,6 +75,33 @@ pub trait IoBufMut: IoBuf {
     /// Panics if `read` claims to have filled more than it was given, which
     /// is a bug in the caller.
     fn fill(&mut self, read: &mut dyn FnMut(&mut [u8]) -> Result<usize>) -> Result<usize>;
+
+    /// Appends as much of `bytes` as the spare capacity holds, and returns
+    /// how many bytes that is: what a read does whose data is already in
+    /// memory, such as a block a driver has read and decoded.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use filer_api::IoBufMut;
+    ///
+    /// let mut buf = Vec::with_capacity(4);
+    /// buf.push(b'a');
+    /// assert_eq!(buf.fill_from(b"bcdef"), 3);
+    /// assert_eq!(buf, b"abcd");
+    /// ```
+    fn fill_from(&mut self, bytes: &[u8]) -> usize {
+        // The copy cannot fail, so neither can `fill`.
+        self.fill(&mut |spare| {
+            let n = spare.len().min(bytes.len());
+            let (Some(to), Some(from)) = (spare.get_mut(..n), bytes.get(..n)) else {
+                return Ok(0);
+            };
+            to.copy_from_slice(from);
+            Ok(n)
+        })
+        .unwrap_or(0)
+    }
 }
 
 impl sealed::Sealed for Vec<u8> {}

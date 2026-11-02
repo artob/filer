@@ -112,11 +112,7 @@ impl<T: AsRef<[u8]> + Send + Sync + ?Sized> ReadAt for T {
         let bytes = self.as_ref();
         let start = usize::try_from(off).unwrap_or(usize::MAX);
         let data = bytes.get(start..).unwrap_or_default();
-        let result = buf.fill(&mut |spare| {
-            let n = spare.len().min(data.len());
-            spare[..n].copy_from_slice(&data[..n]);
-            Ok(n)
-        });
+        let result = Ok(buf.fill_from(data));
         core::future::ready(BufResult(result, buf))
     }
 

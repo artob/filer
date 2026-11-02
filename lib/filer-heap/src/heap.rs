@@ -105,16 +105,10 @@ impl Heap {
                     .ino(&file)
                     .and_then(|ino| self.contents(ino))
                     .map_err(error)
-                    .and_then(|data| {
+                    .map(|data| {
                         let start = usize::try_from(off).unwrap_or(usize::MAX);
-                        let data = data.get(start..).unwrap_or_default();
-                        buf.fill(&mut |spare| {
-                            let n = spare.len().min(data.len());
-                            spare[..n].copy_from_slice(&data[..n]);
-                            Ok(n)
-                        })
-                    })
-                    .map(Output::Read);
+                        Output::Read(buf.fill_from(data.get(start..).unwrap_or_default()))
+                    });
                 Completion::new(result).with_buf(buf)
             },
             Op::Stat { target, .. } => {
@@ -150,21 +144,12 @@ impl Heap {
                 name,
                 mut buf,
             }) => {
-                let result = self
-                    .xattr(&handle, &name)
-                    .map_err(error)
-                    .and_then(|value| {
-                        let Some(value) = value else {
-                            return Ok(None);
-                        };
-                        buf.fill(&mut |spare| {
-                            let n = spare.len().min(value.len());
-                            spare[..n].copy_from_slice(&value[..n]);
-                            Ok(n)
-                        })?;
-                        Ok(Some(value.len() as u64))
-                    })
-                    .map(Output::Xattr);
+                let result = self.xattr(&handle, &name).map_err(error).map(|value| {
+                    Output::Xattr(value.map(|value| {
+                        buf.fill_from(value);
+                        value.len() as u64
+                    }))
+                });
                 Completion::new(result).with_buf(buf)
             },
             Op::Xattr(XattrOp::List { handle }) => {
