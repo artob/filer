@@ -26,10 +26,10 @@
 # ones are: those are skipped, as is the data device of a volume with a
 # realtime device, which Linux mounts only with that device.
 #
-# It takes about 40 minutes on a host of four cores, printing how long at
-# the end of each phase: making the fresh fixtures, comparing images, and
-# most of it checking logs, each of nine set-ups twice wrapping a 64 MiB
-# log. TODO.md (XFS-17) lists ways to make it faster.
+# It takes about 48 minutes on a host of four cores, printing how long at
+# the end of each phase: under a minute making the fresh fixtures, 12
+# comparing images, and 36 checking logs, each of nine set-ups twice
+# wrapping a 64 MiB log. TODO.md (XFS-17) lists ways to make it faster.
 #
 # Usage: lib/filer-xfs/tests/differential.sh, from the repository root,
 # on Linux with xfsprogs, python3, and `sudo` for mounting.
