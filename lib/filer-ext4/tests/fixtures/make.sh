@@ -140,6 +140,62 @@ os.rmdir(os.path.join(root, "GoneDir"))
 PY
 }
 
+# Writes extended attributes of each kind and place, and inode flags,
+# into directory `$1`, as root.
+attrs() {
+    sudo python3 -I - "$1" <<'PY'
+import os, struct, subprocess, sys
+root = sys.argv[1]
+MTIME = 1_704_164_646_123_456_789
+
+def pattern(size, seed):
+    return bytes((i * 7 + seed) % 251 for i in range(size))
+
+def put(path, data=b""):
+    full = os.path.join(root, path)
+    with open(full, "wb") as f:
+        f.write(data)
+    os.utime(full, ns=(MTIME, MTIME))
+    return full
+
+def acl(entries):
+    # Linux's form: version 2, then tag, permissions, and id, with
+    # u32::MAX for entries without one.
+    return struct.pack("<I", 2) + b"".join(
+        struct.pack("<HHI", tag, perm, 0xFFFFFFFF if uid is None else uid)
+        for tag, perm, uid in entries)
+
+ACL = acl([(1, 6, None), (2, 4, 1000), (4, 4, None), (0x10, 4, None), (0x20, 0, None)])
+
+put("plain.txt", b"plain")
+full = put("small.txt", b"small")
+os.setxattr(full, "user.small", b"x")
+os.setxattr(full, "user.empty", b"")
+# Too large for the inode, so in a block.
+os.setxattr(put("big.txt", b"big"), "user.big", pattern(900, 1))
+# More than the inode holds: some in it, the rest in a block.
+full = put("many.txt", b"many")
+for i in range(16):
+    os.setxattr(full, f"user.a{i:02}", pattern(10, i))
+os.setxattr(put("trusted.txt"), "trusted.secret", b"trusted")
+os.setxattr(put("security.txt"), "security.label", b"label")
+os.setxattr(put("foreign.txt").encode(), b"user.caf\xe9", b"foreign")
+os.setxattr(put("acl.txt"), "system.posix_acl_access", ACL)
+os.mkdir(os.path.join(root, "acldir"))
+os.setxattr(os.path.join(root, "acldir"), "system.posix_acl_default", ACL)
+os.mkdir(os.path.join(root, "tagged"))
+os.setxattr(os.path.join(root, "tagged"), "user.tag", b"dir")
+# Identical sets of attributes too large for an inode: one shared block.
+for name in ("shared1", "shared2"):
+    os.setxattr(put(name), "user.same", pattern(500, 5))
+# Inode flags, of which immutable and append-only are reported.
+for name, flags in [("immutable", "+i"), ("append", "+a"), ("nodump", "+d"),
+                    ("noatime", "+A"), ("both", "+ia")]:
+    put(name, name.encode())
+    subprocess.run(["chattr", flags, os.path.join(root, name)], check=True)
+PY
+}
+
 # Writes the specification's tree into directory `$1`, as root.
 spec() {
     sudo python3 -I - "$1" <<'PY'
@@ -205,4 +261,6 @@ make ext2-4k 32M "-t ext2 -b 4096" fill
 make ext2-128 32M "-t ext2 -b 4096 -I 128" fill
 make ext2-rev0 32M "-t ext2 -b 1024 -E revision=0" fill
 populate ext2-64k 64M "-t ext2 -b 65536" fill
+make ext2-attrs 8M "-t ext2 -b 4096" attrs
+make ext2-attrs-128 8M "-t ext2 -b 1024 -I 128" attrs
 make spec 32M "-t ext2 -b 4096" spec

@@ -113,6 +113,14 @@ pub enum Ext4Error {
         inode: u32,
     },
 
+    /// A file's extended attributes are malformed: an entry or value lies
+    /// past its region, a POSIX ACL is invalid, or the block's header is
+    /// wrong.
+    BadXattr {
+        /// The file's inode.
+        inode: u32,
+    },
+
     /// The volume uses incompatible features this driver does not read.
     UnsupportedFeatures {
         /// The incompatible feature flags not understood.
@@ -193,6 +201,9 @@ impl core::fmt::Display for Ext4Error {
                 write!(f, "directory {dir} has an invalid size {size}")
             },
             Self::BadSymlink { inode } => write!(f, "symlink {inode} has an invalid target"),
+            Self::BadXattr { inode } => {
+                write!(f, "inode {inode} has invalid extended attributes")
+            },
             Self::UnsupportedFeatures { incompat } => {
                 write!(f, "unsupported incompatible features {incompat:#X}")
             },

@@ -684,9 +684,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-07: Extended attributes and flags.** In-inode and block
-  attributes, POSIX ACLs as Linux returns them, and inode flags. Done
-  when fixtures agree with the kernel.
 - [ ] **EXT-08: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when
   both run clean. Ends ext2 parity.
 - [ ] **EXT-09: ext3 journals.** Clean journals read as ext2; volumes

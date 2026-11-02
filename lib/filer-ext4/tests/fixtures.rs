@@ -8,8 +8,8 @@ mod common;
 use common::{Expected, MTIME, MTIME_NANOS, expected, pattern, unsparse};
 use core::time::Duration;
 use filer_api::{
-    Dir, Driver, EntryName, ErrorKind, FileKind, MetaMask, Metadata, Op, Output, Resolve, Symlinks,
-    Target,
+    BufResult, Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op,
+    Output, Resolve, Symlinks, Target, XattrEntry, XattrNs,
 };
 use filer_ext4::Ext4;
 use filer_spec::block_on;
@@ -259,4 +259,119 @@ fn lists_in_batches() {
     names.sort();
     let expected: Vec<_> = (0..150).map(|i| format!("f{i:03}")).collect();
     assert_eq!(names, expected);
+}
+
+/// The POSIX ACL `make.sh` sets, as Linux's `getxattr` returns it.
+fn acl() -> Vec<u8> {
+    let mut acl = 2u32.to_le_bytes().to_vec();
+    for (tag, perm, id) in [
+        (1u16, 6u16, u32::MAX),
+        (2, 4, 1000),
+        (4, 4, u32::MAX),
+        (0x10, 4, u32::MAX),
+        (0x20, 0, u32::MAX),
+    ] {
+        acl.extend(tag.to_le_bytes());
+        acl.extend(perm.to_le_bytes());
+        acl.extend(id.to_le_bytes());
+    }
+    acl
+}
+
+/// Checks a fixture `attrs` wrote.
+fn check_attributes(sparse: &[u8]) {
+    let root = block_on(Ext4::open(unsparse(sparse))).unwrap();
+    let names = |path: &str| {
+        let file = block_on(root.open_file(path)).unwrap();
+        let mut names: Vec<String> = block_on(file.xattr_names())
+            .unwrap()
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        names.sort();
+        names
+    };
+    let value = |path: &str, name: &str| {
+        let file = block_on(root.open_file(path)).unwrap();
+        block_on(file.xattr(name)).unwrap()
+    };
+    assert!(names("plain.txt").is_empty());
+    assert_eq!(names("small.txt"), ["user.empty", "user.small"]);
+    assert_eq!(value("small.txt", "user.small").as_deref(), Some(&b"x"[..]));
+    assert_eq!(value("small.txt", "user.empty").as_deref(), Some(&b""[..]));
+    assert_eq!(value("small.txt", "user.nope"), None);
+    assert_eq!(value("small.txt", "trusted.small"), None);
+    assert_eq!(value("big.txt", "user.big"), Some(pattern(900, 1)));
+    // Some in the inode, if it has room, and the rest in a block.
+    let many: Vec<String> = (0..16).map(|i| format!("user.a{i:02}")).collect();
+    assert_eq!(names("many.txt"), many);
+    for i in [0, 7, 15] {
+        let name = format!("user.a{i:02}");
+        assert_eq!(value("many.txt", &name), Some(pattern(10, i)), "{name}");
+    }
+    assert_eq!(
+        value("trusted.txt", "trusted.secret").as_deref(),
+        Some(&b"trusted"[..])
+    );
+    assert_eq!(
+        value("security.txt", "security.label").as_deref(),
+        Some(&b"label"[..])
+    );
+    assert_eq!(value("acl.txt", "system.posix_acl_access"), Some(acl()));
+    let dir = block_on(root.open_dir("acldir")).unwrap();
+    assert_eq!(
+        block_on(dir.xattr("system.posix_acl_default")).unwrap(),
+        Some(acl())
+    );
+    let dir = block_on(root.open_dir("tagged")).unwrap();
+    assert_eq!(
+        block_on(dir.xattr("user.tag")).unwrap().as_deref(),
+        Some(&b"dir"[..])
+    );
+    // A shared block.
+    for name in ["shared1", "shared2"] {
+        assert_eq!(value(name, "user.same"), Some(pattern(500, 5)), "{name}");
+    }
+    // A name that is not UTF-8, found by the entry listed.
+    let file = block_on(root.open_file("foreign.txt")).unwrap();
+    let listed = block_on(file.xattr_names()).unwrap();
+    let [XattrEntry::Foreign { ns, name }] = &listed[..] else {
+        panic!("{listed:?}");
+    };
+    assert_eq!((*ns, name.as_bytes()), (XattrNs::User, &b"caf\xE9"[..]));
+    assert_eq!(
+        block_on(file.xattr(listed[0].clone())).unwrap().as_deref(),
+        Some(&b"foreign"[..])
+    );
+    // A short buffer gets the start, and the whole length.
+    let file = block_on(root.open_file("big.txt")).unwrap();
+    let BufResult(len, buf) = block_on(file.xattr_into("user.big", Vec::with_capacity(10)));
+    assert_eq!(len.unwrap(), Some(900));
+    assert_eq!(buf, pattern(10, 1));
+
+    // Flags.
+    let attrs = |path: &str| {
+        block_on(root.metadata(path, MetaMask::ATTRS))
+            .unwrap()
+            .attrs
+            .unwrap()
+    };
+    assert_eq!(attrs("plain.txt"), FileAttrs::empty());
+    assert_eq!(attrs("immutable"), FileAttrs::IMMUTABLE);
+    assert_eq!(attrs("append"), FileAttrs::APPEND_ONLY);
+    assert_eq!(attrs("both"), FileAttrs::IMMUTABLE | FileAttrs::APPEND_ONLY);
+    // No dump and no access time updates have no `FileAttrs`.
+    assert_eq!(attrs("nodump"), FileAttrs::empty());
+    assert_eq!(attrs("noatime"), FileAttrs::empty());
+}
+
+#[test]
+fn reads_attributes_and_flags() {
+    check_attributes(include_bytes!("fixtures/ext2-attrs.sparse"));
+}
+
+/// With 128-byte inodes, every attribute is in a block.
+#[test]
+fn reads_attributes_in_blocks() {
+    check_attributes(include_bytes!("fixtures/ext2-attrs-128.sparse"));
 }

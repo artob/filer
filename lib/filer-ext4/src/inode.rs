@@ -8,7 +8,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::time::Duration;
-use filer_api::{Error, FileKind, OpKind, ReadAt, Timestamp};
+use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
 
 /// The size of `i_block`: block numbers, an extent tree's root, inline
 /// data, a fast symlink's target, or a device number.
@@ -148,12 +148,6 @@ impl Inode {
         self.sectors
     }
 
-    /// Returns the inode flags (`i_flags`).
-    #[allow(dead_code, reason = "for reporting flags, later")]
-    pub(crate) const fn flags(&self) -> u32 {
-        self.flags
-    }
-
     /// Returns `i_block`.
     pub(crate) const fn block(&self) -> &[u8; I_BLOCK_SIZE] {
         &self.block
@@ -169,12 +163,29 @@ impl Inode {
         self.file_acl
     }
 
+    /// Returns the inode flags that are [`FileAttrs`].
+    pub(crate) fn attrs(&self) -> FileAttrs {
+        const FLAGS: [(u32, FileAttrs); 5] = [
+            (0x0000_0004, FileAttrs::COMPRESSED),
+            (0x0000_0010, FileAttrs::IMMUTABLE),
+            (0x0000_0020, FileAttrs::APPEND_ONLY),
+            (0x0000_0800, FileAttrs::ENCRYPTED),
+            (0x0010_0000, FileAttrs::VERITY),
+        ];
+        let mut attrs = FileAttrs::empty();
+        for (bit, attr) in FLAGS {
+            if self.flags & bit != 0 {
+                attrs |= attr;
+            }
+        }
+        attrs
+    }
+
     pub(crate) const fn times(&self) -> &Times {
         &self.times
     }
 
     /// Returns what follows the inode's fields in its record.
-    #[allow(dead_code, reason = "for in-inode extended attributes, later")]
     pub(crate) fn tail(&self) -> &[u8] {
         &self.tail
     }
@@ -277,11 +288,9 @@ pub(crate) mod tests {
         assert_eq!(inode.number(), 12);
         assert_eq!(inode.kind(), FileKind::File);
         assert_eq!(inode.size(), 0x1_2345_6789);
-        assert_eq!(
-            (inode.links(), inode.flags(), inode.generation()),
-            (1, 0x10, 7)
-        );
+        assert_eq!((inode.links(), inode.generation()), (1, 7));
         assert_eq!(inode.block()[0], 9);
+        assert_eq!(inode.attrs(), FileAttrs::IMMUTABLE);
         let times = inode.times();
         assert_eq!(times.accessed.secs(), 1_700_000_003);
         assert_eq!(times.changed.secs(), 1_700_000_002);

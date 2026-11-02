@@ -4,9 +4,10 @@
 # Compares `filer-ext4` with the Linux kernel's `ext4` driver, which also
 # mounts ext2 and ext3: for each image, the `manifest` example's listing
 # must equal what Linux shows with the image loop-mounted read-only:
-# names in directory order, kinds, sizes, contents, symlink targets, and
-# the modification, change, access, and creation times, to the
-# nanosecond. The images are the committed fixtures and fresh ones
+# names, kinds, sizes, contents, symlink targets, the modification,
+# change, access, and creation times to the nanosecond, the inode flags
+# Filer reports (immutable, append-only, compressed, encrypted, and
+# verity), and the extended attributes of files and directories. The images are the committed fixtures and fresh ones
 # `tests/fixtures/make.sh` makes; those of 64 KiB blocks, which x86 Linux
 # cannot mount, are skipped, and checked by `tests/fixtures.rs` instead.
 #
@@ -54,12 +55,11 @@ open(sys.argv[2], "wb").write(image)
 PY
 done
 
-# Prints what the Linux kernel shows, in the manifest's format, but for
-# the flags and extended attributes.
+# Prints what the Linux kernel shows, in the manifest's format.
 kernel_manifest() {
     # As root, as `lost+found` is root's alone.
     sudo python3 -I - "$1" <<'PY'
-import ctypes, os, re, stat, struct, sys
+import ctypes, fcntl, os, re, stat, struct, sys
 root = os.fsencode(sys.argv[1])
 libc = ctypes.CDLL(None, use_errno=True)
 AT_FDCWD, AT_SYMLINK_NOFOLLOW, STATX_ALL = -100, 0x100, 0xFFF
@@ -94,6 +94,27 @@ def shown(name):
     return "".join(f"\\x{ord(c) - 0xDC00:02X}" if 0xDC80 <= ord(c) <= 0xDCFF
                    else c for c in text)
 
+# The inode flags Filer reports, by `FS_IOC_GETFLAGS` bit.
+FLAGS = [(0x4, "compressed"), (0x10, "immutable"), (0x20, "append_only"),
+         (0x800, "encrypted"), (0x100000, "verity")]
+FS_IOC_GETFLAGS = 0x80086601
+
+def joined(items):
+    return ",".join(sorted(items)) or "-"
+
+def flags(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+    try:
+        bits, = struct.unpack_from("<I", fcntl.ioctl(fd, FS_IOC_GETFLAGS, bytes(8)))
+    finally:
+        os.close(fd)
+    return joined(name for bit, name in FLAGS if bits & bit)
+
+def xattrs(path):
+    return joined(f"{shown(name.encode('utf-8', 'surrogateescape'))}="
+                  f"{fnv1a(os.getxattr(path, name)):016x}"
+                  for name in os.listxattr(path))
+
 def time(ns):
     return f"{ns // 10**9}.{ns % 10**9:09}"
 
@@ -119,7 +140,9 @@ def walk(rel, rel_shown):
             what = "-"
         else:
             what = f"{fnv1a(open(full, 'rb').read()):016x}"
-        print(f"{path_shown}\t{kind}\t{st.st_size}\t{times}\t{what}")
+        attributes = "-" if foreign or kind not in "fd" else xattrs(full)
+        bits = flags(full) if kind in "fd" else "-"
+        print(f"{path_shown}\t{kind}\t{st.st_size}\t{times}\t{what}\t{bits}\t{attributes}")
         if kind == "d" and not foreign:
             walk(path, path_shown)
 
@@ -136,8 +159,7 @@ for img in "$work"/*.img; do
     fi
     kernel_manifest "$mnt" | sort > "$work/$name.kernel"
     sudo umount "$mnt"
-    # The flags and extended attributes are not compared yet.
-    "$manifest" "$img" | cut -f 1-8 | sort > "$work/$name.filer"
+    "$manifest" "$img" | sort > "$work/$name.filer"
     if diff -u "$work/$name.kernel" "$work/$name.filer" > "$work/diff"; then
         echo "same: $name ($(wc -l < "$work/$name.filer") entries)"
     else

@@ -2667,9 +2667,12 @@ and 64 KiB blocks, which x86 Linux cannot mount, so that one is filled
 by `mke2fs -d`), fills them through the kernel (hard links, holes deep
 enough for triple indirect blocks, fast and slow symlinks, special files,
 names that are not UTF-8, hashed directories), and stores them sparsely;
-`filer-spec` runs on its own tree. `tests/differential.sh` compares each,
-and fresh ones, with the kernel, and all agree: names, kinds, sizes,
-contents, link targets, and all four times to the nanosecond. Listings
+`filer-spec` runs on its own tree. Two more hold extended
+attributes in every namespace and place (in the inode, in a block, in a
+block two files share, POSIX ACLs, a name that is not UTF-8) and inode
+flags. `tests/differential.sh` compares each, and fresh ones, with the
+kernel, and all agree: names, kinds, sizes, contents, link targets, all
+four times to the nanosecond, flags, and extended attributes. Listings
 are compared sorted, as the order differs by design: Linux lists hashed
 directories in hash order, Filer every directory in block order.
 `tests/fuzz.rs` and `fuzz/` mutate the superblock, the descriptors,

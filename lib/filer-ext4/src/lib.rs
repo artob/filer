@@ -90,3 +90,4 @@ mod le;
 mod superblock;
 mod symlink;
 mod volume;
+mod xattr;
