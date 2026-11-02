@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{ErrorKind, Fallback, OpKind, RawOsError, path::RelPathBuf};
+use crate::{EntryName, ErrorKind, Fallback, OpKind, RawOsError, path::RelPathBuf};
 use alloc::boxed::Box;
 
 /// A [`Result`](core::result::Result) whose error defaults to [`Error`].
@@ -67,6 +67,27 @@ impl Error {
     pub fn with_path(mut self, path: impl Into<RelPathBuf>) -> Self {
         self.0.path = Some(path.into());
         self
+    }
+
+    /// Sets the path to `name`, an entry of the operation's directory, if
+    /// it is UTF-8; a [`ForeignName`](crate::ForeignName) has no path, so
+    /// the error is then left as it is.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use filer_api::{EntryName, Error, ErrorKind, OpKind, name};
+    ///
+    /// let name = EntryName::from(name!("notes.txt"));
+    /// let error = Error::new(ErrorKind::NotFound, OpKind::Stat).with_entry_name(&name);
+    /// assert_eq!(error.path().map(|path| path.as_str()), Some("notes.txt"));
+    /// ```
+    #[must_use]
+    pub fn with_entry_name(self, name: &EntryName) -> Self {
+        match name.as_name() {
+            Some(name) => self.with_path(name),
+            None => self,
+        }
     }
 
     /// Sets the second path of a two-path operation, such as the

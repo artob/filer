@@ -121,7 +121,7 @@ impl Heap {
                         resolve,
                     } => self
                         .entry(at, name, *follow, *resolve, kind)
-                        .map_err(|error| with_name(error, name)),
+                        .map_err(|error| error.with_entry_name(name)),
                 };
                 Completion::new(ino.map(|ino| Output::Metadata(self.metadata(ino))))
             },
@@ -137,7 +137,7 @@ impl Heap {
                         },
                         _ => Err(error(ErrorKind::NotASymlink)),
                     });
-                Completion::new(result.map_err(|error| with_name(error, &name)))
+                Completion::new(result.map_err(|error| error.with_entry_name(&name)))
             },
             Op::Xattr(XattrOp::Get {
                 handle,
@@ -297,14 +297,6 @@ impl Driver for Heap {
     fn submit(&self, op: Op) -> impl Future<Output = Completion> + Send + use<> {
         let heap = self.clone();
         async move { heap.perform(op) }
-    }
-}
-
-/// Adds an entry's name to an error, if it is UTF-8.
-fn with_name(error: Error, name: &EntryName) -> Error {
-    match name.as_name() {
-        Some(name) => error.with_path(name),
-        None => error,
     }
 }
 

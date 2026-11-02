@@ -227,7 +227,7 @@ impl Posix {
                     } => self
                         .entry(at, name, *follow, *resolve, kind)
                         .and_then(|node| stat_node(&node, kind))
-                        .map_err(|e| with_name(e, name)),
+                        .map_err(|e| e.with_entry_name(name)),
                 };
                 Completion::new(result.map(|s| Output::Metadata(stat::metadata(&s))))
             },
@@ -240,7 +240,7 @@ impl Posix {
                 Completion::new(
                     result
                         .map(Output::LinkTarget)
-                        .map_err(|e| with_name(e, &name)),
+                        .map_err(|e| e.with_entry_name(&name)),
                 )
             },
             op => op.unsupported(),
@@ -569,14 +569,6 @@ fn next_raw(dir: &mut rustix::fs::Dir) -> rustix::io::Result<Option<DirEntry>> {
                 _ => return Ok(Some(entry)),
             },
         }
-    }
-}
-
-/// Adds an entry's name to an error, if it is UTF-8.
-fn with_name(error: Error, name: &EntryName) -> Error {
-    match name.as_name() {
-        Some(name) => error.with_path(name),
-        None => error,
     }
 }
 

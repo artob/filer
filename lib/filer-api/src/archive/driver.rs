@@ -123,7 +123,7 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
                         resolve,
                     } => self
                         .entry(at, name, *follow, *resolve, kind)
-                        .map_err(|error| with_name(error, name)),
+                        .map_err(|error| error.with_entry_name(name)),
                 };
                 Completion::new(ino.map(|ino| Output::Metadata(self.metadata(ino))))
             },
@@ -139,7 +139,7 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
                         },
                         _ => Err(error(ErrorKind::NotASymlink)),
                     });
-                Completion::new(result.map_err(|error| with_name(error, &name)))
+                Completion::new(result.map_err(|error| error.with_entry_name(&name)))
             },
             op => op.unsupported(),
         }
@@ -409,14 +409,6 @@ impl<S, C> core::fmt::Debug for Archive<S, C> {
             .field("id", &self.key.id())
             .field("nodes", &self.tree.node_count())
             .finish_non_exhaustive()
-    }
-}
-
-/// Adds an entry's name to an error, if it is UTF-8.
-fn with_name(error: Error, name: &EntryName) -> Error {
-    match name.as_name() {
-        Some(name) => error.with_path(name),
-        None => error,
     }
 }
 

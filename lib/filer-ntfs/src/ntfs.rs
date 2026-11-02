@@ -144,7 +144,7 @@ impl<S: ReadAt> Ntfs<S> {
                         Ok(node) => self.metadata(&node, None, kind),
                         Err(error) => Err(error),
                     }
-                    .map_err(|error| with_name(error, name)),
+                    .map_err(|error| error.with_entry_name(name)),
                 };
                 Completion::new(result.map(Output::Metadata))
             },
@@ -162,7 +162,7 @@ impl<S: ReadAt> Ntfs<S> {
                 Completion::new(
                     result
                         .map(Output::LinkTarget)
-                        .map_err(|error| with_name(error, &name)),
+                        .map_err(|error| error.with_entry_name(&name)),
                 )
             },
             Op::Xattr(XattrOp::Get {
@@ -443,13 +443,5 @@ impl<S> core::fmt::Debug for Ntfs<S> {
             .field("id", &self.0.key.id())
             .field("serial", &self.0.geometry.serial())
             .finish_non_exhaustive()
-    }
-}
-
-/// Adds an entry's name to an error, if it is UTF-8.
-fn with_name(error: Error, name: &EntryName) -> Error {
-    match name.as_name() {
-        Some(name) => error.with_path(name),
-        None => error,
     }
 }

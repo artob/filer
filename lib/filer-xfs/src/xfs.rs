@@ -129,7 +129,7 @@ impl<S: ReadAt> Xfs<S> {
                         .entry(at, name, *follow, *resolve, kind)
                         .await
                         .map(|node| self.metadata(&node))
-                        .map_err(|error| with_name(error, name)),
+                        .map_err(|error| error.with_entry_name(name)),
                 };
                 Completion::new(result.map(Output::Metadata))
             },
@@ -147,7 +147,7 @@ impl<S: ReadAt> Xfs<S> {
                 Completion::new(
                     result
                         .map(Output::LinkTarget)
-                        .map_err(|error| with_name(error, &name)),
+                        .map_err(|error| error.with_entry_name(&name)),
                 )
             },
             Op::Xattr(XattrOp::Get {
@@ -377,13 +377,5 @@ impl<S> core::fmt::Debug for Xfs<S> {
             .field("id", &self.0.key.id())
             .field("volume", &self.0.sb.volume_id())
             .finish_non_exhaustive()
-    }
-}
-
-/// Adds an entry's name to an error, if it is UTF-8.
-fn with_name(error: Error, name: &EntryName) -> Error {
-    match name.as_name() {
-        Some(name) => error.with_path(name),
-        None => error,
     }
 }
