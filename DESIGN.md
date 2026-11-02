@@ -2758,8 +2758,10 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
   without the inode B+ trees.
 - Inodes: magic `IN`; version 1 or 2 (v4; 1 only with a 16-bit link
   count) or 3 (v5); a 100-byte core (176 with v3) holding the mode,
-  owner, links, times (signed seconds and nanoseconds, or with `BIGTIME`
-  nanoseconds since 1901-12-13T20:45:52Z), size, extent counts, flags,
+  owner, links, times (signed 32-bit seconds and nanoseconds, or with
+  `BIGTIME`, flagged 0x8 in `di_flags2`, unsigned 64-bit nanoseconds since
+  1901-12-13T20:45:52Z), size, extent counts (32 bits at 76 and 16 at
+  80, or with `NREXT64`, flagged 0x10, 64 bits at 24 and 32 at 76), flags,
   the data fork's format, and the attribute fork's offset (`di_forkoff`
   × 8 into the literal area after the core) and format. v3 adds the
   CRC (at 100, over the whole inode), `di_flags2` (120), the creation

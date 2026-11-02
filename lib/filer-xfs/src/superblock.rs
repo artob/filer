@@ -71,14 +71,20 @@ pub(crate) mod feature {
     pub(crate) const CRC: u32 = 0x100;
 
     /// Version 5 incompatible features: directory entries record the file
-    /// type; metadata carries `sb_meta_uuid`, not the volume's UUID.
+    /// type; inode chunks may be sparse, which changes nothing for inodes
+    /// found by number; metadata carries `sb_meta_uuid`, not the volume's
+    /// UUID; inodes may have 64-bit times; and wider extent counts.
     pub(crate) const INCOMPAT_FTYPE: u32 = 0x1;
+    pub(crate) const SPINODES: u32 = 0x2;
     pub(crate) const META_UUID: u32 = 0x4;
-    /// The version 5 incompatible features this driver reads: `FTYPE` and
-    /// `META_UUID`. Not yet `SPINODES` (0x2), `BIGTIME` (0x8), `NREXT64`
-    /// (0x20), `EXCHANGE` (0x40), `PARENT` (0x80), or `METADIR` (0x100),
-    /// nor `NEEDSREPAIR` (0x10), which Linux refuses to mount.
-    pub(crate) const SUPPORTED_INCOMPAT: u32 = INCOMPAT_FTYPE | META_UUID;
+    pub(crate) const BIGTIME: u32 = 0x8;
+    pub(crate) const NREXT64: u32 = 0x20;
+    /// The version 5 incompatible features this driver reads: `FTYPE`,
+    /// `SPINODES`, `META_UUID`, `BIGTIME`, and `NREXT64`. Not yet
+    /// `EXCHANGE` (0x40), `PARENT` (0x80), or `METADIR` (0x100), nor
+    /// `NEEDSREPAIR` (0x10), which Linux refuses to mount.
+    pub(crate) const SUPPORTED_INCOMPAT: u32 =
+        INCOMPAT_FTYPE | SPINODES | META_UUID | BIGTIME | NREXT64;
 }
 
 /// A volume's on-disk format version.
@@ -894,6 +900,11 @@ pub(crate) mod tests {
         let v4 = Fields::new();
         assert_eq!(v4.parse().unwrap().check_crc(&[0; 512]), Ok(()));
 
+        // As `mkfs.xfs` 6.18 makes them by default.
+        let mut d = Fields::v5();
+        d.incompat = 0x2B;
+        assert!(d.parse().is_ok());
+
         // Metadata carries `sb_meta_uuid` with `META_UUID`.
         let mut m = Fields::v5();
         m.incompat |= 0x4;
@@ -904,7 +915,7 @@ pub(crate) mod tests {
             set: FeatureSet::Incompat,
             bits,
         };
-        for bits in [0x2, 0x8, 0x10, 0x20, 0x40, 0x80, 0x100, 0x200] {
+        for bits in [0x10, 0x40, 0x80, 0x100, 0x200] {
             let mut f = Fields::v5();
             f.incompat |= bits;
             assert_eq!(f.parse(), Err(incompat(bits)), "{bits:#X}");

@@ -2,21 +2,21 @@
 # This is free and unencumbered software released into the public domain.
 #
 # Makes the XFS fixtures with real tools: `mkfs.xfs` formats each volume,
-# version 4 (`xfs-*`) or version 5 with all later features off
-# (`xfs5-*`), and the Linux kernel fills it with the tree
-# `tests/fixtures.rs` expects, through a loop mount. Version 4 volumes of
-# 64 KiB blocks, which x86 Linux cannot mount, are filled by `mkfs.xfs -p`
-# from the same tree instead. Each image is stored as `<name>.sparse`: the
-# magic `FILER-SPARSE-2\n`, the image size (u64, little-endian), then runs
-# of identical nonzero 512-byte sectors, each as its first sector (u32),
-# its count (u32), and the sector's bytes. `spec*.sparse` hold the
-# specification's tree instead, `*-dirs.sparse` a directory of each form,
-# `*-attrs*.sparse` extended attributes of each form, and inode flags,
-# `xfs-ci.sparse` names on an `ASCII_CI` volume, and `xfs5-uuid.sparse`
-# the specification's tree on a volume whose UUID changed, so that its
-# metadata carries `sb_meta_uuid`. No tool makes `attr1` attribute forks:
-# Linux and `mkfs.xfs -p` both turn a volume to `attr2` on its first
-# attribute.
+# version 4 (`xfs-*`), version 5 with all later features off (`xfs5-*`), or as
+# it does by default (`xfs5d-*`), and the Linux kernel fills it with the tree
+# `tests/fixtures.rs` expects, through a loop mount. Version 4 volumes of 64
+# KiB blocks, which x86 Linux cannot mount, are filled by `mkfs.xfs -p` from
+# the same tree instead. Each image is stored as `<name>.sparse`: the magic
+# `FILER-SPARSE-2\n`, the image size (u64, little-endian), then runs of
+# identical nonzero 512-byte sectors, each as its first sector (u32), its
+# count (u32), and the sector's bytes. `spec*.sparse` hold the specification's
+# tree instead, `*-dirs.sparse` a directory of each form, `*-attrs*.sparse`
+# extended attributes of each form, and inode flags, `xfs-ci.sparse` names on
+# an `ASCII_CI` volume, `xfs5-uuid.sparse` the specification's tree on a
+# volume whose UUID changed, so that its metadata carries `sb_meta_uuid`, and
+# `xfs5d-later.sparse` what later features change. No tool makes `attr1`
+# attribute forks: Linux and `mkfs.xfs -p` both turn a volume to `attr2` on
+# its first attribute.
 #
 # Usage: tests/fixtures/make.sh [output-dir [fixture...]], on Linux with
 # xfsprogs, python3, and `sudo` for mounting and making devices; without
@@ -289,6 +289,42 @@ check_attrs() {
     fi
 }
 
+# Writes what version 5's later features change into directory `$1`, as
+# root: times past 2038 and before 1970, which inodes hold as 64-bit
+# nanoseconds with `BIGTIME`; reflinked copies, which share their blocks;
+# and a file of many extents, counted wider with `NREXT64`.
+later() {
+    sudo python3 -I - "$1" <<'PY'
+import os, subprocess, sys
+root = sys.argv[1]
+
+def pattern(size, seed):
+    return bytes((i * 7 + seed) % 251 for i in range(size))
+
+def put(path, data):
+    with open(os.path.join(root, path), "wb") as f:
+        f.write(data)
+
+for name, ns in [("y1901", -2_147_483_648 * 10**9),
+                 ("y1960", -315_619_200 * 10**9 + 999_999_999),
+                 ("y2038", 2_147_483_648 * 10**9 + 1),
+                 ("y2400", 13_569_465_600 * 10**9 + 7)]:
+    put(name, name.encode())
+    os.utime(os.path.join(root, name), ns=(ns, ns))
+put("original", pattern(60_000, 3))
+for copy in ("copy", "changed"):
+    subprocess.run(["cp", "--reflink=always", os.path.join(root, "original"),
+                    os.path.join(root, copy)], check=True)
+with open(os.path.join(root, "changed"), "r+b") as f:
+    f.seek(20_000)
+    f.write(pattern(5000, 9))
+with open(os.path.join(root, "extents"), "wb") as f:
+    for i in range(0, 600, 2):
+        f.seek(i * 4096)
+        f.write(pattern(16, i % 251))
+PY
+}
+
 # Writes the specification's tree into directory `$1`, as root.
 spec() {
     sudo python3 -I - "$1" <<'PY'
@@ -396,8 +432,8 @@ make() {
     fi
     # Leaves', attribute leaves', and nodes' magic numbers.
     case $2 in
-        *crc=1*) leaf=3df1 attr=3bee node=3ebe ;;
-        *) leaf=d2f1 attr=fbee node=febe ;;
+        *crc=0*) leaf=d2f1 attr=fbee node=febe ;;
+        *) leaf=3df1 attr=3bee node=3ebe ;;
     esac
     case $3 in
         dirs) check_dirs "$img" "$leaf" "$node" ;;
@@ -467,3 +503,9 @@ make xfs5-attrs "$v5" attrs
 make xfs5-attrs-1k "$v5 -b size=1024" attrs
 make xfs5-uuid "$v5" spec uuid
 make spec5 "$v5" spec
+
+# As `mkfs.xfs` makes them by default.
+make xfs5d-4k "" fill
+make xfs5d-dirs "" dirs
+make xfs5d-attrs "" attrs
+make xfs5d-later "" later

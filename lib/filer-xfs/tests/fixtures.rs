@@ -231,6 +231,53 @@ fn reads_64k_blocks_v5() {
     check(include_bytes!("fixtures/xfs5-64k.sparse"), true);
 }
 
+/// As `mkfs.xfs` makes volumes by default: with sparse inode chunks,
+/// reverse maps, reflinks, `BIGTIME`, and `NREXT64`.
+#[test]
+fn reads_default_volumes() {
+    check(include_bytes!("fixtures/xfs5d-4k.sparse"), true);
+    check_dirs(include_bytes!("fixtures/xfs5d-dirs.sparse"));
+    check_attributes(include_bytes!("fixtures/xfs5d-attrs.sparse"));
+}
+
+/// What later features change: times outside the legacy range, blocks
+/// that reflinked copies share, and a file of many extents.
+#[test]
+fn reads_what_later_features_change() {
+    let root = open(include_bytes!("fixtures/xfs5d-later.sparse"));
+    let read = |path: &str| {
+        let file = block_on(root.open_file(path)).unwrap();
+        block_on(file.read_to_end()).unwrap()
+    };
+    for (path, secs, nanos) in [
+        ("y1901", -2_147_483_648, 0),
+        ("y1960", -315_619_200, 999_999_999),
+        ("y2038", 2_147_483_648, 1),
+        ("y2400", 13_569_465_600, 7),
+    ] {
+        let metadata = block_on(root.metadata(path, MetaMask::all())).unwrap();
+        let modified = metadata.modified.unwrap();
+        assert_eq!((modified.secs(), modified.nanos()), (secs, nanos), "{path}");
+        assert_eq!(read(path), path.as_bytes());
+    }
+    let original = pattern(60_000, 3);
+    assert_eq!(read("original"), original);
+    assert_eq!(read("copy"), original);
+    let mut changed = original;
+    changed[20_000..25_000].copy_from_slice(&pattern(5000, 9));
+    assert_eq!(read("changed"), changed);
+    let extents = read("extents");
+    assert_eq!(extents.len(), 598 * 4096 + 16);
+    for i in 0..=598 {
+        let block = &extents[i * 4096..(i * 4096 + 16).min(extents.len())];
+        if i % 2 == 0 {
+            assert_eq!(block, pattern(16, i % 251), "block {i}");
+        } else {
+            assert!(block.iter().all(|&b| b == 0), "block {i}");
+        }
+    }
+}
+
 /// A volume whose UUID changed after it was made: its metadata carries
 /// `sb_meta_uuid`, the old one.
 #[test]

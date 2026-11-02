@@ -717,10 +717,6 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-12: Later v5 features.** In the order they came: sparse
-  inodes, reverse maps and reflinks (shared extents read like any other),
-  `BIGTIME`, `NREXT64`. Done when default `mkfs.xfs` fixtures read and
-  agree with the kernel.
 - [ ] **XFS-13: Newest v5 features.** `EXCHANGE`, parent pointers
   (hidden), `METADIR` and realtime groups; realtime files' contents
   `Unsupported`. Done when fixtures of each read and agree with the

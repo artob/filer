@@ -31,12 +31,20 @@ pub(crate) const EXTENT_SIZE: usize = 16;
 const IMMUTABLE: u16 = 0x8;
 const APPEND: u16 = 0x10;
 
-/// `di_flags2` of version 3 inodes: the file is accessed directly; and
-/// times and extent counts of the `BIGTIME` and `NREXT64` features, which
-/// are not read yet.
+/// `di_flags2` of version 3 inodes: the file is accessed directly; its
+/// times are of the `BIGTIME` feature; and its extent counts of the
+/// `NREXT64` feature.
 const DAX: u64 = 0x1;
 const BIGTIME: u64 = 0x8;
 const NREXT64: u64 = 0x10;
+
+/// The most extents a data fork and an attribute fork map with `NREXT64`.
+const MAX_EXTENTS: u64 = (1 << 48) - 1;
+const MAX_ATTR_EXTENTS: u64 = (1 << 32) - 1;
+
+/// What a `BIGTIME` time counts from, in seconds before the Unix epoch:
+/// 1901-12-13T20:45:52Z, the earliest legacy time.
+const BIGTIME_EPOCH: i64 = 1 << 31;
 
 /// Times are recorded to the nanosecond.
 const NANOSECONDS: Duration = Duration::from_nanos(1);
@@ -109,8 +117,16 @@ pub(crate) struct Inode {
     attr: Option<Fork>,
 }
 
-/// Decodes a legacy time: signed 32-bit seconds and nanoseconds.
-fn timestamp(bytes: &[u8], at: usize) -> Option<Timestamp> {
+/// Decodes a time: legacy, as signed 32-bit seconds and nanoseconds, or,
+/// if `big`, as unsigned 64-bit nanoseconds since 1901-12-13T20:45:52Z.
+fn timestamp(bytes: &[u8], at: usize, big: bool) -> Option<Timestamp> {
+    if big {
+        let since = u64::from_be_bytes(*bytes.get(at..)?.first_chunk()?);
+        let secs = i64::try_from(since.checked_div(1_000_000_000)?).ok()?;
+        let nanos = u32::try_from(since.checked_rem(1_000_000_000)?).ok()?;
+        let secs = secs.checked_sub(BIGTIME_EPOCH)?;
+        return Some(Timestamp::new(secs, nanos).with_granularity(NANOSECONDS));
+    }
     let secs = i32::from_be_bytes(*bytes.get(at..)?.first_chunk()?);
     let nanos = u32::try_from(i32::from_be_bytes(
         *bytes.get(at.checked_add(4)?..)?.first_chunk()?,
@@ -140,7 +156,7 @@ impl Inode {
         };
         let v3 = inode_version == 3;
         let flags2 = if v3 { u64_at(120)? } else { 0 };
-        if (v3 && u64_at(NUMBER_AT)? != number) || flags2 & (BIGTIME | NREXT64) != 0 {
+        if v3 && u64_at(NUMBER_AT)? != number {
             return Err(bad);
         }
         let mode = u16_at(2)?;
@@ -161,7 +177,7 @@ impl Inode {
         if i64::try_from(size).is_err() {
             return Err(bad);
         }
-        let time = |at| timestamp(bytes, at).ok_or(bad);
+        let time = |at| timestamp(bytes, at, flags2 & BIGTIME != 0).ok_or(bad);
         let times = Times {
             accessed: time(32)?,
             modified: time(40)?,
@@ -196,24 +212,30 @@ impl Inode {
         if !fitting {
             return Err(bad);
         }
-        // A signed 32-bit count.
-        let extents = u32_at(76)?;
-        if extents > i32::MAX.unsigned_abs() {
-            return Err(bad);
-        }
-        let data = fork(data_area, format, u64::from(extents), size).ok_or(bad)?;
+        // Signed 32-bit and 16-bit counts, or with `NREXT64` 48-bit and
+        // 32-bit ones in wider fields.
+        let (extents, attr_extents) = if flags2 & NREXT64 == 0 {
+            let counts = (u64::from(u32_at(76)?), u64::from(u16_at(80)?));
+            let limits = (i32::MAX.unsigned_abs(), i16::MAX.unsigned_abs());
+            if counts.0 > u64::from(limits.0) || counts.1 > u64::from(limits.1) {
+                return Err(bad);
+            }
+            counts
+        } else {
+            let counts = (u64_at(24)?, u64::from(u32_at(76)?));
+            if counts.0 > MAX_EXTENTS || counts.1 > MAX_ATTR_EXTENTS {
+                return Err(bad);
+            }
+            counts
+        };
+        let data = fork(data_area, format, extents, size).ok_or(bad)?;
         let attr = match attr_area {
             None => None,
             Some(area) => {
                 let format = Format::parse(u8_at(83)?)
                     .filter(|&format| format != Format::Device)
                     .ok_or(bad)?;
-                // A signed 16-bit count.
-                let extents = u16_at(80)?;
-                if extents > i16::MAX.unsigned_abs() {
-                    return Err(bad);
-                }
-                Some(fork(area, format, u64::from(extents), u64::MAX).ok_or(bad)?)
+                Some(fork(area, format, attr_extents, u64::MAX).ok_or(bad)?)
             },
         };
         Ok(Self {
@@ -449,6 +471,58 @@ pub(crate) mod tests {
         assert_eq!((data.format, data.extents), (Format::Extents, 2));
         assert_eq!(data.bytes, (0..32).collect::<Vec<u8>>());
         assert_eq!(inode.attr(), None);
+    }
+
+    /// A version 3 inode of `Raw::file(size)`, as inode 128, with
+    /// `flags2`, and `literal` after its 176-byte core.
+    fn v3(size: u64, flags2: u64, literal: &[u8]) -> Vec<u8> {
+        let mut raw = Raw::file(size);
+        raw.version = 3;
+        let mut b = raw.bytes(512);
+        b[120..128].copy_from_slice(&flags2.to_be_bytes());
+        b[152..160].copy_from_slice(&128u64.to_be_bytes());
+        b[176..176 + literal.len()].copy_from_slice(literal);
+        b
+    }
+
+    #[test]
+    fn decodes_version_3_inodes() {
+        let at = |secs, nanos| Timestamp::new(secs, nanos).with_granularity(NANOSECONDS);
+        // `BIGTIME` and `NREXT64`, with times as `xfs_db` showed them, of
+        // 2024-01-02T03:04:06.123456789Z, 1901-12-13T20:56:40.000000005Z,
+        // and 2400-01-01T00:00:00.000000007Z; and two extents.
+        let mut b = v3(8192, 0x18, &[0x11; 32]);
+        b[32..40].copy_from_slice(&0x3573_CDB7_72F7_C915_u64.to_be_bytes());
+        b[40..48].copy_from_slice(&0x3573_CDB7_72F7_C915_u64.to_be_bytes());
+        b[48..56].copy_from_slice(&0x0096_DFCF_5005_u64.to_be_bytes());
+        b[144..152].copy_from_slice(&0xDA1D_D211_AFE2_0007_u64.to_be_bytes());
+        b[24..32].copy_from_slice(&2u64.to_be_bytes());
+        let inode = Inode::parse(&b, 128, Version::V5).unwrap();
+        let times = inode.times();
+        assert_eq!(times.accessed, at(1_704_164_646, 123_456_789));
+        assert_eq!(times.modified, at(1_704_164_646, 123_456_789));
+        assert_eq!(times.changed, at(-2_147_483_000, 5));
+        assert_eq!(times.created, Some(at(13_569_465_600, 7)));
+        assert_eq!((inode.data().extents, inode.data().bytes.len()), (2, 32));
+        assert_eq!(inode.attrs(), FileAttrs::empty());
+
+        // Legacy times and counts, the creation time at 144; and DAX.
+        let mut b = v3(8192, 0x1, &[0x11; 16]);
+        b[76..80].copy_from_slice(&1u32.to_be_bytes());
+        b[144..152].copy_from_slice(&[0, 0, 0, 5, 0, 0, 0, 6]);
+        let inode = Inode::parse(&b, 128, Version::V5).unwrap();
+        assert_eq!(inode.times().created, Some(at(5, 6)));
+        assert_eq!(inode.data().extents, 1);
+        assert_eq!(inode.attrs(), FileAttrs::DAX);
+
+        // Another inode's number, more extents than `NREXT64` allows, or a
+        // version 3 inode on version 4.
+        let bad = Err(XfsError::BadInode { inode: 129 });
+        assert_eq!(Inode::parse(&v3(0, 0, &[]), 129, Version::V5), bad);
+        let mut b = v3(8192, 0x10, &[]);
+        b[24..32].copy_from_slice(&(1u64 << 48).to_be_bytes());
+        assert!(Inode::parse(&b, 128, Version::V5).is_err());
+        assert!(Inode::parse(&v3(0, 0, &[]), 128, Version::V4).is_err());
     }
 
     #[test]

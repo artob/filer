@@ -301,4 +301,5 @@ v5="$v5 -i sparse=0,nrext64=0"
 logs "version 5 log" "$v5"
 logs "version 5 log of 4 KiB sectors" "$v5 -s size=4096"
 logs "version 5 log of 256 KiB stripes" "$v5 -l su=256k"
+logs "default log" ""
 exit $failed
