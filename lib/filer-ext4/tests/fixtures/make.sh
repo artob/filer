@@ -255,35 +255,52 @@ populate() {
     sparse "$img" "$out/$1.sparse"
 }
 
-# Makes fixture `$1` as `make` does, with the specification's tree, then
-# changes it and shuts it down, its journal flushed but the changes not
-# yet written in place, so that it needs recovery: files written, one
-# renamed and one removed, in a new directory.
+# Makes volume `$1` of size `$2` with `mke2fs` options `$3` whose journal
+# needs recovery, as a machine losing power leaves it: the spec's tree,
+# written back in place, then transactions that commit but are not yet
+# written back (files made, renamed, and removed; a directory and a file
+# with an indirect block made and removed, so later transactions revoke
+# their blocks), copied while still mounted. Files are synced, so their
+# data and sizes are in the journal's transactions; commits come each
+# second, and writing back only after 30; nor do `sync` or `umount` run
+# first: both write back what the journal holds.
 dirty() {
     case " $only " in "  " | *" $1 "*) ;; *) return ;; esac
     img="$work/$1.img"
     truncate -s "$2" "$img"
     # shellcheck disable=SC2086
     mke2fs -q -F -L FILER $3 "$img"
-    sudo mount -o loop "$img" "$mnt"
+    sudo mount -o loop,commit=1 "$img" "$mnt"
     spec "$mnt"
     sync
     sudo python3 -I - "$mnt" <<'PY'
-import os, sys
-base = os.path.join(sys.argv[1], "more")
-os.mkdir(base)
+import os, shutil, sys, time
+root = sys.argv[1]
+
+def write(path, data):
+    with open(path, "wb") as f:
+        f.write(data)
+        os.fsync(f.fileno())
+
+gone = os.path.join(root, "gone")
+os.mkdir(gone)
+for i in range(200):
+    write(os.path.join(gone, f"g{i:03}"), b"")
+write(os.path.join(root, "large"), b"x" * (64 << 10))
+time.sleep(2)
+shutil.rmtree(gone)
+os.remove(os.path.join(root, "large"))
+more = os.path.join(root, "more")
+os.mkdir(more)
 for i in range(40):
-    with open(os.path.join(base, f"m{i:02}"), "wb") as f:
-        f.write(bytes([i]) * (i * 100))
-os.rename(os.path.join(base, "m00"), os.path.join(base, "renamed"))
-os.remove(os.path.join(base, "m01"))
+    write(os.path.join(more, f"m{i:02}"), bytes([i]) * (i * 100))
+os.rename(os.path.join(more, "m00"), os.path.join(more, "renamed"))
+os.remove(os.path.join(more, "m01"))
+time.sleep(3)
 PY
-    # A shutdown reaches the volume holding `$mnt`: never let that be the
-    # root's.
-    mountpoint -q "$mnt" || exit 1
-    sudo xfs_io -x -c "shutdown -f" "$mnt"
+    cp --sparse=always "$img" "$img.lost"
     sudo umount "$mnt"
-    sparse "$img" "$out/$1.sparse"
+    sparse "$img.lost" "$out/$1.sparse"
 }
 
 make ext2-1k 32M "-t ext2 -b 1024" fill
@@ -298,3 +315,5 @@ make spec 32M "-t ext2 -b 4096" spec
 make ext3-1k 32M "-t ext3 -b 1024" fill
 make ext3-4k 32M "-t ext3 -b 4096" fill
 dirty ext3-dirty 32M "-t ext3 -b 4096"
+dirty ext3-dirty-1k 32M "-t ext3 -b 1024"
+dirty ext3-dirty-csum 32M "-t ext3 -b 4096 -O metadata_csum"

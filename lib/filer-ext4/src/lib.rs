@@ -5,9 +5,9 @@
 //! [`Ext4`] implements [`filer_api::Driver`] over ext2, ext3, and ext4
 //! volumes, read from any [`filer_api::ReadAt`] source, reporting each
 //! inconsistency it finds as an [`Ext4Error`]. It reads ext2 and ext3 so
-//! far, a volume whose journal needs recovery only as it is, by
-//! [`Options`]; volumes using later features are refused by their feature
-//! flags.
+//! far, replaying in memory a journal that needs recovery, unless
+//! [`Options`] ask to read the volume as it is; volumes using later
+//! features are refused by their feature flags.
 //! Writing is out of scope for now (see `DESIGN.md` §17.15).
 //!
 //! **Clean room.** The mature implementations (the Linux kernel's `ext4`
@@ -87,6 +87,7 @@ pub use ext4::*;
 
 mod group;
 mod inode;
+mod journal;
 
 mod options;
 pub use options::*;

@@ -8,6 +8,7 @@ use crate::{
     block_map::BlockMap,
     dir::Directory,
     inode::{self, Inode},
+    journal,
     superblock::{self, ROOT_INODE, Superblock},
     symlink, xattr,
 };
@@ -17,13 +18,17 @@ use filer_api::{
     DirCookie, DriverKey, Entry, Error, ErrorKind, FileId, FileKind, LinkTarget, MetaMask,
     Metadata, OpKind, ReadAt, XattrEntry, XattrNs,
 };
-use filer_fs::{FileSystem, Opened};
+use filer_fs::{
+    FileSystem, Opened,
+    recover::{Overlay, Recovered},
+};
 
-/// A volume: what every operation reads from.
+/// A volume: what every operation reads from, through what replaying its
+/// journal wrote, if it needed recovery.
 pub(crate) struct Volume<S> {
     pub(crate) key: DriverKey,
     pub(crate) sb: Superblock,
-    pub(crate) source: S,
+    pub(crate) source: Recovered<S>,
 }
 
 /// A file, directory, or symlink that a path resolved to: its inode.
@@ -45,12 +50,19 @@ impl Node {
 }
 
 impl<S: ReadAt> Volume<S> {
-    /// Opens the volume in `source`, reading its superblock; refuses one
-    /// whose journal needs recovery, unless `options` allow it.
+    /// Opens the volume in `source`, reading its superblock, and its
+    /// journal if it needs recovery, replaying it, unless `options` allow
+    /// reading the volume as it is. The superblock is read again if the
+    /// journal changes it.
     pub(crate) async fn open(source: S, options: Options) -> Result<Self, Error> {
-        let sb = superblock::read(&source).await?;
+        let mut sb = superblock::read(&source).await?;
+        let mut overlay = Overlay::new();
         if sb.needs_recovery() && !options.allows_dirty() {
-            return Err(Ext4Error::NeedsRecovery.into_error(OpKind::Open));
+            overlay = journal::replay(&source, &sb).await?;
+        }
+        let source = Recovered::new(source, overlay);
+        if !source.overlay().is_empty() {
+            sb = superblock::read(&source).await?;
         }
         Ok(Self {
             key: DriverKey::new(),

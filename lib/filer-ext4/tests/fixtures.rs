@@ -233,19 +233,67 @@ fn reads_ext3() {
     );
 }
 
-/// A volume shut down before its journal was written back: refused, as
-/// it may be inconsistent, unless read as it is on disk.
+/// Volumes copied while mounted, as a machine losing power leaves them:
+/// read as replaying the journal leaves them, or, if allowed, as they
+/// are on disk, where what only the journal holds is missing. Linux
+/// recovers the files of the `metadata_csum` one empty, as does replay,
+/// which `tests/differential.sh` checks.
 #[test]
-fn refuses_journals_needing_recovery() {
-    let image = unsparse(include_bytes!("fixtures/ext3-dirty.sparse"));
-    let error = block_on(Ext4::open(image.clone())).unwrap_err();
-    assert_eq!(error.kind(), ErrorKind::Unsupported);
+fn replays_journals_needing_recovery() {
+    for (sparse, sized) in [
+        (&include_bytes!("fixtures/ext3-dirty.sparse")[..], true),
+        (include_bytes!("fixtures/ext3-dirty-1k.sparse"), true),
+        (include_bytes!("fixtures/ext3-dirty-csum.sparse"), false),
+    ] {
+        let image = unsparse(sparse);
+        let root = block_on(Ext4::open(image.clone())).unwrap();
+        let file = block_on(root.open_file("a/b/c.txt")).unwrap();
+        assert_eq!(block_on(file.read_to_end()).unwrap(), b"contents");
+        let more = block_on(root.open_dir("more")).unwrap();
+        let mut entries = more.entries().unwrap();
+        let mut names = Vec::new();
+        while let Some(entry) = block_on(entries.next()) {
+            names.push(entry.unwrap().name.to_string());
+        }
+        names.sort();
+        let mut expected: Vec<String> = (2..40).map(|i| format!("m{i:02}")).collect();
+        expected.push("renamed".into());
+        assert_eq!(names, expected);
+        let file = block_on(more.open_file("m39")).unwrap();
+        let read = block_on(file.read_to_end()).unwrap();
+        assert_eq!(read, if sized { vec![39; 3900] } else { vec![] });
+        for gone in ["gone", "large"] {
+            let error = block_on(root.symlink_metadata(gone, MetaMask::all())).unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::NotFound);
+        }
+        let options = Options::new().allow_dirty(true);
+        let root = block_on(Ext4::open_with(image, options)).unwrap();
+        let file = block_on(root.open_file("a/b/c.txt")).unwrap();
+        assert_eq!(block_on(file.read_to_end()).unwrap(), b"contents");
+        let error = block_on(root.open_dir("more")).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::NotFound);
+    }
+}
+
+/// A journal needing recovery whose superblock is invalid: corrupt, not
+/// read as if clean.
+#[test]
+fn refuses_invalid_journals() {
+    let mut image = unsparse(include_bytes!("fixtures/ext3-dirty.sparse"));
+    // The journal's superblock: a block of version 2's magic and type.
+    let magic = [0xC0, 0x3B, 0x39, 0x98, 0, 0, 0, 4];
+    let at = (0..image.len())
+        .step_by(4096)
+        .find(|&at| image[at..].starts_with(&magic))
+        .unwrap();
+    image[at + 0x10..at + 0x14].copy_from_slice(&u32::MAX.to_be_bytes());
+    let error = block_on(Ext4::open(image)).unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Corrupt);
     let source = core::error::Error::source(&error).unwrap();
-    assert_eq!(source.downcast_ref(), Some(&Ext4Error::NeedsRecovery));
-    let options = Options::new().allow_dirty(true);
-    let root = block_on(Ext4::open_with(image, options)).unwrap();
-    let file = block_on(root.open_file("a/b/c.txt")).unwrap();
-    assert_eq!(block_on(file.read_to_end()).unwrap(), b"contents");
+    assert_eq!(
+        source.downcast_ref(),
+        Some(&Ext4Error::BadJournal { block: 0 })
+    );
 }
 
 #[test]

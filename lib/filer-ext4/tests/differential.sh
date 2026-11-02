@@ -3,12 +3,13 @@
 #
 # Compares `filer-ext4` with the Linux kernel's `ext4` driver, which also
 # mounts ext2 and ext3: for each image, the `manifest` example's listing
-# must equal what Linux shows with the image loop-mounted read-only:
-# names, kinds, sizes, contents, symlink targets, the modification,
-# change, access, and creation times to the nanosecond, the inode flags
-# Filer reports (immutable, append-only, compressed, encrypted, and
-# verity), and the extended attributes of files and directories. The images are the committed fixtures and fresh ones
-# `tests/fixtures/make.sh` makes; those of 64 KiB blocks, which x86 Linux
+# must equal what Linux shows with the image mounted read-only, its
+# journal recovered if need be: names, kinds, sizes, contents, symlink
+# targets, the modification, change, access, and creation times to the
+# nanosecond, the inode flags Filer reports (immutable, append-only,
+# compressed, encrypted, and verity), and the extended attributes of
+# files and directories. The images are the committed fixtures and fresh
+# ones `tests/fixtures/make.sh` makes; those of 64 KiB blocks, which x86 Linux
 # cannot mount, are skipped, and checked by `tests/fixtures.rs` instead.
 #
 # Listings are compared sorted: Linux lists a hashed (htree) directory in
@@ -143,21 +144,24 @@ PY
 
 # Compares image `$3`, expanded from sparse fixture `$2`, with what Linux
 # shows of it: the one kind of job. A volume whose journal needs recovery
-# is read as it is on disk by both, Linux's `noload` not replaying it.
+# is read as replaying the journal leaves it, which Linux writes to the
+# image, so Filer reads it first. As it is on disk, such a volume is
+# inconsistent, which Linux reports as corruption: `tests/fixtures.rs`
+# checks that reading instead.
 perform() {
     img="$scratch/$3.img"
     unsparse "$2" "$img"
-    options=loop,ro
-    dirty=
-    case $3 in *dirty*) options=$options,noload dirty=--allow-dirty ;; esac
-    if ! sudo mount -o "$options" "$img" "$mnt" 2>/dev/null; then
+    "$manifest" "$img" | sort > "$scratch/filer"
+    # Writable, unlike `mount -o loop,ro`'s, as recovery writes to it.
+    dev=$(sudo losetup --find --show "$img")
+    if ! sudo mount -o ro "$dev" "$mnt" 2>/dev/null; then
+        sudo losetup -d "$dev"
         echo "skipped: $3 (Linux cannot mount it here)"
         return
     fi
     kernel_manifest "$mnt" | sort > "$scratch/kernel"
     sudo umount "$mnt"
-    # shellcheck disable=SC2086
-    "$manifest" $dirty "$img" | sort > "$scratch/filer"
+    sudo losetup -d "$dev"
     if diff -u "$scratch/kernel" "$scratch/filer" > "$scratch/diff"; then
         echo "same: $3 ($(wc -l < "$scratch/filer") entries)"
     else

@@ -129,8 +129,21 @@ pub enum Ext4Error {
     },
 
     /// The volume's journal holds changes not yet written to it, so it may
-    /// be inconsistent as it is on disk.
+    /// be inconsistent as it is on disk, and is on another device, so it
+    /// cannot be replayed.
     NeedsRecovery,
+    /// The journal is malformed: its superblock is invalid, or a block of
+    /// a transaction it commits is, or fails its checksum.
+    BadJournal {
+        /// The journal block, counted from its superblock's.
+        block: u32,
+    },
+    /// The journal, which needs recovery, uses features this driver does
+    /// not replay.
+    UnsupportedJournal {
+        /// The journal's incompatible feature flags not understood.
+        incompat: u32,
+    },
 
     /// The volume is larger than its source.
     Truncated {
@@ -144,14 +157,15 @@ pub enum Ext4Error {
 impl Ext4Error {
     /// Returns the [`ErrorKind`] this inconsistency is reported as:
     /// [`Unsupported`](ErrorKind::Unsupported) for an unknown revision or
-    /// feature, or a journal needing recovery, and
+    /// feature, or a journal needing recovery that cannot be replayed, and
     /// [`Corrupt`](ErrorKind::Corrupt) for everything else.
     #[must_use]
     pub const fn kind(&self) -> ErrorKind {
         match self {
             Self::UnsupportedRevision(_)
             | Self::UnsupportedFeatures { .. }
-            | Self::NeedsRecovery => ErrorKind::Unsupported,
+            | Self::NeedsRecovery
+            | Self::UnsupportedJournal { .. } => ErrorKind::Unsupported,
             _ => ErrorKind::Corrupt,
         }
     }
@@ -208,7 +222,11 @@ impl core::fmt::Display for Ext4Error {
             Self::UnsupportedFeatures { incompat } => {
                 write!(f, "unsupported incompatible features {incompat:#X}")
             },
-            Self::NeedsRecovery => f.write_str("its journal needs recovery"),
+            Self::NeedsRecovery => f.write_str("its journal, elsewhere, needs recovery"),
+            Self::BadJournal { block } => write!(f, "journal block {block} is invalid"),
+            Self::UnsupportedJournal { incompat } => {
+                write!(f, "journal uses unsupported features {incompat:#X}")
+            },
             Self::Truncated { volume, source } => {
                 write!(f, "volume of {volume} bytes in a source of {source}")
             },

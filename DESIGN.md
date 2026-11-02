@@ -2684,10 +2684,15 @@ TEA cipher, and checked against `debugfs`'s `dx_hash`.
 - Extended attributes: both places, in their namespaces; POSIX ACLs are
   converted from the on-disk form to the one Linux's `getxattr` returns.
 - Journals: a clean ext3 or ext4 journal changes nothing for a reader.
-  A volume that needs recovery (`needs_recovery`, as a volume shut down
-  before its journal was written back) is refused, never read as if
-  clean (§17.12), unless `Options::allow_dirty` asks to read it as it is;
-  replaying the journal in memory is to follow (EXT-10).
+  A volume that needs recovery (`needs_recovery`, as a machine losing
+  power leaves it) is read as replaying the journal leaves it, never as
+  if clean (§17.12): its committed transactions, in order, are laid over
+  the source through `filer_fs::recover` as XFS lays its log's (§17.16),
+  but for the blocks later transactions revoke; `csum_v3` checksums are
+  verified, and a torn commit ends the log. A journal on another device,
+  or using `csum_v2`, asynchronous commits, or fast commits, is refused.
+  `Options::allow_dirty` reads such a volume as it is instead, which may
+  be inconsistent.
 - Encrypted files and directories keep their kind and metadata, but
   reading their contents or names is `Unsupported`. Case-folded
   directories match names exactly (case-insensitive lookups wait for
@@ -2709,11 +2714,14 @@ names that are not UTF-8, hashed directories), and stores them sparsely;
 `filer-spec` runs on its own tree. Two more hold extended
 attributes in every namespace and place (in the inode, in a block, in a
 block two files share, POSIX ACLs, a name that is not UTF-8) and inode
-flags; and ext3 volumes of 1 and 4 KiB blocks, and one shut down with
-its journal unwritten, which needs recovery, compared as it is on disk
-(Linux's `noload`). `tests/differential.sh` compares each, and fresh
-ones, with the kernel, and all agree: names, kinds, sizes, contents, link targets, all
-four times to the nanosecond, flags, and extended attributes. Listings
+flags; ext3 volumes of 1 and 4 KiB blocks; and three that need
+recovery, of 1 and 4 KiB blocks and with `metadata_csum`, copied while
+mounted after transactions committed but before they were written back
+(files made, renamed, and removed; a directory and an indirect block
+removed, revoking their blocks). `tests/differential.sh` compares each,
+and fresh ones, with the kernel, recovering those that need it, and all
+agree: names, kinds, sizes, contents, link targets, all four times to
+the nanosecond, flags, and extended attributes. Listings
 are compared sorted, as the order differs by design: Linux lists hashed
 directories in hash order, Filer every directory in block order.
 `tests/fuzz.rs` mutates the fixtures' superblocks, descriptors, inode

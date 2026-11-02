@@ -18,13 +18,15 @@ pub struct Options {
 
 impl Options {
     /// Returns the default options: volumes whose journal needs recovery
-    /// are refused.
+    /// are read as recovery leaves them, replayed in memory; those whose
+    /// journal is on another device, or uses features this driver does not
+    /// replay, are refused.
     #[must_use]
     pub const fn new() -> Self {
         Self { allow_dirty: false }
     }
 
-    /// Opens volumes whose journal needs recovery, if `allow`, as they are
+    /// Reads volumes whose journal needs recovery, if `allow`, as they are
     /// on disk, without replaying the journal.
     ///
     /// What was being written when such a volume was last used may then be
@@ -36,7 +38,8 @@ impl Options {
         self
     }
 
-    /// Returns `true` if volumes whose journal needs recovery are opened.
+    /// Returns `true` if volumes whose journal needs recovery are read as
+    /// they are on disk.
     #[must_use]
     pub const fn allows_dirty(&self) -> bool {
         self.allow_dirty

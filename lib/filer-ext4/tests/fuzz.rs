@@ -2,7 +2,8 @@
 
 //! A dependency-free, structure-aware fuzzer: it mutates real volumes
 //! where their structures are (the superblock, the group descriptors,
-//! the inode table, directories, indirect blocks, and attribute blocks),
+//! the inode table, directories, indirect blocks, attribute blocks, and
+//! the journal's superblock and log of volumes that need recovery),
 //! with values chosen to hit boundaries, and walks each result with
 //! `common::exercise`, which checks that every answer is consistent.
 //!
@@ -55,6 +56,14 @@ impl Seed {
             }
             at += block;
         }
+        // The journal's superblock and log: its blocks of the magic number.
+        let mut at = 0;
+        while at + 4 <= len && regions.len() < 80 {
+            if image[at as usize..at as usize + 4] == 0xC03B_3998u32.to_be_bytes() {
+                regions.push(at..at + block);
+            }
+            at += block;
+        }
         // And anywhere, now and then.
         regions.push(0..len);
         Self {
@@ -66,7 +75,7 @@ impl Seed {
 
 /// Values at the edges of what ext2/3/4 structures hold.
 const BYTES: [u8; 12] = [0, 1, 2, 7, 0x0C, 0x10, 0x40, 0x7F, 0x80, 0xEA, 0xFE, 0xFF];
-const WORDS: [u32; 12] = [
+const WORDS: [u32; 13] = [
     0,
     1,
     5,
@@ -77,6 +86,7 @@ const WORDS: [u32; 12] = [
     0x0FFF,
     0xFFFF,
     0xEA02_0000,
+    0xC03B_3998,
     0x7FFF_FFFF,
     0xFFFF_FFFF,
 ];
@@ -89,6 +99,8 @@ fn corpus() -> Vec<Seed> {
         include_bytes!("fixtures/ext2-attrs.sparse"),
         include_bytes!("fixtures/ext2-attrs-128.sparse"),
         include_bytes!("fixtures/ext3-1k.sparse"),
+        include_bytes!("fixtures/ext3-dirty-1k.sparse"),
+        include_bytes!("fixtures/ext3-dirty-csum.sparse"),
     ]
     .into_iter()
     .map(|sparse| Seed::new(unsparse(sparse)))

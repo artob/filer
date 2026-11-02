@@ -31,6 +31,8 @@ pub(crate) const DESC_SIZE: u16 = 32;
 
 /// The feature flags of the three sets, as far as this driver knows them.
 pub(crate) mod feature {
+    /// Compatible: the volume has a journal.
+    pub(crate) const COMPAT_HAS_JOURNAL: u32 = 0x4;
     /// Incompatible: directory entries record the file type.
     pub(crate) const INCOMPAT_FILETYPE: u32 = 0x2;
     /// Incompatible: the journal holds changes not yet applied.
@@ -67,6 +69,8 @@ pub(crate) struct Superblock {
     inode_size: u16,
     features: Features,
     uuid: [u8; 16],
+    /// The journal's inode, or 0 if there is none in the volume.
+    journal_inode: u32,
 }
 
 fn u16_at(bytes: &[u8], at: usize) -> Result<u16, Ext4Error> {
@@ -164,6 +168,11 @@ impl Superblock {
         if let Some(from) = bytes.get(0x68..0x78) {
             uuid.copy_from_slice(from);
         }
+        let journal_inode = if features.compat & feature::COMPAT_HAS_JOURNAL != 0 {
+            u32_at(bytes, 0xE0)?
+        } else {
+            0
+        };
         Ok(Self {
             revision,
             log_block_size,
@@ -176,6 +185,7 @@ impl Superblock {
             inode_size,
             features,
             uuid,
+            journal_inode,
         })
     }
 
@@ -260,6 +270,15 @@ impl Superblock {
     /// volume, as when it was not unmounted cleanly.
     pub(crate) const fn needs_recovery(&self) -> bool {
         self.features.incompat & feature::INCOMPAT_RECOVER != 0
+    }
+
+    /// Returns the journal's inode, if the journal is in the volume; a
+    /// journal on another device has none.
+    pub(crate) const fn journal_inode(&self) -> Option<u32> {
+        match self.journal_inode {
+            0 => None,
+            inode => Some(inode),
+        }
     }
 
     #[allow(dead_code, reason = "for checksums, later")]

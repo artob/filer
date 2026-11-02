@@ -10,8 +10,9 @@ use filer_fs::Mounted;
 /// It reads a bare volume, with no partition table, from any [`ReadAt`]
 /// source: a disk image [`File`](filer_api::File) of another driver,
 /// bytes in memory, or a block device. Opening reads and validates the
-/// superblock and the root directory; inodes, directories, and data are
-/// read as operations need them.
+/// superblock and the root directory, and replays in memory a journal
+/// that needs recovery; inodes, directories, and data are read as
+/// operations need them.
 ///
 /// Names are bytes, matched exactly; those that are not UTF-8 are
 /// [`ForeignName`](filer_api::ForeignName)s. Listings are in directory
@@ -58,12 +59,14 @@ impl<S: ReadAt + 'static> Ext4<S> {
     /// # Errors
     ///
     /// [`Corrupt`](filer_api::ErrorKind::Corrupt), with an
-    /// [`Ext4Error`](crate::Ext4Error) as its source, if the superblock or
-    /// the root directory is invalid, or the source is shorter than the
-    /// volume; [`Unsupported`](filer_api::ErrorKind::Unsupported) if the
-    /// volume is of an unknown revision, uses incompatible features this
-    /// driver does not read, or, unless `options` allow reading it as it
-    /// is, its journal needs recovery; any error reading the source.
+    /// [`Ext4Error`](crate::Ext4Error) as its source, if the superblock,
+    /// the root directory, or a journal needing recovery is invalid, or the
+    /// source is shorter than the volume;
+    /// [`Unsupported`](filer_api::ErrorKind::Unsupported) if the volume is
+    /// of an unknown revision, uses incompatible features this driver does
+    /// not read, or, unless `options` allow reading it as it is, its
+    /// journal needs recovery but is on another device or uses features
+    /// this driver does not replay; any error reading the source.
     pub async fn open_with(source: S, options: Options) -> Result<Dir<Self>, Error> {
         let mounted = Mounted::new(Volume::open(source, options).await?);
         let root = mounted.root().await?;

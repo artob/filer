@@ -24,7 +24,8 @@
 //!
 //! Usage: `cargo run -p filer-ext4 --example manifest -- [--allow-dirty]
 //! IMAGE`, where `--allow-dirty` reads a volume whose journal needs
-//! recovery as it is on disk.
+//! recovery as it is on disk, instead of as replaying the journal leaves
+//! it.
 
 use filer_ext4::{Ext4, Options};
 use filer_system::{
