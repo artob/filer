@@ -13,7 +13,8 @@
 //! Times are seconds since the Unix epoch, with nine digits of
 //! nanoseconds. Flags are lowercase names, sorted and joined by `,`;
 //! extended attributes are `name=hash` pairs, sorted and joined by `,`.
-//! `-` stands for what does not apply, is unknown, or is empty. A name
+//! `-` stands for what does not apply, is unknown, or is empty, and for
+//! the hash of a file of more than 1 GiB, which is not read. A name
 //! that is not UTF-8 is printed with each byte not part of a character as
 //! `\xHH`; paths are UTF-8, so such an entry is only stated, not read.
 //! `tests/differential.sh` compares this with what the Linux kernel
@@ -25,8 +26,8 @@
 //! Usage: `cargo run -p filer-xfs --example manifest -- IMAGE`.
 
 use filer_system::{
-    Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op, OpKind, Output,
-    ReadAt, Resolve, Target, Timestamp, XattrEntry, ambient_authority,
+    BufResult, Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op,
+    OpKind, Output, ReadAt, Resolve, Target, Timestamp, XattrEntry, ambient_authority,
 };
 use filer_xfs::Xfs;
 use std::{
@@ -116,9 +117,12 @@ async fn walk<S: ReadAt + 'static>(
             },
             "f" => {
                 let file = root.open_file(path.as_str()).await?;
-                let contents = file.read_to_end().await?;
                 let xattrs = attributes(&file).await?;
-                (format!("{:016x}", fnv1a(&contents)), xattrs)
+                let hash = match metadata.len {
+                    Some(len) if len <= MAX_HASHED => format!("{:016x}", hash(&file).await?),
+                    _ => "-".to_owned(),
+                };
+                (hash, xattrs)
             },
             _ => ("-".to_owned(), "-".to_owned()),
         };
@@ -258,9 +262,36 @@ fn times(metadata: &Metadata) -> String {
 
 /// The 64-bit FNV-1a hash.
 fn fnv1a(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, &byte| {
+    fnv1a_from(0xcbf2_9ce4_8422_2325, bytes)
+}
+
+/// Continues an FNV-1a hash, `hash` so far, over `bytes`.
+fn fnv1a_from(hash: u64, bytes: &[u8]) -> u64 {
+    bytes.iter().fold(hash, |hash, &byte| {
         (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3)
     })
+}
+
+/// The largest file whose contents are hashed.
+const MAX_HASHED: u64 = 1 << 30;
+
+/// Returns the FNV-1a hash of the contents of `file`, read a piece at a
+/// time.
+async fn hash<S: ReadAt + 'static>(
+    file: &filer_system::File<filer_system::ReadOnly, Xfs<S>>,
+) -> filer_system::Result<u64> {
+    let mut hash = fnv1a(&[]);
+    let mut at = 0;
+    loop {
+        let BufResult(result, piece) = file.read_at(Vec::with_capacity(1 << 20), at).await;
+        match result? {
+            0 => return Ok(hash),
+            n => {
+                hash = fnv1a_from(hash, &piece);
+                at += n as u64;
+            },
+        }
+    }
 }
 
 /// Polls `future` to completion on this thread: the native driver used

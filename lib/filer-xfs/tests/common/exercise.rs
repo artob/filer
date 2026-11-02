@@ -101,7 +101,7 @@ pub struct Outcome {
 /// of names and attributes follow the hash indexes, as Linux's do, which
 /// a corrupt block may no longer match: what is listed may then not be
 /// found.
-pub fn exercise(source: Overlay) -> Outcome {
+pub fn exercise<S: ReadAt + 'static>(source: S) -> Outcome {
     let mut outcome = Outcome::default();
     match block_on(Xfs::open(source)) {
         Ok(root) => {
@@ -121,7 +121,7 @@ fn allowed(error: &Error, what: &str, outcome: &mut Outcome) {
     outcome.errors += 1;
 }
 
-fn walk(root: &Dir<Xfs<Overlay>>, dir: &str, depth: usize, outcome: &mut Outcome) {
+fn walk<S: ReadAt + 'static>(root: &Dir<Xfs<S>>, dir: &str, depth: usize, outcome: &mut Outcome) {
     if depth > MAX_DEPTH {
         return;
     }
@@ -218,8 +218,8 @@ fn walk(root: &Dir<Xfs<Overlay>>, dir: &str, depth: usize, outcome: &mut Outcome
 /// Reads `file`, of `len` bytes by its stat, up to the cap, returning how
 /// many bytes it read. Pieces are no larger than what is left, but for a
 /// byte past the end, which must not be read.
-fn read(
-    file: &filer_api::File<filer_api::ReadOnly, Xfs<Overlay>>,
+fn read<S: ReadAt + 'static>(
+    file: &filer_api::File<filer_api::ReadOnly, Xfs<S>>,
     len: u64,
 ) -> filer_api::Result<u64> {
     let mut at = 0;

@@ -719,13 +719,24 @@ volume Linux mounts still needs; one step per item, each committed.
 
 - [ ] **XFS-15: The rest of recovery.** Unfinished mapping, exchange, and
   attribute intents (BUI, XMI, ATTRI), which refuse volumes now, done in
-  memory; v5 record CRCs checked, as a write torn at the head needs.
-  Done when volumes shut down with such work pending read as the kernel
-  recovers them.
+  memory; v5 record CRCs checked, as a write torn at the head needs (a
+  record of 32 KiB or less: CRC-32C, stored little-endian, of the
+  header's first 328 bytes with the CRC zero, then the data as on disk;
+  with extended headers, still to be found). Done when volumes shut down
+  with such work pending read as the kernel recovers them, and
+  `v5_dirty_torn.img` (`tests/external.rs`) as lamxfs recorded it.
 - [ ] **XFS-16: Realtime data.** Realtime files' contents from a second
   source, the realtime device, and from a zoned section of the data
   device (`ZONED`), refused now. Done when fixtures of each read and
   agree with the kernel.
+- [ ] **XFS-17: A faster differential test.** `tests/differential.sh`
+  takes about 40 minutes. Build `manifest` in release, as
+  `tests/external.sh` does, not debug; run the nine log set-ups in
+  parallel, as they share nothing; wrap each 64 MiB log in fewer rounds,
+  by operations that log more each; let a run choose its phases (images
+  or logs); and keep fresh fixtures while `tests/fixtures/make.sh` is
+  unchanged. Done when a run takes a quarter of the time, comparing as
+  much.
 
 ## `filer-ntfs`
 

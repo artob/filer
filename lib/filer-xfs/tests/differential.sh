@@ -26,6 +26,11 @@
 # ones are: those are skipped, as is the data device of a volume with a
 # realtime device, which Linux mounts only with that device.
 #
+# It takes about 40 minutes on a host of four cores, printing how long at
+# the end of each phase: making the fresh fixtures, comparing images, and
+# most of it checking logs, each of nine set-ups twice wrapping a 64 MiB
+# log. TODO.md (XFS-17) lists ways to make it faster.
+#
 # Usage: lib/filer-xfs/tests/differential.sh, from the repository root,
 # on Linux with xfsprogs, python3, and `sudo` for mounting.
 
@@ -39,6 +44,12 @@ cleanup() {
     sudo rm -rf "$work"
 }
 trap cleanup EXIT
+started=$(date +%s)
+
+# Prints how long the run has taken, when phase `$1` ends.
+took() {
+    echo "-- $1 after $((($(date +%s) - started) / 60)) min"
+}
 
 cargo build -q -p filer-xfs --example manifest
 manifest="$PWD/target/debug/examples/manifest"
@@ -46,6 +57,7 @@ manifest="$PWD/target/debug/examples/manifest"
 # The committed fixtures, and fresh ones.
 mkdir "$work/fresh"
 KEEP_LOG=1 lib/filer-xfs/tests/fixtures/make.sh "$work/fresh"
+took "making fresh fixtures"
 for sparse in lib/filer-xfs/tests/fixtures/*.sparse "$work"/fresh/*.sparse; do
     case $sparse in "$work"/*) kind=fresh ;; *) kind=fixture ;; esac
     python3 -I - "$sparse" "$work/$kind-$(basename "$sparse" .sparse).img" <<'PY'
@@ -64,139 +76,14 @@ open(sys.argv[2], "wb").write(image)
 PY
 done
 
-# Prints what the Linux kernel shows, in the manifest's format.
-kernel_manifest() {
-    # As root, as the fixtures' files are root's.
-    sudo python3 -I - "$1" <<'PY'
-import ctypes, fcntl, os, re, stat, struct, sys
-root = os.fsencode(sys.argv[1])
-libc = ctypes.CDLL(None, use_errno=True)
-AT_FDCWD, AT_SYMLINK_NOFOLLOW, STATX_ALL = -100, 0x100, 0xFFF
-STATX_BTIME = 0x800
-
-def birth(path):
-    buf = ctypes.create_string_buffer(256)
-    if libc.statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW, STATX_ALL, buf) != 0:
-        raise OSError(ctypes.get_errno(), "statx")
-    mask, = struct.unpack_from("<I", buf.raw, 0)
-    if not mask & STATX_BTIME:
-        return "-"
-    secs, nanos = struct.unpack_from("<qI", buf.raw, 0x50)
-    return f"{secs}.{nanos:09}"
-
-def fnv1a(data):
-    # A zero byte multiplies the hash by the prime, so runs of zeros are
-    # hashed at once.
-    h, prime, mask = 0xCBF29CE484222325, 0x100000001B3, 0xFFFFFFFFFFFFFFFF
-    for run in re.finditer(rb"\x00+|[^\x00]+", data):
-        chunk = run.group()
-        if chunk[0] == 0:
-            h = h * pow(prime, len(chunk), 1 << 64) & mask
-        else:
-            for b in chunk:
-                h = (h ^ b) * prime & mask
-    return h
-
-def shown(name):
-    # As Filer displays names: bytes that are not UTF-8 as `\xHH`.
-    text = name.decode("utf-8", "surrogateescape")
-    return "".join(f"\\x{ord(c) - 0xDC00:02X}" if 0xDC80 <= ord(c) <= 0xDCFF
-                   else c for c in text)
-
-# The inode flags Filer reports, by `FS_IOC_GETFLAGS` bit.
-FLAGS = [(0x4, "compressed"), (0x10, "immutable"), (0x20, "append_only"),
-         (0x800, "encrypted"), (0x100000, "verity")]
-FS_IOC_GETFLAGS = 0x80086601
-
-def joined(items):
-    return ",".join(sorted(items)) or "-"
-
-def flags(path):
-    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
-    try:
-        bits, = struct.unpack_from("<I", fcntl.ioctl(fd, FS_IOC_GETFLAGS, bytes(8)))
-    finally:
-        os.close(fd)
-    return joined(name for bit, name in FLAGS if bits & bit)
-
-def xattrs(path):
-    return joined(f"{shown(name.encode('utf-8', 'surrogateescape'))}="
-                  f"{fnv1a(os.getxattr(path, name)):016x}"
-                  for name in os.listxattr(path))
-
-def time(ns):
-    return f"{ns // 10**9}.{ns % 10**9:09}"
-
-KINDS = [(stat.S_ISDIR, "d"), (stat.S_ISLNK, "l"), (stat.S_ISFIFO, "p"),
-         (stat.S_ISSOCK, "s"), (stat.S_ISCHR, "c"), (stat.S_ISBLK, "b")]
-
-def walk(rel, rel_shown):
-    # `listdir` returns entries in the order the directory holds them.
-    for name in os.listdir(os.path.join(root, rel)):
-        path = os.path.join(rel, name)
-        full = os.path.join(root, path)
-        path_shown = shown(name) if not rel else f"{rel_shown}/{shown(name)}"
-        st = os.lstat(full)
-        kind = next((k for test, k in KINDS if test(st.st_mode)), "f")
-        times = "\t".join([time(st.st_mtime_ns), time(st.st_ctime_ns),
-                           time(st.st_atime_ns), birth(full)])
-        foreign = path_shown != path.decode("utf-8", "replace")
-        if foreign or kind in "pscb":
-            what = "-"
-        elif kind == "l":
-            what = os.readlink(full).decode("utf-8", "replace")
-        elif kind == "d":
-            what = "-"
-        else:
-            what = f"{fnv1a(open(full, 'rb').read()):016x}"
-        attributes = "-" if foreign or kind not in "fd" else xattrs(full)
-        bits = flags(full) if kind in "fd" else "-"
-        print(f"{path_shown}\t{kind}\t{st.st_size}\t{times}\t{what}\t{bits}\t{attributes}")
-        if kind == "d" and not foreign:
-            walk(path, path_shown)
-
-walk(b"", "")
-PY
-}
-
+# shellcheck source=lib/filer-xfs/tests/linux.sh
+. lib/filer-xfs/tests/linux.sh
 failed=0
-
-# Compares the manifest of image `$1`, called `$2`, or of image `$3` if
-# given, with what the kernel shows of `$1`.
-compare() {
-    if ! sudo mount -o loop,ro "$1" "$mnt" 2>/dev/null; then
-        echo "skipped: $2 (Linux cannot mount it here)"
-        return
-    fi
-    kernel_manifest "$mnt" | sort > "$work/kernel"
-    sudo umount "$mnt"
-    if ! "$manifest" "${3:-$1}" > "$work/filer" 2> "$work/error"; then
-        echo "FAILED: $2: $(cat "$work/error")"
-        failed=1
-        return
-    fi
-    sort -o "$work/filer" "$work/filer"
-    if diff -u "$work/kernel" "$work/filer" > "$work/diff"; then
-        echo "same: $2 ($(wc -l < "$work/filer") entries)"
-    else
-        echo "DIFFERENT: $2"
-        head -40 "$work/diff"
-        failed=1
-    fi
-}
 
 for img in "$work"/*.img; do
     compare "$img" "$(basename "$img" .img)"
 done
-
-# Compares the manifest of image `$1`, whose log needs recovery, called
-# `$2`, with what the kernel shows of a copy it recovered.
-recovered() {
-    cp "$1" "$work/recovered.img"
-    sudo mount -o loop "$work/recovered.img" "$mnt"
-    sudo umount "$mnt"
-    compare "$work/recovered.img" "$2" "$1"
-}
+took "comparing images"
 
 # Prints the byte offset of the log in image `$1`.
 log_offset() {
@@ -330,4 +217,5 @@ logs "version 5 log of 4 KiB sectors" "$v5 -s size=4096"
 logs "version 5 log of 256 KiB stripes" "$v5 -l su=256k"
 logs "default log" ""
 logs "log with the newest features" "-n parent=1 -m metadir=1"
+took "checking logs"
 exit $failed

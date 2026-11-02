@@ -2883,7 +2883,13 @@ pages, so those are filled by `mkfs.xfs -p`. Each log is then cleared by
 names, kinds, sizes, contents, link targets, times, flags, and extended
 attributes; listings are compared sorted. It then checks logs as the
 kernel leaves them, with each sector size and log stripe unit: clean,
-wrapped, shut down mid-write (refused), and recovered. `tests/fuzz.rs`
+wrapped, shut down mid-write (read as the kernel recovers them), and
+recovered. `tests/external.sh` tests against other projects' volumes
+(`CREDITS.md`), never committed, fetched at pinned commits and checked
+by their SHA-256 sums: walked, refused as expected, the trees recorded
+of logs that need recovery matched, and compared with the kernel; they
+found volumes no fixture had, such as a leaf directory shrunk to one
+data block. `tests/fuzz.rs`
 and `cargo-fuzz` targets in `fuzz/` mutate the superblock, inodes,
 directory blocks, B+ tree blocks, and attribute forks (D50).
 
