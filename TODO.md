@@ -362,10 +362,6 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
 
 ## `filer-windows`
 
-- [ ] **WIN-04: Listing.**
-  `NtQueryDirectoryFile` in large batches. Done when a large directory
-  lists completely and `filer-spec` passes on Windows.
-
 - [ ] **WIN-05: Namespace ops.**
   Directory creation, relative rename via `FileRenameInfoEx`, delete via
   `FileDispositionInfoEx` (POSIX semantics, ignore read-only), hard links
@@ -374,8 +370,10 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
 
 - [ ] **WIN-06: Names.**
   `InvalidNameForTarget` for reserved names, trailing dots and spaces, and
-  forbidden characters; WTF-8 foreign names for unpaired surrogates. Done
-  when tests create and enumerate an unpaired-surrogate name.
+  forbidden characters when creating entries (with WIN-05). Unpaired
+  surrogates already list, open, and stat as WTF-8 foreign names. Done
+  when tests create an unpaired-surrogate name through Filer and every
+  refused name fails.
 
 - [ ] **WIN-07: Sharing and retry.**
   Full share modes and the bounded `Busy` retry (D18) reported in

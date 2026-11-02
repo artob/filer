@@ -5,7 +5,7 @@
 //! [`Windows`] implements [`filer_api::Driver`] on Windows over
 //! [`windows-sys`]. So far it opens roots, files, and directories, with
 //! paths confined by the generic [`filer_api::BlockingResolver`], and
-//! reads files, metadata, and links, executed by the [blocking](Windows::blocking) executor or
+//! reads files, metadata, directories, and links, executed by the [blocking](Windows::blocking) executor or
 //! on a [thread pool](Windows::thread_pool). All of its `unsafe` is in one
 //! private module of safe wrappers over the system calls.
 //!
@@ -55,6 +55,9 @@
 
 #[cfg(feature = "std")]
 extern crate std;
+
+#[cfg(all(feature = "std", any(windows, test)))]
+mod dir_info;
 
 #[cfg(all(windows, feature = "std"))]
 mod error;

@@ -1991,7 +1991,20 @@ a link its target's, as on POSIX; the four times through
 `filer_fs::nt`, a zero time absent; the id, the volume's serial number
 and the 128-bit file id; and the attributes that are flags. A file that
 the Windows Overlay Filter compresses hides its reparse point and reads
-through the filter. `tests/windows.sh` runs the crate's tests in Windows
+through the filter. `Op::ReadDir` reopens the directory for each listing
+(the system keeps a listing's position in the handle) and reads
+`FileIdExtdDirectoryInformation` with `NtQueryDirectoryFile`, 64 KiB at
+a time; file systems that refuse the class before the first entries
+(FAT) are read in `FileIdBothDirectoryInformation`, with 64-bit ids and
+the tag where the extended attributes' size would be. Records parse in
+a pure function. Entries keep the kind lookups give them and an id on
+the directory's volume; names that are not well-formed UTF-16 are
+foreign names in WTF-8, which open and stat. As for `filer-posix`, the
+listing stays in the handle between batches, a `DirCookie` counts the
+entries listed, and an unexpected cookie restarts and skips. The whole
+specification passes, blocking and on a thread pool, with FIFOs,
+extended attributes, and its raw-byte foreign name (SPEC-06) left out.
+`tests/windows.sh` runs the crate's tests in Windows
 from Linux: it builds them for `x86_64-pc-windows-gnu` and runs them in
 the `dockur/windows` container that `filer-ntfs`'s fixtures use.
 

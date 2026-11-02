@@ -1,8 +1,14 @@
 // This is free and unencumbered software released into the public domain.
 
-use filer_api::FileKind;
+use crate::dir_info::Class;
+use filer_api::{Entry, FileKind};
 use filer_fs::reparse;
-use std::{fs::File, sync::Arc};
+use std::{
+    collections::VecDeque,
+    fs::File,
+    sync::{Arc, Mutex},
+    vec::Vec,
+};
 use windows_sys::Win32::Storage::FileSystem::{
     FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
 };
@@ -14,17 +20,63 @@ const AF_UNIX: u32 = 0x8000_0023;
 /// that stands for another file, as links do.
 const NAME_SURROGATE: u32 = 0x2000_0000;
 
+/// The size of the buffer a listing reads entries into, in 8-byte words:
+/// 64 KiB, hundreds of entries per call.
+const LISTING_WORDS: usize = 8192;
+
 /// The payload of a directory handle.
 #[derive(Debug)]
 pub(crate) struct DirPayload {
     /// The directory, opened to list and traverse it and to read its
     /// attributes.
     pub(crate) file: Arc<File>,
+
+    /// The listing in progress, kept between `ReadDir` batches so that a
+    /// sequential listing reads the directory once.
+    pub(crate) listing: Mutex<Option<Listing>>,
 }
 
 impl DirPayload {
     pub(crate) const fn new(file: Arc<File>) -> Self {
-        Self { file }
+        Self {
+            file,
+            listing: Mutex::new(None),
+        }
+    }
+}
+
+/// A listing: the directory opened again, whose position the system
+/// keeps, and how many entries it has yielded, which is the cookie that
+/// continues it.
+#[derive(Debug)]
+pub(crate) struct Listing {
+    pub(crate) file: File,
+    /// The serial number of the directory's volume, for the entries' ids.
+    pub(crate) volume: u64,
+    pub(crate) class: Class,
+    /// Whether the system has returned any entries yet, before which the
+    /// class may still change.
+    pub(crate) started: bool,
+    pub(crate) next: u64,
+    /// Entries read but not yet yielded.
+    pub(crate) pending: VecDeque<Entry>,
+    /// Whether the system has no more.
+    pub(crate) end: bool,
+    pub(crate) buf: Vec<u64>,
+}
+
+impl Listing {
+    pub(crate) fn new(file: File, volume: u64) -> Self {
+        Self {
+            file,
+            volume,
+            class: Class::Extd,
+            started: false,
+            next: 0,
+            pending: VecDeque::new(),
+            end: false,
+            buf: std::vec![0; LISTING_WORDS],
+        }
     }
 }
 

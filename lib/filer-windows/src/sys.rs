@@ -10,7 +10,7 @@
 //!
 //! [`windows-sys`]: https://docs.rs/windows-sys
 
-use crate::windows::SHARE_ALL;
+use crate::{dir_info::Class, windows::SHARE_ALL};
 use core::{ffi::c_void, mem::size_of, ptr};
 use std::{
     fs::File,
@@ -20,12 +20,16 @@ use std::{
 use windows_sys::{
     Wdk::{
         Foundation::OBJECT_ATTRIBUTES,
-        Storage::FileSystem::{FILE_OPEN, FILE_SYNCHRONOUS_IO_NONALERT, NtCreateFile},
+        Storage::FileSystem::{
+            FILE_OPEN, FILE_SYNCHRONOUS_IO_NONALERT, FileIdBothDirectoryInformation,
+            FileIdExtdDirectoryInformation, NtCreateFile, NtQueryDirectoryFile,
+        },
     },
     Win32::{
         Foundation::{
             ERROR_INVALID_PARAMETER, GetLastError, NTSTATUS, OBJ_CASE_INSENSITIVE,
-            RtlNtStatusToDosError, STATUS_OBJECT_NAME_INVALID, UNICODE_STRING,
+            RtlNtStatusToDosError, STATUS_INVALID_PARAMETER, STATUS_NO_MORE_FILES,
+            STATUS_NO_SUCH_FILE, STATUS_OBJECT_NAME_INVALID, UNICODE_STRING,
         },
         Storage::FileSystem::{
             FILE_ATTRIBUTE_TAG_INFO, FILE_ID_128, FILE_ID_INFO, FILE_INFO_BY_HANDLE_CLASS,
@@ -242,6 +246,54 @@ pub(crate) fn reparse_point(file: &File) -> Result<Vec<u8>, u32> {
     }
     let returned = usize::try_from(returned).map_err(|_| ERROR_INVALID_PARAMETER)?;
     Ok(words
+        .iter()
+        .flat_map(|word| word.to_ne_bytes())
+        .take(returned)
+        .collect())
+}
+
+/// Reads the next entries of the listing `dir` is open for, in `class`,
+/// into `buf`, and returns their bytes, or none at the end.
+pub(crate) fn query_directory(
+    dir: &File,
+    class: Class,
+    buf: &mut [u64],
+) -> Result<Vec<u8>, NTSTATUS> {
+    let class = match class {
+        Class::Extd => FileIdExtdDirectoryInformation,
+        Class::Both => FileIdBothDirectoryInformation,
+    };
+    let len = buf
+        .len()
+        .checked_mul(8)
+        .and_then(|len| u32::try_from(len).ok())
+        .ok_or(STATUS_INVALID_PARAMETER)?;
+    let mut io = IO_STATUS_BLOCK::default();
+    // SAFETY: `buf` is writable for the length passed, and aligned for
+    // every class's records; `io` is local. The handle is synchronous, so
+    // the call is done with both when it returns.
+    let status = unsafe {
+        NtQueryDirectoryFile(
+            dir.as_raw_handle(),
+            ptr::null_mut(),
+            None,
+            ptr::null(),
+            &raw mut io,
+            buf.as_mut_ptr().cast::<c_void>(),
+            len,
+            class,
+            false,
+            ptr::null(),
+            false,
+        )
+    };
+    match status {
+        STATUS_NO_MORE_FILES | STATUS_NO_SUCH_FILE => return Ok(Vec::new()),
+        status if status < 0 => return Err(status),
+        _ => {},
+    }
+    let returned = io.Information;
+    Ok(buf
         .iter()
         .flat_map(|word| word.to_ne_bytes())
         .take(returned)

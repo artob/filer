@@ -1,15 +1,16 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
+    dir_info::{self, Class},
     error,
-    node::{self, DirPayload, FilePayload, Node},
+    node::{self, DirPayload, FilePayload, Listing, Node},
     sys,
 };
 use core::future::Future;
 use filer_api::{
-    AmbientAuthority, BlockingResolver, Completion, Dir, Driver, DriverId, DriverKey, EntryName,
-    Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op,
-    OpKind, OpenHow, Output, Spawner, Target, path::RelPath, run_on,
+    AmbientAuthority, BlockingResolver, Completion, Dir, DirCookie, Driver, DriverId, DriverKey,
+    Entry, EntryName, Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget,
+    Metadata, Op, OpKind, OpenHow, Output, Spawner, Target, path::RelPath, run_on,
 };
 use filer_fs::{nt, reparse::Reparse, wtf8};
 use std::{
@@ -23,7 +24,9 @@ use windows_sys::{
     Wdk::Storage::FileSystem::{
         FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE, FILE_OPEN_REPARSE_POINT,
     },
-    Win32::Foundation::ERROR_HANDLE_EOF,
+    Win32::Foundation::{
+        ERROR_HANDLE_EOF, STATUS_INVALID_INFO_CLASS, STATUS_INVALID_PARAMETER, STATUS_NOT_SUPPORTED,
+    },
     Win32::Storage::FileSystem::{
         FILE_FLAG_BACKUP_SEMANTICS, FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES, FILE_READ_DATA,
         FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, SYNCHRONIZE,
@@ -78,6 +81,13 @@ pub(crate) const SHARE_ALL: u32 = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHAR
 /// link, its target's, as on POSIX), the four times, the id (the volume's
 /// serial number and the 128-bit file id), and the attributes that are
 /// flags.
+///
+/// Directory listings read entries with `NtQueryDirectoryFile`, 64 KiB at
+/// a time, and keep their place in the handle between batches; a
+/// [`DirCookie`] is the number of entries listed so far, and an unexpected
+/// cookie restarts the listing and skips that many. Names that are not
+/// well-formed UTF-16 (unpaired surrogates) are foreign names in WTF-8,
+/// which this driver opens.
 ///
 /// Windows has no `EINTR`: synchronous I/O is interrupted only when
 /// another thread cancels it, which surfaces as
@@ -231,6 +241,7 @@ impl Windows {
                 };
                 Completion::new(result.map(Output::Metadata))
             },
+            Op::ReadDir { dir, cookie, max } => Completion::new(self.read_dir(&dir, cookie, max)),
             Op::ReadLink { at, name } => {
                 let result = self.dir(&at, kind).and_then(|dir| {
                     let bytes = self.name_bytes(&name, kind)?;
@@ -284,6 +295,105 @@ impl Windows {
             EntryName::Foreign(name) if name.origin() == self.key.id() => Ok(name.as_bytes()),
             EntryName::Foreign(_) => Err(Error::new(ErrorKind::ForeignNameMismatch, op)),
         }
+    }
+
+    fn read_dir(
+        &self,
+        handle: &Handle,
+        cookie: Option<DirCookie>,
+        max: usize,
+    ) -> Result<Output, Error> {
+        let op = OpKind::ReadDir;
+        let dir = self.dir(handle, op)?;
+        let start = cookie.map_or(0, DirCookie::get);
+        let mut listing = dir
+            .listing
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        // Continue the cached listing if it is where the caller left off;
+        // otherwise start over and skip to the cookie.
+        let mut current = match listing.take() {
+            Some(current) if current.next == start => current,
+            _ => self.open_listing(&dir.file, start, op)?,
+        };
+        let mut entries = Vec::new();
+        let mut done = false;
+        while entries.len() < max {
+            let Some(entry) = self.next_entry(&mut current, op)? else {
+                done = true;
+                break;
+            };
+            entries.push(entry);
+            current.next = current.next.saturating_add(1);
+        }
+        let next = (!done).then(|| DirCookie::new(current.next));
+        if !done {
+            *listing = Some(current);
+        }
+        Ok(Output::Entries { entries, next })
+    }
+
+    /// Opens a new listing of `dir`, positioned after `position` entries
+    /// (not counting `.` and `..`). The directory is opened again, since
+    /// the system keeps a listing's position in the handle.
+    fn open_listing(&self, dir: &File, position: u64, op: OpKind) -> Result<Listing, Error> {
+        let file = sys::reopen(dir, FILE_LIST_DIRECTORY | SYNCHRONIZE, FILE_DIRECTORY_FILE)
+            .map_err(|status| error::nt(status, op))?;
+        let (volume, _) = sys::id(dir).map_err(|code| error::win32(code, op))?;
+        let mut listing = Listing::new(file, volume);
+        while listing.next < position && self.next_entry(&mut listing, op)?.is_some() {
+            listing.next = listing.next.saturating_add(1);
+        }
+        Ok(listing)
+    }
+
+    /// Returns the next entry of a listing, reading more if need be.
+    fn next_entry(&self, listing: &mut Listing, op: OpKind) -> Result<Option<Entry>, Error> {
+        loop {
+            if let Some(entry) = listing.pending.pop_front() {
+                return Ok(Some(entry));
+            }
+            if listing.end {
+                return Ok(None);
+            }
+            self.read_entries(listing, op)?;
+        }
+    }
+
+    /// Reads the next entries of a listing into its pending entries,
+    /// skipping `.` and `..`, or marks its end.
+    fn read_entries(&self, listing: &mut Listing, op: OpKind) -> Result<(), Error> {
+        let bytes = match sys::query_directory(&listing.file, listing.class, &mut listing.buf) {
+            Ok(bytes) => bytes,
+            // File systems without 128-bit ids (FAT) refuse the class.
+            Err(STATUS_INVALID_INFO_CLASS | STATUS_INVALID_PARAMETER | STATUS_NOT_SUPPORTED)
+                if listing.class == Class::Extd && !listing.started =>
+            {
+                listing.class = Class::Both;
+                return Ok(());
+            },
+            Err(status) => return Err(error::nt(status, op)),
+        };
+        listing.started = true;
+        if bytes.is_empty() {
+            listing.end = true;
+            return Ok(());
+        }
+        let corrupt = || Error::new(ErrorKind::Corrupt, op);
+        for raw in dir_info::parse(&bytes, listing.class).ok_or_else(corrupt)? {
+            if raw.is_dot() {
+                continue;
+            }
+            let name = self
+                .key
+                .entry_name(&wtf8::encode(&raw.name))
+                .map_err(|_| corrupt())?;
+            let mut entry = Entry::new(name);
+            entry.kind = Some(node::kind(raw.attributes, raw.tag));
+            entry.id = Some(FileId::new(listing.volume, raw.id));
+            listing.pending.push_back(entry);
+        }
+        Ok(())
     }
 
     fn open(&self, at: &Handle, path: &RelPath, how: OpenHow) -> Result<Output, Error> {
@@ -483,7 +593,7 @@ mod tests {
         os::windows::fs::{symlink_dir, symlink_file},
         path::PathBuf,
         process::{self, Command, Stdio},
-        string::ToString,
+        string::{String, ToString},
         sync::atomic::{AtomicUsize, Ordering},
     };
 
@@ -613,6 +723,183 @@ mod tests {
             follow,
             resolve: Resolve::default(),
         }
+    }
+
+    /// Lists `dir` in batches of `max`, returning names and kinds.
+    fn list(windows: &Windows, dir: &Handle, max: usize) -> Vec<(EntryName, Option<FileKind>)> {
+        let mut listed = Vec::new();
+        let mut cookie = None;
+        loop {
+            let completion = block_on(windows.submit(Op::ReadDir {
+                dir: dir.clone(),
+                cookie,
+                max,
+            }));
+            let Output::Entries { entries, next } = completion.result.unwrap() else {
+                panic!("not entries");
+            };
+            assert!(entries.len() <= max);
+            listed.extend(entries.into_iter().map(|entry| (entry.name, entry.kind)));
+            match next {
+                Some(next) => cookie = Some(next),
+                None => return listed,
+            }
+        }
+    }
+
+    #[test]
+    fn lists_entries_with_their_kinds() {
+        let (_temp, windows, root) = fixture();
+        let a = open(&windows, &root, "a", OpenHow::dir()).unwrap();
+        let mut listed: Vec<(String, Option<FileKind>)> = list(&windows, &a, 3)
+            .into_iter()
+            .map(|(name, kind)| (name.to_string(), kind))
+            .collect();
+        listed.sort_by(|a, b| a.0.cmp(&b.0));
+        let symlink = Some(FileKind::Symlink);
+        let expected = [
+            ("abs", symlink),
+            ("b", Some(FileKind::Dir)),
+            ("backslash", symlink),
+            ("dirlink", symlink),
+            ("escape", symlink),
+            ("junction", symlink),
+            ("link", symlink),
+            ("loop", symlink),
+            ("out", symlink),
+            ("up", symlink),
+            ("z.txt", Some(FileKind::File)),
+        ];
+        let expected: Vec<(String, Option<FileKind>)> = expected
+            .iter()
+            .map(|&(name, kind)| (name.to_string(), kind))
+            .collect();
+        assert_eq!(listed, expected);
+        let b = open(&windows, &a, "b", OpenHow::dir()).unwrap();
+        let completion = block_on(windows.submit(Op::ReadDir {
+            dir: b,
+            cookie: None,
+            max: 10,
+        }));
+        let Output::Entries { entries, next } = completion.result.unwrap() else {
+            panic!("not entries");
+        };
+        assert_eq!((entries.len(), next), (1, None));
+        // The id is the one metadata reports.
+        let c = stat(
+            &windows,
+            entry(
+                &open(&windows, &a, "b", OpenHow::dir()).unwrap(),
+                "c.txt",
+                false,
+            ),
+        )
+        .unwrap();
+        assert_eq!(entries[0].id, c.id);
+    }
+
+    #[test]
+    fn lists_large_directories_in_batches() {
+        let temp = TempDir::new();
+        for i in 0..3000 {
+            fs::write(temp.0.join(std::format!("f{i:04}")), "").unwrap();
+        }
+        let windows = Windows::blocking();
+        let root = windows
+            .open_ambient_dir(&temp.0, ambient_authority())
+            .unwrap();
+        for max in [1, 100, 5000] {
+            let mut names: Vec<String> = list(&windows, &root, max)
+                .into_iter()
+                .map(|(name, _)| name.to_string())
+                .collect();
+            names.sort();
+            let expected: Vec<String> = (0..3000).map(|i| std::format!("f{i:04}")).collect();
+            assert!(names == expected, "batches of {max}");
+        }
+        // Rereading a batch restarts the listing and skips to it.
+        let batch = |cookie| {
+            let completion = block_on(windows.submit(Op::ReadDir {
+                dir: root.clone(),
+                cookie,
+                max: 1000,
+            }));
+            match completion.result {
+                Ok(Output::Entries { entries, next }) => (entries.len(), next),
+                result => panic!("{result:?}"),
+            }
+        };
+        let (_, second) = batch(None);
+        let (n, third) = batch(second);
+        assert_eq!(batch(second), (n, third));
+        assert_eq!(batch(Some(DirCookie::new(100_000))), (0, None));
+    }
+
+    /// Both information classes list the same entries; the second is the
+    /// one file systems without 128-bit ids answer.
+    #[test]
+    fn lists_in_either_class() {
+        let (_temp, windows, root) = fixture();
+        let a = open(&windows, &root, "a", OpenHow::dir()).unwrap();
+        let dir = &windows.dir(&a, OpKind::ReadDir).unwrap().file;
+        let mut lists = Vec::new();
+        for class in [Class::Extd, Class::Both] {
+            let file =
+                sys::reopen(dir, FILE_LIST_DIRECTORY | SYNCHRONIZE, FILE_DIRECTORY_FILE).unwrap();
+            let mut buf = std::vec![0; 8192];
+            let bytes = sys::query_directory(&file, class, &mut buf).unwrap();
+            let mut entries = dir_info::parse(&bytes, class).unwrap();
+            assert!(
+                sys::query_directory(&file, class, &mut buf)
+                    .unwrap()
+                    .is_empty()
+            );
+            entries.sort_by(|a, b| a.name.cmp(&b.name));
+            lists.push(entries);
+        }
+        assert_eq!(lists[0], lists[1]);
+        assert_eq!(lists[0].len(), 13);
+    }
+
+    /// A name that is not well-formed UTF-16 lists as a foreign name, in
+    /// WTF-8, which opens and stats the file.
+    #[test]
+    fn lists_and_opens_unpaired_surrogates() {
+        use std::os::windows::ffi::OsStringExt;
+        let temp = TempDir::new();
+        let name = std::ffi::OsString::from_wide(&[0x61, 0xD800, 0x62]);
+        fs::write(temp.0.join(&name), "foreign").unwrap();
+        let windows = Windows::blocking();
+        let root = windows
+            .open_ambient_dir(&temp.0, ambient_authority())
+            .unwrap();
+        let listed = list(&windows, &root, 10);
+        let [(EntryName::Foreign(foreign), Some(FileKind::File))] = listed.as_slice() else {
+            panic!("{listed:?}");
+        };
+        assert_eq!(foreign.as_bytes(), b"a\xED\xA0\x80b");
+        let target = Target::Entry {
+            at: root.clone(),
+            name: EntryName::Foreign(foreign.clone()),
+            follow: false,
+            resolve: Resolve::default(),
+        };
+        assert_eq!(stat(&windows, target).unwrap().len, Some(7));
+        // Another driver's foreign name is refused.
+        let other = Windows::blocking();
+        let other_root = other
+            .open_ambient_dir(&temp.0, ambient_authority())
+            .unwrap();
+        let target = Target::Entry {
+            at: other_root,
+            name: EntryName::Foreign(foreign.clone()),
+            follow: false,
+            resolve: Resolve::default(),
+        };
+        assert_eq!(
+            stat(&other, target).unwrap_err().kind(),
+            ErrorKind::ForeignNameMismatch
+        );
     }
 
     #[test]
