@@ -97,7 +97,8 @@ impl<S: ReadAt> Volume<S> {
             return Err(Error::new(ErrorKind::NotADirectory, op));
         }
         let map = self.map(node, op)?;
-        Directory::new(node.number(), map, node.inode().size(), &self.sb)
+        let indexed = node.inode().is_indexed() && self.sb.has_dir_index();
+        Directory::new(node.number(), map, node.inode().size(), indexed, &self.sb)
             .map_err(|error| error.into_error(op))
     }
 

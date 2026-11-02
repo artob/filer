@@ -2,8 +2,9 @@
 
 //! A dependency-free, structure-aware fuzzer: it mutates real volumes
 //! where their structures are (the superblock, the group descriptors,
-//! the inode table, directories, indirect blocks, attribute blocks, and
-//! the journal's superblock and log of volumes that need recovery),
+//! the inode table, directories and their hash indexes, indirect blocks,
+//! attribute blocks, and the journal's superblock and log of volumes that
+//! need recovery),
 //! with values chosen to hit boundaries, and walks each result with
 //! `common::exercise`, which checks that every answer is consistent.
 //!
@@ -56,6 +57,21 @@ impl Seed {
             }
             at += block;
         }
+        // Hash indexes: roots, a `.` entry and information of 8 bytes, and
+        // interior nodes, an unused entry spanning the block, then entries.
+        let mut at = 0;
+        while at + block <= len && regions.len() < 60 {
+            let b = &image[at as usize..(at + block) as usize];
+            let root = b[4..8] == [12, 0, 1, 2] && b[8] == b'.' && b[0x1D] == 8;
+            let node = b[..4] == [0; 4]
+                && u64::from(u16::from_le_bytes([b[4], b[5]])) == block.min(0xFFFF)
+                && b[6] == 0
+                && b[8..10] != [0, 0];
+            if root || node {
+                regions.push(at..at + block);
+            }
+            at += block;
+        }
         // The journal's superblock and log: its blocks of the magic number.
         let mut at = 0;
         while at + 4 <= len && regions.len() < 80 {
@@ -101,6 +117,7 @@ fn corpus() -> Vec<Seed> {
         include_bytes!("fixtures/ext3-1k.sparse"),
         include_bytes!("fixtures/ext3-dirty-1k.sparse"),
         include_bytes!("fixtures/ext3-dirty-csum.sparse"),
+        include_bytes!("fixtures/ext2-htree-tea.sparse"),
     ]
     .into_iter()
     .map(|sparse| Seed::new(unsparse(sparse)))

@@ -2,9 +2,15 @@
 
 //! Directories: blocks of entries, read linearly. Hashed (htree)
 //! directories hide their index in blocks that read as one unused entry,
-//! so a linear read sees exactly their entries too.
+//! so a linear read sees exactly their entries too; lookups follow the
+//! index (`htree`).
 
-use crate::{Ext4Error, block_map::BlockMap, superblock::Superblock};
+use crate::{
+    Ext4Error,
+    block_map::BlockMap,
+    htree::{self, Probe},
+    superblock::Superblock,
+};
 use alloc::vec::Vec;
 use filer_api::{EntryName, Error, FileKind, OpKind, ReadAt};
 use filer_fs::{le, unix};
@@ -96,29 +102,36 @@ pub(crate) fn parse_block(
     Ok(entries)
 }
 
-/// A directory's contents: its map and size.
+/// A directory's contents: its map and size, and whether it is indexed.
 #[derive(Clone, Debug)]
 pub(crate) struct Directory {
     inode: u32,
     map: BlockMap,
     size: u64,
+    indexed: bool,
 }
 
 impl Directory {
     /// Returns directory `inode`'s contents, `size` bytes mapped by `map`:
     /// whole blocks, and no more than the volume holds, as a directory has
     /// no holes. That bounds a scan, even if a corrupt map names one block
-    /// many times.
+    /// many times. Lookups follow the index of one `indexed`.
     pub(crate) fn new(
         inode: u32,
         map: BlockMap,
         size: u64,
+        indexed: bool,
         sb: &Superblock,
     ) -> Result<Self, Ext4Error> {
         if !size.is_multiple_of(u64::from(sb.block_size())) || size > sb.volume_len() {
             return Err(Ext4Error::BadDirectorySize { dir: inode, size });
         }
-        Ok(Self { inode, map, size })
+        Ok(Self {
+            inode,
+            map,
+            size,
+            indexed,
+        })
     }
 
     /// Returns the directory's inode number.
@@ -133,6 +146,32 @@ impl Directory {
             .unwrap_or(0)
     }
 
+    /// Returns the offset of block `index` in the directory.
+    fn offset(&self, sb: &Superblock, index: u64, op: OpKind) -> Result<u64, Error> {
+        index
+            .checked_mul(u64::from(sb.block_size()))
+            .ok_or_else(|| {
+                Ext4Error::BadDirectorySize {
+                    dir: self.inode,
+                    size: self.size,
+                }
+                .into_error(op)
+            })
+    }
+
+    /// Reads block `index` of the directory.
+    pub(crate) async fn raw_block<S: ReadAt + ?Sized>(
+        &self,
+        source: &S,
+        sb: &Superblock,
+        index: u64,
+        op: OpKind,
+    ) -> Result<Vec<u8>, Error> {
+        let base = self.offset(sb, index, op)?;
+        let len = usize::try_from(sb.block_size()).unwrap_or(usize::MAX);
+        self.map.read(source, sb, self.size, base, len, op).await
+    }
+
     /// Reads and parses block `index` of the directory.
     pub(crate) async fn block<S: ReadAt + ?Sized>(
         &self,
@@ -141,21 +180,33 @@ impl Directory {
         index: u64,
         op: OpKind,
     ) -> Result<Vec<DirEntry>, Error> {
-        let fail = |error: Ext4Error| error.into_error(op);
-        let size = u64::from(sb.block_size());
-        let base = index.checked_mul(size).ok_or_else(|| {
-            fail(Ext4Error::BadDirectorySize {
-                dir: self.inode,
-                size: self.size,
-            })
-        })?;
-        let len = usize::try_from(size).unwrap_or(usize::MAX);
-        let bytes = self.map.read(source, sb, self.size, base, len, op).await?;
-        parse_block(&bytes, base, sb.has_filetype(), self.inode).map_err(fail)
+        let base = self.offset(sb, index, op)?;
+        let bytes = self.raw_block(source, sb, index, op).await?;
+        parse_block(&bytes, base, sb.has_filetype(), self.inode).map_err(|e| e.into_error(op))
     }
 
-    /// Finds the entry `name`, matching bytes exactly.
+    /// Finds the entry `name`, matching bytes exactly: through the index,
+    /// if the directory has one this driver can follow, else by reading
+    /// every block.
     pub(crate) async fn lookup<S: ReadAt + ?Sized>(
+        &self,
+        source: &S,
+        sb: &Superblock,
+        name: &[u8],
+        op: OpKind,
+    ) -> Result<Option<DirEntry>, Error> {
+        if self.indexed && self.blocks(sb) > 1 {
+            match htree::lookup(self, source, sb, name, op).await? {
+                Probe::Found(entry) => return Ok(Some(entry)),
+                Probe::Absent => return Ok(None),
+                Probe::Unusable => {},
+            }
+        }
+        self.scan(source, sb, name, op).await
+    }
+
+    /// Finds the entry `name` by reading every block.
+    pub(crate) async fn scan<S: ReadAt + ?Sized>(
         &self,
         source: &S,
         sb: &Superblock,
@@ -214,7 +265,7 @@ mod tests {
             raw.mode = 0o040_755;
             let inode = Inode::parse(&raw.bytes(256), 12).unwrap();
             let map = BlockMap::new(&inode, &sb).unwrap();
-            Directory::new(12, map, size, &sb).map(|dir| dir.blocks(&sb))
+            Directory::new(12, map, size, false, &sb).map(|dir| dir.blocks(&sb))
         };
         assert_eq!(directory(4096 * 1024), Ok(4096));
         for size in [1000, 4097 * 1024] {

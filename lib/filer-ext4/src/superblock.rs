@@ -33,6 +33,8 @@ pub(crate) const DESC_SIZE: u16 = 32;
 pub(crate) mod feature {
     /// Compatible: the volume has a journal.
     pub(crate) const COMPAT_HAS_JOURNAL: u32 = 0x4;
+    /// Compatible: directories may be hashed (htree) and indexed.
+    pub(crate) const COMPAT_DIR_INDEX: u32 = 0x20;
     /// Incompatible: directory entries record the file type.
     pub(crate) const INCOMPAT_FILETYPE: u32 = 0x2;
     /// Incompatible: the journal holds changes not yet applied.
@@ -71,6 +73,9 @@ pub(crate) struct Superblock {
     uuid: [u8; 16],
     /// The journal's inode, or 0 if there is none in the volume.
     journal_inode: u32,
+    /// The directory hashes' seed, and whether they read bytes unsigned.
+    hash_seed: [u32; 4],
+    unsigned_hash: bool,
 }
 
 fn u16_at(bytes: &[u8], at: usize) -> Result<u16, Ext4Error> {
@@ -168,6 +173,12 @@ impl Superblock {
         if let Some(from) = bytes.get(0x68..0x78) {
             uuid.copy_from_slice(from);
         }
+        let mut hash_seed = [0; 4];
+        for (i, word) in hash_seed.iter_mut().enumerate() {
+            *word = u32_at(bytes, i.saturating_mul(4).saturating_add(0xEC))?;
+        }
+        // `s_flags`: 1 for signed directory hashes, 2 for unsigned.
+        let unsigned_hash = u32_at(bytes, 0x160)? & 0x2 != 0;
         let journal_inode = if features.compat & feature::COMPAT_HAS_JOURNAL != 0 {
             u32_at(bytes, 0xE0)?
         } else {
@@ -186,6 +197,8 @@ impl Superblock {
             features,
             uuid,
             journal_inode,
+            hash_seed,
+            unsigned_hash,
         })
     }
 
@@ -270,6 +283,22 @@ impl Superblock {
     /// volume, as when it was not unmounted cleanly.
     pub(crate) const fn needs_recovery(&self) -> bool {
         self.features.incompat & feature::INCOMPAT_RECOVER != 0
+    }
+
+    /// Returns `true` if directories may be indexed by hash.
+    pub(crate) const fn has_dir_index(&self) -> bool {
+        self.features.compat & feature::COMPAT_DIR_INDEX != 0
+    }
+
+    /// Returns the seed of directory hashes, zero for MD4's own.
+    pub(crate) const fn hash_seed(&self) -> [u32; 4] {
+        self.hash_seed
+    }
+
+    /// Returns `true` if directory hashes read bytes as unsigned chars,
+    /// rather than signed.
+    pub(crate) const fn unsigned_hash(&self) -> bool {
+        self.unsigned_hash
     }
 
     /// Returns the journal's inode, if the journal is in the volume; a

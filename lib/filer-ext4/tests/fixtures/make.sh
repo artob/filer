@@ -241,6 +241,38 @@ make() {
     sparse "$img" "$out/$1.sparse"
 }
 
+# Writes directory `big` into directory `$1`: 700 files of long names,
+# with bytes past ASCII, so that its index is hashed by every byte, signed
+# or not, and is two levels deep in blocks of 1 KiB.
+big() {
+    sudo python3 -I - "$1" <<'PY'
+import os, sys
+big = os.path.join(sys.argv[1], "big")
+os.mkdir(big)
+for i in range(700):
+    open(os.path.join(big, f"{i:04}-{'é' * (i % 50)}{'x' * 100}"), "wb").close()
+PY
+}
+
+# Makes fixture `$1` as `make` does, filled by `big`, its directories
+# hashed by version `$4` (`legacy`, `half_md4`, or `tea`) over signed or,
+# if `$5` is `unsigned`, unsigned bytes.
+hashed() {
+    case " $only " in "  " | *" $1 "*) ;; *) return ;; esac
+    img="$work/$1.img"
+    truncate -s "$2" "$img"
+    # shellcheck disable=SC2086
+    mke2fs -q -F -L FILER $3 "$img"
+    flags=1
+    [ "$5" = unsigned ] && flags=2
+    debugfs -w -R "ssv def_hash_version $4" "$img" 2>/dev/null
+    debugfs -w -R "ssv flags $flags" "$img" 2>/dev/null
+    sudo mount -o loop "$img" "$mnt"
+    big "$mnt"
+    sudo umount "$mnt"
+    sparse "$img" "$out/$1.sparse"
+}
+
 # Makes fixture `$1` as `make` does, filled by `mke2fs -d` from a tree
 # written by `$4`.
 populate() {
@@ -314,6 +346,8 @@ make ext2-attrs-128 8M "-t ext2 -b 1024 -I 128" attrs
 make spec 32M "-t ext2 -b 4096" spec
 make ext3-1k 32M "-t ext3 -b 1024" fill
 make ext3-4k 32M "-t ext3 -b 4096" fill
+hashed ext2-htree-tea 16M "-t ext2 -b 1024" tea unsigned
+hashed ext2-htree-legacy 16M "-t ext2 -b 4096" legacy signed
 dirty ext3-dirty 32M "-t ext3 -b 4096"
 dirty ext3-dirty-1k 32M "-t ext3 -b 1024"
 dirty ext3-dirty-csum 32M "-t ext3 -b 4096 -O metadata_csum"

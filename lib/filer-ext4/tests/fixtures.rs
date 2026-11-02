@@ -296,6 +296,34 @@ fn refuses_invalid_journals() {
     );
 }
 
+/// Hashed directories, by TEA over unsigned bytes two levels deep, and
+/// by the legacy hash over signed ones: each entry listed is found by its
+/// name, through the index, and names it lacks are not.
+#[test]
+fn looks_up_names_in_hashed_directories() {
+    for sparse in [
+        &include_bytes!("fixtures/ext2-htree-tea.sparse")[..],
+        include_bytes!("fixtures/ext2-htree-legacy.sparse"),
+    ] {
+        let root = block_on(Ext4::open(unsparse(sparse))).unwrap();
+        let big = block_on(root.open_dir("big")).unwrap();
+        let mut entries = big.entries().unwrap();
+        let mut count = 0;
+        while let Some(entry) = block_on(entries.next()) {
+            let entry = entry.unwrap();
+            let name = entry.name.as_name().unwrap();
+            let metadata = block_on(big.symlink_metadata(name.as_str(), MetaMask::all())).unwrap();
+            assert_eq!(metadata.id, entry.id, "{name}");
+            count += 1;
+        }
+        assert_eq!(count, 700);
+        for absent in ["0000-", "0699-x", "absent"] {
+            let error = block_on(big.symlink_metadata(absent, MetaMask::all())).unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::NotFound);
+        }
+    }
+}
+
 #[test]
 fn reads_128_byte_inodes() {
     check(include_bytes!("fixtures/ext2-128.sparse"), Times::Seconds);

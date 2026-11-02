@@ -12,14 +12,15 @@ use std::collections::BTreeMap;
 /// A volume image as a base image with bytes patched over it.
 pub type Overlay = filer_spec::Overlay<Vec<u8>>;
 
-/// Opens `source` and walks it with [`filer_spec::exercise`], with the default
-/// checks: listed kinds come from directory entries and stats from inodes,
-/// which a corrupt volume may make disagree. Shared by `tests/fuzz.rs` and the
+/// Opens `source` and walks it with [`filer_spec::exercise`]: listed kinds
+/// come from directory entries and stats from inodes, which a corrupt
+/// volume may make disagree, and lookups follow hash indexes, which a
+/// corrupt block may no longer match. Shared by `tests/fuzz.rs` and the
 /// `cargo-fuzz` targets in `fuzz/`.
 pub fn exercise<S: filer_api::ReadAt + 'static>(source: S) -> filer_spec::Outcome {
     filer_spec::exercise(
         filer_spec::block_on(Ext4::open(source)),
-        filer_spec::Checks::new(),
+        filer_spec::Checks::new().lookups(false),
     )
 }
 

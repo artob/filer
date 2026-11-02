@@ -86,6 +86,8 @@ mod ext4;
 pub use ext4::*;
 
 mod group;
+mod hash;
+mod htree;
 mod inode;
 mod journal;
 

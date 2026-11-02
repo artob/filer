@@ -19,6 +19,9 @@ pub(crate) const I_BLOCK_SIZE: usize = 60;
 const SECONDS: Duration = Duration::from_secs(1);
 const NANOSECONDS: Duration = Duration::from_nanos(1);
 
+/// The inode flag of a directory indexed by hash (htree).
+const INDEX_FL: u32 = 0x1000;
+
 /// An inode's four times. Creation is recorded only in the extra fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Times {
@@ -153,6 +156,11 @@ impl Inode {
     /// Returns the block of the file's extended attributes, or 0.
     pub(crate) const fn file_acl(&self) -> u32 {
         self.file_acl
+    }
+
+    /// Returns `true` if the inode is a directory indexed by hash.
+    pub(crate) const fn is_indexed(&self) -> bool {
+        self.flags & INDEX_FL != 0
     }
 
     /// Returns the inode flags that are [`FileAttrs`].

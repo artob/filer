@@ -680,10 +680,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-11: Hashed lookups.** Descend htrees by legacy, half-MD4, and
-  TEA hashes, signed and unsigned, checked against `debugfs dx_hash`,
-  falling back to the linear scan on inconsistency. Done when large
-  directories agree with the scan.
 - [ ] **EXT-12: Extents.** Extent trees, uninitialized extents as zeros.
   Done when `extent` fixtures read.
 - [ ] **EXT-13: Large volumes.** `64bit` descriptors and block numbers,

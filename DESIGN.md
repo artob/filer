@@ -2659,7 +2659,11 @@ TEA cipher, and checked against `debugfs`'s `dx_hash`.
   and with `filetype` a type byte), never split across blocks; inode 0
   marks an unused entry. Hashed (htree) directories hide their index in
   blocks that read as one unused entry, so a linear read sees exactly the
-  entries.
+  entries; lookups descend the index (legacy, half-MD4, or TEA hashes,
+  over signed or unsigned bytes, by `s_flags`; up to two levels of
+  interior nodes), reading on into blocks whose hash has the
+  continuation bit, and fall back to the linear read for an index they
+  cannot follow.
 - Extended attributes: in-inode (after `i_extra_isize`, magic
   `0xEA020000`) and in one block (`i_file_acl`, a 32-byte header); entries
   name a prefix by index (`user.`, `trusted.`, `security.`, `system.`,
@@ -2714,7 +2718,10 @@ names that are not UTF-8, hashed directories), and stores them sparsely;
 `filer-spec` runs on its own tree. Two more hold extended
 attributes in every namespace and place (in the inode, in a block, in a
 block two files share, POSIX ACLs, a name that is not UTF-8) and inode
-flags; ext3 volumes of 1 and 4 KiB blocks; and three that need
+flags; two of a hashed directory of 700 long names, by TEA over
+unsigned bytes two levels deep, and by the legacy hash over signed ones,
+whose every name the index finds as the linear read lists it; ext3
+volumes of 1 and 4 KiB blocks; and three that need
 recovery, of 1 and 4 KiB blocks and with `metadata_csum`, copied while
 mounted after transactions committed but before they were written back
 (files made, renamed, and removed; a directory and an indirect block
@@ -2724,8 +2731,11 @@ agree: names, kinds, sizes, contents, link targets, all four times to
 the nanosecond, flags, and extended attributes. Listings
 are compared sorted, as the order differs by design: Linux lists hashed
 directories in hash order, Filer every directory in block order.
-`tests/fuzz.rs` mutates the fixtures' superblocks, descriptors, inode
-tables, root directories, and attribute blocks and walks each result,
+`tests/fixtures/dx_hash.txt` holds what `debugfs dx_hash` computes for
+every hash version, seeded and not, over names of every length a block
+of the hash matters to. `tests/fuzz.rs` mutates the fixtures'
+superblocks, descriptors, inode tables, root directories, hash indexes,
+journals, and attribute blocks and walks each result,
 as for `filer-fat`, and `fuzz/` has `cargo-fuzz` targets for the same
 structures (D50).
 
