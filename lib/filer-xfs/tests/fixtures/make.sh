@@ -9,8 +9,10 @@
 # magic `FILER-SPARSE-2\n`, the image size (u64, little-endian), then runs
 # of identical nonzero 512-byte sectors, each as its first sector (u32),
 # its count (u32), and the sector's bytes. `spec.sparse` holds the
-# specification's tree instead, and `xfs-dirs.sparse` a directory of each
-# form.
+# specification's tree instead, `xfs-dirs.sparse` a directory of each
+# form, and `xfs-attrs*.sparse` extended attributes of each form, and
+# inode flags. No tool makes `attr1` attribute forks: Linux and
+# `mkfs.xfs -p` both turn a volume to `attr2` on its first attribute.
 #
 # Usage: tests/fixtures/make.sh [output-dir [fixture...]], on Linux with
 # xfsprogs, python3, and `sudo` for mounting and making devices; without
@@ -149,6 +151,95 @@ os.rmdir(os.path.join(root, "GoneDir"))
 PY
 }
 
+# Writes extended attributes of each kind and form, and inode flags,
+# into directory `$1`, as root. Forks: short form, in the inode; one leaf
+# block; nodes over leaves; and that mapped by a B+ tree, its blocks
+# scattered among a file's. Values: in the inode, in a leaf, and remote,
+# in blocks of their own.
+attrs() {
+    sudo python3 -I - "$1" <<'PY'
+import os, struct, subprocess, sys
+root = sys.argv[1]
+
+def pattern(size, seed):
+    return bytes((i * 7 + seed) % 251 for i in range(size))
+
+def put(path, data=b""):
+    full = os.path.join(root, path)
+    with open(full, "wb") as f:
+        f.write(data)
+    return full
+
+def acl(entries):
+    # Linux's form: version 2, then tag, permissions, and id, with
+    # u32::MAX for entries without one.
+    return struct.pack("<I", 2) + b"".join(
+        struct.pack("<HHI", tag, perm, 0xFFFFFFFF if uid is None else uid)
+        for tag, perm, uid in entries)
+
+ACL = acl([(1, 6, None), (2, 4, 1000), (4, 4, None), (0x10, 4, None), (0x20, 0, None)])
+
+put("plain.txt", b"plain")
+full = put("small.txt", b"small")
+os.setxattr(full, "user.small", b"x")
+os.setxattr(full, "user.empty", b"")
+os.setxattr(put("big.txt", b"big"), "user.big", pattern(900, 1))
+os.setxattr(put("remote.txt", b"remote"), "user.remote", pattern(10000, 2))
+full = put("leaf.txt", b"leaf")
+for i in range(16):
+    os.setxattr(full, f"user.a{i:02}", pattern(10, i))
+full = put("node.txt", b"node")
+for i in range(400):
+    os.setxattr(full, f"user.n{i:03}" + "n" * 40, pattern(20, i))
+# Each new attribute block lands after the filler's last, so that few
+# are contiguous; the filler is then deleted.
+full = put("btree.txt", b"btree")
+filler = os.path.join(root, "filler")
+with open(filler, "wb") as f:
+    for i in range(400):
+        os.setxattr(full, f"user.b{i:03}" + "b" * 40, pattern(20, i))
+        if i % 10 == 0:
+            f.write(bytes(65536)); f.flush(); os.fsync(f.fileno())
+os.remove(filler)
+os.setxattr(put("trusted.txt"), "trusted.secret", b"trusted")
+os.setxattr(put("security.txt"), "security.label", b"label")
+os.setxattr(put("foreign.txt").encode(), b"user.caf\xe9", b"foreign")
+os.setxattr(put("acl.txt"), "system.posix_acl_access", ACL)
+os.mkdir(os.path.join(root, "acldir"))
+os.setxattr(os.path.join(root, "acldir"), "system.posix_acl_default", ACL)
+os.mkdir(os.path.join(root, "tagged"))
+os.setxattr(os.path.join(root, "tagged"), "user.tag", b"dir")
+# Inode flags, of which immutable and append-only are reported.
+for name, flags in [("immutable", "+i"), ("append", "+a"), ("nodump", "+d"),
+                    ("noatime", "+A"), ("both", "+ia")]:
+    put(name, name.encode())
+    subprocess.run(["chattr", flags, os.path.join(root, name)], check=True)
+PY
+}
+
+# Prints the attribute fork format of the inode at path `$2` of image
+# `$1`, and the magic of its first block, if any.
+fork() {
+    format=$(field "$1" "$2" core.aformat)
+    case $format in
+        *"(local)") echo local ;;
+        *) printf '%s ' "$format" | sed 's/.*(\(.*\)) /\1 /'
+           xfs_db -r -c "path /$2" -c "ablock 0" -c "type text" -c print "$1" |
+               awk 'NR == 1 { print $10 $11 }' ;;
+    esac
+}
+
+# Fails unless the attribute forks `attrs` wrote in image `$1` are of the
+# forms the files are named for.
+check_attrs() {
+    found="$(fork "$1" small.txt), $(fork "$1" leaf.txt), $(fork "$1" node.txt)"
+    found="$found, $(fork "$1" btree.txt)"
+    if [ "$found" != "local, extents fbee, extents febe, btree febe" ]; then
+        echo "attribute forms: $found" >&2
+        exit 1
+    fi
+}
+
 # Writes the specification's tree into directory `$1`, as root.
 spec() {
     sudo python3 -I - "$1" <<'PY'
@@ -244,9 +335,10 @@ make() {
     $3 "$mnt"
     sudo umount "$mnt"
     xfs_db -x -c logformat "$img" >/dev/null
-    if [ "$3" = dirs ]; then
-        check_dirs "$img"
-    fi
+    case $3 in
+        dirs) check_dirs "$img" ;;
+        attrs) check_attrs "$img" ;;
+    esac
     sparse "$img" "$out/$1.sparse"
 }
 
@@ -296,4 +388,6 @@ make xfs-4k "$v4" fill
 make xfs-4k-big "$v4 -i size=2048 -n size=65536" fill
 populate xfs-64k "$v4 -b size=65536 -i size=2048" fill
 make xfs-dirs "$v4" dirs
+make xfs-attrs "$v4" attrs
+make xfs-attrs-512 "$v4 -b size=512" attrs
 make spec "$v4" spec

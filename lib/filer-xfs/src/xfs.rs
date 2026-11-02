@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    Options, XfsError,
+    Options, XfsError, attr,
     dir::Directory,
     file_map::FileMap,
     volume::{Node, Volume, Walker},
@@ -11,7 +11,7 @@ use core::future::Future;
 use filer_api::{
     Completion, Dir, DirCookie, Driver, DriverId, Entry, EntryName, Error, ErrorKind, FileId,
     FileKind, Handle, HandleKind, IoBufMut, Metadata, Op, OpKind, OpenHow, Output, ReadAt, Resolve,
-    Resolver, Rights, Target, path::RelPath,
+    Resolver, Rights, Target, XattrEntry, XattrOp, path::RelPath,
 };
 
 /// A read-only driver for an XFS volume.
@@ -25,9 +25,13 @@ use filer_api::{
 /// Names are bytes, matched exactly; those that are not UTF-8 are
 /// [`ForeignName`](filer_api::ForeignName)s. Listings are in directory
 /// order, without `.` and `..`. A file's id is its inode number, so hard
-/// links share it. Times are UTC, at 1 ns. Symlinks are confined like any
-/// other; FIFOs, sockets, and devices are what they say, and do not open.
-/// Writing is out of scope: everything but reading is
+/// links share it. Times are UTC, at 1 ns. Metadata reports the flags
+/// immutable and append-only. Extended attributes are read in the `user`,
+/// `trusted`, `security`, and `system` namespaces; POSIX ACLs read as
+/// Linux's `getxattr` returns them, as `system` attributes converted and
+/// as `trusted` ones as they are. Symlinks are confined like any other;
+/// FIFOs, sockets, and devices are what they say, and do not open. Writing
+/// is out of scope: everything but reading is
 /// [`Unsupported`](ErrorKind::Unsupported).
 ///
 /// # Examples
@@ -144,6 +148,17 @@ impl<S: ReadAt> Xfs<S> {
                         .map_err(|error| with_name(error, &name)),
                 )
             },
+            Op::Xattr(XattrOp::Get {
+                handle,
+                name,
+                mut buf,
+            }) => {
+                let result = self.xattr(&handle, &name, &mut buf).await;
+                Completion::new(result.map(Output::Xattr)).with_buf(buf)
+            },
+            Op::Xattr(XattrOp::List { handle }) => {
+                Completion::new(self.xattr_names(&handle).await.map(Output::XattrNames))
+            },
             op => op.unsupported(),
         }
     }
@@ -206,6 +221,66 @@ impl<S: ReadAt> Xfs<S> {
         })
     }
 
+    /// Reads as much of the extended attribute `name` of `handle` as fits
+    /// into `buf`, returning its whole length.
+    async fn xattr(
+        &self,
+        handle: &Handle,
+        name: &XattrEntry,
+        buf: &mut impl IoBufMut,
+    ) -> Result<Option<u64>, Error> {
+        let op = OpKind::GetXattr;
+        let node = self.payload(handle, op)?.node();
+        let (ns, wanted) = match name {
+            XattrEntry::Foreign { name, .. } if name.origin() != self.0.key.id() => {
+                return Err(Error::new(ErrorKind::ForeignNameMismatch, op));
+            },
+            XattrEntry::Utf8(name) => (name.ns(), name.name().as_bytes()),
+            XattrEntry::Foreign { ns, name } => (*ns, name.as_bytes()),
+        };
+        let volume = &self.0;
+        let xattrs = attr::read(&volume.source, &volume.sb, node.inode(), op).await?;
+        let Some(found) = xattrs
+            .into_iter()
+            .find(|xattr| xattr.ns == ns && xattr.name == wanted)
+        else {
+            return Ok(None);
+        };
+        let value = found.value;
+        buf.fill(&mut |spare| {
+            let n = spare.len().min(value.len());
+            let (Some(to), Some(from)) = (spare.get_mut(..n), value.get(..n)) else {
+                return Ok(0);
+            };
+            to.copy_from_slice(from);
+            Ok(n)
+        })?;
+        Ok(Some(u64::try_from(value.len()).unwrap_or(u64::MAX)))
+    }
+
+    /// Lists the extended attributes of `handle`.
+    async fn xattr_names(&self, handle: &Handle) -> Result<Vec<XattrEntry>, Error> {
+        let op = OpKind::ListXattrs;
+        let node = self.payload(handle, op)?.node();
+        let volume = &self.0;
+        let bad = || {
+            XfsError::BadXattr {
+                inode: node.inode().number(),
+            }
+            .into_error(op)
+        };
+        attr::read(&volume.source, &volume.sb, node.inode(), op)
+            .await?
+            .iter()
+            .map(|xattr| {
+                volume
+                    .key
+                    .xattr_entry(xattr.ns, &xattr.name)
+                    .map_err(|_| bad())
+            })
+            .collect()
+    }
+
     async fn entry(
         &self,
         at: &Handle,
@@ -242,6 +317,7 @@ impl<S: ReadAt> Xfs<S> {
         metadata.changed = Some(times.changed);
         metadata.accessed = Some(times.accessed);
         metadata.created = times.created;
+        metadata.attrs = Some(inode.attrs());
         metadata
     }
 

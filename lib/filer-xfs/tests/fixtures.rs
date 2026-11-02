@@ -8,8 +8,8 @@ mod common;
 use common::{Expected, MTIME, MTIME_NANOS, expected, pattern, unsparse};
 use core::time::Duration;
 use filer_api::{
-    Dir, Driver, EntryName, ErrorKind, FileKind, MetaMask, Metadata, Op, Output, Resolve, Symlinks,
-    Target,
+    BufResult, Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op,
+    Output, Resolve, Symlinks, Target, XattrEntry, XattrNs,
 };
 use filer_spec::block_on;
 use filer_xfs::Xfs;
@@ -279,4 +279,137 @@ fn reads_each_form_of_directory() {
             "{path}"
         );
     }
+}
+
+/// The POSIX ACL `make.sh` sets, as Linux's `getxattr` returns it.
+fn acl() -> Vec<u8> {
+    let mut acl = 2u32.to_le_bytes().to_vec();
+    for (tag, perm, id) in [
+        (1u16, 6u16, u32::MAX),
+        (2, 4, 1000),
+        (4, 4, u32::MAX),
+        (0x10, 4, u32::MAX),
+        (0x20, 0, u32::MAX),
+    ] {
+        acl.extend(tag.to_le_bytes());
+        acl.extend(perm.to_le_bytes());
+        acl.extend(id.to_le_bytes());
+    }
+    acl
+}
+
+/// Checks a fixture `attrs` wrote, whose forks `make.sh` checks are of
+/// the forms the files are named for.
+fn check_attributes(sparse: &[u8]) {
+    let root = open(sparse);
+    let names = |path: &str| {
+        let file = block_on(root.open_file(path)).unwrap();
+        let mut names: Vec<String> = block_on(file.xattr_names())
+            .unwrap()
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        names.sort();
+        names
+    };
+    let value = |path: &str, name: &str| {
+        let file = block_on(root.open_file(path)).unwrap();
+        block_on(file.xattr(name)).unwrap()
+    };
+    assert!(names("plain.txt").is_empty());
+    // Short form.
+    assert_eq!(names("small.txt"), ["user.empty", "user.small"]);
+    assert_eq!(value("small.txt", "user.small").as_deref(), Some(&b"x"[..]));
+    assert_eq!(value("small.txt", "user.empty").as_deref(), Some(&b""[..]));
+    assert_eq!(value("small.txt", "user.nope"), None);
+    assert_eq!(value("small.txt", "trusted.small"), None);
+    // In a leaf, and remote.
+    assert_eq!(value("big.txt", "user.big"), Some(pattern(900, 1)));
+    assert_eq!(value("remote.txt", "user.remote"), Some(pattern(10_000, 2)));
+    let leaf: Vec<String> = (0..16).map(|i| format!("user.a{i:02}")).collect();
+    assert_eq!(names("leaf.txt"), leaf);
+    for i in [0, 7, 15] {
+        let name = format!("user.a{i:02}");
+        assert_eq!(value("leaf.txt", &name), Some(pattern(10, i)), "{name}");
+    }
+    // Nodes over leaves, and those mapped by a B+ tree.
+    for (path, prefix) in [("node.txt", 'n'), ("btree.txt", 'b')] {
+        let pad = prefix.to_string().repeat(40);
+        let expected: Vec<String> = (0..400)
+            .map(|i| format!("user.{prefix}{i:03}{pad}"))
+            .collect();
+        assert_eq!(names(path), expected, "{path}");
+        for i in [0, 199, 399] {
+            let name = format!("user.{prefix}{i:03}{pad}");
+            assert_eq!(value(path, &name), Some(pattern(20, i)), "{path}: {name}");
+        }
+    }
+    assert_eq!(
+        value("trusted.txt", "trusted.secret").as_deref(),
+        Some(&b"trusted"[..])
+    );
+    assert_eq!(
+        value("security.txt", "security.label").as_deref(),
+        Some(&b"label"[..])
+    );
+    // ACLs, converted, and as they are.
+    assert_eq!(
+        names("acl.txt"),
+        ["system.posix_acl_access", "trusted.SGI_ACL_FILE"]
+    );
+    assert_eq!(value("acl.txt", "system.posix_acl_access"), Some(acl()));
+    let raw = value("acl.txt", "trusted.SGI_ACL_FILE").unwrap();
+    assert_eq!(raw[..4], 5u32.to_be_bytes());
+    let dir = block_on(root.open_dir("acldir")).unwrap();
+    assert_eq!(
+        block_on(dir.xattr("system.posix_acl_default")).unwrap(),
+        Some(acl())
+    );
+    let dir = block_on(root.open_dir("tagged")).unwrap();
+    assert_eq!(
+        block_on(dir.xattr("user.tag")).unwrap().as_deref(),
+        Some(&b"dir"[..])
+    );
+    // A name that is not UTF-8, found by the entry listed.
+    let file = block_on(root.open_file("foreign.txt")).unwrap();
+    let listed = block_on(file.xattr_names()).unwrap();
+    let [XattrEntry::Foreign { ns, name }] = &listed[..] else {
+        panic!("{listed:?}");
+    };
+    assert_eq!((*ns, name.as_bytes()), (XattrNs::User, &b"caf\xE9"[..]));
+    assert_eq!(
+        block_on(file.xattr(listed[0].clone())).unwrap().as_deref(),
+        Some(&b"foreign"[..])
+    );
+    // A short buffer gets the start, and the whole length.
+    let file = block_on(root.open_file("remote.txt")).unwrap();
+    let BufResult(len, buf) = block_on(file.xattr_into("user.remote", Vec::with_capacity(10)));
+    assert_eq!(len.unwrap(), Some(10_000));
+    assert_eq!(buf, pattern(10, 2));
+
+    // Flags.
+    let attrs = |path: &str| {
+        block_on(root.metadata(path, MetaMask::ATTRS))
+            .unwrap()
+            .attrs
+            .unwrap()
+    };
+    assert_eq!(attrs("plain.txt"), FileAttrs::empty());
+    assert_eq!(attrs("immutable"), FileAttrs::IMMUTABLE);
+    assert_eq!(attrs("append"), FileAttrs::APPEND_ONLY);
+    assert_eq!(attrs("both"), FileAttrs::IMMUTABLE | FileAttrs::APPEND_ONLY);
+    // No dump and no access time updates have no `FileAttrs`.
+    assert_eq!(attrs("nodump"), FileAttrs::empty());
+    assert_eq!(attrs("noatime"), FileAttrs::empty());
+}
+
+#[test]
+fn reads_attributes_and_flags() {
+    check_attributes(include_bytes!("fixtures/xfs-attrs.sparse"));
+}
+
+/// With 512-byte blocks, remote values span many.
+#[test]
+fn reads_attributes_in_small_blocks() {
+    check_attributes(include_bytes!("fixtures/xfs-attrs-512.sparse"));
 }

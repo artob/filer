@@ -131,6 +131,13 @@ pub enum XfsError {
         inode: u64,
     },
 
+    /// An inode's extended attributes are malformed: an entry, a block,
+    /// or a value does not fit, or a block is not what its place needs.
+    BadXattr {
+        /// The inode.
+        inode: u64,
+    },
+
     /// `mkfs.xfs` did not finish making the volume.
     Unfinished,
 
@@ -248,6 +255,9 @@ impl core::fmt::Display for XfsError {
                 write!(f, "directory {dir} has an invalid size {size}")
             },
             Self::BadSymlink { inode } => write!(f, "symlink {inode} has an invalid target"),
+            Self::BadXattr { inode } => {
+                write!(f, "inode {inode} has invalid extended attributes")
+            },
             Self::Unfinished => f.write_str("mkfs.xfs did not finish making it"),
             Self::MissingFeatures(bits) => {
                 write!(f, "lacks required version features {bits:#06X}")

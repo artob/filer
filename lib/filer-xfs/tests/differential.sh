@@ -5,12 +5,12 @@
 # image, the `manifest` example's listing must equal what Linux shows with
 # the image loop-mounted read-only: names, kinds, sizes, contents, symlink
 # targets, the modification, change, access, and creation times to the
-# nanosecond, and the inode flags Filer reports (immutable, append-only,
-# compressed, encrypted, and verity); extended attributes, which
-# `filer-xfs` does not read yet, are left out. The images are the
-# committed fixtures and fresh ones `tests/fixtures/make.sh` makes; those
-# of 64 KiB blocks, which x86 Linux cannot mount, are skipped, and checked
-# by `tests/fixtures.rs` instead.
+# nanosecond, the inode flags Filer reports (immutable, append-only,
+# compressed, encrypted, and verity), and the extended attributes of
+# files and directories. The images are the committed fixtures and fresh
+# ones `tests/fixtures/make.sh` makes; those of 64 KiB blocks, which x86
+# Linux cannot mount, are skipped, and checked by `tests/fixtures.rs`
+# instead.
 #
 # Then logs as the kernel leaves them, with each sector size and log
 # stripe unit: clean, before and after the log wraps, which must be read
@@ -163,15 +163,14 @@ compare() {
         echo "skipped: $2 (Linux cannot mount it here)"
         return
     fi
-    kernel_manifest "$mnt" | cut -f 1-9 | sort > "$work/kernel"
+    kernel_manifest "$mnt" | sort > "$work/kernel"
     sudo umount "$mnt"
     if ! "$manifest" "$1" > "$work/filer" 2> "$work/error"; then
         echo "FAILED: $2: $(cat "$work/error")"
         failed=1
         return
     fi
-    cut -f 1-9 "$work/filer" | sort > "$work/sorted"
-    mv "$work/sorted" "$work/filer"
+    sort -o "$work/filer" "$work/filer"
     if diff -u "$work/kernel" "$work/filer" > "$work/diff"; then
         echo "same: $2 ($(wc -l < "$work/filer") entries)"
     else

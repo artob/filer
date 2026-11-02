@@ -2781,6 +2781,16 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
   linear read of the data blocks sees exactly the entries.
 - Symlinks: local, or in blocks of the data fork; with v5 each extent's
   first block starts with an `XSLM` header.
+- Extended attributes: short form in the attribute fork (size, count,
+  then entries of name and value lengths, flags, name, and value); else
+  fork blocks, one leaf (`0xFBEE`) or nodes (`0xFEBE`) over leaves,
+  whose entries name a hash, the offset of the name, and flags, and hold
+  a value or name its first block and length. Flags: local 0x1, `root`
+  (`trusted`) 0x2, `secure` 0x4, parent 0x8, incomplete 0x80. ACLs are
+  `root` attributes `SGI_ACL_FILE` and `SGI_ACL_DEFAULT`: a count, then
+  big-endian entries of tag, id, and permissions; Linux 7.0 lists each
+  both so and converted. `attr1` and `attr2` differ only in how
+  `di_forkoff` is chosen.
 - v5 metadata blocks are self-describing: their magic, the volume's UUID
   (or `sb_meta_uuid` with `META_UUID`), their own disk address, their
   owner (inode or AG), and a CRC32C of the block with the CRC field
@@ -2806,7 +2816,7 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
 - Symlinks: local or remote, confined by the `Resolver`.
 - Extended attributes: short form, leaf, node, and B+ tree attribute
   forks, with remote values, in their namespaces; POSIX ACLs are
-  converted to the form Linux's `getxattr` returns; parent pointers
+  also converted to the form Linux's `getxattr` returns; parent pointers
   (`PARENT`) are not attributes and stay hidden, as Linux hides them.
 - Shared (reflinked) extents are read like any other. Files on a
   realtime subvolume keep their metadata, but their contents are

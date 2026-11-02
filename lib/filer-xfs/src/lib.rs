@@ -73,6 +73,7 @@ extern crate alloc;
 mod xfs_error;
 pub use xfs_error::*;
 
+mod attr;
 mod be;
 mod dir;
 mod file_map;

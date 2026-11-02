@@ -8,7 +8,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::time::Duration;
-use filer_api::{Error, FileKind, OpKind, ReadAt, Timestamp};
+use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
 
 /// An inode's magic number, `IN`.
 const MAGIC: u16 = 0x494E;
@@ -19,6 +19,10 @@ const CORE_SIZE: usize = 100;
 
 /// The size of an extent record in an extent list.
 pub(crate) const EXTENT_SIZE: usize = 16;
+
+/// `di_flags`: the file cannot change, and can only be appended to.
+const IMMUTABLE: u16 = 0x8;
+const APPEND: u16 = 0x10;
 
 /// Times are recorded to the nanosecond.
 const NANOSECONDS: Duration = Duration::from_nanos(1);
@@ -233,6 +237,14 @@ impl Inode {
         self.flags
     }
 
+    /// Returns the flags Filer reports: immutable and append-only.
+    pub(crate) fn attrs(&self) -> FileAttrs {
+        let mut attrs = FileAttrs::empty();
+        attrs.set(FileAttrs::IMMUTABLE, self.flags & IMMUTABLE != 0);
+        attrs.set(FileAttrs::APPEND_ONLY, self.flags & APPEND != 0);
+        attrs
+    }
+
     pub(crate) const fn times(&self) -> &Times {
         &self.times
     }
@@ -243,7 +255,6 @@ impl Inode {
     }
 
     /// Returns the attribute fork, if the inode has one.
-    #[allow(dead_code, reason = "for extended attributes, later")]
     pub(crate) const fn attr(&self) -> Option<&Fork> {
         self.attr.as_ref()
     }
@@ -386,6 +397,7 @@ pub(crate) mod tests {
         assert_eq!(inode.kind(), FileKind::File);
         assert_eq!((inode.size(), inode.links(), inode.blocks()), (5000, 1, 2));
         assert_eq!(inode.flags(), 0x18);
+        assert_eq!(inode.attrs(), FileAttrs::IMMUTABLE | FileAttrs::APPEND_ONLY);
         let times = inode.times();
         let at = |secs, nanos| Timestamp::new(secs, nanos).with_granularity(NANOSECONDS);
         assert_eq!(times.accessed, at(1_700_000_000, 1));

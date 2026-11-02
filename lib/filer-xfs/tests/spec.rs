@@ -10,8 +10,7 @@ use filer_xfs::Xfs;
 
 #[test]
 fn passes_the_specification() {
-    // Extended attributes are not read yet, though the fixture has them.
-    let profile = Profile::default().with_xattrs(false);
+    let profile = Profile::default();
     let report = filer_spec::run_blocking(profile, |tree| {
         // The fixture holds exactly this tree; if the specification's
         // changes, `make.sh`'s `spec` must follow.
@@ -38,6 +37,9 @@ fn passes_the_specification() {
             "a/b/c.txt=8",
             "a/z.txt=0",
             "a/empty/",
+            "a/b/c.txt:user.comment=9",
+            "a/b/c.txt:user.empty=0",
+            "a:user.tag=3",
             "a/link->b/c.txt",
             "a/up->../a/b/c.txt",
             "a/abs->/a/b/c.txt",
