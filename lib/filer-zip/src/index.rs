@@ -3,14 +3,17 @@
 //! Building the index of an archive: its central directory, each header
 //! checked against its member's local header.
 
-use crate::header::{
-    CENTRAL_LEN, Central, CentralFixed, EOCD_LEN, EOCD64_LEN, Eocd, Kind, LOCAL_LEN, LOCATOR_LEN,
-    LocalFixed, MAX_COMMENT, STORED, find_eocd, parse_locator,
+use crate::{
+    codec::Method,
+    header::{
+        CENTRAL_LEN, Central, CentralFixed, EOCD_LEN, EOCD64_LEN, Eocd, Kind, LOCAL_LEN,
+        LOCATOR_LEN, LocalFixed, MAX_COMMENT, find_eocd, parse_locator,
+    },
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use filer_api::{
     BufResult, Error, ErrorKind, ReadAt,
-    archive::{ArchiveError, Index, Limits, Member},
+    archive::{ArchiveError, Codec, Index, Limits, Member},
     tree::{Node, Tree},
 };
 
@@ -148,7 +151,10 @@ async fn locate<S: ReadAt>(source: &S, end: u64) -> Result<(Eocd, u64), Error> {
 }
 
 /// Builds the index of the archive in `source`.
-pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree<Member>, Error> {
+pub(crate) async fn index<S: ReadAt>(
+    source: &S,
+    limits: &Limits,
+) -> Result<Tree<Member<Method>>, Error> {
     let end = source.size().await?;
     let (eocd, cd_end) = locate(source, end).await?;
     if eocd.entries > wide(limits.max_entries) {
@@ -177,7 +183,7 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
 /// `offset`, after checking its local header.
 async fn add<S: ReadAt>(
     source: &S,
-    index: &mut Index,
+    index: &mut Index<Method>,
     central: &Central,
     cd_offset: u64,
     offset: u64,
@@ -197,36 +203,72 @@ async fn add<S: ReadAt>(
     }
     let data = check_local(source, central, cd_offset).await?;
 
-    let kind = central.kind();
-    if kind != Kind::Dir {
-        if central.encrypted() {
-            return Err(fail(ErrorKind::Unsupported, offset, "encrypted members"));
-        }
-        if central.fixed.method != STORED {
-            let reason = "compression method";
-            return Err(fail(ErrorKind::Unsupported, offset, reason));
-        }
-        if central.size != central.compressed {
-            let reason = "stored member sizes differ";
-            return Err(fail(ErrorKind::Corrupt, offset, reason));
-        }
+    // Members this build cannot decode fail when read, not here.
+    let codec = Method {
+        method: central.fixed.method,
+        crc: central.fixed.crc,
+        encrypted: central.encrypted(),
+    };
+    if codec.is_stored() && central.size != central.compressed {
+        let reason = "stored member sizes differ";
+        return Err(fail(ErrorKind::Corrupt, offset, reason));
     }
-    match kind {
+    match central.kind() {
         Kind::Dir => index.dir(name, offset),
         Kind::File => {
-            let member = Member::new(data, central.size).with_modified(central.modified);
+            let member = Member::encoded(data, central.compressed, central.size, codec)
+                .with_modified(central.modified);
             index.insert(name, Node::File(member), offset)
         },
         Kind::Symlink => {
-            let len = usize::try_from(central.size)
-                .ok()
-                .filter(|&len| len <= limits.max_path_len)
-                .ok_or_else(|| fail(ErrorKind::LimitExceeded, offset, "link target too long"))?;
-            let target = read(source, data, len).await?;
+            let target = link_target(source, data, central, codec, offset, limits).await?;
             index.insert(name, Node::Symlink(Box::from(target)), offset)
         },
         Kind::Special(kind) => index.insert(name, Node::Special(kind), offset),
     }
+}
+
+/// Reads and decodes the target of the symlink `central`, whose data lies
+/// at `data`.
+async fn link_target<S: ReadAt>(
+    source: &S,
+    data: u64,
+    central: &Central,
+    codec: Method,
+    offset: u64,
+    limits: &Limits,
+) -> Result<Vec<u8>, Error> {
+    let too_long = || fail(ErrorKind::LimitExceeded, offset, "link target too long");
+    let len = usize::try_from(central.size)
+        .ok()
+        .filter(|&len| len <= limits.max_path_len)
+        .ok_or_else(too_long)?;
+    if codec.is_stored() {
+        return read(source, data, len).await;
+    }
+    // Any method that would pack a short target in much more than its own
+    // length is not worth reading.
+    let packed = usize::try_from(central.compressed)
+        .ok()
+        .filter(|&packed| packed <= len.saturating_add(64))
+        .ok_or_else(too_long)?;
+    let input = read(source, data, packed).await?;
+    let bad = |error: Error| fail(error.kind(), offset, "bad link target");
+    let mut decoder = codec.decoder().map_err(bad)?;
+    let mut target = vec![0; len];
+    let (mut used, mut filled) = (0, 0);
+    while filled < len {
+        let input = input.get(used..).unwrap_or_default();
+        let output = target.get_mut(filled..).unwrap_or_default();
+        let (consumed, produced) = decoder.decode(input, output).map_err(bad)?;
+        if consumed == 0 && produced == 0 {
+            return Err(fail(ErrorKind::Corrupt, offset, "bad link target"));
+        }
+        used = used.saturating_add(consumed);
+        filled = filled.saturating_add(produced);
+    }
+    decoder.finish().map_err(bad)?;
+    Ok(target)
 }
 
 /// Reads the local header of `central`'s member, checks that it agrees and

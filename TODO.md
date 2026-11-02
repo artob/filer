@@ -599,10 +599,6 @@ Created with `publish = false` (D16).
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **ZIP-01b2: Deflate.** `filer-zip`'s codec: Deflate via
-  `miniz_oxide` behind a `deflate` feature in `all`, CRC-32 checked at
-  each member's end; unsupported methods and encryption fail on read, not
-  open. Done when `filer-spec` passes on Deflate archives.
 - [ ] **ZIP-01c: Zip bomb limits.** `Limits` gains per-member ratio and
   total uncompressed size, enforced on declared sizes at open and on
   output while decoding; overlapping members (David Fifield's

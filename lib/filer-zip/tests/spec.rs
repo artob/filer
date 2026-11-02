@@ -9,9 +9,10 @@ use filer_spec::{Profile, TreeEntry};
 use filer_zip::Zip;
 
 /// Writes the specification's tree as an archive.
-fn write(tree: &filer_spec::Tree, zip64: bool) -> Vec<u8> {
+fn write(tree: &filer_spec::Tree, zip64: bool, deflate: bool) -> Vec<u8> {
     let mut writer = Writer {
         zip64,
+        deflate,
         ..Writer::default()
     };
     for entry in tree.entries() {
@@ -41,9 +42,9 @@ fn write(tree: &filer_spec::Tree, zip64: bool) -> Vec<u8> {
 fn passes_the_specification() {
     // With Unix modes, ZIP records everything the specification's tree
     // describes but extended attributes.
-    for zip64 in [false, true] {
+    for (zip64, deflate) in [(false, false), (true, false), (false, true)] {
         let report = filer_spec::run_blocking(Profile::default().with_xattrs(false), |tree| {
-            filer_spec::block_on(Zip::open(write(tree, zip64))).unwrap()
+            filer_spec::block_on(Zip::open(write(tree, zip64, deflate))).unwrap()
         });
         println!("{report}");
         report.assert_passed();

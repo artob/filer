@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
-//! A minimal ZIP writer for tests: stored members only, built by hand so
-//! that tests can also write malformed and hostile archives.
+//! A minimal ZIP writer for tests: stored and Deflate members, built by
+//! hand so that tests can also write malformed and hostile archives.
 
 // Each test binary compiles this module and uses only part of it.
 #![allow(dead_code)]
@@ -20,13 +20,19 @@ pub struct Entry {
     /// The Unix mode, or `None` for an MS-DOS host.
     pub mode: Option<u32>,
     pub flags: u16,
+    /// Stored (0) or Deflate (8), which `finish` compresses; any other
+    /// method stores the data as is.
     pub method: u16,
+    /// The packed bytes, if they should not be `data` encoded by `method`.
+    pub packed: Option<Vec<u8>>,
     /// 2024-01-01 12:00:00.
     pub date: u16,
     pub time: u16,
     pub central_extra: Vec<u8>,
     /// The local header's name, if it should differ from the central one.
     pub local_name: Option<Vec<u8>>,
+    /// The CRC in both headers, if it should not be `data`'s.
+    pub crc: Option<u32>,
     /// The local header's CRC, if it should differ.
     pub local_crc: Option<u32>,
     /// Writes zero sizes and CRC in the local header and a data descriptor
@@ -42,10 +48,12 @@ impl Entry {
             mode,
             flags: 0,
             method: 0,
+            packed: None,
             date: (44 << 9) | (1 << 5) | 1,
             time: 12 << 11,
             central_extra: Vec::new(),
             local_name: None,
+            crc: None,
             local_crc: None,
             data_descriptor: false,
         }
@@ -58,6 +66,8 @@ pub struct Writer {
     pub entries: Vec<Entry>,
     /// Writes ZIP64 records and extra fields throughout.
     pub zip64: bool,
+    /// Deflates every file and symlink added from now on.
+    pub deflate: bool,
     pub comment: Vec<u8>,
 }
 
@@ -68,7 +78,9 @@ impl Writer {
     }
 
     pub fn file(&mut self, name: &[u8], data: &[u8]) -> &mut Self {
-        self.entry(Entry::new(name, Some(FILE), data))
+        let method = if self.deflate { 8 } else { 0 };
+        self.entry(Entry::new(name, Some(FILE), data)).last().method = method;
+        self
     }
 
     pub fn dir(&mut self, name: &[u8]) -> &mut Self {
@@ -76,7 +88,11 @@ impl Writer {
     }
 
     pub fn symlink(&mut self, name: &[u8], target: &[u8]) -> &mut Self {
+        let method = if self.deflate { 8 } else { 0 };
         self.entry(Entry::new(name, Some(SYMLINK), target))
+            .last()
+            .method = method;
+        self
     }
 
     pub fn fifo(&mut self, name: &[u8]) -> &mut Self {
@@ -102,49 +118,51 @@ impl Writer {
     pub fn finish(&mut self) -> Vec<u8> {
         let mut out = Vec::new();
         let mut offsets = Vec::new();
-        for entry in &self.entries {
+        let packed: Vec<Vec<u8>> = self.entries.iter().map(packed).collect();
+        for (entry, packed) in self.entries.iter().zip(&packed) {
             offsets.push(out.len() as u64);
-            let crc = crc32(&entry.data);
+            let crc = entry.crc.unwrap_or_else(|| crc32(&entry.data));
             let size = entry.data.len() as u64;
+            let compressed = packed.len() as u64;
             let name = entry.local_name.as_ref().unwrap_or(&entry.name);
-            let (local_crc, local_size) = if entry.data_descriptor {
-                (0, 0)
+            let (local_crc, local_size, local_compressed) = if entry.data_descriptor {
+                (0, 0, 0)
             } else {
-                (entry.local_crc.unwrap_or(crc), size)
+                (entry.local_crc.unwrap_or(crc), size, compressed)
             };
             let mut extra = Vec::new();
             if self.zip64 {
                 extra.extend(u16s(&[0x0001, 16]));
                 extra.extend(local_size.to_le_bytes());
-                extra.extend(local_size.to_le_bytes());
+                extra.extend(local_compressed.to_le_bytes());
             }
             out.extend(0x0403_4b50_u32.to_le_bytes());
             out.extend(u16s(&[20, self.flags(entry), entry.method]));
             out.extend(u16s(&[entry.time, entry.date]));
             out.extend(local_crc.to_le_bytes());
-            let local_size = self.narrow(local_size);
-            out.extend(local_size.to_le_bytes());
-            out.extend(local_size.to_le_bytes());
+            out.extend(self.narrow(local_compressed).to_le_bytes());
+            out.extend(self.narrow(local_size).to_le_bytes());
             out.extend(u16s(&[name.len() as u16, extra.len() as u16]));
             out.extend_from_slice(name);
             out.extend(extra);
-            out.extend_from_slice(&entry.data);
+            out.extend_from_slice(packed);
             if entry.data_descriptor {
                 out.extend(0x0807_4b50_u32.to_le_bytes());
                 out.extend(crc.to_le_bytes());
-                out.extend((size as u32).to_le_bytes());
+                out.extend((compressed as u32).to_le_bytes());
                 out.extend((size as u32).to_le_bytes());
             }
         }
 
         let cd_offset = out.len() as u64;
-        for (entry, &offset) in self.entries.iter().zip(&offsets) {
+        for ((entry, &offset), packed) in self.entries.iter().zip(&offsets).zip(&packed) {
             let size = entry.data.len() as u64;
+            let compressed = packed.len() as u64;
             let mut extra = Vec::new();
             if self.zip64 {
                 extra.extend(u16s(&[0x0001, 24]));
                 extra.extend(size.to_le_bytes());
-                extra.extend(size.to_le_bytes());
+                extra.extend(compressed.to_le_bytes());
                 extra.extend(offset.to_le_bytes());
             }
             extra.extend_from_slice(&entry.central_extra);
@@ -162,8 +180,13 @@ impl Writer {
             out.extend(0x0201_4b50_u32.to_le_bytes());
             out.extend(u16s(&[made_by, 20, self.flags(entry), entry.method]));
             out.extend(u16s(&[entry.time, entry.date]));
-            out.extend(crc32(&entry.data).to_le_bytes());
-            out.extend(self.narrow(size).to_le_bytes());
+            out.extend(
+                entry
+                    .crc
+                    .unwrap_or_else(|| crc32(&entry.data))
+                    .to_le_bytes(),
+            );
+            out.extend(self.narrow(compressed).to_le_bytes());
             out.extend(self.narrow(size).to_le_bytes());
             out.extend(u16s(&[
                 entry.name.len() as u16,
@@ -211,6 +234,15 @@ impl Writer {
     /// Returns a 32-bit field, or the ZIP64 sentinel.
     fn narrow(&self, n: u64) -> u32 {
         if self.zip64 { u32::MAX } else { n as u32 }
+    }
+}
+
+/// Returns an entry's packed bytes.
+fn packed(entry: &Entry) -> Vec<u8> {
+    match (&entry.packed, entry.method) {
+        (Some(packed), _) => packed.clone(),
+        (None, 8) => miniz_oxide::deflate::compress_to_vec(&entry.data, 6),
+        (None, _) => entry.data.clone(),
     }
 }
 

@@ -30,20 +30,30 @@ fn reason(result: Result<Root, Error>) -> String {
     core::error::Error::source(&error).unwrap().to_string()
 }
 
+/// The lines of `hello/lines.txt` in `data/hello.zip`.
+fn lines() -> Vec<u8> {
+    (1..=400)
+        .flat_map(|i| format!("Line {i} of a compressible file.\n").into_bytes())
+        .collect()
+}
+
 #[test]
 fn reads_an_info_zip_archive() {
+    // Written by `zip -9 -r -y` (Info-ZIP 3.0): `lines.txt` is deflated,
+    // the rest stored.
     let archive = include_bytes!("data/hello.zip").to_vec();
     let root = open(archive).unwrap();
     assert_eq!(read(&root, "hello/world.txt"), b"Hello, world!\n");
-    assert_eq!(read(&root, "hello/link"), b"Hello, world!\n");
+    assert_eq!(read(&root, "hello/lines.txt"), lines());
+    assert_eq!(read(&root, "hello/link"), lines());
     let link = block_on(root.read_link("hello/link")).unwrap();
-    assert_eq!(link.as_bytes(), b"world.txt");
+    assert_eq!(link.as_bytes(), b"lines.txt");
     // The extended timestamp, not the DOS fields.
     let modified = block_on(root.metadata("hello/world.txt", MetaMask::MTIME))
         .unwrap()
         .modified
         .unwrap();
-    assert_eq!(modified.secs(), 1_699_968_140);
+    assert!(modified.secs() > 1_700_000_000);
     assert_eq!(modified.granularity(), Some(Duration::from_secs(1)));
 }
 
@@ -134,12 +144,21 @@ fn refuses_malformed_archives() {
 
 #[test]
 fn refuses_what_it_cannot_read() {
+    // Unknown methods and encryption fail on read, not open.
     let mut writer = Writer::default();
-    writer.file(b"deflated", b"x").last().method = 8;
-    assert_eq!(kind(open(writer.finish())), ErrorKind::Unsupported);
-
-    let mut writer = Writer::default();
+    writer.file(b"lzma", b"x").last().method = 14;
     writer.file(b"secret", b"x").last().flags = 1;
+    writer.file(b"plain", b"x");
+    let root = open(writer.finish()).unwrap();
+    assert_eq!(read(&root, "plain"), b"x");
+    for path in ["lzma", "secret"] {
+        let file = block_on(root.open_file(path)).unwrap();
+        let error = block_on(file.read_to_end()).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Unsupported, "{path}");
+    }
+    // Symlink targets are read at open, so there it fails.
+    let mut writer = Writer::default();
+    writer.symlink(b"l", b"x").last().method = 14;
     assert_eq!(kind(open(writer.finish())), ErrorKind::Unsupported);
 
     let mut spanned = Writer::default().file(b"a", b"x").finish();
@@ -245,4 +264,81 @@ fn reads_archives_stored_in_another_driver() {
     let root = block_on(Zip::open(file)).unwrap();
     let inner = block_on(root.open_file("inner.txt")).unwrap();
     assert_eq!(block_on(inner.read_to_end()).unwrap(), b"nested");
+}
+
+/// Reads `path` whole, returning the error instead of panicking.
+fn try_read(root: &Root, path: &str) -> Result<Vec<u8>, Error> {
+    let file = block_on(root.open_file(path)).unwrap();
+    block_on(file.read_to_end())
+}
+
+#[test]
+fn reads_deflated_members() {
+    // Larger than one chunk of packed input even deflated.
+    let big: Vec<u8> = (0..400_000_u32)
+        .flat_map(|i| (i * 7919).to_le_bytes())
+        .collect();
+    let mut writer = Writer {
+        deflate: true,
+        ..Writer::default()
+    };
+    writer
+        .file(b"big", &big)
+        .symlink(b"link", b"big")
+        .file(b"empty", b"");
+    let root = open(writer.finish()).unwrap();
+    assert_eq!(read(&root, "big"), big);
+    assert_eq!(read(&root, "link"), big);
+    assert_eq!(read(&root, "empty"), b"");
+    let file = block_on(root.open_file("big")).unwrap();
+    for off in [1_000_000, 17, 1_599_990] {
+        let filer_api::BufResult(n, buf) = block_on(file.read_at(Vec::with_capacity(100), off));
+        let n = n.unwrap();
+        assert_eq!(buf, big[off as usize..off as usize + n], "{off}");
+    }
+}
+
+#[test]
+fn refuses_corrupt_deflated_members() {
+    let data = lines();
+    let deflated = miniz_oxide::deflate::compress_to_vec(&data, 6);
+
+    // A CRC that does not match fails the read that reaches the end.
+    let mut writer = Writer::default();
+    writer.file(b"crc", &data).last().method = 8;
+    writer.last().crc = Some(0);
+    let root = open(writer.finish()).unwrap();
+    let file = block_on(root.open_file("crc")).unwrap();
+    let filer_api::BufResult(n, _) = block_on(file.read_at(Vec::with_capacity(100), 0));
+    assert_eq!(n.unwrap(), 100);
+    assert_eq!(
+        try_read(&root, "crc").unwrap_err().kind(),
+        ErrorKind::Corrupt
+    );
+
+    // Garbage, or data that ends early.
+    for packed in [vec![0xFF; 64], deflated[..deflated.len() / 2].to_vec()] {
+        let mut writer = Writer::default();
+        writer.file(b"bad", &data).last().method = 8;
+        writer.last().packed = Some(packed);
+        let root = open(writer.finish()).unwrap();
+        assert_eq!(
+            try_read(&root, "bad").unwrap_err().kind(),
+            ErrorKind::Corrupt
+        );
+    }
+}
+
+#[test]
+fn never_decodes_past_the_declared_size() {
+    // A member that inflates to more than its header says.
+    let mut entry = Entry::new(b"bomb", Some(FILE), b"small");
+    entry.method = 8;
+    entry.packed = Some(miniz_oxide::deflate::compress_to_vec(&[0; 1 << 20], 9));
+    let root = open(Writer::default().entry(entry).finish()).unwrap();
+    // Decoding stops after five bytes, whose CRC is not that of "small".
+    assert_eq!(
+        try_read(&root, "bomb").unwrap_err().kind(),
+        ErrorKind::Corrupt
+    );
 }

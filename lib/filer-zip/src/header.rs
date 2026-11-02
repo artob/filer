@@ -39,9 +39,6 @@ const ENCRYPTED: u16 = 1 << 0;
 const DATA_DESCRIPTOR: u16 = 1 << 3;
 const STRONG_ENCRYPTION: u16 = 1 << 6;
 
-/// Compression methods.
-pub(crate) const STORED: u16 = 0;
-
 /// Extra field tags.
 const ZIP64: u16 = 0x0001;
 const NTFS: u16 = 0x000a;

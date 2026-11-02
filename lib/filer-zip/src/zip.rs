@@ -1,5 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
+use crate::codec::Method;
 use crate::index::index;
 use core::future::Future;
 use filer_api::{
@@ -11,20 +12,27 @@ use filer_api::{
 ///
 /// [`open`](Self::open) reads the central directory once, from any
 /// [`ReadAt`] source with random access, and builds an index; afterwards,
-/// reading a member reads its bytes directly from the source. The
+/// reading a stored member reads its bytes directly from the source, and
+/// reading a compressed one decodes it as a stream (sequential reads cost
+/// one pass; seeking backwards decodes again from the start). The
 /// archive's root directory comes back as a [`Dir`] with only
 /// [`Rights::READ`]. The serving itself is the shared [`Archive`] driver.
 ///
-/// It reads stored (uncompressed) members, ZIP64 archives, and archives
-/// with a comment. Directories, symlinks, and special files come from Unix
+/// It reads stored members and, with the `deflate` feature, Deflate
+/// members, checking a member's CRC-32 when a read reaches its end; ZIP64
+/// archives; and archives with a comment. Directories, symlinks, and special files come from Unix
 /// modes in the external attributes, and directories also from a trailing
 /// `/` or the MS-DOS directory attribute. Modification times come from an
 /// NTFS extra field (100 ns), an extended timestamp (1 s), or the DOS
 /// fields (2 s, read as UTC since they name no zone), in that order; see
 /// [`Timestamp::granularity`](filer_api::Timestamp::granularity). Names
-/// are UTF-8 if valid, and foreign names otherwise. Compressed and
-/// encrypted members and spanned archives are
-/// [`Unsupported`](filer_api::ErrorKind::Unsupported) for now.
+/// are UTF-8 if valid, and foreign names otherwise. Reading a member with
+/// another method, or an encrypted one, is
+/// [`Unsupported`](filer_api::ErrorKind::Unsupported), as is opening a
+/// spanned archive or one with such a symlink, since symlink targets are
+/// read at open. Reading a member whose data is malformed, ends early, or
+/// fails its CRC is [`Corrupt`](filer_api::ErrorKind::Corrupt); decoding
+/// never goes past the size the central directory declares.
 ///
 /// The archive is untrusted. Opening it fails, rather than exposing a
 /// member, if any member name is absolute, contains `..`, NUL, or a
@@ -55,7 +63,7 @@ use filer_api::{
 /// # Ok::<(), filer_api::Error>(())
 /// # }).unwrap();
 /// ```
-pub struct Zip<S>(Archive<S>);
+pub struct Zip<S>(Archive<S, Method>);
 
 impl<S: ReadAt + 'static> Zip<S> {
     /// Indexes the archive in `source` with the default [`Limits`] and

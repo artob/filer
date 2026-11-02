@@ -43,7 +43,7 @@ so any release may break compatibility.
   take the format's codec as a type parameter, defaulting to `Stored`;
   `Member::packed` and `Member::encoded`.
 - `filer-zip`: `Zip`, a read-only driver over ZIP archives with stored
-  members, including ZIP64; `filer_zip::Limits` re-exports
+  and, under the `deflate` feature, Deflate members, including ZIP64; `filer_zip::Limits` re-exports
   `filer_api::archive::Limits`.
 - `filer-ntfs`: Interix special files: symlinks, FIFOs, sockets, and
   devices.

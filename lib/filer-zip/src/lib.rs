@@ -14,12 +14,16 @@
 //! never creates or modifies them, and never will: writing archives is out
 //! of scope for this project. Use a dedicated archiving library for that.
 //!
-//! So far it reads stored (uncompressed) members. Deflate, limits on
-//! decompression against zip bombs, more codecs behind features, and
-//! legacy code-page names are planned (see `DESIGN.md` §17.7).
+//! So far it reads stored and Deflate members. Limits on declared sizes
+//! against zip bombs, more codecs behind features, and legacy code-page
+//! names are planned (see `DESIGN.md` §17.7).
 //!
-//! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
-//! by default, forwards to `filer-api`. `all` currently enables nothing.
+//! It needs no OS and builds with `#![no_std]`. Features, all enabled by
+//! default:
+//!
+//! - `std` forwards to `filer-api`;
+//! - `all` enables every codec below;
+//! - `deflate` decodes Deflate members, with `miniz_oxide`.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -53,6 +57,8 @@
 )]
 
 extern crate alloc;
+
+mod codec;
 
 mod header;
 

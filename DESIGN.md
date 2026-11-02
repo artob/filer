@@ -2125,10 +2125,14 @@ letter are `InvalidName`, besides what `Index` refuses. Directories,
 symlinks, and special files come from Unix modes (hosts 3 and 19), with
 a trailing `/` or the DOS directory attribute also making directories.
 Times come from the NTFS extra field, then the extended timestamp, then
-the DOS fields, read as UTC. Compressed and encrypted members and spanned
-archives are `Unsupported` at open, for now. The full `filer-spec` passes
-on archives written from its tree, with and without ZIP64; a doc example
-reads an Info-ZIP archive.
+the DOS fields, read as UTC. Its codec records each member's method,
+CRC-32, and encryption: Deflate decodes with `miniz_oxide` (feature
+`deflate`), checked against the CRC at the member's end; other methods
+and encryption fail on read, not open, except for symlinks, whose
+targets are decoded at open. Spanned archives are `Unsupported`. The
+full `filer-spec` passes on archives written from its tree, stored,
+deflated, and with ZIP64; a doc example reads an Info-ZIP archive with
+stored and deflated members.
 
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
@@ -2908,7 +2912,8 @@ only when the first item needs it.
 | `compio-driver` | 0.12 | `filer-uring` | evaluate in a spike |
 | `bitflags` | 2.13 | `filer-api` | `no_std`; optional `serde` |
 | `ref-cast` | 1.0 | `filer-api` | path DSTs (D4) |
-| `spin` | 0.12 | `filer-heap` | `no_std` lock |
+| `spin` | 0.12 | `filer-api`, `filer-heap` | `no_std` lock |
+| `miniz_oxide` | 0.9 | `filer-zip` | Deflate; `no_std`; no `unsafe` |
 | `async-lock` | 3.4 | `filer-tx`, `filer-quota` | MSRV 1.85; `no_std` |
 | `serde` | 1.0 | several | optional |
 | `bytes` | 1.12 | `filer-api` | optional |

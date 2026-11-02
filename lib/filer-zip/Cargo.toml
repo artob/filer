@@ -22,12 +22,15 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = []
+all = ["deflate"]
 std = ["filer-api/std"]
+deflate = ["dep:miniz_oxide"]
 
 [dependencies]
 filer-api.workspace = true
+miniz_oxide = { workspace = true, optional = true, features = ["with-alloc"] }
 
 [dev-dependencies]
 filer-heap = { workspace = true, features = ["std"] }
+miniz_oxide = { workspace = true, features = ["with-alloc"] }
 filer-spec = { workspace = true, features = ["std"] }
