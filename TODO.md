@@ -362,13 +362,9 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
 
 ## `filer-windows`
 
-- [ ] **WIN-03: Data and metadata.**
-  Positional read and write, `GetFileInformationByHandleEx` metadata,
-  128-bit file IDs. Done when `filer-spec` passes on Windows.
-
 - [ ] **WIN-04: Listing.**
   `NtQueryDirectoryFile` in large batches. Done when a large directory
-  lists completely.
+  lists completely and `filer-spec` passes on Windows.
 
 - [ ] **WIN-05: Namespace ops.**
   Directory creation, relative rename via `FileRenameInfoEx`, delete via

@@ -29,8 +29,8 @@ use windows_sys::{
         },
         Storage::FileSystem::{
             FILE_ATTRIBUTE_TAG_INFO, FILE_ID_128, FILE_ID_INFO, FILE_INFO_BY_HANDLE_CLASS,
-            FileAttributeTagInfo, FileIdInfo, GetFileInformationByHandleEx,
-            MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
+            FileAttributeTagInfo, FileBasicInfo, FileIdInfo, FileStandardInfo,
+            GetFileInformationByHandleEx, MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
         },
         System::{
             IO::{DeviceIoControl, IO_STATUS_BLOCK},
@@ -153,6 +153,47 @@ pub(crate) fn attribute_tag(file: &File) -> Result<(u32, u32), u32> {
     // SAFETY: `FileAttributeTagInfo` is `FILE_ATTRIBUTE_TAG_INFO`.
     unsafe { info(file, FileAttributeTagInfo, &mut tag)? };
     Ok((tag.FileAttributes, tag.ReparseTag))
+}
+
+/// A file's times, as NT ticks (0 where the file system keeps none), and
+/// its attributes: `FILE_BASIC_INFO`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Basic {
+    pub(crate) created: i64,
+    pub(crate) accessed: i64,
+    pub(crate) modified: i64,
+    pub(crate) changed: i64,
+    pub(crate) attributes: u32,
+}
+
+/// A file's sizes and links: `FILE_STANDARD_INFO`, with its two
+/// `BOOLEAN`s as bytes, which any value is valid for.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Standard {
+    pub(crate) allocation: i64,
+    pub(crate) end_of_file: i64,
+    pub(crate) links: u32,
+    pub(crate) delete_pending: u8,
+    pub(crate) directory: u8,
+}
+
+/// Returns the times and attributes of `file`.
+pub(crate) fn basic(file: &File) -> Result<Basic, u32> {
+    let mut basic = Basic::default();
+    // SAFETY: `FileBasicInfo` is `FILE_BASIC_INFO`, laid out as `Basic`.
+    unsafe { info(file, FileBasicInfo, &mut basic)? };
+    Ok(basic)
+}
+
+/// Returns the sizes and link count of `file`.
+pub(crate) fn standard(file: &File) -> Result<Standard, u32> {
+    let mut standard = Standard::default();
+    // SAFETY: `FileStandardInfo` is `FILE_STANDARD_INFO`, laid out as
+    // `Standard` but for its `BOOLEAN`s, which are bytes in both.
+    unsafe { info(file, FileStandardInfo, &mut standard)? };
+    Ok(standard)
 }
 
 /// Returns the serial number of the volume `file` is on, and its 128-bit

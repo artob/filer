@@ -1982,7 +1982,16 @@ reads them, so a junction's `\??\C:\path` is `/path`, absolute: an
 escape under `Beneath`, from the root under `InRoot`. Names holding `\`
 or `:` (another component, or a stream) are `InvalidNameForTarget`,
 since `NtCreateFile` would parse them. `crosses_mount` compares volume
-serial numbers. `tests/windows.sh` runs the crate's tests in Windows
+serial numbers. `Op::Read` is `ReadFile` at an offset, through the
+standard library's `seek_read`, `ERROR_HANDLE_EOF` reading nothing.
+`Op::Stat` reads `FileAttributeTagInfo`, `FileBasicInfo`,
+`FileStandardInfo`, and `FileIdInfo` from the handle, or from the
+resolved entry's lookup handle: the kind, as above; the length, or for
+a link its target's, as on POSIX; the four times through
+`filer_fs::nt`, a zero time absent; the id, the volume's serial number
+and the 128-bit file id; and the attributes that are flags. A file that
+the Windows Overlay Filter compresses hides its reparse point and reads
+through the filter. `tests/windows.sh` runs the crate's tests in Windows
 from Linux: it builds them for `x86_64-pc-windows-gnu` and runs them in
 the `dockur/windows` container that `filer-ntfs`'s fixtures use.
 

@@ -8,13 +8,13 @@ use crate::{
 use core::future::Future;
 use filer_api::{
     AmbientAuthority, BlockingResolver, Completion, Dir, Driver, DriverId, DriverKey, EntryName,
-    Error, ErrorKind, FileKind, Handle, HandleKind, LinkTarget, Op, OpKind, OpenHow, Output,
-    Spawner, path::RelPath, run_on,
+    Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op,
+    OpKind, OpenHow, Output, Spawner, Target, path::RelPath, run_on,
 };
-use filer_fs::{reparse::Reparse, wtf8};
+use filer_fs::{nt, reparse::Reparse, wtf8};
 use std::{
     fs::{File, OpenOptions},
-    os::windows::fs::OpenOptionsExt,
+    os::windows::fs::{FileExt, OpenOptionsExt},
     path::Path,
     sync::Arc,
     vec::Vec,
@@ -23,6 +23,7 @@ use windows_sys::{
     Wdk::Storage::FileSystem::{
         FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE, FILE_OPEN_REPARSE_POINT,
     },
+    Win32::Foundation::ERROR_HANDLE_EOF,
     Win32::Storage::FileSystem::{
         FILE_FLAG_BACKUP_SEMANTICS, FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES, FILE_READ_DATA,
         FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, SYNCHRONIZE,
@@ -72,6 +73,11 @@ pub(crate) const SHARE_ALL: u32 = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHAR
 /// is [`NotRegularFile`](ErrorKind::NotRegularFile). Other reparse points,
 /// such as cloud placeholders and compressed files, are the files or
 /// directories they stand for, opened through the filters that own them.
+///
+/// Metadata comes from `GetFileInformationByHandleEx`: kind, length (for a
+/// link, its target's, as on POSIX), the four times, the id (the volume's
+/// serial number and the 128-bit file id), and the attributes that are
+/// flags.
 ///
 /// Windows has no `EINTR`: synchronous I/O is interrupted only when
 /// another thread cancels it, which surfaces as
@@ -197,6 +203,34 @@ impl Windows {
                 Completion::new(self.open(&at, &path, how).map_err(|e| e.with_path(&*path)))
             },
             Op::Close { handle } => Completion::new(self.any(&handle, kind).map(|_| Output::Done)),
+            Op::Read { file, mut buf, off } => {
+                let result = self
+                    .file(&file, kind)
+                    .and_then(|file| buf.fill(&mut |spare| read_at(file, spare, off, kind)));
+                Completion::new(result.map(Output::Read)).with_buf(buf)
+            },
+            Op::Stat { target, .. } => {
+                let result = match &target {
+                    Target::Handle(handle) => {
+                        self.any(handle, kind).and_then(|file| metadata(file, kind))
+                    },
+                    Target::Entry {
+                        at,
+                        name,
+                        follow,
+                        resolve,
+                    } => self
+                        .dir(at, kind)
+                        .and_then(|dir| {
+                            let start = Node::Dir(dir.file.clone());
+                            let bytes = self.name_bytes(name, kind)?;
+                            let node = Walker.resolve(&start, bytes, *resolve, *follow, kind)?;
+                            metadata(node.file(), kind)
+                        })
+                        .map_err(|e| e.with_entry_name(name)),
+                };
+                Completion::new(result.map(Output::Metadata))
+            },
             Op::ReadLink { at, name } => {
                 let result = self.dir(&at, kind).and_then(|dir| {
                     let bytes = self.name_bytes(&name, kind)?;
@@ -384,6 +418,48 @@ fn units(name: &[u8], op: OpKind) -> Result<Vec<u16>, Error> {
     wtf8::decode(name).ok_or_else(invalid)
 }
 
+/// Reads into `buf` from `file` at `off`, returning how many bytes were
+/// read: 0 at or past the end.
+fn read_at(file: &File, buf: &mut [u8], off: u64, op: OpKind) -> Result<usize, Error> {
+    match file.seek_read(buf, off) {
+        Ok(n) => Ok(n),
+        Err(e) if e.raw_os_error() == i32::try_from(ERROR_HANDLE_EOF).ok() => Ok(0),
+        Err(e) => Err(error::io(&e, op)),
+    }
+}
+
+/// Returns the metadata of `file`: its kind, length (for a link, its
+/// target's, as on POSIX), times, id, and flags.
+fn metadata(file: &File, op: OpKind) -> Result<Metadata, Error> {
+    let win32 = |code| error::win32(code, op);
+    let (attributes, tag) = sys::attribute_tag(file).map_err(win32)?;
+    let basic = sys::basic(file).map_err(win32)?;
+    let standard = sys::standard(file).map_err(win32)?;
+    let (volume, id) = sys::id(file).map_err(win32)?;
+    let kind = node::kind(attributes, tag);
+    // Zero is a time the file system does not keep.
+    let time = |ticks| {
+        u64::try_from(ticks)
+            .ok()
+            .filter(|&t| t != 0)
+            .and_then(nt::timestamp)
+    };
+    let mut metadata = Metadata::default();
+    metadata.kind = Some(kind);
+    metadata.len = if kind == FileKind::Symlink {
+        u64::try_from(link_target(file, op)?.as_bytes().len()).ok()
+    } else {
+        u64::try_from(standard.end_of_file).ok()
+    };
+    metadata.created = time(basic.created);
+    metadata.modified = time(basic.modified);
+    metadata.changed = time(basic.changed);
+    metadata.accessed = time(basic.accessed);
+    metadata.id = Some(FileId::new(volume, id));
+    metadata.attrs = Some(nt::flags(basic.attributes));
+    Ok(metadata)
+}
+
 /// Returns the target of the link `file` is open on.
 fn link_target(file: &File, op: OpKind) -> Result<LinkTarget, Error> {
     let data = sys::reparse_point(file).map_err(|code| error::win32(code, op))?;
@@ -502,6 +578,120 @@ mod tests {
             Output::LinkTarget(target) => Ok(target),
             output => panic!("unexpected {output:?}"),
         }
+    }
+
+    fn read(windows: &Windows, file: &Handle, capacity: usize, off: u64) -> Vec<u8> {
+        let completion = block_on(windows.submit(Op::Read {
+            file: file.clone(),
+            buf: filer_api::ErasedBufMut::new(Vec::<u8>::with_capacity(capacity)),
+            off,
+        }));
+        let n = match completion.result.unwrap() {
+            Output::Read(n) => n,
+            output => panic!("unexpected {output:?}"),
+        };
+        let buf = completion.buf.unwrap().downcast::<Vec<u8>>().unwrap();
+        assert_eq!(buf.len(), n);
+        buf
+    }
+
+    fn stat(windows: &Windows, target: Target) -> Result<Metadata, Error> {
+        let completion = block_on(windows.submit(Op::Stat {
+            target,
+            mask: filer_api::MetaMask::all(),
+        }));
+        match completion.result? {
+            Output::Metadata(metadata) => Ok(metadata),
+            output => panic!("unexpected {output:?}"),
+        }
+    }
+
+    fn entry(at: &Handle, name: &str, follow: bool) -> Target {
+        Target::Entry {
+            at: at.clone(),
+            name: EntryName::Utf8(NameBuf::try_from(name).unwrap()),
+            follow,
+            resolve: Resolve::default(),
+        }
+    }
+
+    #[test]
+    fn reads_at_offsets() {
+        let (_temp, windows, root) = fixture();
+        let file = open(&windows, &root, "a/b/c.txt", OpenHow::file()).unwrap();
+        assert_eq!(read(&windows, &file, 100, 0), b"contents");
+        assert_eq!(read(&windows, &file, 2, 3), b"te");
+        assert!(read(&windows, &file, 4, 100).is_empty());
+        let link = open(&windows, &root, "a/link", OpenHow::file()).unwrap();
+        assert_eq!(read(&windows, &link, 100, 0), b"contents");
+        let a = open(&windows, &root, "a", OpenHow::dir()).unwrap();
+        let completion = block_on(windows.submit(Op::Read {
+            file: a,
+            buf: filer_api::ErasedBufMut::new(Vec::<u8>::with_capacity(1)),
+            off: 0,
+        }));
+        assert_eq!(
+            completion.result.unwrap_err().kind(),
+            ErrorKind::IsADirectory
+        );
+        assert!(completion.buf.is_some());
+    }
+
+    #[test]
+    fn reads_metadata() {
+        let (_temp, windows, root) = fixture();
+        let a = open(&windows, &root, "a", OpenHow::dir()).unwrap();
+        let file = stat(&windows, entry(&a, "z.txt", false)).unwrap();
+        assert_eq!((file.kind, file.len), (Some(FileKind::File), Some(0)));
+        let dir = stat(&windows, Target::Handle(a.clone())).unwrap();
+        assert_eq!(dir.kind, Some(FileKind::Dir));
+        assert_ne!(dir.id, file.id);
+        let opened = open(&windows, &a, "z.txt", OpenHow::file()).unwrap();
+        assert_eq!(stat(&windows, Target::Handle(opened)).unwrap().id, file.id);
+        // A link is as long as its target, as on POSIX.
+        let link = stat(&windows, entry(&a, "link", false)).unwrap();
+        assert_eq!((link.kind, link.len), (Some(FileKind::Symlink), Some(7)));
+        let target = stat(&windows, entry(&a, "link", true)).unwrap();
+        assert_eq!((target.kind, target.len), (Some(FileKind::File), Some(8)));
+        let junction = stat(&windows, entry(&a, "junction", false)).unwrap();
+        assert_eq!(junction.kind, Some(FileKind::Symlink));
+        let error = stat(&windows, entry(&a, "junction", true)).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::EscapeBlocked);
+        let error = stat(&windows, entry(&a, "nope", false)).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::NotFound);
+        // Times are recent and in order.
+        let now = std::time::SystemTime::now();
+        let modified = file.modified.unwrap().to_system_time().unwrap();
+        let age = now.duration_since(modified).unwrap();
+        assert!(age.as_secs() < 3600, "{age:?}");
+        assert!(file.created.unwrap() <= file.modified.unwrap());
+        assert!(file.changed.is_some() && file.accessed.is_some());
+        assert_eq!(file.attrs, Some(filer_api::FileAttrs::ARCHIVE));
+    }
+
+    /// A file that Windows Overlay Filter compresses is a reparse point
+    /// (which the filter hides), and reads through the filter as the file
+    /// it was.
+    #[test]
+    fn reads_compressed_files() {
+        let (temp, windows, root) = fixture();
+        let path = temp.0.join(r"top\a\wof.txt");
+        let contents = "compressible ".repeat(10_000);
+        fs::write(&path, &contents).unwrap();
+        let status = Command::new("compact")
+            .args(["/c", "/exe:lzx"])
+            .arg(&path)
+            .stdout(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let file = open(&windows, &root, "a/wof.txt", OpenHow::file()).unwrap();
+        let metadata = stat(&windows, Target::Handle(file.clone())).unwrap();
+        assert_eq!(metadata.kind, Some(FileKind::File));
+        assert_eq!(
+            read(&windows, &file, contents.len() + 1, 0),
+            contents.as_bytes()
+        );
     }
 
     #[test]
