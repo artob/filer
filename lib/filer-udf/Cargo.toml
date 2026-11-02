@@ -23,7 +23,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = ["filer-api/std"]
+std = ["filer-api/std", "filer-fs/std"]
 
 [dependencies]
 filer-api.workspace = true
+filer-fs.workspace = true

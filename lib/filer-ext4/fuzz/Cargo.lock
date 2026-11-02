@@ -46,6 +46,7 @@ name = "filer-ext4"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
 ]
 
 [[package]]
@@ -56,6 +57,13 @@ dependencies = [
  "filer-ext4",
  "filer-spec",
  "libfuzzer-sys",
+]
+
+[[package]]
+name = "filer-fs"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
 ]
 
 [[package]]

@@ -22,6 +22,7 @@
 | `filer-cpio` | All | Read-only cpio archive driver |
 | `filer-ext4` | All | Read-only ext2/3/4 file system driver |
 | `filer-fat` | All | FAT12/16/32 file system driver |
+| `filer-fs` | All | Shared machinery of file system drivers |
 | `filer-heap` | All | In-memory driver |
 | `filer-ntfs` | All | Read-only NTFS file system driver |
 | `filer-posix` | Unix | POSIX backend |

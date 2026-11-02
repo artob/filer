@@ -54,6 +54,8 @@
   planned; its root denies panicking constructs by lint); `filer-ext4`,
   `filer-ntfs`, `filer-udf`, and `filer-xfs` are read-only file system
   driver stubs (no items yet), to follow `filer-fat`'s model;
+  `filer-fs` holds what file system drivers share (each depends on it;
+  shared code goes there, not into one driver);
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `filer-system` re-exports `filer-api` plus `System`, the target's native

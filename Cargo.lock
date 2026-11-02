@@ -59,6 +59,7 @@ name = "filer-ext4"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
  "filer-spec",
  "filer-system",
 ]
@@ -68,10 +69,18 @@ name = "filer-fat"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
  "filer-heap",
  "filer-spec",
  "filer-system",
  "known-codepages",
+]
+
+[[package]]
+name = "filer-fs"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
 ]
 
 [[package]]
@@ -87,6 +96,7 @@ name = "filer-ntfs"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
  "filer-spec",
  "filer-system",
 ]
@@ -139,6 +149,7 @@ name = "filer-udf"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
 ]
 
 [[package]]
@@ -167,6 +178,7 @@ name = "filer-xfs"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
  "filer-spec",
  "filer-system",
 ]

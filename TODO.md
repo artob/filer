@@ -677,6 +677,51 @@ From §17.12 (D40). Create each crate when its item starts.
 - [ ] **FMT-06: `filer-udf`.** Read-only UDF. Done when `mkudffs` images
   of revisions 1.02, 2.01, and 2.50 read.
 
+## `filer-fs`
+
+What the file system drivers share, moved out of them (§17.17, D54). In
+order; one step per item, each committed. Helpers every driver needs go to
+`filer-api`, shared test tooling to `filer-spec`. Two more wait for a
+second user: XFS's recovery overlay (with EXT-10) and FAT's local times
+(with FMT-01).
+
+- [ ] **FS-01: Field readers.** Little- and big-endian `u16_at`,
+  `u32_at`, and `u64_at`, returning `Option`. Done when `filer-ext4`'s
+  `le.rs`, `filer-xfs`'s `be.rs`, and the private copies in `filer-fat`
+  and `filer-ntfs` are gone.
+- [ ] **FS-02: Source reads.** One exact read of `len` bytes at an
+  offset, its error naming the caller's operation, as `filer-fat`'s and
+  `filer-ntfs`'s do. Done when the drivers' `io.rs` files and copies are
+  gone.
+- [ ] **FS-03: Copying into buffers (`filer-api`).** An `IoBufMut` method
+  that copies a slice in and returns how much fit. Done when no crate
+  writes the `fill` closure by hand (19 now).
+- [ ] **FS-04: Naming entries in errors (`filer-api`).** An `Error`
+  method adding an `EntryName` to the path if it is UTF-8. Done when the
+  seven `with_name` copies are gone.
+- [ ] **FS-05: Names.** The rule every listed name meets (not empty, no
+  `/` or NUL, not `.` or `..`), and WTF-8 for UTF-16 names. Done when
+  `filer-ntfs`'s `wtf8.rs`, `filer-fat`'s `LongName::to_wtf8`, and the
+  drivers' name checks are gone.
+- [ ] **FS-06: Unix file types.** `FileKind` from a mode and from a
+  directory entry's type byte. Done when `filer-ext4` and `filer-xfs`
+  share them.
+- [ ] **FS-07: POSIX ACLs.** Encoding an ACL as Linux's `getxattr`
+  returns it, with the tag checks. Done when `filer-ext4`'s and
+  `filer-xfs`'s converters only decode their on-disk forms.
+- [ ] **FS-08: Mapped reads.** A run (`len` blocks, at a block or a
+  hole), a trait mapping a file block to one, and one read loop filling a
+  request across runs. Done when all four drivers read files through it.
+- [ ] **FS-09: Shared test tooling (`filer-spec`).** The corruption
+  exerciser and its overlay source, the mutation loop of `tests/fuzz.rs`,
+  and sparse fixtures. Done when each driver's tests keep only what is
+  its format's.
+- [ ] **FS-10: The driver shell.** A trait a format implements (root,
+  lookup, kinds, links, opening, reading, metadata, directory pages,
+  attributes) and one `Driver` over it, with room for writing (§17.13).
+  Design it in §17.17 first. Done when each driver's public type is a
+  thin wrapper and its `Walker` is gone, `filer-spec` passing unchanged.
+
 ## `filer-ext4`
 
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the

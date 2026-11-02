@@ -42,10 +42,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-fs"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-ntfs"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
 ]
 
 [[package]]

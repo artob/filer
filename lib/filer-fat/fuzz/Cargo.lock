@@ -46,6 +46,7 @@ name = "filer-fat"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
  "known-codepages",
 ]
 
@@ -57,6 +58,13 @@ dependencies = [
  "filer-fat",
  "filer-spec",
  "libfuzzer-sys",
+]
+
+[[package]]
+name = "filer-fs"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
 ]
 
 [[package]]

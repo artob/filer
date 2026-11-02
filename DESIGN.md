@@ -374,6 +374,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-uefi` | UEFI driver (planned, §17.12) | TBD |
 | `filer-9p`, `-smb`, `-nfs`, `-sftp` | remote drivers (planned) | no |
 | `filer-fat` | FAT12/16/32 driver (§17.13) | no |
+| `filer-fs` | shared machinery of file system drivers (§17.17) | no |
 | `filer-exfat` and others | on-disk formats (planned) | no |
 | `filer-system` | the native driver for the target, plus the API | no |
 | `filer-cli` | the `filer` binary over the native driver | no |
@@ -405,6 +406,8 @@ filer-api <--+-- filer-posix <---- filer-uring
              +-- filer-windows
              +-- filer-heap
              +-- filer-vfs, filer-overlay, filer-tar, filer-zip
+             +-- filer-fs <---- filer-fat, filer-ext4, filer-ntfs, filer-udf,
+             |                  filer-xfs
              +-- filer-tracing, filer-faults, filer-quota, filer-replay
              +-- filer-tx, filer-tokio, filer-fuse
              +-- filer-spec          (dev-dependency of every driver)
@@ -2295,7 +2298,8 @@ Recorded 2026-11-01 (D40); none exists yet:
   journals, B+ trees, and checksums make safe writing far harder than
   FAT's. Each must refuse a volume with unknown incompatible features, and
   a dirty journal or log is either refused or replayed in memory, never
-  read as if clean. Their crate docs list what each format needs.
+  read as if clean. Their crate docs list what each format needs. What
+  they share lives in `filer-fs` (§17.17).
 
 ### 17.13 `filer-fat`
 
@@ -2893,7 +2897,45 @@ data block. `tests/fuzz.rs`
 and `cargo-fuzz` targets in `fuzz/` mutate the superblock, inodes,
 directory blocks, B+ tree blocks, and attribute forks (D50).
 
-### 17.17 Later
+### 17.17 `filer-fs`
+
+The shared machinery of the on-disk file system drivers (D54), recorded
+2026-11-02. `filer-fat`, `filer-ext4`, `filer-ntfs`, `filer-udf`, and
+`filer-xfs` depend on it, as will every file system driver to come
+(`filer-exfat` and the rest of §17.12). Read side by side, the four
+working drivers turned out to be largely one program over four formats:
+the same driver shell (handle payloads, the `Op` dispatch, the open
+matrix, the `Resolver` walker), the same block-mapped read loop, and the
+same field readers, source reads, name rules, Unix file types, and POSIX
+ACL output, with FAT and NTFS encoding UTF-16 names as WTF-8 identically.
+That moves here, step by step, each driver keeping only its format:
+
+- field readers for little- and big-endian structures, and exact reads
+  from a source;
+- names: the rules every listed name meets, and WTF-8 for UTF-16 names
+  (FAT and NTFS, later exFAT and UDF);
+- Unix file types from modes and directory entries (ext4, XFS);
+- POSIX ACLs in the form Linux's `getxattr` returns (ext4, XFS);
+- reading a file through a map of runs (all four);
+- the driver shell: a trait a format implements, and one `Driver` over
+  it, as `filer_api::archive` serves archives (§17.7, D44), but leaving
+  room for writing, which FAT plans (§17.13);
+- later, when a second driver needs them: the in-memory overlay that XFS
+  log recovery lays over its source (for ext4's journal), and FAT's local
+  times (for exFAT).
+
+What stays elsewhere: helpers every driver needs, not only file systems
+(copying a slice into an `IoBufMut`, naming an entry in an error), go to
+`filer-api`; checksums stay in `filer_api::checksum` (D53); test tooling
+the drivers share (the corruption exerciser, the mutation fuzz loop,
+sparse fixtures) goes to `filer-spec`. Each format keeps its own error
+enum, `Options`, and on-disk parsing.
+
+Unlike `filer_api::archive` (D44), this is a crate of its own, per the
+placement rule (D20): it has semantics of its own, and only file system
+drivers need it.
+
+### 17.18 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
@@ -3457,6 +3499,7 @@ Record changes here with a date and one line of rationale.
 | D51 | Discard is an optional `deallocate` on writable sources | Accepted |
 | D52 | Formats implemented only in GPL code are written clean room | Accepted |
 | D53 | Checksums drivers share live in `filer_api::checksum` | Accepted |
+| D54 | File system drivers share code in `filer-fs` | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

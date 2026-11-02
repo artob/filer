@@ -36,6 +36,7 @@ filer-ar = { version = "0.0.1", path = "lib/filer-ar", default-features = false 
 filer-cpio = { version = "0.0.1", path = "lib/filer-cpio", default-features = false }
 filer-ext4 = { version = "0.0.1", path = "lib/filer-ext4", default-features = false }
 filer-fat = { version = "0.0.1", path = "lib/filer-fat", default-features = false }
+filer-fs = { version = "0.0.1", path = "lib/filer-fs", default-features = false }
 filer-heap = { version = "0.0.1", path = "lib/filer-heap", default-features = false }
 filer-ntfs = { version = "0.0.1", path = "lib/filer-ntfs", default-features = false }
 filer-posix = { version = "0.0.1", path = "lib/filer-posix", default-features = false }
@@ -62,6 +63,7 @@ filer-ar = { path = "lib/filer-ar" }
 filer-cpio = { path = "lib/filer-cpio" }
 filer-ext4 = { path = "lib/filer-ext4" }
 filer-fat = { path = "lib/filer-fat" }
+filer-fs = { path = "lib/filer-fs" }
 filer-heap = { path = "lib/filer-heap" }
 filer-ntfs = { path = "lib/filer-ntfs" }
 filer-posix = { path = "lib/filer-posix" }
