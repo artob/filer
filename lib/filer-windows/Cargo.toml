@@ -23,7 +23,16 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = ["filer-api/std"]
+std = ["filer-api/std", "dep:windows-sys"]
 
 [dependencies]
 filer-api.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, optional = true, features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+] }
+
+[dev-dependencies]
+filer-spec = { workspace = true, features = ["std"] }

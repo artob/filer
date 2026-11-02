@@ -362,21 +362,12 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
 
 ## `filer-windows`
 
-- [ ] **WIN-01: Crate, payload, ambient roots.**
-  In the existing `lib/filer-windows/` shell: target-gated `windows-sys`
-  (features for `Win32_Foundation`, `Win32_Storage_FileSystem`,
-  `Win32_System_IO`, `Win32_System_Ioctl`,
-  `Win32_System_WindowsProgramming`, `Win32_System_SystemServices`,
-  `Wdk_Foundation`, `Wdk_Storage_FileSystem`), a `sys` module holding all
-  `unsafe` (the crate root switches from `forbid` to `deny`, §3.3), an
-  `OwnedHandle` payload, and `open_ambient` via `CreateFileW` with `\\?\`
-  and `FILE_FLAG_BACKUP_SEMANTICS`. Done when it builds as an empty shell
-  elsewhere.
-
 - [ ] **WIN-02: Relative opens and the userspace walk.**
-  `NtCreateFile` with `RootDirectory`, `FILE_OPEN_REPARSE_POINT`, reparse
-  data reading, and the generic resolver (§17.2). Done when SPEC-02 passes
-  on Windows, including junctions.
+  A `sys` module holding all `unsafe` (the crate root switches from
+  `forbid` to `deny`, §3.3); `NtCreateFile` with `RootDirectory`,
+  `FILE_OPEN_REPARSE_POINT`, reparse data reading, and the generic
+  resolver (§17.2). Done when SPEC-02 passes on Windows, including
+  junctions.
 
 - [ ] **WIN-03: Data and metadata.**
   Positional read and write, `GetFileInformationByHandleEx` metadata,

@@ -1955,6 +1955,17 @@ Design:
   reads and writes is a natural later step: completion-based, and the
   owned-buffer model fits it.
 
+As built (2026-11-02): `Windows::blocking()` and
+`Windows::thread_pool(spawner)`, as for `Posix`. `open_ambient_dir` opens
+roots through the standard library's `OpenOptions`: `CreateFileW` with
+`FILE_FLAG_BACKUP_SEMANTICS`, to which the standard library adds `\\?\`
+for long paths, listing, traversal, and attribute access, and all share
+modes; anything but a directory is `NotADirectory`. Win32 error codes map
+to `ErrorKind` through a table, keeping the code. `tests/windows.sh` runs
+the crate's tests in Windows from Linux: it builds them for
+`x86_64-pc-windows-gnu` and runs them in the `dockur/windows` container
+that `filer-ntfs`'s fixtures use.
+
 `winx` (0.36.4) has useful helpers (`reopen_file`, reparse-point
 `read_link`, access-mode queries), but it constrains `windows-sys` to
 `>=0.52, <=0.59`, so depending on it alongside `windows-sys` 0.61 would put

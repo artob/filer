@@ -2,11 +2,16 @@
 
 //! Windows backend for the Filer API.
 //!
-//! This crate will implement [`filer_api`] on Windows and does not export any
-//! items yet. Its items will be gated on `cfg(windows)`, so the crate still
-//! builds, empty, for other targets. It builds with `#![no_std]`; the `std`
-//! feature, enabled by default, forwards to `filer-api`. `all` currently
-//! enables nothing.
+//! [`Windows`] implements [`filer_api::Driver`] on Windows over
+//! [`windows-sys`]. So far it opens roots, executed by the
+//! [blocking](Windows::blocking) executor or on a
+//! [thread pool](Windows::thread_pool).
+//!
+//! Items are gated on `cfg(windows)` and the `std` feature, enabled by
+//! default, so the crate still builds, empty, without `std` and on other
+//! targets such as Linux and WASI. `all` currently enables nothing.
+//!
+//! [`windows-sys`]: https://docs.rs/windows-sys
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -40,3 +45,22 @@
         clippy::unwrap_used
     )
 )]
+// The crate docs link to items that exist only on Windows with `std`.
+#![cfg_attr(
+    not(all(windows, feature = "std")),
+    allow(rustdoc::broken_intra_doc_links)
+)]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(all(windows, feature = "std"))]
+mod error;
+
+#[cfg(all(windows, feature = "std"))]
+mod node;
+
+#[cfg(all(windows, feature = "std"))]
+mod windows;
+#[cfg(all(windows, feature = "std"))]
+pub use windows::*;
