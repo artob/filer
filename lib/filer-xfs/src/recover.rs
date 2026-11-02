@@ -18,8 +18,10 @@
 //! A buffer item names a block by its disk address and length, and which
 //! 128-byte chunks of it are logged, each run of them in a region of its
 //! own. A buffer freed later is cancelled: logged with the cancel flag,
-//! which earlier items of it are not replayed past. An inode item names
-//! where the inode is, and which parts of it are logged: the core, in
+//! which earlier items of it are not replayed past, nor items of the
+//! inodes in it, as a freed chunk of inodes may now hold a file's data.
+//! An inode item names where the inode is, its cluster's buffer too, and
+//! which parts of it are logged: the core, in
 //! memory's order, and the forks. With version 5, a block or an inode
 //! whose own LSN is the transaction's or later is not replayed over, and
 //! each replayed is resealed, as Linux writes them.
@@ -505,7 +507,7 @@ pub(crate) async fn replay<S: ReadAt + ?Sized>(
         return Err(fail(XfsError::UnsupportedLogItem(kind)));
     }
 
-    // The second pass: buffers not cancelled later, and inodes.
+    // The second pass: buffers and inodes not cancelled later.
     let mut overlay = Overlay::default();
     for (lsn, order, items) in parsed {
         for item in items {
@@ -528,7 +530,7 @@ pub(crate) async fn replay<S: ReadAt + ?Sized>(
                         lsn,
                         order,
                     };
-                    replayer.inode(item.regions).await?;
+                    replayer.inode(item.regions, &cancels).await?;
                 },
                 _ => {},
             }
@@ -654,8 +656,13 @@ impl<S: ReadAt + ?Sized> Replayer<'_, S> {
         Ok(())
     }
 
-    /// Replays an inode item: its core, and the forks it logs.
-    async fn inode(self, regions: &[Vec<u8>]) -> Result<(), Error> {
+    /// Replays an inode item: its core, and the forks it logs; unless its
+    /// cluster's buffer is cancelled later.
+    async fn inode(
+        self,
+        regions: &[Vec<u8>],
+        cancels: &BTreeMap<(u64, u16), u32>,
+    ) -> Result<(), Error> {
         let order = self.order;
         let format = regions.first().ok_or_else(|| self.fail())?;
         let field16 = |at| order.u16_at(format, at).ok_or_else(|| self.fail());
@@ -667,7 +674,16 @@ impl<S: ReadAt + ?Sized> Replayer<'_, S> {
         let number = field64(16)?;
         let dev = field32(24)?;
         let daddr = field64(40)?;
+        let cluster = field32(48)?;
         let offset = u64::from(field32(52)?);
+        // A cluster longer than any buffer is cancelled by none.
+        if let Ok(cluster) = u16::try_from(cluster)
+            && cancels
+                .get(&(daddr, cluster))
+                .is_some_and(|&count| count > 0)
+        {
+            return Ok(());
+        }
         let at = daddr
             .checked_mul(SECTOR)
             .and_then(|at| at.checked_add(offset))
@@ -1066,6 +1082,41 @@ mod tests {
             overlay.lay(u64::try_from(at).unwrap(), &mut bytes);
             bytes
         }
+    }
+
+    #[test]
+    fn replays_inodes_but_not_in_cancelled_clusters() {
+        let image = |cancel: bool, after: bool| {
+            let mut image = Image::new(Order::Little);
+            let sb = Superblock::parse(&Fields::new().bytes()).unwrap();
+            let cluster = sb.inode_offset(131).unwrap() / 512 / 16 * 16;
+            let mut ops = image.start(1 + u32::from(cancel) + u32::from(after));
+            ops.push((0, image.inode_format(131, 0x1 | LOG_EXTENTS, 16)));
+            ops.push((0, image.core(5000)));
+            ops.push((0, record(0, 20, 2, false).to_vec()));
+            if cancel {
+                let flags = BUF_CANCEL | BUF_INODE;
+                ops.push((0, image.buffer(flags, cluster, 16, 0, 1)));
+            }
+            if after {
+                ops.push((0, image.inode_format(131, 0x1 | LOG_EXTENTS, 16)));
+                ops.push((0, image.core(6000)));
+                ops.push((0, record(0, 20, 2, false).to_vec()));
+            }
+            ops.push((COMMIT, Vec::new()));
+            image.record(&ops);
+            let overlay = image.replay().unwrap();
+            let at = usize::try_from(sb.inode_offset(131).unwrap()).unwrap();
+            let inode = image.read(&overlay, at, 256);
+            crate::inode::Inode::parse(&inode, 131, crate::superblock::Version::V4)
+                .ok()
+                .map(|inode| inode.size())
+        };
+        assert_eq!(image(false, false), Some(5000));
+        // Freed with its chunk: what was the inode is left as it is.
+        assert_eq!(image(true, false), None);
+        // Allocated again, after the cancel.
+        assert_eq!(image(true, true), Some(6000));
     }
 
     #[test]
