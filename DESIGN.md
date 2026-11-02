@@ -2651,7 +2651,13 @@ TEA cipher, and checked against `debugfs`'s `dx_hash`.
   and powers of 3, 5, and 7 with `sparse_super`, the two the superblock
   names with `sparse_super2`, else every group. `huge_file` adds 16 bits
   to inodes' block counts, in blocks rather than sectors for inodes with
-  its flag.
+  its flag. Under `bigalloc`, blocks are allocated in clusters of 2^n,
+  whose count a group's bitmap bounds, and data starts with block 0
+  though the superblock is in block 1 of 1 KiB blocks, where group 0's
+  `meta_bg` descriptors then are one block further. `large_dir` allows
+  indexes three levels deep, `mmp` and `orphan_file` concern only
+  writers, and `verity` files read as they are, their Merkle trees past
+  their ends.
 - Checksums, verified, each failure `Corrupt` (`csum.rs` details each):
   under `metadata_csum`, CRC-32C registers (before the final inversion)
   chained from the volume's seed (the register over the UUID, or with
@@ -2754,7 +2760,9 @@ as `mke2fs -t ext4` makes them, of 1 and 4 KiB blocks, one with
 `metadata_csum`, and, checksummed, one of attributes, one of a hashed
 directory two levels deep, and one of deep extent trees, whose every
 checksummed structure, changed, is `Corrupt`; two with `inline_data`,
-one of a directory and files continued past `i_block`; and one of a
+one of a directory and files continued past `i_block`; one with
+`bigalloc`, one with `large_dir`, `mmp`, and `sparse_super2`, and one
+of a file fs-verity seals; and one of a
 file of 2000 extents two levels deep and one allocated but unwritten
 but for its middle; and three that need
 recovery, of 1 and 4 KiB blocks and with `metadata_csum`, copied while

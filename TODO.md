@@ -680,9 +680,10 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-16: Remaining features.** `large_dir`, `ea_inode`, `bigalloc`,
-  `orphan_file`, `sparse_super2`, `mmp`, `verity`. Done when fixtures of
-  each read.
+- [ ] **EXT-16: Remaining features.** `ea_inode`: attribute values kept
+  in inodes of their own. (`large_dir`, `bigalloc`, `orphan_file`,
+  `sparse_super2`, `mmp`, and `verity` read.) Done when fixtures of it
+  read.
 - [ ] **EXT-17: Encryption and case folding.** Encrypted entries keep
   kind and metadata, their names and contents `Unsupported`; case-folded
   directories match exactly. Done when fixtures of each read.

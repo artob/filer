@@ -32,6 +32,9 @@ const MAX_LOG_BLOCK_SIZE: u32 = 6;
 /// The size of a group descriptor without the `64bit` feature.
 pub(crate) const DESC_SIZE: u16 = 32;
 
+/// The most blocks a cluster holds under `bigalloc`, as a power of two.
+const MAX_CLUSTER_SHIFT: u32 = 16;
+
 /// The least and most descriptor sizes under `64bit`.
 const MIN_DESC_SIZE_64: u16 = 64;
 const MAX_DESC_SIZE: u16 = 1024;
@@ -52,6 +55,8 @@ pub(crate) mod feature {
     pub(crate) const RO_COMPAT_HUGE_FILE: u32 = 0x8;
     /// Read-only compatible: group descriptors checksummed by CRC-16.
     pub(crate) const RO_COMPAT_GDT_CSUM: u32 = 0x10;
+    /// Read-only compatible: blocks allocated in clusters.
+    pub(crate) const RO_COMPAT_BIGALLOC: u32 = 0x200;
     /// Read-only compatible: metadata checksummed by CRC-32C.
     pub(crate) const RO_COMPAT_METADATA_CSUM: u32 = 0x400;
     /// Incompatible: directory entries record the file type.
@@ -60,6 +65,9 @@ pub(crate) mod feature {
     pub(crate) const INCOMPAT_RECOVER: u32 = 0x4;
     /// Incompatible: group descriptors in each metagroup's first group.
     pub(crate) const INCOMPAT_META_BG: u32 = 0x10;
+    /// Incompatible: a block that writers update to say they have the
+    /// volume mounted, which a reader need not.
+    pub(crate) const INCOMPAT_MMP: u32 = 0x100;
     /// Incompatible: files may be mapped by extent trees.
     pub(crate) const INCOMPAT_EXTENTS: u32 = 0x40;
     /// Incompatible: block numbers of 64 bits, and larger descriptors.
@@ -69,6 +77,9 @@ pub(crate) mod feature {
     /// Incompatible: the seed of `metadata_csum` checksums is kept in the
     /// superblock, not derived from the UUID.
     pub(crate) const INCOMPAT_CSUM_SEED: u32 = 0x2000;
+    /// Incompatible: hashed directories' indexes three levels deep, and
+    /// directories past 2 GiB.
+    pub(crate) const INCOMPAT_LARGEDIR: u32 = 0x4000;
     /// Incompatible: small files and directories may be kept in their
     /// inodes.
     pub(crate) const INCOMPAT_INLINE_DATA: u32 = 0x8000;
@@ -77,10 +88,12 @@ pub(crate) mod feature {
 /// The incompatible features this driver reads.
 const SUPPORTED_INCOMPAT: u32 = feature::INCOMPAT_FILETYPE
     | feature::INCOMPAT_META_BG
+    | feature::INCOMPAT_MMP
     | feature::INCOMPAT_EXTENTS
     | feature::INCOMPAT_64BIT
     | feature::INCOMPAT_FLEX_BG
     | feature::INCOMPAT_CSUM_SEED
+    | feature::INCOMPAT_LARGEDIR
     | feature::INCOMPAT_INLINE_DATA;
 
 /// A volume's feature sets. Revision 0 volumes have none.
@@ -154,16 +167,40 @@ impl Superblock {
             return Err(Ext4Error::BadBlockSize(log_block_size));
         }
         let block_size = 1024u32 << log_block_size;
+        let ro_compat = if revision == GOOD_OLD_REV {
+            0
+        } else {
+            u32_at(bytes, 0x64)?
+        };
+        let bigalloc = ro_compat & feature::RO_COMPAT_BIGALLOC != 0;
         // The superblock is at byte 1024, which is block 1 of 1 KiB blocks
-        // and in block 0 of larger ones; data starts with its block.
+        // and in block 0 of larger ones; data starts with its block, or
+        // under `bigalloc` with block 0 always.
         let first_data_block = u32_at(bytes, 0x14)?;
-        if first_data_block != u32::from(log_block_size == 0) {
+        let sb_block = u32::from(log_block_size == 0);
+        if first_data_block != sb_block && !(bigalloc && first_data_block == 0) {
             return Err(Ext4Error::BadFirstDataBlock(first_data_block));
         }
-        // One block's bitmap tracks each group's blocks and inodes.
+        // One block's bitmap tracks each group's blocks, or under
+        // `bigalloc` its clusters of 2^n blocks, and its inodes.
         let bits = block_size.saturating_mul(8);
         let blocks_per_group = u32_at(bytes, 0x20)?;
-        if blocks_per_group == 0 || blocks_per_group > bits {
+        let tracked = if !bigalloc {
+            blocks_per_group
+        } else {
+            let log_cluster_size = u32_at(bytes, 0x1C)?;
+            let ratio = log_cluster_size
+                .checked_sub(log_block_size)
+                .filter(|&shift| shift <= MAX_CLUSTER_SHIFT)
+                .and_then(|shift| 1u32.checked_shl(shift))
+                .ok_or(Ext4Error::BadClusterSize(log_cluster_size))?;
+            let clusters_per_group = u32_at(bytes, 0x24)?;
+            if clusters_per_group.checked_mul(ratio) != Some(blocks_per_group) {
+                return Err(Ext4Error::BadBlocksPerGroup(blocks_per_group));
+            }
+            clusters_per_group
+        };
+        if blocks_per_group == 0 || tracked > bits {
             return Err(Ext4Error::BadBlocksPerGroup(blocks_per_group));
         }
         let inodes_per_group = u32_at(bytes, 0x28)?;
@@ -236,11 +273,7 @@ impl Superblock {
         let descriptors = contiguous
             .min(u64::from(groups))
             .saturating_mul(u64::from(desc_size))
-            .saturating_add(
-                u64::from(first_data_block)
-                    .saturating_add(1)
-                    .saturating_mul(block),
-            );
+            .saturating_add(u64::from(sb_block).saturating_add(1).saturating_mul(block));
         if descriptors > blocks.saturating_mul(block) {
             return Err(Ext4Error::BadGroupCount(groups));
         }
@@ -375,11 +408,16 @@ impl Superblock {
             // The first block of the metagroup's first group, past its
             // superblock backup.
             let first = u32::try_from(index.checked_mul(per_block)?).ok()?;
-            let backup = u64::from(self.has_superblock(first));
+            let mut backup = u64::from(self.has_superblock(first));
+            // In 1 KiB blocks from block 0, group 0's first block holds
+            // no superblock: the one after it does.
+            if first == 0 && self.first_data_block == 0 && self.log_block_size == 0 {
+                backup = backup.saturating_add(1);
+            }
             self.group_first_block(first)?.checked_add(backup)?
         } else {
-            // The first data block is 0 or 1.
-            u64::from(self.first_data_block)
+            // The table follows the superblock's block, 0 or 1.
+            u64::from(self.log_block_size == 0)
                 .checked_add(1)?
                 .checked_add(index)?
         };
@@ -763,6 +801,35 @@ pub(crate) mod tests {
         let sb = Superblock::parse(&b).unwrap();
         let backups: alloc::vec::Vec<u32> = (0..60).filter(|&g| sb.has_superblock(g)).collect();
         assert_eq!(backups, [0, 1, 30]);
+    }
+
+    /// Under `bigalloc`, a group's blocks are its clusters' blocks, its
+    /// bitmap tracks clusters, and data may start with block 0.
+    #[test]
+    fn reads_clustered_geometry() {
+        let mut f = Fields::new();
+        f.features.ro_compat |= feature::RO_COMPAT_BIGALLOC;
+        f.first_data_block = 0;
+        f.blocks_per_group = 8192 * 16;
+        f.blocks = 8192 * 16;
+        let parse = |f: &Fields, log_cluster: u32, clusters: u32| {
+            let mut b = f.bytes();
+            b[0x1C..0x20].copy_from_slice(&log_cluster.to_le_bytes());
+            b[0x24..0x28].copy_from_slice(&clusters.to_le_bytes());
+            Superblock::parse(&b)
+        };
+        // Clusters of 16 blocks, 8192 a group, which a bitmap tracks.
+        assert!(parse(&f, 4, 8192).is_ok());
+        let groups = Err(Ext4Error::BadBlocksPerGroup(8192 * 16));
+        assert_eq!(parse(&f, 4, 4096), groups);
+        assert_eq!(parse(&f, 3, 8192), groups);
+        assert_eq!(parse(&f, 17, 8192), Err(Ext4Error::BadClusterSize(17)));
+        // Without `bigalloc`, a group of 2^17 blocks is past its bitmap,
+        // and data starts with the superblock's block.
+        f.features.ro_compat &= !feature::RO_COMPAT_BIGALLOC;
+        assert_eq!(parse(&f, 0, 0), Err(Ext4Error::BadFirstDataBlock(0)));
+        f.first_data_block = 1;
+        assert_eq!(parse(&f, 0, 0), groups);
     }
 
     #[test]

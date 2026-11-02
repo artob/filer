@@ -25,6 +25,9 @@ pub enum Ext4Error {
     /// The block size exponent does not give a block of 1 KiB to 64 KiB.
     BadBlockSize(u32),
 
+    /// The cluster size exponent, under `bigalloc`, is below the block
+    /// size's, or makes clusters of more than 2^16 blocks.
+    BadClusterSize(u32),
     /// The first data block is not the superblock's block: 1 for 1 KiB
     /// blocks, else 0.
     BadFirstDataBlock(u32),
@@ -234,6 +237,7 @@ impl core::fmt::Display for Ext4Error {
             Self::BadMagic(magic) => write!(f, "not ext2/3/4 (magic {magic:#06X})"),
             Self::UnsupportedRevision(level) => write!(f, "unsupported revision {level}"),
             Self::BadBlockSize(log) => write!(f, "invalid block size exponent {log}"),
+            Self::BadClusterSize(log) => write!(f, "invalid cluster size exponent {log}"),
             Self::BadFirstDataBlock(block) => write!(f, "invalid first data block {block}"),
             Self::BadBlocksPerGroup(count) => write!(f, "invalid blocks per group {count}"),
             Self::BadInodesPerGroup(count) => write!(f, "invalid inodes per group {count}"),

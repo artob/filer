@@ -400,6 +400,16 @@ fn reads_ext4() {
         include_bytes!("fixtures/ext4-inline.sparse"),
         Times::Nanoseconds,
     );
+    // `bigalloc`, of clusters of 16 blocks; and `large_dir`, `mmp`, and
+    // `sparse_super2`, which change nothing a reader sees here.
+    check(
+        include_bytes!("fixtures/ext4-bigalloc.sparse"),
+        Times::Nanoseconds,
+    );
+    check(
+        include_bytes!("fixtures/ext4-features.sparse"),
+        Times::Nanoseconds,
+    );
     // `gdt_csum`, CRC-16 over group descriptors, without `metadata_csum`.
     check(
         include_bytes!("fixtures/ext4-gdt-csum.sparse"),
@@ -564,6 +574,23 @@ fn reads_inline_data_past_i_block() {
         let read = block_on(file.read_to_end()).unwrap();
         assert_eq!(read, (0..size).collect::<Vec<u8>>());
     }
+}
+
+/// A file fs-verity seals reads as it is, its Merkle tree past its end
+/// unread, and has the verity flag.
+#[test]
+fn reads_files_sealed_by_verity() {
+    let root = block_on(Ext4::open(unsparse(include_bytes!(
+        "fixtures/ext4-verity.sparse"
+    ))))
+    .unwrap();
+    let file = block_on(root.open_file("sealed")).unwrap();
+    let expected: Vec<u8> = (0..100_000u32)
+        .map(|i| u8::try_from(i * 7 % 251).unwrap())
+        .collect();
+    assert_eq!(block_on(file.read_to_end()).unwrap(), expected);
+    let metadata = block_on(root.symlink_metadata("sealed", MetaMask::all())).unwrap();
+    assert!(metadata.attrs.unwrap().contains(FileAttrs::VERITY));
 }
 
 #[test]

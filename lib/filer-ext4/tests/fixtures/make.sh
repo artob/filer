@@ -291,6 +291,26 @@ for size in [60, 61, 120]:
 PY
 }
 
+# Writes a file whose integrity fs-verity seals into directory `$1`:
+# `sealed`, a pattern of 100000 bytes, whose Merkle tree Linux keeps past
+# its end.
+verity() {
+    sudo python3 -I - "$1" <<'PY'
+import fcntl, os, struct, sys
+path = os.path.join(sys.argv[1], "sealed")
+with open(path, "wb") as f:
+    f.write(bytes(i * 7 % 251 for i in range(100000)))
+# FS_IOC_ENABLE_VERITY: version 1, SHA-256, blocks of 4 KiB, no salt or
+# signature.
+arg = struct.pack("<IIIIQII Q88x", 1, 1, 4096, 0, 0, 0, 0, 0)
+fd = os.open(path, os.O_RDONLY)
+try:
+    fcntl.ioctl(fd, 0x40806685, arg)
+finally:
+    os.close(fd)
+PY
+}
+
 # Makes fixture `$1` as `make` does, filled by `big`, its directories
 # hashed by version `$4` (`legacy`, `half_md4`, or `tea`) over signed or,
 # if `$5` is `unsigned`, unsigned bytes.
@@ -392,6 +412,9 @@ make ext4-attrs 8M "-t ext4 -b 4096" attrs
 make ext4-extents-deep 16M "-t ext4 -b 1024" deep
 make ext4-inline 32M "-t ext4 -b 4096 -O inline_data" fill
 make ext4-inline-spill 8M "-t ext4 -b 4096 -O inline_data" inline
+make ext4-bigalloc 64M "-t ext4 -b 1024 -O bigalloc -C 16384" fill
+make ext4-features 32M "-t ext4 -b 4096 -O large_dir,mmp,sparse_super2,^resize_inode" fill
+make ext4-verity 8M "-t ext4 -b 4096 -O verity" verity
 make ext3-extents-4k 32M "-t ext3 -b 4096 -O extent" fill
 make ext3-extents-deep 16M "-t ext3 -b 1024 -O extent" deep
 hashed ext2-htree-tea 16M "-t ext2 -b 1024" tea unsigned
