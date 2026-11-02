@@ -11,17 +11,18 @@ use crate::{
     interix::{self, Interix},
     mft::{File, Mft},
     record::{AttrType, Body, FileRef},
-    reparse::Reparse,
+    reparse::{self, Reparse},
     stream::Stream,
+    time,
     upcase::UpCase,
 };
 use alloc::{collections::BTreeSet, sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
-    DriverKey, Error, ErrorKind, FileAttrs, FileKind, LinkTarget, OpKind, ReadAt, Resolver,
+    DirCookie, DriverKey, Entry, EntryName, Error, ErrorKind, FileAttrs, FileId, FileKind,
+    LinkTarget, MetaMask, Metadata, OpKind, ReadAt, XattrEntry, XattrNs,
 };
-use filer_fs::le;
-use filer_fs::wtf8;
+use filer_fs::{FileSystem, Opened, le, wtf8};
 
 /// The record of the root directory.
 pub(crate) const ROOT: u64 = 5;
@@ -439,12 +440,46 @@ impl StandardInformation {
     }
 }
 
-/// The [`Resolver`] primitives over a volume. A private type, so that
-/// nodes cannot be resolved from without a handle.
-pub(crate) struct Walker<'a, S>(pub(crate) &'a Volume<S>);
+impl<S: ReadAt> Volume<S> {
+    /// Returns the id of the file with record `number`: the volume serial
+    /// number, and the record.
+    fn id(&self, number: u64) -> FileId {
+        FileId::new(self.geometry.serial(), u128::from(number))
+    }
+}
 
-impl<S: ReadAt> Resolver for Walker<'_, S> {
+/// Returns the kind of the file an index entry names, by the attributes
+/// and reparse tag its `$FILE_NAME` carries, or `None` for a system file,
+/// which only its contents tell from an Interix special file.
+fn kind_of(entry: &FileName) -> Option<FileKind> {
+    let attributes = entry.attributes;
+    if attributes & FileName::REPARSE_POINT != 0 && reparse::is_link(entry.reparse_tag) {
+        Some(FileKind::Symlink)
+    } else if attributes & FileName::DIRECTORY != 0 {
+        Some(FileKind::Dir)
+    } else if attributes & FileName::REPARSE_POINT == 0 && attributes & FileName::SYSTEM != 0 {
+        None
+    } else {
+        Some(FileKind::File)
+    }
+}
+
+impl<S: ReadAt + 'static> FileSystem for Volume<S> {
     type Node = Node;
+    type Dir = Index;
+    type File = Stream;
+
+    fn key(&self) -> &DriverKey {
+        &self.key
+    }
+
+    fn root(&self, op: OpKind) -> impl Future<Output = Result<Node, Error>> + Send {
+        Volume::root(self, op)
+    }
+
+    fn kind(&self, node: &Node) -> FileKind {
+        node.kind()
+    }
 
     fn lookup(
         &self,
@@ -452,18 +487,149 @@ impl<S: ReadAt> Resolver for Walker<'_, S> {
         name: &[u8],
         op: OpKind,
     ) -> impl Future<Output = Result<Node, Error>> + Send {
-        self.0.lookup(dir, name, op)
+        Volume::lookup(self, dir, name, op)
     }
 
-    fn kind(&self, node: &Node) -> FileKind {
-        node.kind()
-    }
-
-    async fn read_link(&self, dir: &Node, name: &[u8], op: OpKind) -> Result<LinkTarget, Error> {
-        let node = self.0.lookup(dir, name, op).await?;
-        match node.link() {
+    async fn read_link(&self, link: &Node, op: OpKind) -> Result<LinkTarget, Error> {
+        match link.link() {
             Some(target) => Ok(LinkTarget::from_bytes(target.to_vec())),
             None => Err(Error::new(ErrorKind::NotASymlink, op)),
         }
+    }
+
+    async fn open_dir(&self, dir: &Node, op: OpKind) -> Result<Index, Error> {
+        self.index(dir, op)
+    }
+
+    async fn open_file(&self, file: &Node, op: OpKind) -> Result<Stream, Error> {
+        if file.is_opaque() {
+            return Err(Error::new(ErrorKind::Unsupported, op));
+        }
+        self.data(file, op)
+    }
+
+    async fn read(
+        &self,
+        _node: &Node,
+        data: &Stream,
+        off: u64,
+        max: usize,
+        op: OpKind,
+    ) -> Result<Vec<u8>, Error> {
+        data.read(&self.source, &self.geometry, off, max, op).await
+    }
+
+    async fn metadata(
+        &self,
+        node: &Node,
+        opened: Option<Opened<'_, Self>>,
+        _mask: MetaMask,
+        op: OpKind,
+    ) -> Result<Metadata, Error> {
+        let information =
+            StandardInformation::of(node.file()).map_err(|error| error.into_error(op))?;
+        let mut metadata = Metadata::default();
+        metadata.kind = Some(node.kind());
+        metadata.id = Some(self.id(node.number()));
+        metadata.len = match (opened, node.kind(), node.link()) {
+            (Some(Opened::File(data)), _, _) => Some(data.len()),
+            (_, _, Some(target)) => u64::try_from(target.len()).ok(),
+            (_, FileKind::Dir, _) => None,
+            (_, _, None) => Some(self.data_len(node, op)?),
+        };
+        metadata.created = time::timestamp(information.created);
+        metadata.modified = time::timestamp(information.modified);
+        metadata.changed = time::timestamp(information.changed);
+        metadata.accessed = time::timestamp(information.accessed);
+        metadata.attrs = Some(information.flags());
+        Ok(metadata)
+    }
+
+    async fn read_dir(
+        &self,
+        node: &Node,
+        index: &Index,
+        cookie: Option<DirCookie>,
+        max: usize,
+        op: OpKind,
+    ) -> Result<(Vec<Entry>, Option<DirCookie>), Error> {
+        let skip = cookie.map_or(0, DirCookie::get);
+        let mut seen = 0u64;
+        let mut entries = Vec::new();
+        let mut walk = index.walk();
+        while entries.len() < max {
+            let Some((file, entry)) = walk.next(index, &self.source, &self.geometry, op).await?
+            else {
+                return Ok((entries, None));
+            };
+            if file.record < FIRST_USER_RECORD {
+                continue;
+            }
+            let Some(name) = listed_name(&entry) else {
+                continue;
+            };
+            seen = seen.saturating_add(1);
+            if seen <= skip {
+                continue;
+            }
+            let bad = || {
+                NtfsError::BadFileName {
+                    record: node.number(),
+                }
+                .into_error(op)
+            };
+            if !EntryName::is_valid(&name) {
+                return Err(bad());
+            }
+            let name = self.key.entry_name(&name).map_err(|_| bad())?;
+            let mut listed = Entry::new(name);
+            listed.kind = kind_of(&entry);
+            listed.id = Some(self.id(file.record));
+            entries.push(listed);
+        }
+        Ok((entries, Some(DirCookie::new(seen))))
+    }
+
+    /// Lists the named data streams of `node`.
+    async fn xattr_names(&self, node: &Node, op: OpKind) -> Result<Vec<XattrEntry>, Error> {
+        let bad = || {
+            NtfsError::BadStreamName {
+                record: node.number(),
+            }
+            .into_error(op)
+        };
+        self.streams(node, op)?
+            .iter()
+            .map(|units| {
+                let raw = wtf8::encode(units);
+                self.key.xattr_entry(XattrNs::User, &raw).map_err(|_| bad())
+            })
+            .collect()
+    }
+
+    /// Reads up to `max` bytes of the named data stream `name`, which is
+    /// in the `user` namespace if it is any.
+    async fn xattr(
+        &self,
+        node: &Node,
+        ns: XattrNs,
+        name: &[u8],
+        max: usize,
+        op: OpKind,
+    ) -> Result<Option<(Vec<u8>, u64)>, Error> {
+        // Streams are only in the `user` namespace, and their names WTF-8,
+        // as UTF-8 is.
+        let Some(units) = wtf8::decode(name).filter(|_| ns == XattrNs::User) else {
+            return Ok(None);
+        };
+        let Some(stream) = self.stream(node, &units, op)? else {
+            return Ok(None);
+        };
+        let len = stream.len();
+        let want = usize::try_from(len).unwrap_or(usize::MAX).min(max);
+        let bytes = stream
+            .read_exact(&self.source, &self.geometry, 0, want, op)
+            .await?;
+        Ok(Some((bytes, len)))
     }
 }
