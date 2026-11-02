@@ -2004,9 +2004,12 @@ listing stays in the handle between batches, a `DirCookie` counts the
 entries listed, and an unexpected cookie restarts and skips. The whole
 specification passes, blocking and on a thread pool, with FIFOs,
 extended attributes, and its raw-byte foreign name (SPEC-06) left out.
-`tests/windows.sh` runs the crate's tests in Windows
-from Linux: it builds them for `x86_64-pc-windows-gnu` and runs them in
-the `dockur/windows` container that `filer-ntfs`'s fixtures use.
+What the driver parses from the system, reparse points and directory
+records, is pure functions: their unit tests mutate real records (and
+pass under Miri), and `fuzz/` has `cargo-fuzz` targets for both, which
+build and run on any host. `tests/windows.sh` runs the crate's tests in
+Windows from Linux: it builds them for `x86_64-pc-windows-gnu` and runs
+them in the `dockur/windows` container that `filer-ntfs`'s fixtures use.
 
 `winx` (0.36.4) has useful helpers (`reopen_file`, reparse-point
 `read_link`, access-mode queries), but it constrains `windows-sys` to

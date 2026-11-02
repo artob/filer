@@ -146,6 +146,40 @@ pub(crate) mod tests {
         );
     }
 
+    /// Mutated records parse or are refused, and every name they hold
+    /// survives the round trip through WTF-8 that listing and opening
+    /// make. Few enough inputs to run under Miri too.
+    #[test]
+    fn survives_mutated_records() {
+        let listed = [
+            (".", 0x10, 0, 5),
+            ("café.txt", 0x20, 0, 0x1234),
+            ("link", 0x420, 0xA000_000C, 7),
+        ];
+        let corpus = [
+            (Class::Extd, encode(Class::Extd, &listed)),
+            (Class::Both, encode(Class::Both, &listed)),
+        ];
+        let mut rng = filer_spec::fuzz::Rng::new(0x5EED);
+        let mut below = |n: usize| usize::try_from(rng.below(u64::try_from(n).unwrap())).unwrap();
+        let iterations = if cfg!(miri) { 100 } else { 20_000 };
+        for _ in 0..iterations {
+            let (class, buf) = &corpus[below(corpus.len())];
+            let mut buf = buf.clone();
+            for _ in 0..=below(4) {
+                let at = below(buf.len());
+                buf[at] = u8::try_from(below(256)).unwrap();
+            }
+            if below(4) == 0 {
+                buf.truncate(below(buf.len() + 1));
+            }
+            for entry in parse(&buf, *class).unwrap_or_default() {
+                let bytes = filer_fs::wtf8::encode(&entry.name);
+                assert_eq!(filer_fs::wtf8::decode(&bytes), Some(entry.name));
+            }
+        }
+    }
+
     #[test]
     fn rejects_entries_that_do_not_fit() {
         let good = encode(Class::Extd, &[("ab", 0, 0, 1), ("cd", 0, 0, 2)]);

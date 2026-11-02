@@ -195,6 +195,34 @@ mod tests {
         assert_eq!(link(&wsl_link("é ✓")), "é ✓".as_bytes());
     }
 
+    /// Mutated values parse or are refused, and every link they make has
+    /// a target Filer can follow: not empty, and without NUL. Few enough
+    /// inputs to run under Miri too.
+    #[test]
+    fn survives_mutated_values() {
+        let corpus = [
+            windows_link("Sub\\nested.txt", "Sub\\nested.txt", Some(1)),
+            windows_link("\\??\\C:\\Users\\x", "C:\\Users\\x", None),
+            wsl_link("/usr/bin/env"),
+        ];
+        let mut rng = filer_spec::fuzz::Rng::new(0x5EED);
+        let mut below = |n: usize| usize::try_from(rng.below(u64::try_from(n).unwrap())).unwrap();
+        let iterations = if cfg!(miri) { 100 } else { 20_000 };
+        for _ in 0..iterations {
+            let mut value = corpus[below(corpus.len())].clone();
+            for _ in 0..=below(4) {
+                let at = below(value.len());
+                value[at] = u8::try_from(below(256)).unwrap();
+            }
+            if below(4) == 0 {
+                value.truncate(below(value.len() + 1));
+            }
+            if let Some(Reparse::Link(target)) = Reparse::parse(&value) {
+                assert!(!target.is_empty() && !target.contains(&0), "{value:02X?}");
+            }
+        }
+    }
+
     #[test]
     fn keeps_other_tags_and_rejects_malformed_links() {
         let mut cloud = 0x9000_001Au32.to_le_bytes().to_vec();

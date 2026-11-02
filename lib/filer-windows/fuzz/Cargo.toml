@@ -1,0 +1,37 @@
+# Coverage-guided fuzzing of what `filer-windows` parses from the system,
+# with `cargo-fuzz` (nightly): `cargo fuzz run reparse` from
+# `lib/filer-windows`. libFuzzer is C++, so this crate stays outside the
+# workspace and is never a dependency of a published crate (DESIGN.md
+# D50); the parsers' unit tests are the pure-Rust fuzzers. The parsers are
+# pure, so the targets build and run on any host.
+
+[package]
+name = "filer-windows-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+filer-fs = { path = "../../filer-fs" }
+libfuzzer-sys = "0.4"
+
+# Its own workspace, apart from the repository's.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "reparse"
+path = "fuzz_targets/reparse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dir_info"
+path = "fuzz_targets/dir_info.rs"
+test = false
+doc = false
+bench = false

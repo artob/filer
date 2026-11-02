@@ -380,10 +380,6 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
   `Error::fallback`. Done when a test holding a handle without
   `FILE_SHARE_DELETE` observes the retry and the final `Busy`.
 
-- [ ] **WIN-08: Reparse-data fuzzing.**
-  Keep reparse parsing in pure functions; add a fuzz target. Done when it
-  builds in CI and runs under Miri in unit tests.
-
 ## Durability and atomic replacement
 
 - [ ] **DUR-01: `sync` and poisoning.**
