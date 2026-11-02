@@ -220,8 +220,10 @@ pub(crate) fn parse_short(bytes: &[u8], ftype: bool, dir: u64) -> Result<Vec<Dir
 }
 
 /// Parses the entries of data block `block`, of `shape`, of directory
-/// `dir`, which is at directory offset `base`. In a single-block
-/// directory, the hash leaves and tail at the block's end are not entries.
+/// `dir`, which is at directory offset `base`. A directory of one block
+/// (`single`) may hold its hash leaves and tail at the block's end, which
+/// are not entries; or, having shrunk from more, keep them in a leaf
+/// block, as one of more does.
 pub(crate) fn parse_block(
     block: &[u8],
     shape: Shape,
@@ -233,7 +235,7 @@ pub(crate) fn parse_block(
     let bad_block = XfsError::BadDirBlock { dir, offset: base };
     let magic = be::u32_at(block, 0).ok_or(bad_block)?;
     let end = match magic {
-        magic if magic == shape.data_magic && !single => block.len(),
+        magic if magic == shape.data_magic => block.len(),
         magic if magic == shape.block_magic && single => {
             let tail = block.len().checked_sub(BLOCK_TAIL).ok_or(bad_block)?;
             let count = be::u32_at(block, tail).ok_or(bad_block)?;
@@ -784,6 +786,15 @@ pub(crate) mod tests {
         );
         assert!(parsed[0].is_dot() && parsed[1].is_dot() && !parsed[2].is_dot());
 
+        // A directory of one data block, its leaves in a block of their
+        // own, as one shrunk from more keeps them.
+        assert_eq!(
+            parse_block(&block, V4, 8192, true, true, 128)
+                .unwrap()
+                .len(),
+            3
+        );
+
         // A single-block directory stops at its leaves.
         let block = data_block(4096, &entries, false, Some(3));
         let parsed = parse_block(&block, V4, 0, true, false, 128).unwrap();
@@ -798,8 +809,7 @@ pub(crate) mod tests {
         let check = |block: &[u8], single: bool| {
             assert!(parse_block(block, V4, 0, single, true, 128).is_err());
         };
-        // The wrong magic for the directory's form.
-        check(&good, true);
+        // The single-block form in a directory of more.
         check(&data_block(4096, &entries, true, Some(0)), false);
         // A tag that is not the entry's offset.
         let mut bad = good.clone();

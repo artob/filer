@@ -445,7 +445,8 @@ fn lists_in_batches() {
 }
 
 /// Each form of directory, as `make.sh` checks they are: short form,
-/// block, leaf, node, and node mapped by a B+ tree.
+/// block, leaf, leaf of one data block, node, and node mapped by a B+
+/// tree.
 #[test]
 fn reads_each_form_of_directory() {
     check_dirs(include_bytes!("fixtures/xfs-dirs.sparse"));
@@ -466,6 +467,7 @@ fn check_dirs(sparse: &[u8]) {
         ("short", 3),
         ("block", 40),
         ("leaf", 400),
+        ("shrunk", 150),
         ("node", 1000),
         ("btree", 2000),
     ] {

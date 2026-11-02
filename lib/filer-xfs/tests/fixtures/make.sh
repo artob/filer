@@ -407,9 +407,9 @@ PY
 }
 
 # Writes a directory of each form into directory `$1`, as root: short
-# form, in the inode; a single block; leaf; node; and node with its map a
-# B+ tree, its blocks scattered among a file's. Entries are hard links to
-# one file.
+# form, in the inode; a single block; leaf; leaf, shrunk to one data
+# block, which keeps its leaf; node; and node with its map a B+ tree, its
+# blocks scattered among a file's. Entries are hard links to one file.
 dirs() {
     sudo python3 -I - "$1" <<'PY'
 import os, sys
@@ -421,6 +421,11 @@ for form, count in [("short", 3), ("block", 40), ("leaf", 400), ("node", 1000)]:
     os.mkdir(os.path.join(root, form))
     for i in range(count):
         os.link(target, os.path.join(root, form, f"f{i:05}"))
+os.mkdir(os.path.join(root, "shrunk"))
+for i in range(400):
+    os.link(target, os.path.join(root, "shrunk", f"f{i:05}"))
+for i in range(150, 400):
+    os.remove(os.path.join(root, "shrunk", f"f{i:05}"))
 # Each new directory block lands after the filler's last, so that few are
 # contiguous; the filler is then deleted.
 os.mkdir(os.path.join(root, "btree"))
@@ -452,7 +457,8 @@ check_dirs() {
     found="$(field "$1" short core.format) $(field "$1" block core.size)"
     found="$found $(leaf "$1" leaf) $(leaf "$1" node) $(leaf "$1" btree)"
     found="$found $(field "$1" btree core.format)"
-    if [ "$found" != "1 (local) 4096 $2 $3 $3 3 (btree)" ]; then
+    found="$found $(field "$1" shrunk core.size) $(leaf "$1" shrunk)"
+    if [ "$found" != "1 (local) 4096 $2 $3 $3 3 (btree) 4096 $2" ]; then
         echo "directory forms: $found" >&2
         exit 1
     fi
