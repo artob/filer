@@ -22,8 +22,9 @@ use filer_api::{
 /// validates the superblock and the root directory; inodes, directories,
 /// and data are read as operations need them.
 ///
-/// Names are bytes, matched exactly; those that are not UTF-8 are
-/// [`ForeignName`](filer_api::ForeignName)s. Listings are in directory
+/// Names are bytes, matched exactly, or on an `ASCII_CI` volume folded to
+/// lower case as Linux folds them, Latin-1's letters too; those that are
+/// not UTF-8 are [`ForeignName`](filer_api::ForeignName)s. Listings are in directory
 /// order, without `.` and `..`. A file's id is its inode number, so hard
 /// links share it. Times are UTC, at 1 ns. Metadata reports the flags
 /// immutable and append-only. Extended attributes are read in the `user`,
@@ -239,14 +240,10 @@ impl<S: ReadAt> Xfs<S> {
             XattrEntry::Foreign { ns, name } => (*ns, name.as_bytes()),
         };
         let volume = &self.0;
-        let xattrs = attr::read(&volume.source, &volume.sb, node.inode(), op).await?;
-        let Some(found) = xattrs
-            .into_iter()
-            .find(|xattr| xattr.ns == ns && xattr.name == wanted)
-        else {
+        let found = attr::find(&volume.source, &volume.sb, node.inode(), ns, wanted, op).await?;
+        let Some(value) = found else {
             return Ok(None);
         };
-        let value = found.value;
         buf.fill(&mut |spare| {
             let n = spare.len().min(value.len());
             let (Some(to), Some(from)) = (spare.get_mut(..n), value.get(..n)) else {

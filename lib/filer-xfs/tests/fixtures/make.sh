@@ -10,8 +10,8 @@
 # of identical nonzero 512-byte sectors, each as its first sector (u32),
 # its count (u32), and the sector's bytes. `spec.sparse` holds the
 # specification's tree instead, `xfs-dirs.sparse` a directory of each
-# form, and `xfs-attrs*.sparse` extended attributes of each form, and
-# inode flags. No tool makes `attr1` attribute forks: Linux and
+# form, `xfs-attrs*.sparse` extended attributes of each form, and inode
+# flags, and `xfs-ci.sparse` names on an `ASCII_CI` volume. No tool makes `attr1` attribute forks: Linux and
 # `mkfs.xfs -p` both turn a volume to `attr2` on its first attribute.
 #
 # Usage: tests/fixtures/make.sh [output-dir [fixture...]], on Linux with
@@ -217,6 +217,31 @@ for name, flags in [("immutable", "+i"), ("append", "+a"), ("nodump", "+d"),
 PY
 }
 
+# Writes names differing from those looked up in case into directory
+# `$1`, as root, on an `ASCII_CI` volume, and checks that Linux finds them
+# so: in a short-form directory, and in one of nodes over leaves, whose
+# entries are hard links to one file.
+ci() {
+    sudo python3 -I - "$1" <<'PY'
+import os, sys
+root = sys.argv[1]
+def put(path, data):
+    with open(os.path.join(root.encode(), path), "wb") as f:
+        f.write(data)
+put(b"Hello.TXT", b"hello")
+put("Ünïcödé".encode(), b"unicode")
+put(b"caf\xc9", b"latin-1")
+os.mkdir(os.path.join(root, "Large"))
+for i in range(2000):
+    os.link(os.path.join(root, "Hello.TXT"), os.path.join(root, f"Large/File{i:04}"))
+# Bytes fold, Latin-1's letters too, but not UTF-8's.
+for name, found in [(b"hello.txt", True), (b"HELLO.TXT", True),
+                    (b"CAF\xe9", True), ("ünïcödé".encode(), False),
+                    (b"large/file1999", True), (b"LARGE/FILE0000", True)]:
+    assert os.path.exists(os.path.join(root.encode(), name)) == found, name
+PY
+}
+
 # Prints the attribute fork format of the inode at path `$2` of image
 # `$1`, and the magic of its first block, if any.
 fork() {
@@ -389,5 +414,6 @@ make xfs-4k-big "$v4 -i size=2048 -n size=65536" fill
 populate xfs-64k "$v4 -b size=65536 -i size=2048" fill
 make xfs-dirs "$v4" dirs
 make xfs-attrs "$v4" attrs
+make xfs-ci "$v4 -n version=ci" ci
 make xfs-attrs-512 "$v4 -b size=512" attrs
 make spec "$v4" spec

@@ -44,6 +44,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "leaves"
+path = "fuzz_targets/leaves.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "bmap"
 path = "fuzz_targets/bmap.rs"
 test = false

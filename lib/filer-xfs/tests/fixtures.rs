@@ -264,11 +264,15 @@ fn reads_each_form_of_directory() {
         names.sort();
         let expected: Vec<_> = (0..count).map(|i| format!("f{i:05}")).collect();
         assert_eq!(names, expected, "{form}");
-        // Every entry is a link to `target`.
-        for i in [0, count / 2, count - 1] {
-            let path = format!("{form}/f{i:05}");
+        // Every entry listed is found, by hash where there are leaves, and
+        // is a link to `target`.
+        for name in &names {
+            let path = format!("{form}/{name}");
             let metadata = block_on(root.symlink_metadata(path.as_str(), MetaMask::all())).unwrap();
             assert_eq!(metadata.id, target, "{path}");
+        }
+        for i in [0, count / 2, count - 1] {
+            let path = format!("{form}/f{i:05}");
             let file = block_on(root.open_file(path.as_str())).unwrap();
             assert_eq!(block_on(file.read_to_end()).unwrap(), b"target", "{path}");
         }
@@ -412,4 +416,38 @@ fn reads_attributes_and_flags() {
 #[test]
 fn reads_attributes_in_small_blocks() {
     check_attributes(include_bytes!("fixtures/xfs-attrs-512.sparse"));
+}
+
+/// On an `ASCII_CI` volume, names are found in any case, as Linux finds
+/// them, which `make.sh` checks: their bytes folded, Latin-1's letters
+/// too, but not UTF-8's.
+#[test]
+fn reads_ascii_ci_volumes() {
+    let root = open(include_bytes!("fixtures/xfs-ci.sparse"));
+    let read = |path: &str| {
+        let file = block_on(root.open_file(path))?;
+        block_on(file.read_to_end())
+    };
+    for path in ["Hello.TXT", "hello.txt", "HELLO.TXT"] {
+        assert_eq!(read(path).unwrap(), b"hello", "{path}");
+    }
+    assert_eq!(read("Ünïcödé").unwrap(), b"unicode");
+    assert_eq!(read("ünïcödé").unwrap_err().kind(), ErrorKind::NotFound);
+    // Listed as stored.
+    let dir = block_on(root.open_dir("")).unwrap();
+    let mut names = list(&dir, 100);
+    names.sort();
+    assert_eq!(names, ["Hello.TXT", "Large", "caf\\xC9", "Ünïcödé"]);
+    // In a directory of nodes over leaves, by hash.
+    let dir = block_on(root.open_dir("large")).unwrap();
+    let names = list(&dir, 100);
+    assert_eq!(names.len(), 2000);
+    for name in &names {
+        let path = format!("LARGE/{}", name.to_lowercase());
+        assert_eq!(read(&path).unwrap(), b"hello", "{path}");
+    }
+    assert_eq!(
+        read("large/file2000").unwrap_err().kind(),
+        ErrorKind::NotFound
+    );
 }

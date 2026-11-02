@@ -75,8 +75,10 @@ pub use xfs_error::*;
 
 mod attr;
 mod be;
+mod da;
 mod dir;
 mod file_map;
+mod hash;
 mod inode;
 mod io;
 mod log;

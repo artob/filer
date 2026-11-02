@@ -44,14 +44,16 @@ pub(crate) mod feature {
     pub(crate) const EXTFLG: u16 = 0x1000;
     /// Directories are version 2.
     pub(crate) const DIRV2: u16 = 0x2000;
+    /// Directories match names case-insensitively.
+    pub(crate) const ASCII_CI: u16 = 0x4000;
     /// `sb_features2` holds more features.
     pub(crate) const MOREBITS: u16 = 0x8000;
 
     /// The version features this driver reads: `ATTR` (0x10), `NLINK`,
     /// `QUOTA` (0x40), `ALIGN` (0x80), `DALIGN` (0x100), `LOGV2` (0x400),
-    /// `SECTOR` (0x800), `EXTFLG`, `DIRV2`, and `MOREBITS`. Not `SHARED`
-    /// (0x200), nor yet `ASCII_CI` (0x4000).
-    pub(crate) const SUPPORTED_VERSION: u16 = 0xBDF0;
+    /// `SECTOR` (0x800), `EXTFLG`, `DIRV2`, `ASCII_CI`, and `MOREBITS`.
+    /// Not `SHARED` (0x200).
+    pub(crate) const SUPPORTED_VERSION: u16 = 0xFDF0;
     /// The version features every volume this driver reads has.
     pub(crate) const REQUIRED_VERSION: u16 = NLINK | EXTFLG | DIRV2;
 
@@ -415,6 +417,11 @@ impl Superblock {
         self.features.features2 & feature::FTYPE != 0
     }
 
+    /// Returns `true` if directories match names case-insensitively.
+    pub(crate) const fn ascii_ci(&self) -> bool {
+        self.features.version & feature::ASCII_CI != 0
+    }
+
     /// Returns a 64-bit volume identifier: the UUID's halves, folded.
     pub(crate) fn volume_id(&self) -> u64 {
         let [a, b] = [&self.uuid[..8], &self.uuid[8..]]
@@ -635,6 +642,10 @@ pub(crate) mod tests {
         );
         assert_eq!(s.volume_id(), 0x3333_3333_3333_3333);
         assert_eq!(s.volume_len(), 4096 * 1024);
+        assert!(!s.ascii_ci());
+        let mut f = Fields::new();
+        f.versionnum |= 0x4000;
+        assert!(f.parse().unwrap().ascii_ci());
     }
 
     #[test]
@@ -777,7 +788,6 @@ pub(crate) mod tests {
             bits,
         };
         check(|f| f.versionnum |= 0x200, version(0x200));
-        check(|f| f.versionnum |= 0x4000, version(0x4000));
         let features2 = |bits| XfsError::UnsupportedFeatures {
             set: FeatureSet::Features2,
             bits,

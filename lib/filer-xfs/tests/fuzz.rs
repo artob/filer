@@ -145,6 +145,7 @@ fn corpus() -> Vec<Seed> {
         include_bytes!("fixtures/xfs-dirs.sparse"),
         include_bytes!("fixtures/xfs-attrs.sparse"),
         include_bytes!("fixtures/xfs-attrs-512.sparse"),
+        include_bytes!("fixtures/xfs-ci.sparse"),
     ]
     .into_iter()
     .map(|sparse| Seed::new(Sparse::new(sparse)))

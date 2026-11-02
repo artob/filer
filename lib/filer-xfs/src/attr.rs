@@ -2,7 +2,8 @@
 
 //! Extended attributes, in an inode's attribute fork: in short form, in
 //! the fork itself; or in blocks the fork maps, one leaf alone, or nodes
-//! over leaves, which hold entries in hash order. A value is in its entry,
+//! over leaves, which hold entries in hash order, so that one attribute is
+//! found by its name's hash. A value is in its entry,
 //! or remote, in blocks of the fork of its own. `attr1` and `attr2`
 //! volumes differ only in how an inode's fork offset is chosen, which it
 //! records either way, so they read alike.
@@ -14,18 +15,18 @@
 //! `system.posix_acl_default`, converted, and so does this driver.
 
 use crate::{
-    XfsError, be,
+    XfsError, be, da,
     file_map::FileMap,
+    hash,
     inode::{Format, Inode},
     io,
     superblock::Superblock,
 };
 use alloc::{collections::BTreeSet, vec, vec::Vec};
-use filer_api::{Error, OpKind, ReadAt, XattrNs};
+use filer_api::{Error, ErrorKind, OpKind, ReadAt, XattrNs};
 
-/// The magic numbers of a leaf block, and of a node block.
+/// The magic number of a leaf block.
 const LEAF_MAGIC: u16 = 0xFBEE;
-const NODE_MAGIC: u16 = 0xFEBE;
 
 /// The sizes of a short-form fork's header and an entry's fixed fields.
 const SHORT_HEADER: usize = 4;
@@ -34,15 +35,6 @@ const SHORT_ENTRY: usize = 3;
 /// The sizes of a leaf block's header and of an entry in its table.
 const LEAF_HEADER: usize = 32;
 const LEAF_ENTRY: usize = 8;
-
-/// The sizes of a node block's header and of an entry: a hash and the
-/// block below it.
-const NODE_HEADER: usize = 16;
-const NODE_ENTRY: usize = 8;
-
-/// The levels of the deepest node tree read: far more than the 2^32
-/// blocks a fork can address need.
-const MAX_LEVEL: u16 = 16;
 
 /// Entry flags: the value is in the entry; the `trusted` namespace; the
 /// `security` namespace; a parent pointer, which is hidden; and an entry
@@ -75,6 +67,7 @@ enum Value {
 /// An entry of a leaf block, as it is on disk.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct LeafEntry {
+    hash: u32,
     flags: u8,
     name: Vec<u8>,
     value: Value,
@@ -196,6 +189,7 @@ fn parse_leaf(block: &[u8], inode: u64) -> Result<Vec<LeafEntry>, XfsError> {
     let mut found = Vec::with_capacity(count);
     for i in 0..count {
         let entry = LEAF_HEADER.saturating_add(i.saturating_mul(LEAF_ENTRY));
+        let hash = be::u32_at(block, entry).ok_or(bad)?;
         let at = usize::from(be::u16_at(block, entry.saturating_add(4)).ok_or(bad)?);
         let flags = block.get(entry.saturating_add(6)).copied().ok_or(bad)?;
         if at < table_end {
@@ -227,34 +221,14 @@ fn parse_leaf(block: &[u8], inode: u64) -> Result<Vec<LeafEntry>, XfsError> {
             }
             Value::Remote { block: first, len }
         };
-        found.push(LeafEntry { flags, name, value });
+        found.push(LeafEntry {
+            hash,
+            flags,
+            name,
+            value,
+        });
     }
     Ok(found)
-}
-
-/// Parses a node block of `level`, at least 1: a header holding the count
-/// at 12 and the level at 14, then entries of a hash and the fork block
-/// below it.
-fn parse_node(block: &[u8], inode: u64) -> Result<(u16, Vec<u32>), XfsError> {
-    let bad = XfsError::BadXattr { inode };
-    if be::u16_at(block, 8) != Some(NODE_MAGIC) {
-        return Err(bad);
-    }
-    let count = usize::from(be::u16_at(block, 12).ok_or(bad)?);
-    let level = be::u16_at(block, 14).ok_or(bad)?;
-    if count == 0 || level == 0 || level > MAX_LEVEL {
-        return Err(bad);
-    }
-    let children = (0..count)
-        .map(|i| {
-            let at = NODE_HEADER
-                .checked_add(i.checked_mul(NODE_ENTRY)?)?
-                .checked_add(4)?;
-            be::u32_at(block, at)
-        })
-        .collect::<Option<Vec<u32>>>()
-        .ok_or(bad)?;
-    Ok((level, children))
 }
 
 /// The blocks of an attribute fork.
@@ -312,13 +286,14 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
                 return Err(self.bad());
             }
             let block = self.read(logical, size).await?;
-            if be::u16_at(&block, 8) == Some(NODE_MAGIC) {
-                let (found_level, children) = parse_node(&block, self.inode).map_err(fail)?;
-                if level.is_some_and(|level| level != found_level) {
+            if da::magic(&block) == Some(da::NODE_MAGIC) {
+                let node = da::Node::parse(&block).ok_or_else(|| self.bad())?;
+                if level.is_some_and(|level| level != node.level) {
                     return Err(self.bad());
                 }
-                let below = found_level.saturating_sub(1);
-                stack.extend(children.into_iter().rev().map(|child| (child, Some(below))));
+                let below = node.level.saturating_sub(1);
+                let children = node.entries.into_iter().rev();
+                stack.extend(children.map(|(_, child)| (child, Some(below))));
                 continue;
             }
             if level.is_some_and(|level| level != 0) {
@@ -335,6 +310,125 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
         }
         Ok(found)
     }
+
+    /// Finds the value of the attribute `name` of namespace `flags` by its
+    /// hash, failing if the index is inconsistent.
+    async fn find(&self, flags: u8, name: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+        let fail = |error: XfsError| error.into_error(self.op);
+        let size = usize::try_from(self.sb.block_size()).map_err(|_| self.bad())?;
+        let hash = hash::hash(name);
+        // Down the nodes, if any, to the leaf where entries of the hash
+        // start; each block's level one below its parent's.
+        let mut at = 0;
+        let mut level = None;
+        let mut block = loop {
+            let block = self.read(at, size).await?;
+            match da::magic(&block) {
+                Some(da::NODE_MAGIC) => {
+                    let node = da::Node::parse(&block).ok_or_else(|| self.bad())?;
+                    if level.is_some_and(|level| level != node.level) {
+                        return Err(self.bad());
+                    }
+                    let Some(child) = node.child(hash) else {
+                        return Ok(None);
+                    };
+                    level = Some(node.level.saturating_sub(1));
+                    at = child;
+                },
+                Some(LEAF_MAGIC) if level.is_none_or(|level| level == 0) => break block,
+                _ => return Err(self.bad()),
+            }
+        };
+        // Along the leaves, while entries of the hash may run on.
+        let mut seen = BTreeSet::new();
+        loop {
+            if !seen.insert(at) {
+                return Err(self.bad());
+            }
+            let entries = parse_leaf(&block, self.inode).map_err(fail)?;
+            if entries.is_sorted_by_key(|entry| entry.hash) {
+                let start = entries.partition_point(|entry| entry.hash < hash);
+                for entry in entries.into_iter().skip(start) {
+                    if entry.hash != hash {
+                        return Ok(None);
+                    }
+                    let hidden = entry.flags & (INCOMPLETE | PARENT) != 0;
+                    if hidden || entry.flags & (ROOT | SECURE) != flags || entry.name != name {
+                        continue;
+                    }
+                    return Ok(Some(match entry.value {
+                        Value::Local(value) => value,
+                        Value::Remote { block, len } => self.read(block, len).await?,
+                    }));
+                }
+            } else {
+                return Err(self.bad());
+            }
+            match da::forw(&block).ok_or_else(|| self.bad())? {
+                0 => return Ok(None),
+                next => at = next,
+            }
+            block = self.read(at, size).await?;
+        }
+    }
+}
+
+/// Returns where the attribute `name` of namespace `ns` is on disk: its
+/// namespace's flags, its name there, and whether it is an ACL Linux
+/// shows converted; or `None` if it cannot be on an XFS volume.
+fn on_disk(ns: XattrNs, name: &[u8]) -> Option<(u8, &[u8], bool)> {
+    Some(match (ns, name) {
+        (XattrNs::User, name) => (0, name, false),
+        (XattrNs::Trusted, name) => (ROOT, name, false),
+        (XattrNs::Security, name) => (SECURE, name, false),
+        (XattrNs::System, b"posix_acl_access") => (ROOT, b"SGI_ACL_FILE", true),
+        (XattrNs::System, b"posix_acl_default") => (ROOT, b"SGI_ACL_DEFAULT", true),
+        _ => return None,
+    })
+}
+
+/// Reads the value of `inode`'s attribute `name` of namespace `ns`, if it
+/// has it: in a fork of blocks, by its hash, unless the index is
+/// inconsistent.
+pub(crate) async fn find<S: ReadAt + ?Sized>(
+    source: &S,
+    sb: &Superblock,
+    inode: &Inode,
+    ns: XattrNs,
+    name: &[u8],
+    op: OpKind,
+) -> Result<Option<Vec<u8>>, Error> {
+    let number = inode.number();
+    let fail = |error: XfsError| error.into_error(op);
+    let Some((flags, on_disk, convert)) = on_disk(ns, name) else {
+        return Ok(None);
+    };
+    let blocks = inode
+        .attr()
+        .filter(|fork| matches!(fork.format, Format::Extents | Format::Btree) && fork.extents > 0);
+    if let Some(fork) = blocks {
+        let blocks = Blocks {
+            source,
+            sb,
+            map: FileMap::new(number, fork, sb).map_err(fail)?,
+            inode: number,
+            op,
+        };
+        match blocks.find(flags, on_disk).await {
+            Err(error) if error.kind() == ErrorKind::Corrupt => {},
+            Ok(Some(value)) if convert => {
+                let bad = XfsError::BadXattr { inode: number };
+                return acl(&value).ok_or(bad).map(Some).map_err(fail);
+            },
+            found => return found,
+        }
+    }
+    // Short form, or an inconsistent index: all of them.
+    Ok(read(source, sb, inode, op)
+        .await?
+        .into_iter()
+        .find(|xattr| xattr.ns == ns && xattr.name == name)
+        .map(|xattr| xattr.value))
 }
 
 /// Reads all of `inode`'s attributes.
@@ -393,7 +487,8 @@ mod tests {
     }
 
     /// A 4 KiB leaf block of entries of (flags, name, value), the value
-    /// local if `LOCAL` is set, else naming a block and a length.
+    /// local if `LOCAL` is set, else naming a block and a length; each
+    /// entry's hash is its name's.
     fn leaf(entries: &[(u8, &[u8], Value)]) -> Vec<u8> {
         let mut b = vec![0; 4096];
         b[8..10].copy_from_slice(&LEAF_MAGIC.to_be_bytes());
@@ -418,24 +513,21 @@ mod tests {
             end = (end - bytes.len()) & !3;
             b[end..end + bytes.len()].copy_from_slice(&bytes);
             let at = LEAF_HEADER + LEAF_ENTRY * i;
-            b[at..at + 4].copy_from_slice(&u32::try_from(i).unwrap().to_be_bytes());
+            b[at..at + 4].copy_from_slice(&hash::hash(name).to_be_bytes());
             b[at + 4..at + 6].copy_from_slice(&u16::try_from(end).unwrap().to_be_bytes());
             b[at + 6] = *flags;
         }
         b
     }
 
-    /// A 4 KiB node block of `level` over fork blocks `children`.
+    /// A 4 KiB node block of `level` over fork blocks `children`, their
+    /// hashes ascending.
     fn node(level: u16, children: &[u32]) -> Vec<u8> {
-        let mut b = vec![0; 4096];
-        b[8..10].copy_from_slice(&NODE_MAGIC.to_be_bytes());
-        b[12..14].copy_from_slice(&u16::try_from(children.len()).unwrap().to_be_bytes());
-        b[14..16].copy_from_slice(&level.to_be_bytes());
-        for (i, child) in children.iter().enumerate() {
-            let at = NODE_HEADER + NODE_ENTRY * i;
-            b[at + 4..at + 8].copy_from_slice(&child.to_be_bytes());
-        }
-        b
+        let entries: Vec<(u32, u32)> = (0..)
+            .zip(children)
+            .map(|(hash, &child)| (hash, child))
+            .collect();
+        crate::da::tests::node(4096, level, &entries)
     }
 
     /// The ACL `tests/fixtures/make.sh` sets, in XFS's form.
@@ -720,5 +812,82 @@ mod tests {
         let mut bad = image;
         put(&mut bad, 10, &node(0, &[1]));
         corrupt(&bad, &inode);
+    }
+
+    #[test]
+    fn finds_attributes_by_hash() {
+        let sb = Superblock::parse(&Fields::new().bytes()).unwrap();
+        let remote: Vec<u8> = (0..5000).map(|i| u8::try_from(i % 251).unwrap()).collect();
+        let mut image = image();
+        // A node over two leaves, whose entries are in hash order: `big`
+        // (0x18B4E7) and `zz` (0x3D7A) in the second; and in the first,
+        // `a` (0x61), and `b`, but with `zz`'s hash, so that entries of it
+        // run on into the second leaf, which `forw` names.
+        let big = hash::hash(b"big");
+        let zz = hash::hash(b"zz");
+        assert!(zz < big);
+        put(
+            &mut image,
+            10,
+            &crate::da::tests::node(4096, 1, &[(zz, 1), (big, 2)]),
+        );
+        let mut first = leaf(&[
+            (LOCAL, b"a", Value::Local(b"1".to_vec())),
+            (LOCAL | ROOT, b"b", Value::Local(b"2".to_vec())),
+        ]);
+        first[LEAF_HEADER + LEAF_ENTRY..LEAF_HEADER + LEAF_ENTRY + 4]
+            .copy_from_slice(&zz.to_be_bytes());
+        first[..4].copy_from_slice(&2u32.to_be_bytes());
+        put(&mut image, 11, &first);
+        put(
+            &mut image,
+            12,
+            &leaf(&[
+                (LOCAL, b"zz", Value::Local(b"3".to_vec())),
+                (
+                    0,
+                    b"big",
+                    Value::Remote {
+                        block: 3,
+                        len: 5000,
+                    },
+                ),
+            ]),
+        );
+        put(&mut image, 13, &remote);
+        let inode = mapped(&[record(0, 10, 5, false)]);
+        let find = |image: &[u8], ns, name: &[u8]| {
+            block_on(super::find(image, &sb, &inode, ns, name, OpKind::GetXattr)).unwrap()
+        };
+        assert_eq!(find(&image, XattrNs::User, b"a"), Some(b"1".to_vec()));
+        assert_eq!(find(&image, XattrNs::User, b"zz"), Some(b"3".to_vec()));
+        assert_eq!(find(&image, XattrNs::User, b"big"), Some(remote.clone()));
+        // `b` is not where its hash says: not found, as Linux would not.
+        assert_eq!(find(&image, XattrNs::Trusted, b"b"), None);
+        // Namespaces must match.
+        assert_eq!(find(&image, XattrNs::Trusted, b"a"), None);
+        assert_eq!(find(&image, XattrNs::System, b"other"), None);
+        assert_eq!(find(&image, XattrNs::User, b"nope"), None);
+
+        // An inconsistent index, a leaf out of hash order, falls back to
+        // reading them all.
+        let mut bad = image.clone();
+        put(
+            &mut bad,
+            12,
+            &leaf(&[
+                (
+                    0,
+                    b"big",
+                    Value::Remote {
+                        block: 3,
+                        len: 5000,
+                    },
+                ),
+                (LOCAL, b"zz", Value::Local(b"3".to_vec())),
+            ]),
+        );
+        assert_eq!(find(&bad, XattrNs::User, b"big"), Some(remote));
+        assert_eq!(find(&bad, XattrNs::User, b"zz"), Some(b"3".to_vec()));
     }
 }

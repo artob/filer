@@ -2778,7 +2778,14 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
   and `..` explicit. One block holds everything (`XD2B`), or data blocks
   (`XD2D`) are indexed by hash leaves at 32 GiB (`0xD2F1`, or
   `0xD2FF` under `0xFEBE` nodes) and free-space blocks at 64 GiB; a
-  linear read of the data blocks sees exactly the entries.
+  linear read of the data blocks sees exactly the entries. Leaves hold a
+  hash and an address in 8-byte units of the data; nodes a hash, the
+  greatest below, and a fork block; leaves of one level are chained.
+- The name hash: four bytes at a time, shifted by 21, 14, 7, and 0
+  bits, XORed with the hash so far rotated left by 28; a last group of
+  fewer is shifted less, and the hash rotated by 7 bits for each.
+  `ASCII_CI` folds bytes 0x41 to 0x5A and 0xC0 to 0xDE but 0xD7 to lower
+  case, Latin-1's letters too, both to hash and to compare.
 - Symlinks: local, or in blocks of the data fork; with v5 each extent's
   first block starts with an `XSLM` header.
 - Extended attributes: short form in the attribute fork (size, count,
@@ -2804,7 +2811,9 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
 - Ids: the inode number, with a volume id folded from the UUID, so hard
   links share an id.
 - Names are bytes: UTF-8 ones are names, others `ForeignName`s. Lookups
-  match bytes exactly (case-insensitively in ASCII with `ASCII_CI`).
+  match bytes exactly (folded to lower case with `ASCII_CI`), by hash
+  in a directory of leaves, falling back to a scan if the index is
+  inconsistent; so are attributes.
   Listings are in directory order, skip `.`, `..`, and unused space, and
   take their kind from the type byte (none without `FTYPE`); a
   `DirCookie` is the directory offset of the next entry (its tag in a

@@ -19,6 +19,8 @@ pub struct Template {
     pub inodes: u64,
     /// The first single-block directory.
     pub directory: u64,
+    /// The first leaf block of a directory of nodes over leaves.
+    pub leaves: u64,
     /// The first `BMAP` B+ tree block.
     pub bmap: u64,
     /// The first extended attribute leaf.
@@ -30,6 +32,12 @@ pub struct Template {
 pub fn attrs() -> &'static Template {
     static TEMPLATE: OnceLock<Template> = OnceLock::new();
     TEMPLATE.get_or_init(|| build(include_bytes!("../../tests/fixtures/xfs-attrs.sparse")))
+}
+
+/// The volume of `make.sh`'s `dirs`: directories of every form.
+pub fn dirs() -> &'static Template {
+    static TEMPLATE: OnceLock<Template> = OnceLock::new();
+    TEMPLATE.get_or_init(|| build(include_bytes!("../../tests/fixtures/xfs-dirs.sparse")))
 }
 
 /// The volume of `make.sh`'s `fill`, with 4 KiB blocks: files of every
@@ -67,6 +75,7 @@ fn build(sparse: &[u8]) -> Template {
             .unwrap_or(0)
     };
     let directory = find(0, 4, 0x5844_3242);
+    let leaves = find(8, 2, 0xD2FF);
     let bmap = find(0, 4, 0x424D_4150);
     let xattrs = find(8, 2, 0xFBEE);
     Template {
@@ -74,6 +83,7 @@ fn build(sparse: &[u8]) -> Template {
         superblock: 0,
         inodes,
         directory,
+        leaves,
         bmap,
         xattrs,
     }

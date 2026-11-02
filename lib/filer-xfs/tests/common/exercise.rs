@@ -70,17 +70,12 @@ impl ReadAt for Overlay {
     }
 }
 
-/// How deep the walk descends, and how many entries it visits at most:
-/// each lookup scans its directory, so walking a large one is quadratic.
+/// How deep the walk descends, and how many entries it visits at most.
 const MAX_DEPTH: usize = 12;
-const MAX_ENTRIES: usize = 1024;
+const MAX_ENTRIES: usize = 4096;
 
 /// How much of each extended attribute the walk reads.
 const XATTR_BUF: usize = 4096;
-
-/// How many of a file's extended attributes the walk reads: each read
-/// scans the attribute fork.
-const MAX_XATTRS: usize = 16;
 
 /// How much of each file the walk reads, as a corrupt size may make a
 /// sparse file of terabytes, and in what pieces.
@@ -99,11 +94,13 @@ pub struct Outcome {
 /// Opens and walks `source`, panicking if any answer is wrong: an error
 /// other than `Corrupt` or `Unsupported`, a listed entry whose id differs
 /// from its stat's, a read that does not return exactly the file's length
-/// (up to a cap), a special file that opens, or a listed extended
-/// attribute that cannot be found.
+/// (up to a cap), or a special file that opens.
 ///
 /// Listed kinds come from directory entries and stats from inodes; a
-/// corrupt volume may make them disagree, which is not checked.
+/// corrupt volume may make them disagree, which is not checked. Lookups
+/// of names and attributes follow the hash indexes, as Linux's do, which
+/// a corrupt block may no longer match: what is listed may then not be
+/// found.
 pub fn exercise(source: Overlay) -> Outcome {
     let mut outcome = Outcome::default();
     match block_on(Xfs::open(source)) {
@@ -167,6 +164,10 @@ fn walk(root: &Dir<Xfs<Overlay>>, dir: &str, depth: usize, outcome: &mut Outcome
         };
         let metadata = match block_on(root.symlink_metadata(path.as_str(), MetaMask::all())) {
             Ok(metadata) => metadata,
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                outcome.errors += 1;
+                continue;
+            },
             Err(error) => {
                 allowed(&error, &path, outcome);
                 continue;
@@ -191,9 +192,9 @@ fn walk(root: &Dir<Xfs<Overlay>>, dir: &str, depth: usize, outcome: &mut Outcome
                         &path,
                         outcome,
                     );
-                    match read(&file) {
+                    let len = metadata.len.unwrap_or(0);
+                    match read(&file, len) {
                         Ok(read) => {
-                            let len = metadata.len.unwrap_or(0);
                             assert_eq!(read, len.min(READ_CAP), "{path}: len");
                             outcome.bytes += read;
                         },
@@ -214,11 +215,17 @@ fn walk(root: &Dir<Xfs<Overlay>>, dir: &str, depth: usize, outcome: &mut Outcome
     }
 }
 
-/// Reads `file` up to the cap, returning how many bytes it read.
-fn read(file: &filer_api::File<filer_api::ReadOnly, Xfs<Overlay>>) -> filer_api::Result<u64> {
+/// Reads `file`, of `len` bytes by its stat, up to the cap, returning how
+/// many bytes it read. Pieces are no larger than what is left, but for a
+/// byte past the end, which must not be read.
+fn read(
+    file: &filer_api::File<filer_api::ReadOnly, Xfs<Overlay>>,
+    len: u64,
+) -> filer_api::Result<u64> {
     let mut at = 0;
     while at < READ_CAP {
-        let BufResult(result, _) = block_on(file.read_at(Vec::with_capacity(READ_PIECE), at));
+        let piece = len.saturating_sub(at).clamp(1, READ_PIECE as u64) as usize;
+        let BufResult(result, _) = block_on(file.read_at(Vec::with_capacity(piece), at));
         match result? {
             0 => break,
             n => at += n as u64,
@@ -227,8 +234,8 @@ fn read(file: &filer_api::File<filer_api::ReadOnly, Xfs<Overlay>>) -> filer_api:
     Ok(at.min(READ_CAP))
 }
 
-/// Reads the start of the first extended attributes `names` lists with `get`,
-/// checking that each is found, and read as far as the buffer holds.
+/// Reads the start of each extended attribute `names` lists with `get`,
+/// checking that each found is read as far as the buffer holds.
 fn xattrs(
     names: filer_api::Result<Vec<XattrEntry>>,
     get: impl Fn(XattrEntry) -> BufResult<Option<u64>, Vec<u8>>,
@@ -239,7 +246,7 @@ fn xattrs(
         Ok(names) => names,
         Err(error) => return allowed(&error, path, outcome),
     };
-    for name in names.into_iter().take(MAX_XATTRS) {
+    for name in names {
         let BufResult(result, buf) = get(name.clone());
         match result {
             Ok(Some(len)) => {
@@ -250,7 +257,7 @@ fn xattrs(
                 );
                 outcome.bytes += buf.len() as u64;
             },
-            Ok(None) => panic!("{path}: listed {name} not found"),
+            Ok(None) => outcome.errors += 1,
             Err(error) => allowed(&error, path, outcome),
         }
     }

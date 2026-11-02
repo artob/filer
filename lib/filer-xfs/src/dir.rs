@@ -1,26 +1,30 @@
 // This is free and unencumbered software released into the public domain.
 
-//! Directories (version 2), read linearly.
+//! Directories (version 2).
 //!
 //! A small directory is short form, its entries packed in the inode. A
 //! larger one keeps its entries in data blocks of the directory block size
 //! at the start of its data fork, below 32 GiB: one block holding its hash
 //! leaves too, or many indexed by leaf, node, and free-space blocks at 32
 //! and 64 GiB. Reading the data blocks in order sees exactly the entries,
-//! so the indexes are not needed to list or find them.
+//! so listings read them so. Lookups in a directory of many blocks follow
+//! the name's hash down the nodes to the leaves, whose entries' addresses,
+//! in 8-byte units, are the offsets of the data entries; a directory of
+//! one block, or whose index is inconsistent, is scanned instead.
 //!
 //! An entry's directory offset is its position in the data blocks, and in
 //! a short-form directory the tag it keeps for the same purpose; offsets
 //! ascend through a directory, so they serve as cookies.
 
 use crate::{
-    XfsError, be,
+    XfsError, be, da,
     file_map::FileMap,
+    hash,
     inode::{Format, Inode},
     superblock::Superblock,
 };
-use alloc::vec::Vec;
-use filer_api::{Error, FileKind, OpKind, ReadAt};
+use alloc::{collections::BTreeSet, vec::Vec};
+use filer_api::{Error, ErrorKind, FileKind, OpKind, ReadAt};
 
 /// The magic numbers of a single-block directory's block, `XD2B`, and of
 /// a data block, `XD2D`.
@@ -39,8 +43,18 @@ const LEAF_ENTRY: usize = 8;
 /// The tag that starts an unused region instead of an inode number.
 const FREE_TAG: u16 = 0xFFFF;
 
-/// Data blocks lie below this directory offset; leaves start there.
+/// Data blocks lie below this directory offset; leaves start there, and
+/// free-space blocks at twice it.
 const LEAF_OFFSET: u64 = 32 << 30;
+
+/// The magic numbers of a leaf block alone, `leaf1`, and of one of many
+/// below nodes, `leafn`.
+const LEAF1_MAGIC: u16 = 0xD2F1;
+const LEAFN_MAGIC: u16 = 0xD2FF;
+
+/// The size of a leaf block's header: its siblings, magic, count, and
+/// stale count.
+const LEAF_HEADER: usize = 16;
 
 /// An entry of a directory.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -73,6 +87,32 @@ fn kind(byte: u8) -> Result<Option<FileKind>, ()> {
         7 => FileKind::Symlink,
         _ => return Err(()),
     }))
+}
+
+/// Parses the hash leaves of a leaf block of `magic`: hashes, ascending,
+/// and data entries' addresses, 0 for a stale leaf. A `leaf1` block ends
+/// with the best free space of each data block, and their count.
+fn parse_leaves(block: &[u8], magic: u16) -> Option<Vec<(u32, u32)>> {
+    let count = usize::from(be::u16_at(block, 12)?);
+    let mut end = block.len();
+    if magic == LEAF1_MAGIC {
+        let tail = end.checked_sub(4)?;
+        let bests = usize::try_from(be::u32_at(block, tail)?).ok()?;
+        end = tail.checked_sub(bests.checked_mul(2)?)?;
+    }
+    if count.checked_mul(LEAF_ENTRY)?.checked_add(LEAF_HEADER)? > end {
+        return None;
+    }
+    let mut leaves = Vec::with_capacity(count);
+    for i in 0..count {
+        let at = LEAF_HEADER.checked_add(i.checked_mul(LEAF_ENTRY)?)?;
+        let hash = be::u32_at(block, at)?;
+        if leaves.last().is_some_and(|&(last, _)| hash < last) {
+            return None;
+        }
+        leaves.push((hash, be::u32_at(block, at.checked_add(4)?)?));
+    }
+    Some(leaves)
 }
 
 /// Checks that `name` is a name: not empty, without `/` or NUL.
@@ -168,61 +208,76 @@ pub(crate) fn parse_block(
     let mut entries = Vec::new();
     let mut at = DATA_HEADER;
     while at < end {
-        let offset = u64::try_from(at)
-            .ok()
-            .and_then(|at| base.checked_add(at))
-            .unwrap_or(u64::MAX);
-        let bad = XfsError::BadDirEntry { dir, offset };
-        let tag_of = |len: usize| {
-            let tag_at = at.checked_add(len)?.checked_sub(2)?;
-            be::u16_at(block, tag_at).filter(|&tag| usize::from(tag) == at)
-        };
-        if be::u16_at(block, at).ok_or(bad)? == FREE_TAG {
-            // An unused region: its length, and its tag at its end.
-            let len = usize::from(be::u16_at(block, at.saturating_add(2)).ok_or(bad)?);
-            if len == 0 || len % 8 != 0 || at.saturating_add(len) > end || tag_of(len).is_none() {
-                return Err(bad);
-            }
-            at = at.saturating_add(len);
-            continue;
-        }
-        // An entry: inode number, name length, name, type, and tag,
-        // padded to 8 bytes.
-        let inode = be::u64_at(block, at).ok_or(bad)?;
-        let name_len = usize::from(block.get(at.saturating_add(8)).copied().ok_or(bad)?);
-        let name_at = at.saturating_add(9);
-        let name = block
-            .get(name_at..name_at.saturating_add(name_len))
-            .filter(|name| is_name(name))
-            .ok_or(bad)?;
-        let kind = if ftype {
-            let byte = block
-                .get(name_at.saturating_add(name_len))
-                .copied()
-                .ok_or(bad)?;
-            kind(byte).map_err(|()| bad)?
-        } else {
-            None
-        };
-        let len = 11usize
-            .saturating_add(name_len)
-            .saturating_add(usize::from(ftype))
-            .next_multiple_of(8);
-        if at.saturating_add(len) > end || tag_of(len).is_none() || inode == 0 {
-            return Err(bad);
-        }
-        entries.push(DirEntry {
-            offset,
-            inode,
-            name: name.to_vec(),
-            kind,
-        });
+        let (entry, len) = parse_entry(block, at, end, base, ftype, dir)?;
+        entries.extend(entry);
         at = at.saturating_add(len);
     }
     if at != end {
         return Err(bad_block);
     }
     Ok(entries)
+}
+
+/// Parses what is at `at` in data block `block` of directory `dir`, which
+/// is at directory offset `base` and holds entries up to `end`: an entry,
+/// or an unused region, which is `None`; and its length. An entry is an
+/// inode number, name length, name, type (with `ftype`), and tag, padded
+/// to 8 bytes; an unused region `FREE_TAG`, its length, and a tag at its
+/// end. Each tag is the offset of its start in the block.
+fn parse_entry(
+    block: &[u8],
+    at: usize,
+    end: usize,
+    base: u64,
+    ftype: bool,
+    dir: u64,
+) -> Result<(Option<DirEntry>, usize), XfsError> {
+    let offset = u64::try_from(at)
+        .ok()
+        .and_then(|at| base.checked_add(at))
+        .unwrap_or(u64::MAX);
+    let bad = XfsError::BadDirEntry { dir, offset };
+    let tag_of = |len: usize| {
+        let tag_at = at.checked_add(len)?.checked_sub(2)?;
+        be::u16_at(block, tag_at).filter(|&tag| usize::from(tag) == at)
+    };
+    if be::u16_at(block, at).ok_or(bad)? == FREE_TAG {
+        let len = usize::from(be::u16_at(block, at.saturating_add(2)).ok_or(bad)?);
+        if len == 0 || len % 8 != 0 || at.saturating_add(len) > end || tag_of(len).is_none() {
+            return Err(bad);
+        }
+        return Ok((None, len));
+    }
+    let inode = be::u64_at(block, at).ok_or(bad)?;
+    let name_len = usize::from(block.get(at.saturating_add(8)).copied().ok_or(bad)?);
+    let name_at = at.saturating_add(9);
+    let name = block
+        .get(name_at..name_at.saturating_add(name_len))
+        .filter(|name| is_name(name))
+        .ok_or(bad)?;
+    let kind = if ftype {
+        let byte = block
+            .get(name_at.saturating_add(name_len))
+            .copied()
+            .ok_or(bad)?;
+        kind(byte).map_err(|()| bad)?
+    } else {
+        None
+    };
+    let len = 11usize
+        .saturating_add(name_len)
+        .saturating_add(usize::from(ftype))
+        .next_multiple_of(8);
+    if at.saturating_add(len) > end || tag_of(len).is_none() || inode == 0 {
+        return Err(bad);
+    }
+    let entry = DirEntry {
+        offset,
+        inode,
+        name: name.to_vec(),
+        kind,
+    };
+    Ok((Some(entry), len))
 }
 
 /// A directory's contents.
@@ -315,7 +370,8 @@ impl Directory {
         parse_block(&bytes, base, single, sb.has_ftype(), dir).map_err(fail)
     }
 
-    /// Finds the entry `name`, matching bytes exactly.
+    /// Finds the entry `name`: matching bytes exactly, or, on an
+    /// `ASCII_CI` volume, folded to lower case.
     pub(crate) async fn lookup<S: ReadAt + ?Sized>(
         &self,
         source: &S,
@@ -323,13 +379,188 @@ impl Directory {
         name: &[u8],
         op: OpKind,
     ) -> Result<Option<DirEntry>, Error> {
+        if self.blocks(sb) > 1 {
+            match self.find(source, sb, name, op).await {
+                Err(error) if error.kind() == ErrorKind::Corrupt => {},
+                found => return found,
+            }
+        }
         for index in 0..self.blocks(sb) {
             let entries = self.block(source, sb, index, op).await?;
-            if let Some(entry) = entries.into_iter().find(|entry| entry.name == name) {
+            if let Some(entry) = entries
+                .into_iter()
+                .find(|entry| matches(sb, &entry.name, name))
+            {
                 return Ok(Some(entry));
             }
         }
         Ok(None)
+    }
+
+    /// Finds the entry `name` by its hash, in a directory of many blocks,
+    /// failing if the index is inconsistent.
+    async fn find<S: ReadAt + ?Sized>(
+        &self,
+        source: &S,
+        sb: &Superblock,
+        name: &[u8],
+        op: OpKind,
+    ) -> Result<Option<DirEntry>, Error> {
+        let Self::Blocks { dir, .. } = self else {
+            return Ok(None);
+        };
+        let fail = || {
+            XfsError::BadDirBlock {
+                dir: *dir,
+                offset: LEAF_OFFSET,
+            }
+            .into_error(op)
+        };
+        let hash = if sb.ascii_ci() {
+            hash::hash_folded(name)
+        } else {
+            hash::hash(name)
+        };
+        // Down the nodes, if any, to the leaf where entries of the hash
+        // start; each block's level one below its parent's.
+        let first = LEAF_OFFSET
+            .checked_div(u64::from(sb.block_size()))
+            .ok_or_else(fail)?;
+        let mut at = first;
+        let mut level = None;
+        let mut block = loop {
+            let block = self.index_block(source, sb, at, op).await?;
+            match da::magic(&block) {
+                Some(da::NODE_MAGIC) => {
+                    let node = da::Node::parse(&block).ok_or_else(fail)?;
+                    if level.is_some_and(|level| level != node.level) {
+                        return Err(fail());
+                    }
+                    let Some(child) = node.child(hash) else {
+                        return Ok(None);
+                    };
+                    level = Some(node.level.saturating_sub(1));
+                    at = u64::from(child);
+                },
+                Some(LEAF1_MAGIC) if level.is_none() => break block,
+                Some(LEAFN_MAGIC) if level == Some(0) => break block,
+                _ => return Err(fail()),
+            }
+        };
+        // Along the leaves, while entries of the hash may run on.
+        let mut seen = BTreeSet::new();
+        loop {
+            if !seen.insert(at) {
+                return Err(fail());
+            }
+            let magic = da::magic(&block).ok_or_else(fail)?;
+            let leaves = parse_leaves(&block, magic).ok_or_else(fail)?;
+            let start = leaves.partition_point(|&(found, _)| found < hash);
+            for &(found, address) in leaves.get(start..).unwrap_or_default() {
+                if found != hash {
+                    return Ok(None);
+                }
+                if address == 0 {
+                    continue;
+                }
+                let entry = self.entry_at(source, sb, address, op).await?;
+                if matches(sb, &entry.name, name) {
+                    return Ok(Some(entry));
+                }
+            }
+            match da::forw(&block).ok_or_else(fail)? {
+                0 => return Ok(None),
+                next => at = u64::from(next),
+            }
+            block = self.index_block(source, sb, at, op).await?;
+            if da::magic(&block) != Some(LEAFN_MAGIC) {
+                return Err(fail());
+            }
+        }
+    }
+
+    /// Reads the directory block of leaves or nodes at fork block `at`,
+    /// which must be between the leaves' offset and the free-space
+    /// blocks'.
+    async fn index_block<S: ReadAt + ?Sized>(
+        &self,
+        source: &S,
+        sb: &Superblock,
+        at: u64,
+        op: OpKind,
+    ) -> Result<Vec<u8>, Error> {
+        let Self::Blocks { dir, map, .. } = self else {
+            return Ok(Vec::new());
+        };
+        let fail = || {
+            XfsError::BadDirBlock {
+                dir: *dir,
+                offset: LEAF_OFFSET,
+            }
+            .into_error(op)
+        };
+        let off = at
+            .checked_mul(u64::from(sb.block_size()))
+            .filter(|&off| (LEAF_OFFSET..LEAF_OFFSET.saturating_mul(2)).contains(&off))
+            .ok_or_else(fail)?;
+        let len = usize::try_from(sb.dir_block_size()).map_err(|_| fail())?;
+        let end = off.saturating_add(u64::from(sb.dir_block_size()));
+        let bytes = map.read(source, sb, end, off, len, op).await?;
+        if bytes.len() != len {
+            return Err(fail());
+        }
+        Ok(bytes)
+    }
+
+    /// Returns the data entry at `address`, in 8-byte units, which must be
+    /// one, in a directory of many blocks.
+    async fn entry_at<S: ReadAt + ?Sized>(
+        &self,
+        source: &S,
+        sb: &Superblock,
+        address: u32,
+        op: OpKind,
+    ) -> Result<DirEntry, Error> {
+        let offset = u64::from(address).saturating_mul(8);
+        let fail = || {
+            XfsError::BadDirEntry {
+                dir: self.inode(),
+                offset,
+            }
+            .into_error(op)
+        };
+        let Self::Blocks { dir, map, size } = self else {
+            return Err(fail());
+        };
+        let block = u64::from(sb.dir_block_size());
+        let base = offset
+            .checked_div(block)
+            .and_then(|index| index.checked_mul(block))
+            .filter(|&base| base < *size)
+            .ok_or_else(fail)?;
+        let len = usize::try_from(block).map_err(|_| fail())?;
+        let bytes = map.read(source, sb, *size, base, len, op).await?;
+        if bytes.len() != len || be::u32_at(&bytes, 0) != Some(DATA_MAGIC) {
+            return Err(fail());
+        }
+        let at = usize::try_from(offset.saturating_sub(base))
+            .ok()
+            .filter(|&at| at >= DATA_HEADER)
+            .ok_or_else(fail)?;
+        match parse_entry(&bytes, at, len, base, sb.has_ftype(), *dir) {
+            Ok((Some(entry), _)) => Ok(entry),
+            _ => Err(fail()),
+        }
+    }
+}
+
+/// Returns whether entry name `found` matches `name`: exactly, or, on an
+/// `ASCII_CI` volume, folded to lower case.
+fn matches(sb: &Superblock, found: &[u8], name: &[u8]) -> bool {
+    if sb.ascii_ci() {
+        hash::eq_folded(found, name)
+    } else {
+        found == name
     }
 }
 
