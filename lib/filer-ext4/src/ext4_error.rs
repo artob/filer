@@ -88,6 +88,31 @@ pub enum Ext4Error {
         inode: u32,
     },
 
+    /// A directory's entry is malformed: its record length is not a
+    /// multiple of four, too short for its name, or past its block; its
+    /// name is empty, longer than 255 bytes, or holds `/` or NUL; or its
+    /// kind is unknown.
+    BadDirEntry {
+        /// The directory's inode.
+        dir: u32,
+        /// The entry's offset in the directory.
+        offset: u64,
+    },
+
+    /// A directory's size is not a whole number of blocks.
+    BadDirectorySize {
+        /// The directory's inode.
+        dir: u32,
+        /// Its size in bytes.
+        size: u64,
+    },
+
+    /// A symlink's target is empty, longer than a block, or holds NUL.
+    BadSymlink {
+        /// The symlink's inode.
+        inode: u32,
+    },
+
     /// The volume uses incompatible features this driver does not read.
     UnsupportedFeatures {
         /// The incompatible feature flags not understood.
@@ -161,6 +186,13 @@ impl core::fmt::Display for Ext4Error {
             Self::FileTooLarge { inode } => {
                 write!(f, "inode {inode} is larger than its map addresses")
             },
+            Self::BadDirEntry { dir, offset } => {
+                write!(f, "directory {dir} has an invalid entry at {offset}")
+            },
+            Self::BadDirectorySize { dir, size } => {
+                write!(f, "directory {dir} has an invalid size {size}")
+            },
+            Self::BadSymlink { inode } => write!(f, "symlink {inode} has an invalid target"),
             Self::UnsupportedFeatures { incompat } => {
                 write!(f, "unsupported incompatible features {incompat:#X}")
             },

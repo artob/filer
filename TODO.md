@@ -684,9 +684,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-04: Directories and symlinks.** Linear entries in both
-  formats (htree blocks read linearly), fast and slow symlinks. Done when
-  malformed entries are `Corrupt`.
 - [ ] **EXT-05: Driver.** `Ext4`: open, read, stat, list, read links,
   close. Done when an `mke2fs` image reads.
 - [ ] **EXT-06: Fixtures and verification.** `mke2fs` fixtures

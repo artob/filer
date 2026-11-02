@@ -77,8 +77,10 @@ mod ext4_error;
 pub use ext4_error::*;
 
 mod block_map;
+mod dir;
 mod group;
 mod inode;
 mod io;
 mod le;
 mod superblock;
+mod symlink;
