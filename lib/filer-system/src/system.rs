@@ -8,8 +8,12 @@ use std::path::Path;
 #[cfg(unix)]
 type Native = filer_posix::Posix;
 
+/// The native driver for this target.
+#[cfg(windows)]
+type Native = filer_windows::Windows;
+
 /// No native driver exists for this target yet.
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 type Native = crate::unsupported::Unsupported;
 
 /// The platform's native filesystem driver.
@@ -116,7 +120,7 @@ mod tests {
     use super::*;
     use filer_api::{ErrorKind, ambient_authority};
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     fn block_on<F: Future>(future: F) -> F::Output {
         let mut future = core::pin::pin!(future);
         let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
@@ -127,7 +131,7 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     #[test]
     fn reads_files_through_the_native_driver() {
         use std::{fs, process};
@@ -140,7 +144,7 @@ mod tests {
         fs::remove_dir_all(&path).unwrap();
     }
 
-    #[cfg(not(unix))]
+    #[cfg(not(any(unix, windows)))]
     #[test]
     fn reports_unsupported_platforms() {
         let error = open_ambient(".", ambient_authority()).unwrap_err();

@@ -1,12 +1,14 @@
 #!/bin/sh
 # This is free and unencumbered software released into the public domain.
 #
-# Runs `filer-windows`'s tests in Windows from Linux: builds them for
-# `x86_64-pc-windows-gnu`, which needs the MinGW-w64 linker
-# (`gcc-mingw-w64-x86-64`) and `rustup target add x86_64-pc-windows-gnu`,
-# then runs each test binary as a job in the `filer-windows` container
-# that `lib/filer-ntfs/tests/fixtures/make-windows.sh` sets up, and prints
-# what they print. Doctests do not run this way.
+# Runs `filer-windows`'s tests (or those of the packages in
+# `$FILER_WINDOWS_PACKAGES`, such as `filer-windows filer-system`) in
+# Windows from Linux: builds them for `x86_64-pc-windows-gnu`, which needs
+# the MinGW-w64 linker (`gcc-mingw-w64-x86-64`) and `rustup target add
+# x86_64-pc-windows-gnu`, then runs each test binary as a job in the
+# `filer-windows` container that `lib/filer-ntfs/tests/fixtures/
+# make-windows.sh` sets up, and prints what they print. Doctests do not
+# run this way.
 #
 # Usage: lib/filer-windows/tests/windows.sh [test-binary-args...], from the
 # repository root; the state directory is `$FILER_WINDOWS`
@@ -22,7 +24,9 @@ docker ps --format '{{.Names}}' | grep -qx filer-windows || docker start filer-w
     exit 1
 }
 
-bins=$(cargo test -p filer-windows --target "$target" --no-run --message-format=json |
+packages=${FILER_WINDOWS_PACKAGES:-filer-windows}
+bins=$(cargo test $(printf -- '-p %s ' $packages) --target "$target" --no-run \
+    --message-format=json |
     python3 -Ic '
 import json, sys
 for line in sys.stdin:

@@ -714,10 +714,10 @@ Read-only first, designed for writing (§17.13, D46). One commit per item.
 ## `filer-system`
 
 - [ ] **SYS-01: Wire in new native drivers.**
-  Replace the `Unsupported` stub with `filer_windows::Windows`, the
-  `filer-wasi`, `filer-whatwg`, and `filer-uefi` drivers as each gains a
-  constructor and a way to open roots. Done when `filer-system`'s tests
-  pass on Windows, under Wasmtime, and in a browser.
+  Replace the `Unsupported` stub with the `filer-wasi`, `filer-whatwg`,
+  and `filer-uefi` drivers as each gains a constructor and a way to open
+  roots, as `filer_windows::Windows` now is on Windows. Done when
+  `filer-system`'s tests pass under Wasmtime and in a browser.
 
 ## Umbrella crate
 

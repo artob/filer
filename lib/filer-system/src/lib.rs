@@ -10,7 +10,7 @@
 //! | Platform | Driver |
 //! | --- | --- |
 //! | Linux, macOS, the BSDs, other Unix | `filer-posix` |
-//! | Windows | `filer-windows` (not implemented yet) |
+//! | Windows | `filer-windows` |
 //! | WASI | `filer-wasi` (not implemented yet) |
 //! | Browsers (`wasm32-unknown-unknown`) | `filer-whatwg` (not implemented yet) |
 //!
@@ -68,5 +68,5 @@ mod system;
 #[cfg(feature = "std")]
 pub use system::*;
 
-#[cfg(all(feature = "std", not(unix)))]
+#[cfg(all(feature = "std", not(any(unix, windows))))]
 mod unsupported;

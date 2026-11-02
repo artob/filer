@@ -2294,14 +2294,14 @@ when the frontend (API items in `TODO.md`) exists.
 The one dependency for programs replacing `std::fs` (D37). It re-exports
 all of `filer_api` (answering Q5 for this crate: yes, since it is meant to
 be the only import) and adds `System`, a newtype over the target's native
-driver (`filer-posix` on Unix, later `filer-windows` and `filer-wasi`),
-target-gated like `filer-cli`. Being a newtype rather than an alias, it has
-one API everywhere (`System::blocking()`, `open_ambient`, and a free
-`filer_system::open_ambient`). On targets without a driver yet, including
-`wasm32-unknown-unknown`, `System` wraps a private stub that fails every
-operation with `Unsupported`, so portable code compiles everywhere and
-starts working as drivers land; nothing is emulated. Without `std` it is
-just the re-export.
+driver (`filer-posix` on Unix, `filer-windows` on Windows, later
+`filer-wasi`), target-gated like `filer-cli`. Being a newtype rather than
+an alias, it has one API everywhere (`System::blocking()`, `open_ambient`,
+and a free `filer_system::open_ambient`). On targets without a driver yet,
+including `wasm32-unknown-unknown`, `System` wraps a private stub that
+fails every operation with `Unsupported`, so portable code compiles
+everywhere and starts working as drivers land; nothing is emulated.
+Without `std` it is just the re-export.
 
 The broader umbrella of §3.8 (re-exporting `filer-heap`, middleware, and
 the rest as modules, Q11) remains separate and may not be needed.
