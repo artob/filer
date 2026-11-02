@@ -10,13 +10,8 @@
 
 use crate::{Ext4Error, inode::Inode, superblock::Superblock};
 use alloc::vec::Vec;
-use core::num::NonZeroU64;
 use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::{
-    le,
-    map::{self, Mapping, Run},
-    read_exact,
-};
+use filer_fs::{le, map::Run, read_exact};
 
 /// The number of direct block numbers, and where the indirect, double
 /// indirect, and triple indirect ones are in `i_block`.
@@ -60,6 +55,11 @@ impl BlockMap {
             inode: number,
             roots,
         })
+    }
+
+    /// Returns the inode whose map this is.
+    pub(crate) const fn inode(&self) -> u32 {
+        self.inode
     }
 
     /// Maps the run of at most `max` blocks (at least 1) from file block
@@ -165,53 +165,6 @@ impl BlockMap {
             return Err(bad);
         }
         sb.block_offset(block).ok_or(bad)
-    }
-
-    /// Reads up to `len` bytes of the file's `size` from `off`: fewer only
-    /// at its end. Holes read as zeros.
-    pub(crate) async fn read<S: ReadAt + ?Sized>(
-        &self,
-        source: &S,
-        sb: &Superblock,
-        size: u64,
-        off: u64,
-        len: usize,
-        op: OpKind,
-    ) -> Result<Vec<u8>, Error> {
-        map::read(&OnVolume { map: self, sb }, source, size, off, len, op).await
-    }
-}
-
-/// A block map on its volume, as [`map::read`] reads through it.
-struct OnVolume<'a> {
-    map: &'a BlockMap,
-    sb: &'a Superblock,
-}
-
-impl Mapping for OnVolume<'_> {
-    fn block_size(&self) -> NonZeroU64 {
-        NonZeroU64::new(u64::from(self.sb.block_size())).unwrap_or(NonZeroU64::MIN)
-    }
-
-    fn offset(&self, block: u64) -> Option<u64> {
-        self.sb.block_offset(block)
-    }
-
-    async fn map<S: ReadAt + ?Sized>(
-        &self,
-        source: &S,
-        logical: u64,
-        max: u64,
-        op: OpKind,
-    ) -> Result<Run, Error> {
-        self.map.map(source, self.sb, logical, max, op).await
-    }
-
-    fn corrupt(&self, op: OpKind) -> Error {
-        Ext4Error::FileTooLarge {
-            inode: self.map.inode,
-        }
-        .into_error(op)
     }
 }
 
@@ -423,7 +376,7 @@ mod tests {
         roots[..2].copy_from_slice(&[100, 101]);
         roots[INDIRECT] = 200;
         let size = 12 * 1024 + 10;
-        let map = v.map(&roots, size).unwrap();
+        let map = crate::file_map::FileMap::Blocks(v.map(&roots, size).unwrap());
         let read =
             |off, len| block_on(map.read(&v.image, &v.sb, size, off, len, OpKind::Read)).unwrap();
         let all = read(0, usize::MAX);

@@ -2653,8 +2653,12 @@ TEA cipher, and checked against `debugfs`'s `dx_hash`.
   in-inode extended attributes.
 - `i_block` is, by kind and flags: 12 direct, one indirect, one double
   and one triple indirect block numbers (0 is a hole); an extent tree
-  (ext4); inline data (ext4); a symlink target under 60 bytes; or a
-  device number.
+  (ext4, the `extents` flag: a header of magic `0xF30A`, then four
+  entries, interior nodes of indexes and leaves of extents in blocks
+  below, at most five levels; an extent longer than 32768 is allocated
+  but unwritten, and reads as zeros, as do blocks no extent holds);
+  inline data (ext4); a symlink target under 60 bytes; or a device
+  number.
 - Directories: blocks of entries (inode, record length, name length,
   and with `filetype` a type byte), never split across blocks; inode 0
   marks an unused entry. Hashed (htree) directories hide their index in
@@ -2721,7 +2725,9 @@ block two files share, POSIX ACLs, a name that is not UTF-8) and inode
 flags; two of a hashed directory of 700 long names, by TEA over
 unsigned bytes two levels deep, and by the legacy hash over signed ones,
 whose every name the index finds as the linear read lists it; ext3
-volumes of 1 and 4 KiB blocks; and three that need
+volumes of 1 and 4 KiB blocks, with and without extents, and one of a
+file of 2000 extents two levels deep and one allocated but unwritten
+but for its middle; and three that need
 recovery, of 1 and 4 KiB blocks and with `metadata_csum`, copied while
 mounted after transactions committed but before they were written back
 (files made, renamed, and removed; a directory and an indirect block
@@ -2735,7 +2741,7 @@ directories in hash order, Filer every directory in block order.
 every hash version, seeded and not, over names of every length a block
 of the hash matters to. `tests/fuzz.rs` mutates the fixtures'
 superblocks, descriptors, inode tables, root directories, hash indexes,
-journals, and attribute blocks and walks each result,
+extent trees, journals, and attribute blocks and walks each result,
 as for `filer-fat`, and `fuzz/` has `cargo-fuzz` targets for the same
 structures (D50).
 

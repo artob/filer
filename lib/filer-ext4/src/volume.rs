@@ -5,8 +5,8 @@
 
 use crate::{
     Ext4Error, Options,
-    block_map::BlockMap,
     dir::Directory,
+    file_map::FileMap,
     inode::{self, Inode},
     journal,
     superblock::{self, ROOT_INODE, Superblock},
@@ -87,8 +87,8 @@ impl<S: ReadAt> Volume<S> {
     }
 
     /// Returns the block map of `node`.
-    pub(crate) fn map(&self, node: &Node, op: OpKind) -> Result<BlockMap, Error> {
-        BlockMap::new(node.inode(), &self.sb).map_err(|error| error.into_error(op))
+    pub(crate) fn map(&self, node: &Node, op: OpKind) -> Result<FileMap, Error> {
+        FileMap::new(node.inode(), &self.sb).map_err(|error| error.into_error(op))
     }
 
     /// Returns the contents of directory `node`.
@@ -131,7 +131,7 @@ impl<S: ReadAt> Volume<S> {
 impl<S: ReadAt + 'static> FileSystem for Volume<S> {
     type Node = Node;
     type Dir = Directory;
-    type File = BlockMap;
+    type File = FileMap;
 
     fn key(&self) -> &DriverKey {
         &self.key
@@ -166,14 +166,14 @@ impl<S: ReadAt + 'static> FileSystem for Volume<S> {
         self.directory(dir, op)
     }
 
-    async fn open_file(&self, file: &Node, op: OpKind) -> Result<BlockMap, Error> {
+    async fn open_file(&self, file: &Node, op: OpKind) -> Result<FileMap, Error> {
         self.map(file, op)
     }
 
     async fn read(
         &self,
         node: &Node,
-        map: &BlockMap,
+        map: &FileMap,
         off: u64,
         max: usize,
         op: OpKind,

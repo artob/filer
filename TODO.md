@@ -680,8 +680,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-12: Extents.** Extent trees, uninitialized extents as zeros.
-  Done when `extent` fixtures read.
 - [ ] **EXT-13: Large volumes.** `64bit` descriptors and block numbers,
   `flex_bg`, `meta_bg`, `huge_file`. Done when fixtures of each read.
 - [ ] **EXT-14: Checksums.** CRC32C and CRC16 in pure Rust;

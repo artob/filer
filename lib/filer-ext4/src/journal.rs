@@ -36,7 +36,7 @@
 //! the whole transaction guards, and fast commits are not replayed: such
 //! volumes are refused, unless they are read as they are.
 
-use crate::{Ext4Error, block_map::BlockMap, inode, superblock::Superblock};
+use crate::{Ext4Error, file_map::FileMap, inode, superblock::Superblock};
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::future::Future;
 use filer_api::{BufResult, Error, FileKind, IoBufMut, OpKind, ReadAt, checksum::Crc32c};
@@ -431,7 +431,7 @@ async fn replay_from<J: ReadAt + ?Sized>(journal: &J, sb: &Superblock) -> Result
 struct File<'a, S: ?Sized> {
     source: &'a S,
     sb: &'a Superblock,
-    map: BlockMap,
+    map: FileMap,
     size: u64,
 }
 
@@ -477,7 +477,7 @@ pub(crate) async fn replay<S: ReadAt + ?Sized>(
     if inode.kind() != FileKind::File {
         return Err(Ext4Error::BadInode { inode: number }.into_error(op));
     }
-    let map = BlockMap::new(&inode, sb).map_err(|error| error.into_error(op))?;
+    let map = FileMap::new(&inode, sb).map_err(|error| error.into_error(op))?;
     let journal = File {
         source,
         sb,

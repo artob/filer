@@ -7,7 +7,7 @@
 
 use crate::{
     Ext4Error,
-    block_map::BlockMap,
+    file_map::FileMap,
     htree::{self, Probe},
     superblock::Superblock,
 };
@@ -106,7 +106,7 @@ pub(crate) fn parse_block(
 #[derive(Clone, Debug)]
 pub(crate) struct Directory {
     inode: u32,
-    map: BlockMap,
+    map: FileMap,
     size: u64,
     indexed: bool,
 }
@@ -118,7 +118,7 @@ impl Directory {
     /// many times. Lookups follow the index of one `indexed`.
     pub(crate) fn new(
         inode: u32,
-        map: BlockMap,
+        map: FileMap,
         size: u64,
         indexed: bool,
         sb: &Superblock,
@@ -264,7 +264,7 @@ mod tests {
             let mut raw = Raw::file(size);
             raw.mode = 0o040_755;
             let inode = Inode::parse(&raw.bytes(256), 12).unwrap();
-            let map = BlockMap::new(&inode, &sb).unwrap();
+            let map = FileMap::new(&inode, &sb).unwrap();
             Directory::new(12, map, size, false, &sb).map(|dir| dir.blocks(&sb))
         };
         assert_eq!(directory(4096 * 1024), Ok(4096));

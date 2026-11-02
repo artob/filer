@@ -4,7 +4,7 @@
 
 use crate::{
     Ext4Error,
-    block_map::BlockMap,
+    file_map::FileMap,
     inode::{I_BLOCK_SIZE, Inode},
     superblock::Superblock,
 };
@@ -45,7 +45,7 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
     let target = if is_fast(inode, sb) {
         inode.block().get(..len).ok_or_else(bad)?.to_vec()
     } else {
-        let map = BlockMap::new(inode, sb).map_err(fail)?;
+        let map = FileMap::new(inode, sb).map_err(fail)?;
         map.read(source, sb, size, 0, len, op).await?
     };
     if target.len() != len || target.contains(&0) {

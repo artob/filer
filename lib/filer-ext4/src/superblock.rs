@@ -39,10 +39,12 @@ pub(crate) mod feature {
     pub(crate) const INCOMPAT_FILETYPE: u32 = 0x2;
     /// Incompatible: the journal holds changes not yet applied.
     pub(crate) const INCOMPAT_RECOVER: u32 = 0x4;
+    /// Incompatible: files may be mapped by extent trees.
+    pub(crate) const INCOMPAT_EXTENTS: u32 = 0x40;
 }
 
 /// The incompatible features this driver reads.
-const SUPPORTED_INCOMPAT: u32 = feature::INCOMPAT_FILETYPE;
+const SUPPORTED_INCOMPAT: u32 = feature::INCOMPAT_FILETYPE | feature::INCOMPAT_EXTENTS;
 
 /// A volume's feature sets. Revision 0 volumes have none.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -526,10 +528,12 @@ pub(crate) mod tests {
     #[test]
     fn refuses_unknown_incompatible_features() {
         let mut f = Fields::new();
-        f.features.incompat |= 0x40 | 0x8_0000;
+        f.features.incompat |= 0x4000_0000 | 0x8_0000 | feature::INCOMPAT_EXTENTS;
         assert_eq!(
             f.parse(),
-            Err(Ext4Error::UnsupportedFeatures { incompat: 0x8_0040 })
+            Err(Ext4Error::UnsupportedFeatures {
+                incompat: 0x4008_0000
+            })
         );
         assert_eq!(
             Ext4Error::UnsupportedFeatures { incompat: 0x40 }.kind(),

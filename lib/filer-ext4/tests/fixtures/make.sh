@@ -254,6 +254,26 @@ for i in range(700):
 PY
 }
 
+# Writes files of extents into directory `$1`: `fragmented`, 2000 blocks
+# with a hole after each, which an extent tree of 1 KiB blocks holds two
+# levels deep, each 100th block a pattern and the rest written zeros; and
+# `unwritten`, 1 MiB allocated but not written, but for 4 KiB in its
+# middle.
+deep() {
+    sudo python3 -I - "$1" <<'PY'
+import os, sys
+root = sys.argv[1]
+with open(os.path.join(root, "fragmented"), "wb") as f:
+    for i in range(2000):
+        f.seek(i * 2048)
+        f.write(bytes([i % 251 + 1]) * 1024 if i % 100 == 0 else bytes(1024))
+with open(os.path.join(root, "unwritten"), "wb") as f:
+    os.posix_fallocate(f.fileno(), 0, 1 << 20)
+    f.seek(512 << 10)
+    f.write(bytes(range(256)) * 16)
+PY
+}
+
 # Makes fixture `$1` as `make` does, filled by `big`, its directories
 # hashed by version `$4` (`legacy`, `half_md4`, or `tea`) over signed or,
 # if `$5` is `unsigned`, unsigned bytes.
@@ -346,6 +366,9 @@ make ext2-attrs-128 8M "-t ext2 -b 1024 -I 128" attrs
 make spec 32M "-t ext2 -b 4096" spec
 make ext3-1k 32M "-t ext3 -b 1024" fill
 make ext3-4k 32M "-t ext3 -b 4096" fill
+make ext3-extents-1k 32M "-t ext3 -b 1024 -O extent" fill
+make ext3-extents-4k 32M "-t ext3 -b 4096 -O extent" fill
+make ext3-extents-deep 16M "-t ext3 -b 1024 -O extent" deep
 hashed ext2-htree-tea 16M "-t ext2 -b 1024" tea unsigned
 hashed ext2-htree-legacy 16M "-t ext2 -b 4096" legacy signed
 dirty ext3-dirty 32M "-t ext3 -b 4096"

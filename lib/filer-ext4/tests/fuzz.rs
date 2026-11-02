@@ -3,8 +3,8 @@
 //! A dependency-free, structure-aware fuzzer: it mutates real volumes
 //! where their structures are (the superblock, the group descriptors,
 //! the inode table, directories and their hash indexes, indirect blocks,
-//! attribute blocks, and the journal's superblock and log of volumes that
-//! need recovery),
+//! extent tree nodes, attribute blocks, and the journal's superblock and
+//! log of volumes that need recovery),
 //! with values chosen to hit boundaries, and walks each result with
 //! `common::exercise`, which checks that every answer is consistent.
 //!
@@ -67,7 +67,9 @@ impl Seed {
                 && u64::from(u16::from_le_bytes([b[4], b[5]])) == block.min(0xFFFF)
                 && b[6] == 0
                 && b[8..10] != [0, 0];
-            if root || node {
+            // And extent tree nodes, of their magic number.
+            let extents = b[..2] == 0xF30Au16.to_le_bytes();
+            if root || node || extents {
                 regions.push(at..at + block);
             }
             at += block;
@@ -118,6 +120,7 @@ fn corpus() -> Vec<Seed> {
         include_bytes!("fixtures/ext3-dirty-1k.sparse"),
         include_bytes!("fixtures/ext3-dirty-csum.sparse"),
         include_bytes!("fixtures/ext2-htree-tea.sparse"),
+        include_bytes!("fixtures/ext3-extents-deep.sparse"),
     ]
     .into_iter()
     .map(|sparse| Seed::new(unsparse(sparse)))

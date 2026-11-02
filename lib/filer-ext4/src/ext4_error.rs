@@ -82,6 +82,12 @@ pub enum Ext4Error {
         block: u64,
     },
 
+    /// A file's extent tree is malformed: a node's magic number, count, or
+    /// depth is wrong, or its entries are out of order or overlap.
+    BadExtentTree {
+        /// The file's inode.
+        inode: u32,
+    },
     /// A file's size is more than its map can address.
     FileTooLarge {
         /// The file's inode.
@@ -205,6 +211,9 @@ impl core::fmt::Display for Ext4Error {
             Self::BadInode { inode } => write!(f, "inode {inode} is invalid"),
             Self::BadBlockNumber { inode, block } => {
                 write!(f, "inode {inode} maps block {block}, outside the volume")
+            },
+            Self::BadExtentTree { inode } => {
+                write!(f, "inode {inode} has an invalid extent tree")
             },
             Self::FileTooLarge { inode } => {
                 write!(f, "inode {inode} is larger than its map addresses")

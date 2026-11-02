@@ -324,6 +324,49 @@ fn looks_up_names_in_hashed_directories() {
     }
 }
 
+/// ext3 with extents: every file mapped by an extent tree.
+#[test]
+fn reads_extents() {
+    check(
+        include_bytes!("fixtures/ext3-extents-1k.sparse"),
+        Times::Nanoseconds,
+    );
+    check(
+        include_bytes!("fixtures/ext3-extents-4k.sparse"),
+        Times::Nanoseconds,
+    );
+}
+
+/// A file of 2000 extents, in a tree two levels deep, with a hole after
+/// each; and one allocated but unwritten but for its middle, read as
+/// zeros.
+#[test]
+fn reads_deep_extent_trees_and_unwritten_extents() {
+    let root = block_on(Ext4::open(unsparse(include_bytes!(
+        "fixtures/ext3-extents-deep.sparse"
+    ))))
+    .unwrap();
+    let read =
+        |path: &str| block_on(block_on(root.open_file(path)).unwrap().read_to_end()).unwrap();
+    let fragmented = read("fragmented");
+    assert_eq!(fragmented.len(), 1999 * 2048 + 1024);
+    for (i, block) in fragmented.chunks(1024).enumerate() {
+        let expected = match i {
+            i if i % 2 == 1 => 0,
+            i if i / 2 % 100 == 0 => u8::try_from(i / 2 % 251 + 1).unwrap(),
+            _ => 0,
+        };
+        assert!(block.iter().all(|&b| b == expected), "block {i}");
+    }
+    let unwritten = read("unwritten");
+    assert_eq!(unwritten.len(), 1 << 20);
+    let middle = 512 << 10;
+    assert!(unwritten[..middle].iter().all(|&b| b == 0));
+    let pattern: Vec<u8> = (0..=255).cycle().take(4096).collect();
+    assert_eq!(&unwritten[middle..middle + 4096], &pattern[..]);
+    assert!(unwritten[middle + 4096..].iter().all(|&b| b == 0));
+}
+
 #[test]
 fn reads_128_byte_inodes() {
     check(include_bytes!("fixtures/ext2-128.sparse"), Times::Seconds);
