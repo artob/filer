@@ -1,0 +1,51 @@
+# Coverage-guided fuzzing of `filer-ext4` with `cargo-fuzz` (nightly):
+# `cargo fuzz run superblock` from `lib/filer-ext4`. libFuzzer is C++, so
+# this crate stays outside the workspace and is never a dependency of a
+# published crate (DESIGN.md D50); `tests/fuzz.rs` is the pure-Rust fuzzer.
+
+[package]
+name = "filer-ext4-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+filer-api = { path = "../../filer-api" }
+filer-ext4 = { path = ".." }
+filer-spec = { path = "../../filer-spec" }
+libfuzzer-sys = "0.4"
+
+# Its own workspace, apart from the repository's.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "superblock"
+path = "fuzz_targets/superblock.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "inodes"
+path = "fuzz_targets/inodes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "directory"
+path = "fuzz_targets/directory.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "xattrs"
+path = "fuzz_targets/xattrs.rs"
+test = false
+doc = false
+bench = false

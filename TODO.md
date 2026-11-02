@@ -684,8 +684,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-08: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when
-  both run clean. Ends ext2 parity.
 - [ ] **EXT-09: ext3 journals.** Clean journals read as ext2; volumes
   needing recovery are refused, with an opt-in to read them as they are.
   Done when `mke2fs -t ext3` fixtures read and agree with the kernel.
@@ -777,9 +775,9 @@ Blocked on ASK-01; `filer-system` (§17.10) may make it unnecessary.
   tests select fixtures by environment variable and skip cleanly without.
 - [ ] **CI-02: Miri.** For `filer-api`, `filer-heap`, routing drivers, and
   pure parts of `sys` modules. Done when green.
-- [ ] **CI-03: Fuzz build check.** The `fuzz/` crates of `filer-fat` and
-  `filer-ntfs` build in CI; extend the job to each new one (D50). Done
-  when all build.
+- [ ] **CI-03: Fuzz build check.** The `fuzz/` crates of `filer-ext4`,
+  `filer-fat`, and `filer-ntfs` build in CI; extend the job to each new
+  one (D50). Done when all build.
 - [ ] **CI-04: `cargo-semver-checks`.** Once a release exists, per crate.
 - [ ] **DOC-01: Crate overviews.** Rustdoc landing pages with feature-gated
   examples passing the packaged-doctest job in all four feature modes.

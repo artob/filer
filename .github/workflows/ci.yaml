@@ -110,6 +110,7 @@ jobs:
       - name: Build fuzz targets
         # Outside the workspace, as libFuzzer is C++ (DESIGN.md D50).
         run: |
+          cargo build --manifest-path lib/filer-ext4/fuzz/Cargo.toml --locked
           cargo build --manifest-path lib/filer-fat/fuzz/Cargo.toml --locked
           cargo build --manifest-path lib/filer-ntfs/fuzz/Cargo.toml --locked
           cargo build --manifest-path lib/filer-zip/fuzz/Cargo.toml --locked

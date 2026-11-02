@@ -2675,8 +2675,10 @@ kernel, and all agree: names, kinds, sizes, contents, link targets, all
 four times to the nanosecond, flags, and extended attributes. Listings
 are compared sorted, as the order differs by design: Linux lists hashed
 directories in hash order, Filer every directory in block order.
-`tests/fuzz.rs` and `fuzz/` mutate the superblock, the descriptors,
-inode tables, and directories, as for `filer-fat`.
+`tests/fuzz.rs` mutates the fixtures' superblocks, descriptors, inode
+tables, root directories, and attribute blocks and walks each result,
+as for `filer-fat`, and `fuzz/` has `cargo-fuzz` targets for the same
+structures (D50).
 
 ### 17.16 Later
 
@@ -3098,8 +3100,8 @@ of leverage:
    `FILE_SHARE_DELETE` and rename it), case-insensitive directories, APFS
    clones on the macOS job.
 6. **Fuzzing.** Pure-Rust fuzz tests, plus `cargo-fuzz` targets under the
-   D50 exemption, for on-disk parsers (`filer-fat`, `filer-ntfs`, and
-   `filer-zip` have both), name and
+   D50 exemption, for on-disk parsers (`filer-ext4`, `filer-fat`,
+   `filer-ntfs`, and `filer-zip` have both), name and
    path validation, the journal parser, Windows reparse-data parsing, and
    archive member names.
 7. **Miri.** `filer-api`, `filer-heap`, and the routing drivers run under

@@ -115,14 +115,16 @@ pub(crate) struct Directory {
 
 impl Directory {
     /// Returns directory `inode`'s contents, `size` bytes mapped by `map`:
-    /// whole blocks.
+    /// whole blocks, and no more than the volume holds, as a directory has
+    /// no holes. That bounds a scan, even if a corrupt map names one block
+    /// many times.
     pub(crate) fn new(
         inode: u32,
         map: BlockMap,
         size: u64,
         sb: &Superblock,
     ) -> Result<Self, Ext4Error> {
-        if !size.is_multiple_of(u64::from(sb.block_size())) {
+        if !size.is_multiple_of(u64::from(sb.block_size())) || size > sb.volume_len() {
             return Err(Ext4Error::BadDirectorySize { dir: inode, size });
         }
         Ok(Self { inode, map, size })
@@ -210,6 +212,26 @@ mod tests {
             at += rec_len;
         }
         b
+    }
+
+    #[test]
+    fn bounds_directory_sizes() {
+        use crate::{inode::Inode, inode::tests::Raw, superblock::tests::Fields};
+        let sb = Superblock::parse(&Fields::new().bytes()).unwrap();
+        let directory = |size: u64| {
+            let mut raw = Raw::file(size);
+            raw.mode = 0o040_755;
+            let inode = Inode::parse(&raw.bytes(256), 12).unwrap();
+            let map = BlockMap::new(&inode, &sb).unwrap();
+            Directory::new(12, map, size, &sb).map(|dir| dir.blocks(&sb))
+        };
+        assert_eq!(directory(4096 * 1024), Ok(4096));
+        for size in [1000, 4097 * 1024] {
+            assert_eq!(
+                directory(size).unwrap_err(),
+                Ext4Error::BadDirectorySize { dir: 12, size }
+            );
+        }
     }
 
     #[test]

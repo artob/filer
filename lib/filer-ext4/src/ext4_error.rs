@@ -99,7 +99,8 @@ pub enum Ext4Error {
         offset: u64,
     },
 
-    /// A directory's size is not a whole number of blocks.
+    /// A directory's size is not a whole number of blocks, or more than
+    /// the volume's.
     BadDirectorySize {
         /// The directory's inode.
         dir: u32,
