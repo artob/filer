@@ -147,6 +147,14 @@ pub enum XfsError {
         bits: u32,
     },
 
+    /// The volume's log holds changes not yet written to it, so it may be
+    /// inconsistent as it is on disk.
+    NeedsRecovery,
+
+    /// The volume's log is on another device, so whether it holds changes
+    /// not yet written to the volume cannot be known.
+    ExternalLog,
+
     /// The volume is larger than its source.
     Truncated {
         /// The volume's size in bytes, per its superblock.
@@ -175,7 +183,8 @@ pub enum FeatureSet {
 impl XfsError {
     /// Returns the [`ErrorKind`] this inconsistency is reported as:
     /// [`Unsupported`](ErrorKind::Unsupported) for an unknown version or
-    /// feature, a missing one, or data on the realtime device, and
+    /// feature, a missing one, data on the realtime device, or a log that
+    /// needs recovery or cannot be checked, and
     /// [`Corrupt`](ErrorKind::Corrupt) for everything else.
     #[must_use]
     pub const fn kind(&self) -> ErrorKind {
@@ -183,7 +192,9 @@ impl XfsError {
             Self::UnsupportedVersion(_)
             | Self::MissingFeatures(_)
             | Self::UnsupportedFeatures { .. }
-            | Self::RealtimeData { .. } => ErrorKind::Unsupported,
+            | Self::RealtimeData { .. }
+            | Self::NeedsRecovery
+            | Self::ExternalLog => ErrorKind::Unsupported,
             _ => ErrorKind::Corrupt,
         }
     }
@@ -250,6 +261,8 @@ impl core::fmt::Display for XfsError {
                 };
                 write!(f, "unsupported {set} features {bits:#X}")
             },
+            Self::NeedsRecovery => f.write_str("its log needs recovery"),
+            Self::ExternalLog => f.write_str("its log is on another device"),
             Self::Truncated { volume, source } => {
                 write!(f, "volume of {volume} bytes in a source of {source}")
             },

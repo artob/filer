@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    XfsError,
+    Options, XfsError,
     dir::Directory,
     file_map::FileMap,
     volume::{Node, Volume, Walker},
@@ -60,7 +60,18 @@ impl Payload {
 
 impl<S: ReadAt + 'static> Xfs<S> {
     /// Opens the volume in `source` and returns its root directory, with
-    /// [`Rights::READ`].
+    /// [`Rights::READ`]. A volume whose log was not left clean is refused;
+    /// [`open_with`](Self::open_with) can open it anyway.
+    ///
+    /// # Errors
+    ///
+    /// As [`open_with`](Self::open_with) with the default [`Options`].
+    pub async fn open(source: S) -> Result<Dir<Self>, Error> {
+        Self::open_with(source, Options::new()).await
+    }
+
+    /// Opens the volume in `source` with `options` and returns its root
+    /// directory, with [`Rights::READ`].
     ///
     /// # Errors
     ///
@@ -68,10 +79,11 @@ impl<S: ReadAt + 'static> Xfs<S> {
     /// if the superblock or the root directory is invalid, or the source is
     /// shorter than the volume; [`Unsupported`](ErrorKind::Unsupported) if
     /// the volume is of an unknown version or uses features this driver
-    /// does not read; any error reading the source.
-    pub async fn open(source: S) -> Result<Dir<Self>, Error> {
+    /// does not read, or, unless `options` allow it, if its log needs
+    /// recovery or is on another device; any error reading the source.
+    pub async fn open_with(source: S, options: Options) -> Result<Dir<Self>, Error> {
         let op = OpKind::Open;
-        let volume = Volume::open(source).await?;
+        let volume = Volume::open(source, options).await?;
         let node = volume.root(op).await?;
         let dir = volume.directory(&node, op)?;
         let root = volume

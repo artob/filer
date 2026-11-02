@@ -4,10 +4,11 @@
 //! to, and lookup.
 
 use crate::{
-    XfsError,
+    Options, XfsError,
     dir::Directory,
     file_map::FileMap,
     inode::{self, Inode},
+    log,
     superblock::{self, Superblock},
     symlink,
 };
@@ -37,9 +38,13 @@ impl Node {
 }
 
 impl<S: ReadAt> Volume<S> {
-    /// Opens the volume in `source`, reading its superblock.
-    pub(crate) async fn open(source: S) -> Result<Self, Error> {
+    /// Opens the volume in `source`, reading its superblock, and its log
+    /// unless dirty volumes are allowed.
+    pub(crate) async fn open(source: S, options: Options) -> Result<Self, Error> {
         let sb = superblock::read(&source).await?;
+        if !options.allows_dirty() {
+            log::check(&source, &sb).await?;
+        }
         Ok(Self {
             key: DriverKey::new(),
             sb,

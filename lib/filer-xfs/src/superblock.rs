@@ -359,7 +359,7 @@ impl Superblock {
 
     /// Returns the sector size in bytes: a power of two from 512 bytes to
     /// the block size.
-    #[allow(dead_code, reason = "for the log, later")]
+    #[allow(dead_code, reason = "for checksums, later")]
     pub(crate) const fn sector_size(&self) -> u32 {
         1 << self.sector_log
     }
@@ -401,7 +401,6 @@ impl Superblock {
 
     /// Returns the internal log's first block and length in blocks, or
     /// `None` for an external log.
-    #[allow(dead_code, reason = "for the log, later")]
     pub(crate) fn internal_log(&self) -> Option<(u64, u32)> {
         self.log_start.map(|start| (start, self.log_blocks))
     }

@@ -78,9 +78,13 @@ mod dir;
 mod file_map;
 mod inode;
 mod io;
+mod log;
 mod superblock;
 mod symlink;
 mod volume;
 
 mod xfs;
 pub use xfs::*;
+
+mod options;
+pub use options::*;

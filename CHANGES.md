@@ -19,7 +19,7 @@ so any release may break compatibility.
   read-only file system drivers, with no items yet but `filer-ext4`'s
   `Ext4` driver (reading ext2 so far) and `Ext4Error`, `filer-ntfs`'s
   `Ntfs` driver, `Options`, and `NtfsError`, and `filer-xfs`'s `Xfs`
-  driver (reading version 4 volumes so far), `XfsError`, and
+  driver (reading version 4 volumes so far), `Options`, `XfsError`, and
   `FeatureSet`.
 - `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
   FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`;

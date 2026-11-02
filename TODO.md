@@ -717,14 +717,11 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-06: Log check.** Find the log's head; a volume that needs
-  recovery, or has an external log, is refused, with an opt-in to read it
-  as it is. Done when volumes shut down mid-write are refused and clean
-  ones read.
 - [ ] **XFS-07: Fixtures and verification.** v4 fixtures (512 B to
   64 KiB blocks, 256 B to 2 KiB inodes, large directory blocks, without
   `FTYPE`) filled through the kernel, `filer-spec`, and the differential
-  test. Done when all agree.
+  test; logs that have wrapped, and logs with a stripe unit, checked clean
+  and dirty. Done when all agree.
 - [ ] **XFS-08: Extended attributes and flags.** Short-form, leaf, node,
   and B+ tree attribute forks, remote values, `attr1` and `attr2`; POSIX
   ACLs as Linux returns them; inode flags. Done when fixtures agree with
