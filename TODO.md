@@ -670,9 +670,6 @@ From §17.12 (D40). Create each crate when its item starts.
 - [ ] **FMT-01: `filer-exfat`.** exFAT, its own crate (D46), over
   `filer-fs`; FAT's local times (`fat_time.rs`, `UtcOffset`) move there
   for it to share (§17.17). Done when it reads an exFAT image.
-- [ ] **FMT-03: Partitioned images.** MBR and GPT, through a general window
-  adapter over any `ReadAt`, so `filer-fat` and others read partitions.
-  Done when a partitioned image's FAT partition opens.
 - [ ] **FMT-02: Other on-disk formats (low priority).** Such as littlefs.
   Done when each reads an image.
 - [ ] **FMT-06: `filer-udf`.** Read-only UDF. Done when `mkudffs` images

@@ -13,6 +13,9 @@ keywords = ["filesystem", "disk-image", "no-std"]
 categories.workspace = true
 publish.workspace = true
 
+# Tests run from the repository, with their fixtures.
+exclude = ["tests/fixtures/*.sparse"]
+
 [lints]
 workspace = true
 

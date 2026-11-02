@@ -37,7 +37,8 @@ so any release may break compatibility.
   `read_exact`, reading from a source; `wtf8`, for UTF-16 names; `unix`,
   for Unix file types; `posix_acl`, for POSIX ACLs; and `map`, reading
   files through maps of their blocks; `FileSystem` and `Mounted`, the
-  driver shell, and `Opened`.
+  driver shell, and `Opened`; `partition`, reading MBR and GPT partition
+  tables, with `Window`, a source of one partition.
 - `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
   FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`;
   the `code-pages` feature decodes short names in any `CodePage`.

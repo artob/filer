@@ -16,7 +16,7 @@
 //! names; [`unix`] decodes Unix file types, and [`posix_acl`] encodes
 //! POSIX ACLs as Linux returns them; [`map`] reads files through maps of
 //! their blocks. A format implements [`FileSystem`], and [`Mounted`]
-//! serves it as a driver.
+//! serves it as a driver. [`partition`] reads partitioned disk images.
 //!
 //! Like the drivers, it treats volumes as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
@@ -63,6 +63,8 @@ mod read;
 pub use read::*;
 
 pub mod map;
+
+pub mod partition;
 
 mod mount;
 pub use mount::*;

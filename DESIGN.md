@@ -2933,6 +2933,10 @@ That moves here, step by step, each driver keeping only its format:
 - the driver shell: a trait a format implements, and one `Driver` over
   it, as `filer_api::archive` serves archives (§17.7, D44), but leaving
   room for writing, which FAT plans (§17.13);
+- partitioned disk images: MBR tables, extended partitions included, and
+  GPTs, at 512- and 4096-byte sectors, by their backup header if need be;
+  and a `Window` over one partition, which a driver opens as it would a
+  volume;
 - later, when a second driver needs them: the in-memory overlay that XFS
   log recovery lays over its source (for ext4's journal), and FAT's local
   times (for exFAT).

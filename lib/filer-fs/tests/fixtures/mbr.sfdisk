@@ -1,0 +1,11 @@
+label: dos
+label-id: 0x12345678
+device: mbr
+unit: sectors
+sector-size: 512
+
+mbr1 : start=        2048, size=       32768, type=c, bootable
+mbr2 : start=       34816, size=       32768, type=83
+mbr3 : start=       67584, size=       63488, type=5
+mbr5 : start=       69632, size=       16384, type=7
+mbr6 : start=       88064, size=       43008, type=83

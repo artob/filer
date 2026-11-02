@@ -1,0 +1,10 @@
+label: gpt
+label-id: FEDCBA98-7654-3210-FEDC-BA9876543210
+device: gpt-4k
+unit: sectors
+first-lba: 256
+last-lba: 16378
+sector-size: 4096
+
+gpt-4kp1 : start=         256, size=        1024, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=12121212-3434-5656-7878-909090909090, name="EFI"
+gpt-4kp2 : start=        1280, size=       14848, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=ABABABAB-CDCD-EFEF-ABAB-CDCDCDCDCDCD, name="root"

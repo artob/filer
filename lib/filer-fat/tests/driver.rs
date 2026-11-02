@@ -8,6 +8,7 @@ mod common;
 use common::{Image, KINDS, Kind, MTIME, dir, file};
 use filer_api::{Dir, Error, ErrorKind, FileKind, MetaMask};
 use filer_fat::{Fat, FatError};
+use filer_fs::partition::{self, Window};
 use filer_spec::block_on;
 
 type Root = Dir<Fat<Vec<u8>>>;
@@ -423,5 +424,28 @@ fn identifies_files_by_volume_serial_number() {
         let (a, b, none) = (id(Some(1)), id(Some(2)), id(None));
         assert!(a != b && a != none && b != none, "{kind:?}");
         assert_eq!(id(Some(1)), a);
+    }
+}
+
+#[test]
+fn opens_a_partition_of_a_disk_image() {
+    for kind in KINDS {
+        let image = Image::new(kind, vec![file("A.TXT", "partitioned")]);
+        // An MBR disk, the volume from sector 2048, as tools align it.
+        let sectors = u32::try_from(image.bytes.len() / 512).unwrap();
+        let mut disk = vec![0; 2048 * 512];
+        disk[446 + 4] = 0x0C;
+        disk[446 + 8..446 + 12].copy_from_slice(&2048u32.to_le_bytes());
+        disk[446 + 12..446 + 16].copy_from_slice(&sectors.to_le_bytes());
+        disk[510..512].copy_from_slice(&[0x55, 0xAA]);
+        disk.extend_from_slice(&image.bytes);
+        disk.resize(disk.len() + 64 * 512, 0);
+        let table = block_on(partition::read(&disk)).unwrap().unwrap();
+        let volume = Window::of(disk.clone(), table.partition(1).unwrap());
+        let root = block_on(Fat::open(volume)).unwrap();
+        let file = block_on(root.open_file("A.TXT")).unwrap();
+        assert_eq!(block_on(file.read_to_end()).unwrap(), b"partitioned");
+        // The disk itself is no volume.
+        assert!(block_on(Fat::open(disk)).is_err(), "{kind:?}");
     }
 }
