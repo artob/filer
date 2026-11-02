@@ -732,14 +732,6 @@ volume Linux mounts still needs; one step per item, each committed.
   source, the realtime device, and from a zoned section of the data
   device (`ZONED`), refused now. Done when fixtures of each read and
   agree with the kernel.
-- [ ] **XFS-17: A faster differential test.** `tests/differential.sh`
-  takes about 48 minutes: 12 comparing images, 36 checking logs. Build
-  `manifest` in release, as `tests/external.sh` does, not debug; run the
-  nine log set-ups in parallel, as they share nothing; wrap each 64 MiB
-  log in fewer rounds, by operations that log more each; let a run choose
-  its phases (images or logs); and keep fresh fixtures while
-  `tests/fixtures/make.sh` is unchanged. Done when a run takes a quarter
-  of the time, comparing as much.
 
 ## `filer-ntfs`
 

@@ -8,8 +8,9 @@
 # by `tests/external.sha256`, unpacks them, and runs `tests/external.rs`.
 # On Linux, it then compares the `manifest` example with what the kernel
 # shows of each image it mounts, as `tests/differential.sh` does: of a
-# copy it recovered, as images may need that. None of the projects' code
-# is fetched, or to be read.
+# copy it recovered, as images may need that, each image a job, as many
+# at once as there are cores (or `FILER_XFS_JOBS`). None of the projects'
+# code is fetched, or to be read.
 #
 # Usage: lib/filer-xfs/tests/external.sh, from the repository root, with
 # git, zstd, and sha256sum; for the comparison, on Linux with python3 and
@@ -18,6 +19,21 @@
 set -eu
 export TZ=UTC LC_ALL=C.UTF-8
 repo=$PWD
+# shellcheck source=lib/filer-xfs/tests/linux.sh
+. "$repo/lib/filer-xfs/tests/linux.sh"
+
+# Performs a job: comparing image `$2`, called `$3`, recovered, with
+# Linux.
+perform() {
+    recovered "$2" "$3"
+}
+
+if [ "${1:-}" = --job ]; then
+    work=$FILER_XFS_WORK
+    manifest=$FILER_XFS_MANIFEST
+    job "$2"
+fi
+
 dir=${FILER_XFS_EXTERNAL:-$repo/target/xfs-external}
 mkdir -p "$dir"
 dir=$(cd "$dir" && pwd)
@@ -59,21 +75,14 @@ while read -r _ path; do
     esac
 done < "$repo/lib/filer-xfs/tests/external.sha256"
 
-FILER_XFS_EXTERNAL=$dir cargo test -q -p filer-xfs --test external -- --ignored
+# A release build, as a debug one reads volumes some seventy times slower.
+FILER_XFS_EXTERNAL=$dir cargo test -q --release -p filer-xfs --test external -- --ignored
 
 [ "$(uname)" = Linux ] || exit 0
 cargo build -q --release -p filer-xfs --example manifest
 manifest="$repo/target/release/examples/manifest"
 work=$(mktemp -d -p /var/tmp)
-mnt="$work/mnt"
-mkdir "$mnt"
-cleanup() {
-    if mountpoint -q "$mnt"; then sudo umount "$mnt"; fi
-    sudo rm -rf "$work"
-}
-trap cleanup EXIT
-# shellcheck source=lib/filer-xfs/tests/linux.sh
-. "$repo/lib/filer-xfs/tests/linux.sh"
+trap clean_work EXIT
 failed=0
 for img in "$dir"/images/*; do
     case $(basename "$img") in
@@ -83,6 +92,7 @@ for img in "$dir"/images/*; do
         # attribute names than Linux lists.
         *_reject.img | xfs_rt1.img | v5_dirty_torn.img | xfs_nrext64.img) continue ;;
     esac
-    recovered "$img" "$(basename "$img")"
+    add recovered "$img" "$(basename "$img")"
 done
+run
 exit $failed

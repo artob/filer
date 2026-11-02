@@ -26,64 +26,19 @@
 # ones are: those are skipped, as is the data device of a volume with a
 # realtime device, which Linux mounts only with that device.
 #
-# It takes about 48 minutes on a host of four cores, printing how long at
-# the end of each phase: under a minute making the fresh fixtures, 12
-# comparing images, and 36 checking logs, each of nine set-ups twice
-# wrapping a 64 MiB log. TODO.md (XFS-17) lists ways to make it faster.
+# Each image and each log set-up is a job of its own, with its own mount
+# point and files; as many run at once as there are cores (or
+# `FILER_XFS_JOBS`), and each one's report is printed whole, in order,
+# when its phase ends, with how long the run has taken.
 #
-# Usage: lib/filer-xfs/tests/differential.sh, from the repository root,
-# on Linux with xfsprogs, python3, and `sudo` for mounting.
+# Usage: lib/filer-xfs/tests/differential.sh [images] [logs], from the
+# repository root, on Linux with xfsprogs, python3, and `sudo` for
+# mounting; with no phase named, both run.
 
 set -eu
 export TZ=UTC LC_ALL=C.UTF-8
-work=$(mktemp -d -p /var/tmp)
-mnt="$work/mnt"
-mkdir "$mnt"
-cleanup() {
-    if mountpoint -q "$mnt"; then sudo umount "$mnt"; fi
-    sudo rm -rf "$work"
-}
-trap cleanup EXIT
-started=$(date +%s)
-
-# Prints how long the run has taken, when phase `$1` ends.
-took() {
-    echo "-- $1 after $((($(date +%s) - started) / 60)) min"
-}
-
-cargo build -q -p filer-xfs --example manifest
-manifest="$PWD/target/debug/examples/manifest"
-
-# The committed fixtures, and fresh ones.
-mkdir "$work/fresh"
-KEEP_LOG=1 lib/filer-xfs/tests/fixtures/make.sh "$work/fresh"
-took "making fresh fixtures"
-for sparse in lib/filer-xfs/tests/fixtures/*.sparse "$work"/fresh/*.sparse; do
-    case $sparse in "$work"/*) kind=fresh ;; *) kind=fixture ;; esac
-    python3 -I - "$sparse" "$work/$kind-$(basename "$sparse" .sparse).img" <<'PY'
-import struct, sys
-data = open(sys.argv[1], "rb").read()
-assert data[:15] == b"FILER-SPARSE-2\n"
-image = bytearray(struct.unpack("<Q", data[15:23])[0])
-rest = data[23:]
-while rest:
-    first, count = struct.unpack("<II", rest[:8])
-    sector = rest[8:520]
-    for i in range(first, first + count):
-        image[i * 512:(i + 1) * 512] = sector
-    rest = rest[520:]
-open(sys.argv[2], "wb").write(image)
-PY
-done
-
 # shellcheck source=lib/filer-xfs/tests/linux.sh
 . lib/filer-xfs/tests/linux.sh
-failed=0
-
-for img in "$work"/*.img; do
-    compare "$img" "$(basename "$img" .img)"
-done
-took "comparing images"
 
 # Prints the byte offset of the log in image `$1`.
 log_offset() {
@@ -99,37 +54,34 @@ log_offset() {
     echo $(((ag * agblocks + block) * blocksize))
 }
 
-# Prints the cycle of the log's first sector, at byte `$2` of image `$1`.
-cycle() {
-    python3 -I - "$1" "$2" <<'PY'
-import struct, sys
-with open(sys.argv[1], "rb") as f:
-    f.seek(int(sys.argv[2]))
-    first, second = struct.unpack(">II", f.read(8))
-# A record header's sector starts with its magic, then the cycle.
-print(second if first == 0xFEEDBABE else first)
-PY
-}
-
-# Creates and deletes files in directory `$1` until the log of image `$2`,
-# at byte `$3`, has wrapped.
+# Changes the times of a few thousand files in directory `$1`, syncing
+# after each round, until the log of image `$2`, at byte `$3`, has wrapped:
+# each sync logs every inode changed since the last again, so a few dozen
+# rounds fill a 64 MiB log.
 wrap() {
-    for _ in $(seq 400); do
-        sudo python3 -I - "$1" <<'PY'
-import os, sys
-for i in range(1000):
-    open(os.path.join(sys.argv[1], f"{i:04}" + "w" * 250), "wb").close()
+    sudo python3 -I - "$1" "$2" "$3" <<'PY'
+import os, struct, sys
+mnt, img, at = sys.argv[1], sys.argv[2], int(sys.argv[3])
+def cycle():
+    with open(img, "rb") as f:
+        f.seek(at)
+        first, second = struct.unpack(">II", f.read(8))
+    # A record header's sector starts with its magic, then the cycle.
+    return second if first == 0xFEEDBABE else first
+base = os.path.join(mnt, "wrap")
+os.mkdir(base)
+paths = [os.path.join(base, f"{i:05}") for i in range(8000)]
+for path in paths:
+    open(path, "wb").close()
 os.sync()
-for i in range(1000):
-    os.remove(os.path.join(sys.argv[1], f"{i:04}" + "w" * 250))
-os.sync()
+for round in range(1, 400):
+    if cycle() >= 2:
+        sys.exit()
+    for n, path in enumerate(paths):
+        os.utime(path, ns=(round * 10**9, round * 10**9 + n))
+    os.sync()
+sys.exit("FAILED: the log did not wrap")
 PY
-        if [ "$(cycle "$2" "$3")" -ge 2 ]; then
-            return
-        fi
-    done
-    echo "FAILED: the log did not wrap"
-    exit 1
 }
 
 # Changes what is in directory `$1`, in a directory `$2` of its own, then
@@ -176,8 +128,7 @@ PY
 # Checks the log of a volume formatted with options `$2`, called `$1`.
 logs() {
     name=$1
-    img="$work/log.img"
-    rm -f "$img"
+    img="$scratch/log.img"
     truncate -s 320M "$img"
     # shellcheck disable=SC2086
     mkfs.xfs -q -f $2 "$img" 2>/dev/null
@@ -206,16 +157,90 @@ logs() {
     compare "$img" "$name, wrapped, recovered"
 }
 
-logs "log" "-m crc=0"
-logs "log of 4 KiB sectors" "-m crc=0 -s size=4096"
-logs "log of 32 KiB stripes" "-m crc=0 -l su=32k"
-logs "log of 256 KiB stripes" "-m crc=0 -l su=256k"
-v5="-m crc=1,finobt=0,rmapbt=0,reflink=0,bigtime=0,inobtcount=0"
-v5="$v5 -i sparse=0,nrext64=0"
-logs "version 5 log" "$v5"
-logs "version 5 log of 4 KiB sectors" "$v5 -s size=4096"
-logs "version 5 log of 256 KiB stripes" "$v5 -l su=256k"
-logs "default log" ""
-logs "log with the newest features" "-n parent=1 -m metadir=1"
-took "checking logs"
+# Expands sparse fixture `$1` into image `$2`.
+unsparse() {
+    python3 -I - "$1" "$2" <<'PY'
+import struct, sys
+data = open(sys.argv[1], "rb").read()
+assert data[:15] == b"FILER-SPARSE-2\n"
+image = bytearray(struct.unpack("<Q", data[15:23])[0])
+rest = data[23:]
+while rest:
+    first, count = struct.unpack("<II", rest[:8])
+    sector = rest[8:520]
+    for i in range(first, first + count):
+        image[i * 512:(i + 1) * 512] = sector
+    rest = rest[520:]
+open(sys.argv[2], "wb").write(image)
+PY
+}
+
+# Performs a job of kind `$1`: comparing image `$3` with Linux, expanded
+# from sparse fixture `$2`; or checking the logs of set-up `$2`, of mkfs
+# options `$3`.
+perform() {
+    case $1 in
+        image)
+            img="$scratch/$3.img"
+            unsparse "$2" "$img"
+            compare "$img" "$3"
+            ;;
+        logs) logs "$2" "$3" ;;
+    esac
+}
+
+if [ "${1:-}" = --job ]; then
+    work=$FILER_XFS_WORK
+    manifest=$FILER_XFS_MANIFEST
+    job "$2"
+fi
+
+phases=${*:-images logs}
+work=$(mktemp -d -p /var/tmp)
+trap clean_work EXIT
+started=$(date +%s)
+failed=0
+
+# Prints how long the run has taken, when phase `$1` ends.
+took() {
+    elapsed=$(($(date +%s) - started))
+    echo "-- $1 after $((elapsed / 60)) min $((elapsed % 60)) s"
+}
+
+# A release build, as a debug one reads each volume some seventy times
+# slower.
+cargo build -q --release -p filer-xfs --example manifest
+manifest="$PWD/target/release/examples/manifest"
+
+case " $phases " in *" images "*)
+    # The committed fixtures, and fresh ones.
+    mkdir "$work/fresh"
+    KEEP_LOG=1 lib/filer-xfs/tests/fixtures/make.sh "$work/fresh"
+    took "making fresh fixtures"
+    for sparse in lib/filer-xfs/tests/fixtures/*.sparse "$work"/fresh/*.sparse; do
+        case $sparse in "$work"/*) kind=fresh ;; *) kind=fixture ;; esac
+        add image "$sparse" "$kind-$(basename "$sparse" .sparse)"
+    done
+    run
+    took "comparing images"
+    ;;
+esac
+
+case " $phases " in *" logs "*)
+    v5="-m crc=1,finobt=0,rmapbt=0,reflink=0,bigtime=0,inobtcount=0"
+    v5="$v5 -i sparse=0,nrext64=0"
+    add logs "log" "-m crc=0"
+    add logs "log of 4 KiB sectors" "-m crc=0 -s size=4096"
+    add logs "log of 32 KiB stripes" "-m crc=0 -l su=32k"
+    add logs "log of 256 KiB stripes" "-m crc=0 -l su=256k"
+    add logs "version 5 log" "$v5"
+    add logs "version 5 log of 4 KiB sectors" "$v5 -s size=4096"
+    add logs "version 5 log of 256 KiB stripes" "$v5 -l su=256k"
+    add logs "default log" ""
+    add logs "log with the newest features" "-n parent=1 -m metadir=1"
+    run
+    took "checking logs"
+    ;;
+esac
+
 exit $failed

@@ -2888,7 +2888,11 @@ names, kinds, sizes, contents, link targets, times, flags, and extended
 attributes; listings are compared sorted. It then checks logs as the
 kernel leaves them, with each sector size and log stripe unit: clean,
 wrapped, shut down mid-write (read as the kernel recovers them), and
-recovered. `tests/external.sh` tests against other projects' volumes
+recovered. Each image and each log set-up is a job, run as many at once
+as there are cores, against a release build: a run takes about two
+minutes on four. Run repeatedly, it catches rare states, such as a
+chunk of inodes freed and its blocks reused while the log still holds
+the inodes. `tests/external.sh` tests against other projects' volumes
 (`CREDITS.md`), never committed, fetched at pinned commits and checked
 by their SHA-256 sums: walked, refused as expected, the trees recorded
 of logs that need recovery matched, and compared with the kernel; they
