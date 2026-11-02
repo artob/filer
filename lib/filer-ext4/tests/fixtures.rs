@@ -593,6 +593,26 @@ fn reads_files_sealed_by_verity() {
     assert!(metadata.attrs.unwrap().contains(FileAttrs::VERITY));
 }
 
+/// Attribute values too large for a block, kept by `ea_inode` in inodes
+/// of their own, beside one in the inode.
+#[test]
+fn reads_attribute_values_in_inodes() {
+    let root = block_on(Ext4::open(unsparse(include_bytes!(
+        "fixtures/ext4-ea-inode.sparse"
+    ))))
+    .unwrap();
+    let file = block_on(root.open_file("holder")).unwrap();
+    let value = |name: &str| block_on(file.xattr(name)).unwrap().unwrap();
+    let pattern = |len: u32, step: u32| -> Vec<u8> {
+        (0..len)
+            .map(|i| u8::try_from(i * step % 251).unwrap())
+            .collect()
+    };
+    assert_eq!(value("user.large"), pattern(8000, 3));
+    assert_eq!(value("user.huge"), pattern(60000, 5));
+    assert_eq!(value("user.small"), b"small".to_vec());
+}
+
 #[test]
 fn reads_128_byte_inodes() {
     check(include_bytes!("fixtures/ext2-128.sparse"), Times::Seconds);

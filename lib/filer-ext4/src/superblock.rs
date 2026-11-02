@@ -68,6 +68,9 @@ pub(crate) mod feature {
     /// Incompatible: a block that writers update to say they have the
     /// volume mounted, which a reader need not.
     pub(crate) const INCOMPAT_MMP: u32 = 0x100;
+    /// Incompatible: extended attribute values may be kept in inodes of
+    /// their own.
+    pub(crate) const INCOMPAT_EA_INODE: u32 = 0x400;
     /// Incompatible: files may be mapped by extent trees.
     pub(crate) const INCOMPAT_EXTENTS: u32 = 0x40;
     /// Incompatible: block numbers of 64 bits, and larger descriptors.
@@ -89,6 +92,7 @@ pub(crate) mod feature {
 const SUPPORTED_INCOMPAT: u32 = feature::INCOMPAT_FILETYPE
     | feature::INCOMPAT_META_BG
     | feature::INCOMPAT_MMP
+    | feature::INCOMPAT_EA_INODE
     | feature::INCOMPAT_EXTENTS
     | feature::INCOMPAT_64BIT
     | feature::INCOMPAT_FLEX_BG
@@ -452,6 +456,11 @@ impl Superblock {
     /// blocks 48.
     pub(crate) const fn is_64bit(&self) -> bool {
         self.features.incompat & feature::INCOMPAT_64BIT != 0
+    }
+
+    /// Returns `true` if attribute values may be kept in inodes.
+    pub(crate) const fn has_ea_inodes(&self) -> bool {
+        self.features.incompat & feature::INCOMPAT_EA_INODE != 0
     }
 
     /// Returns `true` if inodes may count their blocks in 48 bits.

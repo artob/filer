@@ -30,6 +30,9 @@ const HUGE_FILE_FL: u32 = 0x4_0000;
 /// The inode flag of an inode keeping its data inline.
 const INLINE_DATA_FL: u32 = 0x1000_0000;
 
+/// The inode flag of an inode holding an extended attribute's value.
+const EA_INODE_FL: u32 = 0x20_0000;
+
 /// An inode's four times. Creation is recorded only in the extra fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Times {
@@ -187,6 +190,11 @@ impl Inode {
             [0; 2]
         };
         u64::from_le_bytes([l0, l1, l2, l3, h0, h1, 0, 0])
+    }
+
+    /// Returns `true` if the inode holds an extended attribute's value.
+    pub(crate) const fn is_ea_inode(&self) -> bool {
+        self.flags & EA_INODE_FL != 0
     }
 
     /// Returns `true` if the inode keeps its data in itself.

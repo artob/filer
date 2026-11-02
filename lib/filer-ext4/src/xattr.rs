@@ -2,9 +2,15 @@
 
 //! Extended attributes: in the inode, after its extra fields, and in one
 //! block named by `i_file_acl`. Both hold entries naming a prefix by index,
-//! and values elsewhere in the same region.
+//! and values elsewhere in the same region, or under `ea_inode`, in the
+//! data of an inode of their own, which no directory names.
 
-use crate::{Ext4Error, inode::Inode, superblock::Superblock};
+use crate::{
+    Ext4Error,
+    file_map::FileMap,
+    inode::{self, Inode},
+    superblock::Superblock,
+};
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt, XattrNs};
 use filer_fs::{le, posix_acl, read_exact};
@@ -20,12 +26,17 @@ const ENTRY_HEADER: usize = 16;
 const ACL_ACCESS: u8 = 2;
 const ACL_DEFAULT: u8 = 3;
 
-/// An extended attribute: its namespace, its name within it, and its value.
+/// The largest value an inode of its own holds, as Linux allows.
+const MAX_INODE_VALUE: u32 = 1 << 24;
+
+/// An extended attribute: its namespace, its name within it, and its value,
+/// or, until it is read, the inode holding it and its size.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Xattr {
     pub(crate) ns: XattrNs,
     pub(crate) name: Vec<u8>,
     pub(crate) value: Vec<u8>,
+    value_inode: Option<(u32, u32)>,
 }
 
 /// Returns the namespace of name index `index`, and what the name starts
@@ -71,15 +82,20 @@ fn parse(
         let name = region
             .get(name_at..name_at.saturating_add(usize::from(name_len)))
             .ok_or(bad)?;
-        // Values in other inodes need `ea_inode`, which is refused.
-        if value_inum != 0 {
-            return Err(bad);
-        }
-        let value_at = values.checked_add(value_offs).ok_or(bad)?;
-        let value_size = usize::try_from(value_size).map_err(|_| bad)?;
-        let value = region
-            .get(value_at..value_at.checked_add(value_size).ok_or(bad)?)
-            .ok_or(bad)?;
+        // A value in an inode of its own is read later; an ACL never is.
+        let (value, value_inode) = if value_inum != 0 {
+            if matches!(index, ACL_ACCESS | ACL_DEFAULT) || value_size > MAX_INODE_VALUE {
+                return Err(bad);
+            }
+            (&[][..], Some((value_inum, value_size)))
+        } else {
+            let value_at = values.checked_add(value_offs).ok_or(bad)?;
+            let value_size = usize::try_from(value_size).map_err(|_| bad)?;
+            let value = region
+                .get(value_at..value_at.checked_add(value_size).ok_or(bad)?)
+                .ok_or(bad)?;
+            (value, None)
+        };
         if let Some((ns, start)) = prefix(index) {
             let mut full = start.to_vec();
             full.extend_from_slice(name);
@@ -92,6 +108,7 @@ fn parse(
                 ns,
                 name: full,
                 value,
+                value_inode,
             });
         }
         at = ENTRY_HEADER
@@ -184,7 +201,43 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         xattrs.extend(in_block(&bytes, inode.number()).map_err(fail)?);
     }
     xattrs.retain(|xattr| !is_inline_data(xattr));
+    for xattr in &mut xattrs {
+        if let Some((number, size)) = xattr.value_inode.take() {
+            xattr.value = inode_value(source, sb, inode.number(), number, size, op).await?;
+        }
+    }
     Ok(xattrs)
+}
+
+/// Reads the value of `size` bytes that inode `number` holds for
+/// `owner`'s attribute: a file with the attribute inode flag, of that
+/// size, under `ea_inode`.
+async fn inode_value<S: ReadAt + ?Sized>(
+    source: &S,
+    sb: &Superblock,
+    owner: u32,
+    number: u32,
+    size: u32,
+    op: OpKind,
+) -> Result<Vec<u8>, Error> {
+    let bad = || Ext4Error::BadXattr { inode: owner }.into_error(op);
+    if !sb.has_ea_inodes() {
+        return Err(bad());
+    }
+    let holder = inode::read(source, sb, number, op).await?;
+    if holder.kind() != filer_api::FileKind::File
+        || !holder.is_ea_inode()
+        || holder.size() != u64::from(size)
+    {
+        return Err(bad());
+    }
+    let map = FileMap::new(&holder, sb).map_err(|error| error.into_error(op))?;
+    let len = usize::try_from(size).map_err(|_| bad())?;
+    let value = map.read(source, sb, holder.size(), 0, len, op).await?;
+    if value.len() != len {
+        return Err(bad());
+    }
+    Ok(value)
 }
 
 #[cfg(test)]
@@ -225,6 +278,7 @@ mod tests {
             ns,
             name: name.to_vec(),
             value: value.to_vec(),
+            value_inode: None,
         }
     }
 
@@ -346,9 +400,15 @@ mod tests {
         let mut b = good.clone();
         b[32 + 2..32 + 4].copy_from_slice(&1022u16.to_le_bytes());
         assert_eq!(in_block(&b, 12), bad);
-        // A value in another inode.
+        // A value in another inode is read from it later, but never an
+        // ACL's, nor one past 16 MiB.
         let mut b = good.clone();
         b[32 + 4] = 1;
+        assert_eq!(in_block(&b, 12).unwrap()[0].value_inode, Some((1, 5)));
+        let mut acl = b.clone();
+        acl[32 + 1] = ACL_ACCESS;
+        assert_eq!(in_block(&acl, 12), bad);
+        b[32 + 8..32 + 12].copy_from_slice(&(MAX_INODE_VALUE + 1).to_le_bytes());
         assert_eq!(in_block(&b, 12), bad);
         // A name past the block.
         assert_eq!(in_block(&good[..34 + 16], 12), bad);

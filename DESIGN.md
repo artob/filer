@@ -2700,7 +2700,10 @@ TEA cipher, and checked against `debugfs`'s `dx_hash`.
 - Extended attributes: in-inode (after `i_extra_isize`, magic
   `0xEA020000`) and in one block (`i_file_acl`, a 32-byte header); entries
   name a prefix by index (`user.`, `trusted.`, `security.`, `system.`,
-  and the POSIX ACLs), and values sit at offsets in the same region.
+  and the POSIX ACLs), and values sit at offsets in the same region, or
+  under `ea_inode` in the data of an inode of their own (a file with the
+  attribute inode flag, of the value's size, at most 16 MiB), which no
+  directory names.
 
 **How it maps onto Filer:**
 
@@ -2761,8 +2764,9 @@ as `mke2fs -t ext4` makes them, of 1 and 4 KiB blocks, one with
 directory two levels deep, and one of deep extent trees, whose every
 checksummed structure, changed, is `Corrupt`; two with `inline_data`,
 one of a directory and files continued past `i_block`; one with
-`bigalloc`, one with `large_dir`, `mmp`, and `sparse_super2`, and one
-of a file fs-verity seals; and one of a
+`bigalloc`, one with `large_dir`, `mmp`, and `sparse_super2`, one of a
+file fs-verity seals, and one of attribute values in inodes of their
+own; and one of a
 file of 2000 extents two levels deep and one allocated but unwritten
 but for its middle; and three that need
 recovery, of 1 and 4 KiB blocks and with `metadata_csum`, copied while
