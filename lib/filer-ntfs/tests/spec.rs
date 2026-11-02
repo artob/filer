@@ -10,11 +10,9 @@ use filer_spec::{Profile, TreeEntry};
 
 #[test]
 fn passes_the_specification() {
-    // NTFS has no FIFOs, and the specification's foreign name is not
-    // WTF-8 (SPEC-06).
-    let profile = Profile::default()
-        .with_fifos(false)
-        .with_foreign_names(false);
+    // The specification's foreign name is not WTF-8 (SPEC-06). FIFOs are
+    // Interix ones, as ntfs-3g makes them.
+    let profile = Profile::default().with_foreign_names(false);
     let report = filer_spec::run_blocking(profile, |tree| {
         // The fixture holds exactly this tree; if the specification's
         // changes, `make.sh`'s `spec` must follow.
@@ -26,6 +24,7 @@ fn passes_the_specification() {
                 TreeEntry::File(path, contents) => format!("{path}={}", contents.len()),
                 TreeEntry::Symlink(path, target) => format!("{path}->{target}"),
                 TreeEntry::Xattr(path, name, value) => format!("{path}:{name}={}", value.len()),
+                TreeEntry::Fifo(path) => format!("{path}|"),
                 entry => panic!("unexpected entry: {entry:?}"),
             })
             .collect();
@@ -50,6 +49,7 @@ fn passes_the_specification() {
         .map(String::from)
         .collect::<Vec<_>>();
         expected.extend((0..600).map(|i| format!("many/f{i:03}=0")));
+        expected.extend(["special/".to_owned(), "special/fifo|".to_owned()]);
         assert_eq!(paths, expected, "the specification's tree changed");
         let image = common::unsparse(include_bytes!("fixtures/spec.sparse"));
         filer_spec::block_on(Ntfs::open(image)).unwrap()

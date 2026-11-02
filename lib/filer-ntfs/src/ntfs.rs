@@ -45,7 +45,11 @@ use filer_api::{
 /// is an absolute path on a drive (`C:\\path`) is taken from the root of
 /// the volume, assumed to be that drive. Reparse points of other tags,
 /// such as cloud placeholders, read as
-/// [`Unsupported`](ErrorKind::Unsupported). Writing is out of scope:
+/// [`Unsupported`](ErrorKind::Unsupported). Interix special files, as
+/// ntfs-3g makes FIFOs and sockets, and as it and Services for UNIX made
+/// symlinks and devices, are what they say; since only a system file's
+/// contents tell, listings report no kind for system files. Writing is
+/// out of scope:
 /// everything but reading is [`Unsupported`](ErrorKind::Unsupported), as
 /// are encrypted files.
 ///
@@ -209,7 +213,9 @@ impl<S: ReadAt> Ntfs<S> {
                 Payload::File { node, data }
             },
             (FileKind::Dir, _) => return Err(Error::new(ErrorKind::IsADirectory, op)),
-            (_, _) => return Err(Error::new(ErrorKind::NotADirectory, op)),
+            (_, HandleKind::Dir) => return Err(Error::new(ErrorKind::NotADirectory, op)),
+            // FIFOs, sockets, and devices.
+            (_, _) => return Err(Error::new(ErrorKind::NotRegularFile, op)),
         };
         Ok(Output::Opened(self.0.key.handle(how.kind, payload)))
     }
@@ -401,7 +407,7 @@ impl<S: ReadAt> Ntfs<S> {
             }
             let name = volume.key.entry_name(&name).map_err(|_| bad())?;
             let mut listed = Entry::new(name);
-            listed.kind = Some(kind_of(&entry));
+            listed.kind = kind_of(&entry);
             listed.id = Some(self.id(file.record));
             entries.push(listed);
         }
@@ -413,14 +419,18 @@ impl<S: ReadAt> Ntfs<S> {
 }
 
 /// Returns the kind of the file an index entry names, by the attributes
-/// and reparse tag its `$FILE_NAME` carries.
-fn kind_of(entry: &FileName) -> FileKind {
-    if entry.attributes & FileName::REPARSE_POINT != 0 && reparse::is_link(entry.reparse_tag) {
-        FileKind::Symlink
-    } else if entry.attributes & FileName::DIRECTORY != 0 {
-        FileKind::Dir
+/// and reparse tag its `$FILE_NAME` carries, or `None` for a system file,
+/// which only its contents tell from an Interix special file.
+fn kind_of(entry: &FileName) -> Option<FileKind> {
+    let attributes = entry.attributes;
+    if attributes & FileName::REPARSE_POINT != 0 && reparse::is_link(entry.reparse_tag) {
+        Some(FileKind::Symlink)
+    } else if attributes & FileName::DIRECTORY != 0 {
+        Some(FileKind::Dir)
+    } else if attributes & FileName::REPARSE_POINT == 0 && attributes & FileName::SYSTEM != 0 {
+        None
     } else {
-        FileKind::File
+        Some(FileKind::File)
     }
 }
 

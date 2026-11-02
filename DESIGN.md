@@ -2482,6 +2482,13 @@ Documentation* (a description of the on-disk format, not code).
   placeholders, files compressed by WOF) and encrypted files keep their
   kind and metadata, but opening them to read is `Unsupported`, as their
   `$DATA` is not their contents.
+- Interix special files, as Services for UNIX and ntfs-3g keep them, are
+  what they say: system files that are empty (FIFOs), of one byte
+  (sockets), `IntxLNK\1` and a UTF-16 target (symlinks), or `IntxCHR\0`
+  or `IntxBLK\0` and two `u64` device numbers (devices). Only a node's
+  contents tell, so a listing reports no kind for a system file. The
+  forms were taken from what ntfs-3g reads and writes, observed through
+  it, not from its code.
 - Named data streams are extended attributes in the `user` namespace, as
   ntfs-3g has them (`file:stream` is `user.stream`), listed once however
   many extents they have, and matched as names are. Other namespaces are
@@ -2500,7 +2507,9 @@ verified before a record is used.
 **Verification.** Fixtures in four layouts (4 KiB, 512-byte, and 64 KiB
 clusters, and 4 KiB sectors with 4 KiB records), made by `mkntfs` and
 filled through ntfs-3g, are read in tests; one more holds files ntfs-3g
-compressed, another named streams (100 of them on one file, so listed in
+compressed, another links of every kind (reparse points and Interix
+files, with FIFOs and sockets made by ntfs-3g), another named streams
+(100 of them on one file, so listed in
 `$ATTRIBUTE_LIST`) and file attributes, and another `filer-spec`'s tree.
 `tests/differential.sh` compares them, and fresh ones, with the Linux
 kernel's `ntfs3`: every name, kind, size, content, and time agrees; and
@@ -2512,7 +2521,8 @@ node's separating entries after its children. Reparse points differ by
 design too: `ntfs3` keeps a drive in absolute targets (`C:/path`), makes
 junctions `./path`, reads WSL symlinks as files and other tags' `$DATA`
 as contents; the script lists those entries and leaves them to the
-fixture tests. `tests/fuzz.rs` mutates the fixtures' boot sectors, MFTs,
+fixture tests. `ntfs3` reads Interix files as regular files, so those are
+compared with ntfs-3g only. `tests/fuzz.rs` mutates the fixtures' boot sectors, MFTs,
 and index records and walks each result, as for `filer-fat`, and
 `fuzz/` has `cargo-fuzz` targets for the boot sector, the MFT, indexes,
 and compressed data (D50).

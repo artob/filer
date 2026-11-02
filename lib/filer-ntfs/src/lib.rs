@@ -24,7 +24,8 @@
 //! data, decompressed in pure Rust; alternate data streams, read as
 //! extended attributes, and file attributes, read as flags; reparse
 //! points (symbolic links and junctions, mapped to symlinks where they
-//! can be confined); and a volume marked dirty, whose `$LogFile` has not
+//! can be confined); Interix special files (symlinks, FIFOs, sockets, and
+//! devices, as system files); and a volume marked dirty, whose `$LogFile` has not
 //! been replayed.
 //!
 //! **Development.** `tests/fixtures/make.sh` makes the fixtures with
@@ -80,6 +81,7 @@ mod file_name;
 mod fixup;
 mod geometry;
 mod index;
+mod interix;
 mod lznt1;
 mod mft;
 

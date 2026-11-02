@@ -4,7 +4,8 @@
 //! directory order:
 //!
 //! ```text
-//! path <TAB> kind (d, f, or l) <TAB> size <TAB> modified <TAB> created
+//! path <TAB> kind (d, f, l; or p, s, c, b for FIFOs, sockets, and
+//!      character and block devices) <TAB> size <TAB> modified <TAB> created
 //!      <TAB> accessed <TAB> FNV-1a hash of the contents, or link target
 //!      <TAB> flags <TAB> extended attributes
 //! ```
@@ -110,6 +111,23 @@ async fn walk<S: ReadAt + 'static>(
                     pairs.push(pair(&name, &value));
                 }
                 ("d", size, "-".to_owned(), joined(pairs))
+            },
+            Some(
+                kind @ (FileKind::Fifo
+                | FileKind::Socket
+                | FileKind::CharDevice
+                | FileKind::BlockDevice),
+            ) => {
+                let letter = match kind {
+                    FileKind::Fifo => "p",
+                    FileKind::Socket => "s",
+                    FileKind::CharDevice => "c",
+                    _ => "b",
+                };
+                let size = metadata
+                    .len
+                    .map_or_else(|| "-".to_owned(), |len| len.to_string());
+                (letter, size, "-".to_owned(), "-".to_owned())
             },
             _ => {
                 let size = metadata

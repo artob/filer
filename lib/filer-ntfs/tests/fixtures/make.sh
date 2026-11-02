@@ -158,10 +158,12 @@ os.utime(os.path.join(directory, "sparse.bin"), (MTIME, MTIME))
 PY
 }
 
-# Reparse points: links of each kind, and a tag Filer cannot read.
+# Reparse points: links of each kind, and a tag Filer cannot read; and
+# Interix special files, as ntfs-3g makes FIFOs and sockets, and as older
+# ntfs-3g made symlinks and devices.
 links() {
     python3 -I - "$mnt" <<'PY'
-import os, struct, sys
+import os, socket, struct, sys
 root = sys.argv[1]
 MTIME = 1_704_164_646
 
@@ -207,6 +209,22 @@ reparse("junction", windows_link("\\??\\C:\\Sub", "C:\\Sub", None), directory=Tr
 reparse("wsl", wsl_link("target.txt"))
 reparse("dangling", windows_link("nope", "nope", 1))
 reparse("cloud.bin", struct.pack("<IHH", 0x9000001A, 4, 0) + b"data")
+
+def interix(path, data):
+    full = os.path.join(root, path)
+    with open(full, "wb") as f:
+        f.write(data)
+    os.setxattr(full, "system.ntfs_attrib_be", (0x4).to_bytes(4, "big"))
+
+interix("ilink", b"IntxLNK\x01" + utf16("target.txt"))
+interix("idirlink", b"IntxLNK\x01" + utf16("Sub"))
+interix("ichr", b"IntxCHR\x00" + struct.pack("<QQ", 1, 3))
+interix("iblk", b"IntxBLK\x00" + struct.pack("<QQ", 8, 1))
+interix("system.bin", b"IntxFOO\x00, a plain system file")
+os.mkfifo(os.path.join(root, "fifo"))
+sock = socket.socket(socket.AF_UNIX)
+sock.bind(os.path.join(root, "sock"))
+sock.close()
 PY
 }
 
@@ -306,6 +324,8 @@ reparse("a/dangling", windows_link("nope", "nope", 1))
 os.mkdir(os.path.join(root, "many"))
 for i in range(600):
     open(os.path.join(root, "many", f"f{i:03}"), "wb").close()
+os.mkdir(os.path.join(root, "special"))
+os.mkfifo(os.path.join(root, "special", "fifo"))
 PY
 }
 

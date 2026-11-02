@@ -8,6 +8,7 @@ use crate::{
     file_name::FileName,
     geometry::{self, Geometry},
     index::Index,
+    interix::{self, Interix},
     mft::{File, Mft},
     record::{AttrType, Body, FileRef},
     reparse::Reparse,
@@ -55,13 +56,16 @@ pub(crate) struct Node(Arc<Loaded>);
 struct Loaded {
     file: File,
     reparse: Option<Reparse>,
+    /// What the file is, if it is an Interix special file.
+    interix: Option<Interix>,
 }
 
 impl Node {
     pub(crate) fn kind(&self) -> FileKind {
-        match self.0.reparse {
-            Some(Reparse::Link(_)) => FileKind::Symlink,
+        match (&self.0.reparse, &self.0.interix) {
+            (Some(Reparse::Link(_)), _) => FileKind::Symlink,
             _ if self.0.file.base().is_directory() => FileKind::Dir,
+            (_, Some(interix)) => interix.kind(),
             _ => FileKind::File,
         }
     }
@@ -83,8 +87,8 @@ impl Node {
 
     /// Returns the target of a symlink.
     pub(crate) fn link(&self) -> Option<&[u8]> {
-        match &self.0.reparse {
-            Some(Reparse::Link(target)) => Some(target),
+        match (&self.0.reparse, &self.0.interix) {
+            (Some(Reparse::Link(target)), _) | (None, Some(Interix::Link(target))) => Some(target),
             _ => None,
         }
     }
@@ -160,7 +164,8 @@ impl<S: ReadAt> Volume<S> {
         self.load(file, op).await
     }
 
-    /// Makes a node of `file`, with its reparse point, if any.
+    /// Makes a node of `file`, with its reparse point, if any, and what it
+    /// is if it is an Interix special file.
     async fn load(&self, file: File, op: OpKind) -> Result<Node, Error> {
         let record = file.number();
         let bad = || NtfsError::BadReparse { record }.into_error(op);
@@ -181,7 +186,47 @@ impl<S: ReadAt> Volume<S> {
                 Some(Reparse::parse(&value).ok_or_else(bad)?)
             },
         };
-        Ok(Node(Arc::new(Loaded { file, reparse })))
+        let interix = match reparse {
+            None if !file.base().is_directory() => self.interix(&file, op).await?,
+            _ => None,
+        };
+        Ok(Node(Arc::new(Loaded {
+            file,
+            reparse,
+            interix,
+        })))
+    }
+
+    /// Reads what `file`, neither a directory nor a reparse point, is if it
+    /// is a system file short enough to be an Interix special file.
+    async fn interix(&self, file: &File, op: OpKind) -> Result<Option<Interix>, Error> {
+        let fail = |error: NtfsError| error.into_error(op);
+        let information = StandardInformation::of(file).map_err(fail)?;
+        if information.attributes & FileName::SYSTEM == 0 {
+            return Ok(None);
+        }
+        let extents = file.extents(AttrType::DATA, "").map_err(fail)?;
+        if extents.iter().any(|extent| extent.is_encrypted()) {
+            return Ok(None);
+        }
+        let data = if extents.is_empty() {
+            Vec::new()
+        } else {
+            let stream = Stream::new(&extents, &self.geometry, file.number()).map_err(fail)?;
+            if stream.len() > interix::MAX_LEN {
+                return Ok(None);
+            }
+            let bad = || {
+                fail(NtfsError::BadDataSize {
+                    record: file.number(),
+                })
+            };
+            let len = usize::try_from(stream.len()).map_err(|_| bad())?;
+            stream
+                .read_exact(&self.source, &self.geometry, 0, len, op)
+                .await?
+        };
+        Ok(Interix::parse(&data))
     }
 
     /// Returns the index of directory `node`.

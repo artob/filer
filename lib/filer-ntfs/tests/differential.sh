@@ -19,7 +19,9 @@
 # `C:/target.txt`, or makes `./Sub`, where Filer resolves from the
 # volume's root), WSL symlinks (plain files to `ntfs3`), and reparse
 # points of other tags (`ntfs3` reads their `$DATA` as contents, where
-# Filer refuses to). `ntfs3` also reports no birth time for symlinks.
+# Filer refuses to). Interix special files (symlinks, FIFOs, sockets, and
+# devices) are regular files to `ntfs3`, and are compared with ntfs-3g
+# only. `ntfs3` also reports no birth time for symlinks.
 #
 # Usage: lib/filer-ntfs/tests/differential.sh, from the repository root,
 # on Linux with ntfs-3g, python3, GNU coreutils, the `ntfs3` module, and
@@ -134,7 +136,9 @@ def walk(rel):
         flags = joined(flag for mask, flag in FLAGS if bits & mask)
         xattrs = joined(f"{attr}={fnv1a(os.getxattr(full, attr)):016x}"
                         for attr in os.listxattr(full) if attr.startswith("user."))
-        kind = "d" if stat.S_ISDIR(st.st_mode) else "f"
+        kind = next((letter for test, letter in [
+            (stat.S_ISDIR, "d"), (stat.S_ISFIFO, "p"), (stat.S_ISSOCK, "s"),
+            (stat.S_ISCHR, "c"), (stat.S_ISBLK, "b")] if test(st.st_mode)), "f")
         print(f"{path}\t{kind}\t{flags}\t{xattrs}")
         if kind == "d":
             walk(path)
@@ -144,12 +148,15 @@ PY
 }
 
 # Normalizes listing `$1`, keeping fields `$2` (0-based, comma-separated),
-# into `$1.$3`, sorted.
+# into `$1.$3`, sorted: `k` for comparing with `ntfs3`, `x` with ntfs-3g.
 normalize() {
-    python3 -I - "$1" "$2" <<'PY' | sort > "$1.$3"
+    python3 -I - "$1" "$2" "$3" <<'PY' | sort > "$1.$3"
 import sys
 # Entries that differ by design, by path (see above).
 by_design = {"abs", "junction", "wsl", "cloud.bin", "a/abs"}
+if sys.argv[3] == "k":
+    by_design |= {"ilink", "idirlink", "ichr", "iblk", "fifo", "sock",
+                  "special/fifo"}
 keep = [int(field) for field in sys.argv[2].split(",")]
 for line in open(sys.argv[1], encoding="utf-8"):
     fields = line.rstrip("\n").split("\t")

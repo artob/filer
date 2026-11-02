@@ -224,24 +224,38 @@ fn reads_links() {
     // Absolute paths on a drive, from the volume's root.
     assert_eq!(target("abs"), b"/target.txt");
     assert_eq!(target("junction"), b"/Sub");
+    // Interix symlinks.
+    assert_eq!(target("ilink"), b"target.txt");
+    assert_eq!(target("idirlink"), b"Sub");
 
-    // Listings and stats agree that these are symlinks.
+    // Listings and stats agree on each kind, but for system files, which
+    // only their contents tell from Interix special files.
     let dir = block_on(root.open_dir("")).unwrap();
     let mut entries = dir.entries().unwrap();
     while let Some(entry) = block_on(entries.next()) {
         let entry = entry.unwrap();
         let name = entry.name.as_name().unwrap().as_str().to_owned();
         let metadata = block_on(root.symlink_metadata(name.as_str(), MetaMask::all())).unwrap();
-        assert_eq!(entry.kind, metadata.kind, "{name}");
+        let system = metadata.attrs.unwrap().contains(FileAttrs::SYSTEM);
+        if system {
+            assert_eq!(entry.kind, None, "{name}");
+        } else {
+            assert_eq!(entry.kind, metadata.kind, "{name}");
+        }
         let link = [
-            "link", "deep", "dirlink", "wsl", "dangling", "abs", "junction",
+            "link", "deep", "dirlink", "wsl", "dangling", "abs", "junction", "ilink", "idirlink",
         ];
         let expected = if link.contains(&name.as_str()) {
             FileKind::Symlink
-        } else if name == "Sub" {
-            FileKind::Dir
         } else {
-            FileKind::File
+            match name.as_str() {
+                "Sub" => FileKind::Dir,
+                "fifo" => FileKind::Fifo,
+                "sock" => FileKind::Socket,
+                "ichr" => FileKind::CharDevice,
+                "iblk" => FileKind::BlockDevice,
+                _ => FileKind::File,
+            }
         };
         assert_eq!(metadata.kind, Some(expected), "{name}");
     }
@@ -254,6 +268,28 @@ fn reads_links() {
     assert_eq!(read(&root, "deep").unwrap(), b"nested");
     assert_eq!(read(&root, "wsl").unwrap(), b"target");
     assert_eq!(read(&root, "dirlink/nested.txt").unwrap(), b"nested");
+    assert_eq!(read(&root, "ilink").unwrap(), b"target");
+    assert_eq!(read(&root, "idirlink/nested.txt").unwrap(), b"nested");
+    // Other system files are regular files.
+    assert_eq!(
+        read(&root, "system.bin").unwrap(),
+        b"IntxFOO\0, a plain system file"
+    );
+    // Special files are not regular files, and what a symlink is, with
+    // its target's length.
+    for special in ["fifo", "sock", "ichr", "iblk"] {
+        let error = read(&root, special).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::NotRegularFile, "{special}");
+    }
+    let lens = |path: &str| {
+        block_on(root.symlink_metadata(path, MetaMask::LEN))
+            .unwrap()
+            .len
+    };
+    assert_eq!(
+        ["ilink", "fifo", "sock", "ichr"].map(lens),
+        [Some(10), Some(0), Some(1), Some(24)]
+    );
     assert_eq!(
         read(&root, "dangling").unwrap_err().kind(),
         ErrorKind::NotFound

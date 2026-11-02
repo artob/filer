@@ -688,8 +688,11 @@ From §17.12 (D40). Create each crate when its item starts.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-10: Later.** Windows-made fixtures, and Interix symlinks
-  (system files holding `IntxLNK`, which older ntfs-3g made).
+- [ ] **NTFS-10: Windows-made fixtures.** Volumes formatted and filled by
+  Windows itself (long and short names, streams, attributes, compression,
+  symlinks, junctions, a large directory), as through `dockur/windows`,
+  which needs a host with KVM, about 4 GB of memory, and 64 GB of disk.
+  Done when `tests/fixtures.rs` reads them and agrees with `ntfs3`.
 - [ ] **NTFS-11: Index descent.** Lookups walk a whole `$I30` index in
   order, which is correct whatever its collation, but linear. Descend the
   B+ tree by `$UpCase` collation instead, falling back to the walk if a

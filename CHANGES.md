@@ -38,6 +38,8 @@ so any release may break compatibility.
   `reads_xattrs` case.
 - `filer-ntfs`: Named data streams, read as `user.` extended attributes,
   and file attributes, as `FileAttrs`; `NtfsError::BadStreamName`.
+- `filer-ntfs`: Interix special files: symlinks, FIFOs, sockets, and
+  devices.
 ### Changed
 - `filer-api`: `Resolver` is now asynchronous, as async-first; the
   synchronous walk is `BlockingResolver`, and both share one

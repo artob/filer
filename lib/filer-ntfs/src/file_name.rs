@@ -39,6 +39,10 @@ impl FileName {
     /// The file attribute marking a reparse point.
     pub(crate) const REPARSE_POINT: u32 = 0x0000_0400;
 
+    /// The attribute that marks a system file, which may be an Interix
+    /// special file.
+    pub(crate) const SYSTEM: u32 = 0x0000_0004;
+
     /// Parses a `$FILE_NAME` value, or returns `None` if it does not fit
     /// or its name or namespace is invalid.
     pub(crate) fn parse(value: &[u8]) -> Option<Self> {

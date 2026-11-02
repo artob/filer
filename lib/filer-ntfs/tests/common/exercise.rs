@@ -89,8 +89,8 @@ pub struct Outcome {
 /// Opens (allowing dirty volumes) and walks `source`, panicking if any
 /// answer is wrong: an error other than `Corrupt` or `Unsupported`, a
 /// listed entry whose id differs from its stat's, a read that does not
-/// return exactly the file's length, or a listed extended attribute that
-/// cannot be found.
+/// return exactly the file's length, a special file that opens, or a listed
+/// extended attribute that cannot be found.
 ///
 /// Listed kinds come from the index's copy of a file's attributes and
 /// stats from its record; a corrupt volume may make them disagree, which
@@ -190,6 +190,13 @@ fn walk(root: &Dir<Ntfs<Overlay>>, dir: &str, depth: usize, outcome: &mut Outcom
                         Err(error) => allowed(&error, &path, outcome),
                     }
                 },
+                Err(error) => allowed(&error, &path, outcome),
+            },
+            Some(
+                FileKind::Fifo | FileKind::Socket | FileKind::CharDevice | FileKind::BlockDevice,
+            ) => match block_on(root.open_file(path.as_str())) {
+                Ok(_) => panic!("{path}: opened a special file"),
+                Err(error) if error.kind() == ErrorKind::NotRegularFile => {},
                 Err(error) => allowed(&error, &path, outcome),
             },
             kind => panic!("{path}: unexpected kind {kind:?}"),
