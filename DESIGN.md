@@ -2749,8 +2749,13 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
   (`FINOBT` 0x1, `RMAPBT` 0x2, `REFLINK` 0x4, `INOBTCNT` 0x8; a reader
   may ignore them), incompatible (`FTYPE` 0x1, `SPINODES` 0x2,
   `META_UUID` 0x4, `BIGTIME` 0x8, `NEEDSREPAIR` 0x10, `NREXT64` 0x20,
-  `EXCHANGE` 0x40, `PARENT` 0x80, `METADIR` 0x100), and log-incompatible.
-  Unknown incompatible bits in any set must stop a reader.
+  `EXCHANGE` 0x40, `PARENT` 0x80, `METADIR` 0x100, `ZONED` 0x200), and
+  log-incompatible. Unknown incompatible bits in any set must stop a
+  reader. `mkfs.xfs` 6.18 sets `PARENT` and `METADIR` only with
+  `EXCHANGE`; `METADIR` keeps metadata inodes (flagged 0x20 in
+  `di_flags2`) in a tree of their own from `sb_metadirino`, which the
+  root's never reaches, and splits a realtime device into groups.
+  `ZONED`, a realtime section within the data device, is refused.
 - Block numbers in file maps pack the AG above `sb_agblklog` bits of AG
   block; the byte offset is (AG × `sb_agblocks` + AG block) × block size.
   Inode numbers pack the AG, AG block, and slot in the block likewise

@@ -240,6 +240,31 @@ fn reads_default_volumes() {
     check_attributes(include_bytes!("fixtures/xfs5d-attrs.sparse"));
 }
 
+/// With the newest features: parent pointers, hidden attributes of every
+/// file, which `check_attributes` and the links of `check_dirs` would see
+/// were they not; range exchange; and the metadata directory.
+#[test]
+fn reads_newest_features() {
+    check(include_bytes!("fixtures/xfs5n-4k.sparse"), true);
+    check_dirs(include_bytes!("fixtures/xfs5n-dirs.sparse"));
+    check_attributes(include_bytes!("fixtures/xfs5n-attrs.sparse"));
+}
+
+/// The data device of a volume with a realtime device, in groups: files
+/// whose data is there are listed and stated, but not read.
+#[test]
+fn refuses_realtime_contents() {
+    let root = open(include_bytes!("fixtures/xfs5n-rt.sparse"));
+    let file = block_on(root.open_file("normal")).unwrap();
+    assert_eq!(block_on(file.read_to_end()).unwrap(), b"data\n");
+    for (path, len) in [("rtfile", 9), ("rtdir/f", 10)] {
+        let metadata = block_on(root.metadata(path, MetaMask::all())).unwrap();
+        assert_eq!(metadata.len, Some(len), "{path}");
+        let error = block_on(root.open_file(path)).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Unsupported, "{path}");
+    }
+}
+
 /// What later features change: times outside the legacy range, blocks
 /// that reflinked copies share, and a file of many extents.
 #[test]

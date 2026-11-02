@@ -23,7 +23,8 @@
 #
 # Fresh fixtures keep the logs the kernel wrote, as Linux refuses to
 # mount version 5 volumes whose logs were reformatted, as the committed
-# ones are: those are skipped.
+# ones are: those are skipped, as is the data device of a volume with a
+# realtime device, which Linux mounts only with that device.
 #
 # Usage: lib/filer-xfs/tests/differential.sh, from the repository root,
 # on Linux with xfsprogs, python3, and `sudo` for mounting.
@@ -302,4 +303,5 @@ logs "version 5 log" "$v5"
 logs "version 5 log of 4 KiB sectors" "$v5 -s size=4096"
 logs "version 5 log of 256 KiB stripes" "$v5 -l su=256k"
 logs "default log" ""
+logs "log with the newest features" "-n parent=1 -m metadir=1"
 exit $failed

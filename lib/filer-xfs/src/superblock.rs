@@ -79,12 +79,20 @@ pub(crate) mod feature {
     pub(crate) const META_UUID: u32 = 0x4;
     pub(crate) const BIGTIME: u32 = 0x8;
     pub(crate) const NREXT64: u32 = 0x20;
-    /// The version 5 incompatible features this driver reads: `FTYPE`,
-    /// `SPINODES`, `META_UUID`, `BIGTIME`, and `NREXT64`. Not yet
-    /// `EXCHANGE` (0x40), `PARENT` (0x80), or `METADIR` (0x100), nor
-    /// `NEEDSREPAIR` (0x10), which Linux refuses to mount.
+    /// Version 5 incompatible features that change nothing a reader of
+    /// files sees: the log may hold exchanges of file ranges; files have
+    /// parent pointers, attributes that are hidden; and metadata files
+    /// are in a directory tree of their own, apart from the root's, with
+    /// the realtime device, if any, in groups.
+    pub(crate) const EXCHANGE: u32 = 0x40;
+    pub(crate) const PARENT: u32 = 0x80;
+    pub(crate) const METADIR: u32 = 0x100;
+    /// The version 5 incompatible features this driver reads: all of the
+    /// above. Not `NEEDSREPAIR` (0x10), which Linux refuses to mount, nor
+    /// `ZONED` (0x200), a realtime section within the data device, whose
+    /// files' contents, as all realtime files', are not read.
     pub(crate) const SUPPORTED_INCOMPAT: u32 =
-        INCOMPAT_FTYPE | SPINODES | META_UUID | BIGTIME | NREXT64;
+        INCOMPAT_FTYPE | SPINODES | META_UUID | BIGTIME | NREXT64 | EXCHANGE | PARENT | METADIR;
 }
 
 /// A volume's on-disk format version.
@@ -900,10 +908,13 @@ pub(crate) mod tests {
         let v4 = Fields::new();
         assert_eq!(v4.parse().unwrap().check_crc(&[0; 512]), Ok(()));
 
-        // As `mkfs.xfs` 6.18 makes them by default.
-        let mut d = Fields::v5();
-        d.incompat = 0x2B;
-        assert!(d.parse().is_ok());
+        // As `mkfs.xfs` 6.18 makes them by default, and with all its
+        // features.
+        for incompat in [0x2B, 0x1EB] {
+            let mut d = Fields::v5();
+            d.incompat = incompat;
+            assert!(d.parse().is_ok(), "{incompat:#X}");
+        }
 
         // Metadata carries `sb_meta_uuid` with `META_UUID`.
         let mut m = Fields::v5();
@@ -915,7 +926,7 @@ pub(crate) mod tests {
             set: FeatureSet::Incompat,
             bits,
         };
-        for bits in [0x10, 0x40, 0x80, 0x100, 0x200] {
+        for bits in [0x10, 0x200, 0x400] {
             let mut f = Fields::v5();
             f.incompat |= bits;
             assert_eq!(f.parse(), Err(incompat(bits)), "{bits:#X}");

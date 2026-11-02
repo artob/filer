@@ -2,21 +2,22 @@
 # This is free and unencumbered software released into the public domain.
 #
 # Makes the XFS fixtures with real tools: `mkfs.xfs` formats each volume,
-# version 4 (`xfs-*`), version 5 with all later features off (`xfs5-*`), or as
-# it does by default (`xfs5d-*`), and the Linux kernel fills it with the tree
-# `tests/fixtures.rs` expects, through a loop mount. Version 4 volumes of 64
-# KiB blocks, which x86 Linux cannot mount, are filled by `mkfs.xfs -p` from
-# the same tree instead. Each image is stored as `<name>.sparse`: the magic
-# `FILER-SPARSE-2\n`, the image size (u64, little-endian), then runs of
-# identical nonzero 512-byte sectors, each as its first sector (u32), its
-# count (u32), and the sector's bytes. `spec*.sparse` hold the specification's
-# tree instead, `*-dirs.sparse` a directory of each form, `*-attrs*.sparse`
-# extended attributes of each form, and inode flags, `xfs-ci.sparse` names on
-# an `ASCII_CI` volume, `xfs5-uuid.sparse` the specification's tree on a
-# volume whose UUID changed, so that its metadata carries `sb_meta_uuid`, and
-# `xfs5d-later.sparse` what later features change. No tool makes `attr1`
-# attribute forks: Linux and `mkfs.xfs -p` both turn a volume to `attr2` on
-# its first attribute.
+# version 4 (`xfs-*`), version 5 with all later features off (`xfs5-*`), as it
+# does by default (`xfs5d-*`), or with its newest features (`xfs5n-*`), and
+# the Linux kernel fills it with the tree `tests/fixtures.rs` expects, through
+# a loop mount. Version 4 volumes of 64 KiB blocks, which x86 Linux cannot
+# mount, are filled by `mkfs.xfs -p` from the same tree instead. Each image is
+# stored as `<name>.sparse`: the magic `FILER-SPARSE-2\n`, the image size
+# (u64, little-endian), then runs of identical nonzero 512-byte sectors, each
+# as its first sector (u32), its count (u32), and the sector's bytes.
+# `spec*.sparse` hold the specification's tree instead, `*-dirs.sparse` a
+# directory of each form, `*-attrs*.sparse` extended attributes of each form,
+# and inode flags, `xfs-ci.sparse` names on an `ASCII_CI` volume,
+# `xfs5-uuid.sparse` the specification's tree on a volume whose UUID changed,
+# so that its metadata carries `sb_meta_uuid`, and `xfs5d-later.sparse` what
+# later features change, and `xfs5n-rt.sparse` the data device of a volume
+# with a realtime device. No tool makes `attr1` attribute forks: Linux and
+# `mkfs.xfs -p` both turn a volume to `attr2` on its first attribute.
 #
 # Usage: tests/fixtures/make.sh [output-dir [fixture...]], on Linux with
 # xfsprogs, python3, and `sudo` for mounting and making devices; without
@@ -40,8 +41,10 @@ only="$*"
 work=$(mktemp -d -p /var/tmp)
 mnt="$work/mnt"
 mkdir "$mnt"
+rtloop=
 cleanup() {
     if mountpoint -q "$mnt"; then sudo umount "$mnt"; fi
+    if [ -n "$rtloop" ]; then sudo losetup -d "$rtloop"; fi
     sudo rm -rf "$work"
 }
 trap cleanup EXIT
@@ -325,6 +328,17 @@ with open(os.path.join(root, "extents"), "wb") as f:
 PY
 }
 
+# Writes files on the realtime device into directory `$1`, as root: one
+# made so, and one in a directory whose new files are; and one not.
+realtime() {
+    sudo sh -c "echo data > '$1/normal'; touch '$1/rtfile'"
+    sudo xfs_io -c "chattr +r" "$1/rtfile"
+    sudo sh -c "echo realtime > '$1/rtfile'"
+    sudo mkdir "$1/rtdir"
+    sudo xfs_io -c "chattr +t" "$1/rtdir"
+    sudo sh -c "echo inherited > '$1/rtdir/f'"
+}
+
 # Writes the specification's tree into directory `$1`, as root.
 spec() {
     sudo python3 -I - "$1" <<'PY'
@@ -442,6 +456,27 @@ make() {
     sparse "$img" "$out/$1.sparse"
 }
 
+# Makes fixture `$1` as `make` does, on a volume with a realtime device,
+# of which only the data device is kept.
+make_rt() {
+    case " $only " in "  " | *" $1 "*) ;; *) return ;; esac
+    img="$work/$1.img"
+    truncate -s $SIZE "$img"
+    truncate -s 64M "$work/$1.rt"
+    # shellcheck disable=SC2086
+    mkfs.xfs -q -f -L FILER $2 -r rtdev="$work/$1.rt" "$img" 2>/dev/null
+    rtloop=$(sudo losetup -f --show "$work/$1.rt")
+    sudo mount -o loop,rtdev="$rtloop" "$img" "$mnt"
+    $3 "$mnt"
+    sudo umount "$mnt"
+    sudo losetup -d "$rtloop"
+    rtloop=
+    if [ -z "${KEEP_LOG:-}" ]; then
+        xfs_db -x -c "logformat -c 1" "$img" >/dev/null
+    fi
+    sparse "$img" "$out/$1.sparse"
+}
+
 # Writes out the holes of every file below directory `$1` as zeros,
 # keeping its times.
 dense() {
@@ -509,3 +544,11 @@ make xfs5d-4k "" fill
 make xfs5d-dirs "" dirs
 make xfs5d-attrs "" attrs
 make xfs5d-later "" later
+
+# With the newest features: parent pointers, which bring range exchange,
+# and the metadata directory, which brings realtime groups.
+newest="-n parent=1 -m metadir=1"
+make xfs5n-4k "$newest" fill
+make xfs5n-dirs "$newest" dirs
+make xfs5n-attrs "$newest" attrs
+make_rt xfs5n-rt "$newest" realtime
