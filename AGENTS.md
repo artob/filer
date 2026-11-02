@@ -52,10 +52,12 @@
   a header parser over the shared `filer_api::archive` module);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
   planned; its root denies panicking constructs by lint); `filer-ext4`,
-  `filer-ntfs`, `filer-udf`, and `filer-xfs` are read-only file system
-  driver stubs (no items yet), to follow `filer-fat`'s model;
-  `filer-fs` holds what file system drivers share (each depends on it;
-  shared code goes there, not into one driver);
+  `filer-ntfs`, and `filer-xfs` are read-only file system drivers, and
+  `filer-udf` a stub; `filer-fs` holds what they share (each depends on
+  it; shared code goes there, not into one driver): a format implements
+  `filer_fs::FileSystem`, its public type wraps `filer_fs::Mounted`, and
+  its tests use `filer-spec`'s `Sparse`, `Overlay`, `exercise`, and
+  `fuzz`;
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `filer-system` re-exports `filer-api` plus `System`, the target's native
