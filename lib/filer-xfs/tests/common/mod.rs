@@ -12,10 +12,10 @@ use std::collections::BTreeMap;
 /// A volume image as a base image with bytes patched over it.
 pub type Overlay = filer_spec::Overlay<Sparse>;
 
-/// Opens `source` and walks it with [`filer_spec::exercise`], with
-/// the checks XFS allows: lookups of names and attributes follow the
-/// hash indexes, as Linux's do, which a corrupt block may no longer
-/// match, so what is listed may not be found. Shared by `tests/fuzz.rs` and the `cargo-fuzz` targets in
+/// Opens `source` and walks it with [`filer_spec::exercise`], with the checks
+/// XFS allows: lookups of names and attributes follow the hash indexes, as
+/// Linux's do, which a corrupt block may no longer match, so what is listed may
+/// not be found. Shared by `tests/fuzz.rs` and the `cargo-fuzz` targets in
 /// `fuzz/`.
 pub fn exercise<S: filer_api::ReadAt + 'static>(source: S) -> filer_spec::Outcome {
     filer_spec::exercise(
