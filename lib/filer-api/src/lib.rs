@@ -16,7 +16,8 @@
 //! handles ([`DriverKey`], [`DriverId`], [`Handle`]), [`Metadata`], owned
 //! I/O buffers ([`IoBuf`], [`IoBufMut`], [`BufResult`]), the [`Error`]
 //! type, and for drivers, the generic [`Resolver`] (and
-//! [`BlockingResolver`]) and the [`tree`] of virtual drivers.
+//! [`BlockingResolver`]), the [`tree`] of virtual drivers, and the
+//! [`checksum`]s they share.
 //!
 //! It builds with `#![no_std]` but requires `alloc`; the `std` feature,
 //! enabled by default, adds `std::io::Error` interop. `all` currently
@@ -32,6 +33,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod archive;
+pub mod checksum;
 pub mod path;
 pub mod tree;
 
