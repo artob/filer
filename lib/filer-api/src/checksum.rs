@@ -5,7 +5,9 @@
 //!
 //! [`Crc32c`] is CRC-32C (Castagnoli), which XFS and ext4 stamp on their
 //! metadata and iSCSI on its frames. [`Crc32`] is CRC-32 (ISO-HDLC), which
-//! ZIP stamps on members and GPT on its partition tables.
+//! ZIP stamps on members and GPT on its partition tables. [`Crc16Modbus`]
+//! is CRC-16/MODBUS, which ext4 stamps on group descriptors without
+//! `metadata_csum`.
 
 /// The CRC-32 and CRC-32C polynomials, their bits reversed, as both read
 /// each byte from its least significant bit.
@@ -126,6 +128,33 @@ impl Crc32c {
     pub const fn finish(self) -> u32 {
         !self.state
     }
+
+    /// Resumes a CRC-32C from `state`, a register as [`state`](Self::state)
+    /// returns it.
+    ///
+    /// Formats that chain checksums store the register rather than the
+    /// CRC: ext4 its metadata checksums and their seed, and JBD2 its own,
+    /// each continuing the register of the seed over its bytes.
+    ///
+    /// ```
+    /// use filer_api::checksum::Crc32c;
+    ///
+    /// let seed = Crc32c::new().update(b"1234").state();
+    /// let crc = Crc32c::from_state(seed).update(b"56789");
+    /// assert_eq!(crc.finish(), 0xE306_9283);
+    /// assert_eq!(crc.state(), !0xE306_9283);
+    /// ```
+    #[must_use]
+    pub const fn from_state(state: u32) -> Self {
+        Self { state }
+    }
+
+    /// Returns the register: the CRC of the bytes fed, before CRC-32C's
+    /// final inversion.
+    #[must_use]
+    pub const fn state(self) -> u32 {
+        self.state
+    }
 }
 
 impl Default for Crc32c {
@@ -191,6 +220,97 @@ pub fn crc32(bytes: &[u8]) -> u32 {
     Crc32::new().update(bytes).finish()
 }
 
+/// The CRC-16/MODBUS polynomial, 0x8005, its bits reversed.
+const CRC16_POLY: u16 = 0xA001;
+
+static CRC16_TABLE: [u16; 256] = crc16_table(CRC16_POLY);
+
+/// Builds the table of the reflected polynomial `poly`, at compile time.
+#[allow(
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::indexing_slicing,
+    reason = "evaluated at compile time"
+)]
+const fn crc16_table(poly: u16) -> [u16; 256] {
+    let mut table = [0; 256];
+    let mut byte = 0;
+    while byte < 256 {
+        let mut crc = byte as u16;
+        let mut bit = 0;
+        while bit < 8 {
+            crc = if crc & 1 == 0 {
+                crc >> 1
+            } else {
+                (crc >> 1) ^ poly
+            };
+            bit += 1;
+        }
+        table[byte] = crc;
+        byte += 1;
+    }
+    table
+}
+
+/// A CRC-16/MODBUS computed over bytes fed in pieces: the polynomial
+/// 0x8005, each byte read from its least significant bit, from `0xFFFF`,
+/// and not inverted at the end.
+///
+/// # Examples
+///
+/// ```
+/// use filer_api::checksum::{Crc16Modbus, crc16_modbus};
+///
+/// assert_eq!(crc16_modbus(b"123456789"), 0x4B37);
+/// let crc = Crc16Modbus::new().update(b"1234").update(b"56789");
+/// assert_eq!(crc.finish(), 0x4B37);
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Crc16Modbus {
+    state: u16,
+}
+
+impl Crc16Modbus {
+    /// Starts a CRC-16/MODBUS over no bytes.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { state: !0 }
+    }
+
+    /// Feeds `bytes`.
+    #[must_use]
+    pub fn update(self, bytes: &[u8]) -> Self {
+        let mut crc = self.state;
+        for &byte in bytes {
+            let [low, high] = crc.to_le_bytes();
+            let entry = CRC16_TABLE
+                .get(usize::from(low ^ byte))
+                .copied()
+                .unwrap_or(0);
+            crc = entry ^ u16::from(high);
+        }
+        Self { state: crc }
+    }
+
+    /// Returns the CRC-16/MODBUS of the bytes fed.
+    #[must_use]
+    pub const fn finish(self) -> u16 {
+        self.state
+    }
+}
+
+impl Default for Crc16Modbus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Returns the CRC-16/MODBUS of `bytes`.
+#[must_use]
+pub fn crc16_modbus(bytes: &[u8]) -> u16 {
+    Crc16Modbus::new().update(bytes).finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,6 +333,9 @@ mod tests {
             crc32(b"The quick brown fox jumps over the lazy dog"),
             0x414F_A339
         );
+        assert_eq!(crc16_modbus(b""), 0xFFFF);
+        assert_eq!(crc16_modbus(b"123456789"), 0x4B37);
+        assert_eq!(crc16_modbus(&[0; 32]), 0x9401);
     }
 
     #[test]

@@ -55,6 +55,9 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
     let size = sb.desc_size();
     let off = sb.descriptor_offset(group).ok_or_else(bad)?;
     let bytes = read_exact(source, off, usize::from(size), op).await?;
+    if !sb.checksums().descriptor_ok(group, &bytes) {
+        return Err(fail(Ext4Error::BadDescriptorChecksum { group }));
+    }
     GroupDesc::parse(&bytes, group, sb).map_err(fail)
 }
 

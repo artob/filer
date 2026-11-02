@@ -83,7 +83,7 @@ const FLAG_LAST_TAG: u32 = 0x8;
 /// Returns the CRC-32C register after `crc`, as JBD2 stores checksums:
 /// not inverted at the end.
 fn raw(crc: Crc32c) -> u32 {
-    !crc.finish()
+    crc.state()
 }
 
 /// Returns `true` if sequence number `a` is after `b`, as they wrap.

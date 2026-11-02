@@ -6,13 +6,13 @@
 //! index (`htree`).
 
 use crate::{
-    Ext4Error,
+    Ext4Error, csum,
     file_map::FileMap,
     htree::{self, Probe},
     superblock::Superblock,
 };
 use alloc::vec::Vec;
-use filer_api::{EntryName, Error, FileKind, OpKind, ReadAt};
+use filer_api::{EntryName, Error, FileKind, OpKind, ReadAt, checksum::Crc32c};
 use filer_fs::{le, unix};
 
 /// The longest name an entry holds.
@@ -109,18 +109,22 @@ pub(crate) struct Directory {
     map: FileMap,
     size: u64,
     indexed: bool,
+    /// The seed of its blocks' checksums, under `metadata_csum`.
+    seed: Option<Crc32c>,
 }
 
 impl Directory {
     /// Returns directory `inode`'s contents, `size` bytes mapped by `map`:
     /// whole blocks, and no more than the volume holds, as a directory has
     /// no holes. That bounds a scan, even if a corrupt map names one block
-    /// many times. Lookups follow the index of one `indexed`.
+    /// many times. Lookups follow the index of one `indexed`, and blocks
+    /// are checked from `seed`, if there is one.
     pub(crate) fn new(
         inode: u32,
         map: FileMap,
         size: u64,
         indexed: bool,
+        seed: Option<Crc32c>,
         sb: &Superblock,
     ) -> Result<Self, Ext4Error> {
         if !size.is_multiple_of(u64::from(sb.block_size())) || size > sb.volume_len() {
@@ -131,6 +135,7 @@ impl Directory {
             map,
             size,
             indexed,
+            seed,
         })
     }
 
@@ -159,7 +164,10 @@ impl Directory {
             })
     }
 
-    /// Reads block `index` of the directory.
+    /// Reads block `index` of the directory, checking its checksum, if
+    /// it has one: as a node of the index, if the directory is indexed and
+    /// it is the first block or one that reads as one unused entry, else
+    /// as a block of entries.
     pub(crate) async fn raw_block<S: ReadAt + ?Sized>(
         &self,
         source: &S,
@@ -169,7 +177,26 @@ impl Directory {
     ) -> Result<Vec<u8>, Error> {
         let base = self.offset(sb, index, op)?;
         let len = usize::try_from(sb.block_size()).unwrap_or(usize::MAX);
-        self.map.read(source, sb, self.size, base, len, op).await
+        let bytes = self.map.read(source, sb, self.size, base, len, op).await?;
+        if let Some(seed) = self.seed {
+            let whole = le::u16_at(&bytes, 4).is_some_and(|rec_len| {
+                usize::from(rec_len) == bytes.len() || (rec_len == 0xFFFF && len == 0x1_0000)
+            });
+            let node = le::u32_at(&bytes, 0) == Some(0) && whole && bytes.get(6) == Some(&0);
+            let ok = if self.indexed && (index == 0 || node) {
+                csum::dx_ok(seed, &bytes, index == 0)
+            } else {
+                csum::dir_block_ok(seed, &bytes)
+            };
+            if !ok {
+                return Err(Ext4Error::BadDirChecksum {
+                    dir: self.inode,
+                    block: index,
+                }
+                .into_error(op));
+            }
+        }
+        Ok(bytes)
     }
 
     /// Reads and parses block `index` of the directory.
@@ -265,7 +292,7 @@ mod tests {
             raw.mode = 0o040_755;
             let inode = Inode::parse(&raw.bytes(256), 12).unwrap();
             let map = FileMap::new(&inode, &sb).unwrap();
-            Directory::new(12, map, size, false, &sb).map(|dir| dir.blocks(&sb))
+            Directory::new(12, map, size, false, None, &sb).map(|dir| dir.blocks(&sb))
         };
         assert_eq!(directory(4096 * 1024), Ok(4096));
         for size in [1000, 4097 * 1024] {

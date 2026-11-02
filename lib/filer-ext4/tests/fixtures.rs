@@ -304,6 +304,8 @@ fn looks_up_names_in_hashed_directories() {
     for sparse in [
         &include_bytes!("fixtures/ext2-htree-tea.sparse")[..],
         include_bytes!("fixtures/ext2-htree-legacy.sparse"),
+        // With `metadata_csum`, index nodes are checksummed.
+        include_bytes!("fixtures/ext4-htree.sparse"),
     ] {
         let root = block_on(Ext4::open(unsparse(sparse))).unwrap();
         let big = block_on(root.open_dir("big")).unwrap();
@@ -342,10 +344,17 @@ fn reads_extents() {
 /// zeros.
 #[test]
 fn reads_deep_extent_trees_and_unwritten_extents() {
-    let root = block_on(Ext4::open(unsparse(include_bytes!(
-        "fixtures/ext3-extents-deep.sparse"
-    ))))
-    .unwrap();
+    // With `metadata_csum`, the nodes below the root are checksummed.
+    for sparse in [
+        &include_bytes!("fixtures/ext3-extents-deep.sparse")[..],
+        include_bytes!("fixtures/ext4-extents-deep.sparse"),
+    ] {
+        deep_extents(sparse);
+    }
+}
+
+fn deep_extents(sparse: &[u8]) {
+    let root = block_on(Ext4::open(unsparse(sparse))).unwrap();
     let read =
         |path: &str| block_on(block_on(root.open_file(path)).unwrap().read_to_end()).unwrap();
     let fragmented = read("fragmented");
@@ -385,6 +394,143 @@ fn reads_ext4() {
         include_bytes!("fixtures/ext4-meta-bg.sparse"),
         Times::Nanoseconds,
     );
+    // `gdt_csum`, CRC-16 over group descriptors, without `metadata_csum`.
+    check(
+        include_bytes!("fixtures/ext4-gdt-csum.sparse"),
+        Times::Nanoseconds,
+    );
+}
+
+/// Returns the source of `error`, an [`Ext4Error`] of a `Corrupt` one.
+fn corrupt(error: filer_api::Error) -> Ext4Error {
+    assert_eq!(error.kind(), ErrorKind::Corrupt, "{error:?}");
+    *core::error::Error::source(&error)
+        .unwrap()
+        .downcast_ref()
+        .unwrap()
+}
+
+/// Returns the offset of each block of `size` bytes in `image` that
+/// starts with `magic`.
+fn blocks_of(image: &[u8], size: usize, magic: &[u8]) -> Vec<usize> {
+    (0..image.len())
+        .step_by(size)
+        .filter(|&at| image[at..].starts_with(magic))
+        .collect()
+}
+
+/// A byte changed in a checksummed structure makes it `Corrupt`.
+#[test]
+fn refuses_structures_failing_their_checksums() {
+    let ext4 = unsparse(include_bytes!("fixtures/ext4-1k.sparse"));
+    let flipped = |image: &[u8], at: usize| {
+        let mut image = image.to_vec();
+        image[at] ^= 0x10;
+        image
+    };
+    // The superblock: a byte past its fields.
+    let error = block_on(Ext4::open(flipped(&ext4, 1024 + 0x300))).unwrap_err();
+    assert_eq!(corrupt(error), Ext4Error::BadSuperblockChecksum);
+    // Group 0's descriptor, in the block after the superblock's: its free
+    // blocks count.
+    let error = block_on(Ext4::open(flipped(&ext4, 2048 + 0x0C))).unwrap_err();
+    assert_eq!(
+        corrupt(error),
+        Ext4Error::BadDescriptorChecksum { group: 0 }
+    );
+    // Under `gdt_csum`, CRC-16 instead.
+    let gdt = unsparse(include_bytes!("fixtures/ext4-gdt-csum.sparse"));
+    let error = block_on(Ext4::open(flipped(&gdt, 4096 + 0x0C))).unwrap_err();
+    assert_eq!(
+        corrupt(error),
+        Ext4Error::BadDescriptorChecksum { group: 0 }
+    );
+    // An inode: the root's access time. Group 0's inode table is at the
+    // block its descriptor names, and the root is its second record.
+    let table = u32::from_le_bytes(ext4[2048 + 8..2048 + 12].try_into().unwrap());
+    let inode_size = usize::from(u16::from_le_bytes([ext4[1024 + 0x58], ext4[1024 + 0x59]]));
+    let root_inode = usize::try_from(table).unwrap() * 1024 + inode_size;
+    let error = block_on(Ext4::open(flipped(&ext4, root_inode + 0x08))).unwrap_err();
+    assert_eq!(corrupt(error), Ext4Error::BadInodeChecksum { inode: 2 });
+    // An interior node of a hashed directory's index: an unused entry
+    // spanning the block, then the entries, the first one's hash changed.
+    let htree = unsparse(include_bytes!("fixtures/ext4-htree.sparse"));
+    let mut failed = 0;
+    for node in blocks_of(&htree, 1024, &[0, 0, 0, 0, 0, 4, 0, 0]) {
+        let root = block_on(Ext4::open(flipped(&htree, node + 8 + 8))).unwrap();
+        let big = block_on(root.open_dir("big")).unwrap();
+        let mut entries = big.entries().unwrap();
+        while let Some(entry) = block_on(entries.next()) {
+            if let Err(error) = entry {
+                assert!(matches!(corrupt(error), Ext4Error::BadDirChecksum { .. }));
+                failed += 1;
+                break;
+            }
+        }
+    }
+    assert!(failed > 0);
+    // A directory block: a name in the root's.
+    let at = ext4
+        .windows(10)
+        .position(|window| window == b"lost+found")
+        .unwrap();
+    let root = block_on(Ext4::open(flipped(&ext4, at + 9))).unwrap();
+    let error = root.entries().and_then(|mut entries| {
+        while let Some(entry) = block_on(entries.next()) {
+            entry?;
+        }
+        Ok(())
+    });
+    assert_eq!(
+        corrupt(error.unwrap_err()),
+        Ext4Error::BadDirChecksum { dir: 2, block: 0 }
+    );
+    // An extent tree node below the root: of the blocks of its magic,
+    // some are `fragmented`'s nodes, others copies in the journal.
+    let deep = unsparse(include_bytes!("fixtures/ext4-extents-deep.sparse"));
+    let mut failed = 0;
+    for node in blocks_of(&deep, 1024, &0xF30A_u16.to_le_bytes()) {
+        let root = block_on(Ext4::open(flipped(&deep, node + 1000))).unwrap();
+        let file = block_on(root.open_file("fragmented")).unwrap();
+        if let Err(error) = block_on(file.read_to_end()) {
+            assert!(matches!(
+                corrupt(error),
+                Ext4Error::BadExtentChecksum { .. }
+            ));
+            failed += 1;
+        }
+    }
+    assert!(failed > 0);
+    // An attribute block, of those of its magic, read by a file or
+    // directory in the root.
+    let attrs = unsparse(include_bytes!("fixtures/ext4-attrs.sparse"));
+    let mut failed = 0;
+    for block in blocks_of(&attrs, 4096, &0xEA02_0000_u32.to_le_bytes()) {
+        let root = block_on(Ext4::open(flipped(&attrs, block + 4000))).unwrap();
+        let mut entries = root.entries().unwrap();
+        while let Some(entry) = block_on(entries.next()) {
+            let entry = entry.unwrap();
+            let name = entry.name.to_string();
+            let names = match entry.kind {
+                Some(FileKind::File) => block_on(
+                    block_on(root.open_file(name.as_str()))
+                        .unwrap()
+                        .xattr_names(),
+                ),
+                Some(FileKind::Dir) => block_on(
+                    block_on(root.open_dir(name.as_str()))
+                        .unwrap()
+                        .xattr_names(),
+                ),
+                _ => continue,
+            };
+            if let Err(error) = names {
+                assert!(matches!(corrupt(error), Ext4Error::BadXattrChecksum { .. }));
+                failed += 1;
+            }
+        }
+    }
+    assert!(failed > 0);
 }
 
 #[test]
@@ -535,6 +681,8 @@ fn check_attributes(sparse: &[u8]) {
 #[test]
 fn reads_attributes_and_flags() {
     check_attributes(include_bytes!("fixtures/ext2-attrs.sparse"));
+    // With `metadata_csum`, attribute blocks are checksummed.
+    check_attributes(include_bytes!("fixtures/ext4-attrs.sparse"));
 }
 
 /// With 128-byte inodes, every attribute is in a block.

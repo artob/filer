@@ -2651,8 +2651,18 @@ TEA cipher, and checked against `debugfs`'s `dx_hash`.
   and powers of 3, 5, and 7 with `sparse_super`, the two the superblock
   names with `sparse_super2`, else every group. `huge_file` adds 16 bits
   to inodes' block counts, in blocks rather than sectors for inodes with
-  its flag. `metadata_csum_seed` only moves the checksums' seed into the
-  superblock.
+  its flag.
+- Checksums, verified, each failure `Corrupt` (`csum.rs` details each):
+  under `metadata_csum`, CRC-32C registers (before the final inversion)
+  chained from the volume's seed (the register over the UUID, or with
+  `metadata_csum_seed` the superblock's own), over the superblock, group
+  descriptors (their low 16 bits), inodes, extent tree nodes, directory
+  blocks (in an unused last entry) and index nodes (in a tail after
+  their entries), and attribute blocks; those of one inode's structures
+  chained further over its number and generation. Under `gdt_csum`,
+  CRC-16/MODBUS over group descriptors only. Which coverage an index
+  node's checksum has was settled against real volumes, as the
+  documentation leaves it open.
 - Inodes: number n is entry (n - 1) mod `s_inodes_per_group` of group
   (n - 1) / `s_inodes_per_group`; there is no inode 0, and 2 is the root.
   The 128-byte base holds the mode (kind and permissions), owner, size
@@ -2736,8 +2746,11 @@ flags; two of a hashed directory of 700 long names, by TEA over
 unsigned bytes two levels deep, and by the legacy hash over signed ones,
 whose every name the index finds as the linear read lists it; ext3
 volumes of 1 and 4 KiB blocks, with and without extents; ext4 volumes
-as `mke2fs -t ext4` makes them, of 1 and 4 KiB blocks, and one with
-`meta_bg` of two metagroups; and one of a
+as `mke2fs -t ext4` makes them, of 1 and 4 KiB blocks, one with
+`meta_bg` of two metagroups, one with `gdt_csum` instead of
+`metadata_csum`, and, checksummed, one of attributes, one of a hashed
+directory two levels deep, and one of deep extent trees, whose every
+checksummed structure, changed, is `Corrupt`; and one of a
 file of 2000 extents two levels deep and one allocated but unwritten
 but for its middle; and three that need
 recovery, of 1 and 4 KiB blocks and with `metadata_csum`, copied while

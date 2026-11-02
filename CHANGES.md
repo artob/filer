@@ -27,12 +27,12 @@ so any release may break compatibility.
 - `filer-ext4`, `filer-ntfs`, `filer-udf`, and `filer-xfs`: New crates for
   read-only file system drivers, with no items yet but `filer-ext4`'s
   `Ext4` driver (reading ext2, ext3, and ext4 as `mke2fs` makes them,
-  replaying journals that need recovery, but not yet checking
-  checksums), `Options`, and `Ext4Error`,
-  `filer-ntfs`'s `Ntfs` driver, `Options`, and `NtfsError`, and
-  `filer-xfs`'s `Xfs` driver (reading version 4 and 5 volumes, with every feature but zoned
-  realtime sections, and no realtime files' contents; replaying logs
-  that need recovery), `Options`, `XfsError`, and `FeatureSet`.
+  checking their checksums, and replaying journals that need recovery),
+  `Options`, and `Ext4Error`, `filer-ntfs`'s `Ntfs` driver, `Options`,
+  and `NtfsError`, and `filer-xfs`'s `Xfs` driver (reading version 4 and 5
+  volumes, with every feature but zoned realtime sections, and no realtime
+  files' contents; replaying logs that need recovery), `Options`,
+  `XfsError`, and `FeatureSet`.
 - `filer-fs`: New crate: the shared machinery of file system drivers,
   which `filer-fat`, `filer-ext4`, `filer-ntfs`, `filer-udf`, and
   `filer-xfs` depend on. So far `le` and `be`, field readers, and
@@ -51,7 +51,8 @@ so any release may break compatibility.
 - `filer-api`: `archive`, the shared machinery of archive drivers:
   `Archive`, `Index`, `Member`, `Limits`, and `ArchiveError`.
 - `filer-api`: `checksum`, the checksums drivers share: `Crc32c` and
-  `crc32c`, `Crc32` and `crc32`.
+  `crc32c`, with `Crc32c::from_state` and `state`; `Crc32` and `crc32`;
+  `Crc16Modbus` and `crc16_modbus`.
 - `filer-api`: Reading extended attributes: `Op::Xattr` with `XattrOp`,
   `XattrName`, `XattrNs`, `XattrEntry`, and `XattrNameError`;
   `File::xattr`, `xattr_into`, and `xattr_names`, likewise on `Dir`;

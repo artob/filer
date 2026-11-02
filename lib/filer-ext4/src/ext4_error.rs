@@ -131,6 +131,39 @@ pub enum Ext4Error {
         inode: u32,
     },
 
+    /// The superblock fails its `metadata_csum` checksum, or names another
+    /// kind of checksum than CRC-32C.
+    BadSuperblockChecksum,
+    /// A group's descriptor fails its checksum.
+    BadDescriptorChecksum {
+        /// The group's number.
+        group: u32,
+    },
+    /// An inode fails its checksum.
+    BadInodeChecksum {
+        /// The inode's number.
+        inode: u32,
+    },
+    /// A node of a file's extent tree fails its checksum.
+    BadExtentChecksum {
+        /// The file's inode.
+        inode: u32,
+        /// The node's block in the volume.
+        block: u64,
+    },
+    /// A directory's block, of entries or of its index, fails its
+    /// checksum, or has no room for one.
+    BadDirChecksum {
+        /// The directory's inode.
+        dir: u32,
+        /// The block's number in the directory.
+        block: u64,
+    },
+    /// A file's extended attribute block fails its checksum.
+    BadXattrChecksum {
+        /// The file's inode.
+        inode: u32,
+    },
     /// The volume uses incompatible features this driver does not read.
     UnsupportedFeatures {
         /// The incompatible feature flags not understood.
@@ -231,6 +264,20 @@ impl core::fmt::Display for Ext4Error {
             Self::BadSymlink { inode } => write!(f, "symlink {inode} has an invalid target"),
             Self::BadXattr { inode } => {
                 write!(f, "inode {inode} has invalid extended attributes")
+            },
+            Self::BadSuperblockChecksum => f.write_str("the superblock fails its checksum"),
+            Self::BadDescriptorChecksum { group } => {
+                write!(f, "group {group}'s descriptor fails its checksum")
+            },
+            Self::BadInodeChecksum { inode } => write!(f, "inode {inode} fails its checksum"),
+            Self::BadExtentChecksum { inode, block } => {
+                write!(f, "inode {inode}'s extent node {block} fails its checksum")
+            },
+            Self::BadDirChecksum { dir, block } => {
+                write!(f, "directory {dir}'s block {block} fails its checksum")
+            },
+            Self::BadXattrChecksum { inode } => {
+                write!(f, "inode {inode}'s attribute block fails its checksum")
             },
             Self::UnsupportedFeatures { incompat } => {
                 write!(f, "unsupported incompatible features {incompat:#X}")

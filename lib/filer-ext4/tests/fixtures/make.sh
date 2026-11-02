@@ -370,10 +370,14 @@ make ext3-extents-1k 32M "-t ext3 -b 1024 -O extent" fill
 make ext4-1k 32M "-t ext4 -b 1024" fill
 make ext4-4k 32M "-t ext4 -b 4096" fill
 make ext4-meta-bg 256M "-t ext4 -b 1024 -O meta_bg,^resize_inode" fill
+make ext4-gdt-csum 32M "-t ext4 -b 4096 -O ^metadata_csum,^metadata_csum_seed,uninit_bg" fill
+make ext4-attrs 8M "-t ext4 -b 4096" attrs
+make ext4-extents-deep 16M "-t ext4 -b 1024" deep
 make ext3-extents-4k 32M "-t ext3 -b 4096 -O extent" fill
 make ext3-extents-deep 16M "-t ext3 -b 1024 -O extent" deep
 hashed ext2-htree-tea 16M "-t ext2 -b 1024" tea unsigned
 hashed ext2-htree-legacy 16M "-t ext2 -b 4096" legacy signed
+hashed ext4-htree 16M "-t ext4 -b 1024 -O ^has_journal" half_md4 signed
 dirty ext3-dirty 32M "-t ext3 -b 4096"
 dirty ext3-dirty-1k 32M "-t ext3 -b 1024"
 dirty ext3-dirty-csum 32M "-t ext3 -b 4096 -O metadata_csum"

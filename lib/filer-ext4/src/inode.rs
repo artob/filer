@@ -3,7 +3,7 @@
 //! Inodes: finding them in their group's table, and decoding them.
 
 use crate::{
-    Ext4Error, group,
+    Ext4Error, csum, group,
     superblock::{GOOD_OLD_INODE_SIZE, Superblock},
 };
 use alloc::vec::Vec;
@@ -239,6 +239,12 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         .and_then(|table| table.checked_add(u64::from(slot).checked_mul(u64::from(size))?))
         .ok_or_else(bad)?;
     let bytes = read_exact(source, off, usize::from(size), op).await?;
+    let generation = le::u32_at(&bytes, 0x64).ok_or_else(bad)?;
+    if let Some(seed) = sb.checksums().inode_seed(number, generation)
+        && !csum::inode_ok(seed, &bytes)
+    {
+        return Err(fail(Ext4Error::BadInodeChecksum { inode: number }));
+    }
     Inode::parse(&bytes, number).map_err(fail)
 }
 

@@ -2,8 +2,11 @@
 
 //! The superblock, and the volume layout it describes.
 
-use crate::Ext4Error;
-use filer_api::{Error, ErrorKind, OpKind, ReadAt};
+use crate::{
+    Ext4Error,
+    csum::{self, Checksums},
+};
+use filer_api::{Error, ErrorKind, OpKind, ReadAt, checksum::Crc32c};
 use filer_fs::{le, read_exact};
 
 /// Where the superblock starts, and its size.
@@ -47,6 +50,10 @@ pub(crate) mod feature {
     /// Read-only compatible: block counts of 48 bits, and in blocks for
     /// inodes with the huge file flag.
     pub(crate) const RO_COMPAT_HUGE_FILE: u32 = 0x8;
+    /// Read-only compatible: group descriptors checksummed by CRC-16.
+    pub(crate) const RO_COMPAT_GDT_CSUM: u32 = 0x10;
+    /// Read-only compatible: metadata checksummed by CRC-32C.
+    pub(crate) const RO_COMPAT_METADATA_CSUM: u32 = 0x400;
     /// Incompatible: directory entries record the file type.
     pub(crate) const INCOMPAT_FILETYPE: u32 = 0x2;
     /// Incompatible: the journal holds changes not yet applied.
@@ -60,8 +67,7 @@ pub(crate) mod feature {
     /// Incompatible: groups' metadata may lie in other groups.
     pub(crate) const INCOMPAT_FLEX_BG: u32 = 0x200;
     /// Incompatible: the seed of `metadata_csum` checksums is kept in the
-    /// superblock, not derived from the UUID, which a reader that does
-    /// not check them may ignore.
+    /// superblock, not derived from the UUID.
     pub(crate) const INCOMPAT_CSUM_SEED: u32 = 0x2000;
 }
 
@@ -111,6 +117,7 @@ pub(crate) struct Superblock {
     /// The directory hashes' seed, and whether they read bytes unsigned.
     hash_seed: [u32; 4],
     unsigned_hash: bool,
+    checksums: Checksums,
 }
 
 fn u16_at(bytes: &[u8], at: usize) -> Result<u16, Ext4Error> {
@@ -248,6 +255,22 @@ impl Superblock {
         // `s_flags`: 1 for signed directory hashes, 2 for unsigned.
         let unsigned_hash = u32_at(bytes, 0x160)? & 0x2 != 0;
         let backup_groups = [u32_at(bytes, 0x24C)?, u32_at(bytes, 0x250)?];
+        let checksums = if features.ro_compat & feature::RO_COMPAT_METADATA_CSUM != 0 {
+            // Type 1 is CRC-32C, the only one.
+            if bytes.get(0x175) != Some(&1) || !csum::superblock_ok(bytes) {
+                return Err(Ext4Error::BadSuperblockChecksum);
+            }
+            let seed = if features.incompat & feature::INCOMPAT_CSUM_SEED != 0 {
+                u32_at(bytes, 0x270)?
+            } else {
+                Crc32c::new().update(&uuid).state()
+            };
+            Checksums::Metadata { seed }
+        } else if features.ro_compat & feature::RO_COMPAT_GDT_CSUM != 0 {
+            Checksums::Descriptors { uuid }
+        } else {
+            Checksums::None
+        };
         let journal_inode = if features.compat & feature::COMPAT_HAS_JOURNAL != 0 {
             u32_at(bytes, 0xE0)?
         } else {
@@ -271,6 +294,7 @@ impl Superblock {
             journal_inode,
             hash_seed,
             unsigned_hash,
+            checksums,
         })
     }
 
@@ -401,6 +425,11 @@ impl Superblock {
     /// volume, as when it was not unmounted cleanly.
     pub(crate) const fn needs_recovery(&self) -> bool {
         self.features.incompat & feature::INCOMPAT_RECOVER != 0
+    }
+
+    /// Returns how the volume's metadata is checksummed.
+    pub(crate) const fn checksums(&self) -> Checksums {
+        self.checksums
     }
 
     /// Returns `true` if directories may be indexed by hash.
@@ -745,10 +774,11 @@ pub(crate) mod tests {
             Ext4Error::UnsupportedFeatures { incompat: 0x40 }.kind(),
             ErrorKind::Unsupported
         );
-        // Compatible and read-only compatible features need no support.
+        // Compatible and read-only compatible features need no support,
+        // but `metadata_csum`'s checksum must match.
         let mut f = Fields::new();
         f.features.compat = 0xFFFF_FFFF;
-        f.features.ro_compat = 0xFFFF_FFFF;
+        f.features.ro_compat = !feature::RO_COMPAT_METADATA_CSUM;
         assert!(f.parse().is_ok());
     }
 

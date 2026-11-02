@@ -169,6 +169,11 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         let at = sb.block_offset(block).ok_or_else(bad)?;
         let len = usize::try_from(sb.block_size()).map_err(|_| bad())?;
         let bytes = read_exact(source, at, len, op).await?;
+        if !sb.checksums().xattr_block_ok(block, &bytes) {
+            return Err(fail(Ext4Error::BadXattrChecksum {
+                inode: inode.number(),
+            }));
+        }
         xattrs.extend(in_block(&bytes, inode.number()).map_err(fail)?);
     }
     Ok(xattrs)

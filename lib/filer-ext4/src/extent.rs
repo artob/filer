@@ -16,8 +16,8 @@
 //! Like a block map, a tree is followed lazily, a run at a time, down
 //! one path of at most five levels; no file's whole map is ever held.
 
-use crate::{Ext4Error, inode::Inode, superblock::Superblock};
-use filer_api::{Error, OpKind, ReadAt};
+use crate::{Ext4Error, csum, inode::Inode, superblock::Superblock};
+use filer_api::{Error, OpKind, ReadAt, checksum::Crc32c};
 use filer_fs::{le, map::Run, read_exact};
 
 /// A node's magic number, and the size of its header and of an entry.
@@ -37,11 +37,16 @@ pub(crate) struct ExtentTree {
     inode: u32,
     /// `i_block`, the root.
     root: [u8; 60],
+    /// The seed of its nodes' checksums, under `metadata_csum`.
+    seed: Option<Crc32c>,
 }
 
 /// A node's header, validated against its node's length.
 struct Header {
     entries: usize,
+    /// The most entries the node has room for, after which its checksum
+    /// is.
+    max: usize,
     depth: u16,
 }
 
@@ -55,7 +60,11 @@ impl Header {
         {
             return None;
         }
-        Some(Self { entries, depth })
+        Some(Self {
+            entries,
+            max,
+            depth,
+        })
     }
 }
 
@@ -85,6 +94,7 @@ impl ExtentTree {
         Ok(Self {
             inode: number,
             root: *inode.block(),
+            seed: sb.checksums().inode_seed(number, inode.generation()),
         })
     }
 
@@ -155,6 +165,21 @@ impl ExtentTree {
                 .map_err(|error| error.into_error(op))?;
             let len = usize::try_from(sb.block_size()).map_err(|_| bad())?;
             node = read_exact(source, at, len, op).await?;
+            if let Some(seed) = self.seed {
+                let checksum = Header::parse(&node).and_then(|header| {
+                    let at = header.max.checked_mul(ENTRY)?.checked_add(HEADER)?;
+                    Some((node.get(..at)?, le::u32_at(&node, at)?))
+                });
+                if !checksum
+                    .is_some_and(|(covered, stored)| csum::chained_ok(seed, covered, &[], stored))
+                {
+                    return Err(Ext4Error::BadExtentChecksum {
+                        inode: self.inode,
+                        block: child,
+                    }
+                    .into_error(op));
+                }
+            }
             limit = next;
             expected = Some(header.depth.saturating_sub(1));
         }
