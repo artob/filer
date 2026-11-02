@@ -169,8 +169,17 @@ pub enum XfsError {
     },
 
     /// The volume's log holds changes not yet written to it, so it may be
-    /// inconsistent as it is on disk.
+    /// inconsistent as it is on disk, and they cannot be found.
     NeedsRecovery,
+
+    /// A record of the volume's log, which recovery reads, is malformed.
+    BadLogRecord,
+
+    /// The volume's log holds work of the item type given that recovery
+    /// would do, but this driver does not: mapping extents into a file,
+    /// exchanging files' ranges, or setting attributes; or an item type
+    /// it does not know.
+    UnsupportedLogItem(u16),
 
     /// The volume's log is on another device, so whether it holds changes
     /// not yet written to the volume cannot be known.
@@ -215,6 +224,7 @@ impl XfsError {
             | Self::UnsupportedFeatures { .. }
             | Self::RealtimeData { .. }
             | Self::NeedsRecovery
+            | Self::UnsupportedLogItem(_)
             | Self::ExternalLog => ErrorKind::Unsupported,
             _ => ErrorKind::Corrupt,
         }
@@ -292,6 +302,10 @@ impl core::fmt::Display for XfsError {
                 write!(f, "unsupported {set} features {bits:#X}")
             },
             Self::NeedsRecovery => f.write_str("its log needs recovery"),
+            Self::BadLogRecord => f.write_str("its log has an invalid record"),
+            Self::UnsupportedLogItem(kind) => {
+                write!(f, "its log needs recovery of unsupported items {kind:#06X}")
+            },
             Self::ExternalLog => f.write_str("its log is on another device"),
             Self::Truncated { volume, source } => {
                 write!(f, "volume of {volume} bytes in a source of {source}")

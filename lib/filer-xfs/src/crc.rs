@@ -64,6 +64,21 @@ pub(crate) fn is_valid(bytes: &[u8], at: usize) -> bool {
     stored == crc.finish().to_le_bytes()
 }
 
+/// Sets the CRC-32C of `bytes`, whose four bytes at `at` hold it.
+pub(crate) fn seal(bytes: &mut [u8], at: usize) {
+    let (Some(head), Some(tail)) = (bytes.get(..at), bytes.get(at.saturating_add(4)..)) else {
+        return;
+    };
+    let crc = Crc32c::new()
+        .update(head)
+        .update(&[0; 4])
+        .update(tail)
+        .finish();
+    if let Some(field) = bytes.get_mut(at..at.saturating_add(4)) {
+        field.copy_from_slice(&crc.to_le_bytes());
+    }
+}
+
 /// Checks the header of block `bytes`, read from byte `offset` of the
 /// volume, which inode `owner` owns.
 pub(crate) fn check(
@@ -99,14 +114,7 @@ pub(crate) mod tests {
         bytes[layout.uuid..layout.uuid + 8].fill(0x11);
         bytes[layout.uuid + 8..layout.uuid + 16].fill(0x22);
         bytes[layout.owner..layout.owner + 8].copy_from_slice(&owner.to_be_bytes());
-        seal(bytes, layout.crc);
-    }
-
-    /// Sets the CRC-32C of `bytes` at `at`.
-    pub(crate) fn seal(bytes: &mut [u8], at: usize) {
-        bytes[at..at + 4].fill(0);
-        let crc = filer_api::checksum::crc32c(bytes);
-        bytes[at..at + 4].copy_from_slice(&crc.to_le_bytes());
+        super::seal(bytes, layout.crc);
     }
 
     #[test]
@@ -129,7 +137,7 @@ pub(crate) mod tests {
         let mut block = vec![0; 512];
         stamp(&mut block, DA, 0, 1);
         block[DA.uuid] = 0;
-        seal(&mut block, DA.crc);
+        super::seal(&mut block, DA.crc);
         assert_eq!(
             check(&block, DA, &sb, 0, 1),
             Err(XfsError::Misplaced { offset: 0 })

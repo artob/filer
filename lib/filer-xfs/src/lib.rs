@@ -85,6 +85,7 @@ mod hash;
 mod inode;
 mod io;
 mod log;
+mod recover;
 mod superblock;
 mod symlink;
 mod volume;

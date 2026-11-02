@@ -19,6 +19,14 @@ fn passes_the_specification_v5() {
     check(include_bytes!("fixtures/spec5.sparse"));
 }
 
+/// On volumes shut down before their logs were written back, which are
+/// read as their logs replay.
+#[test]
+fn passes_the_specification_after_recovery() {
+    check(include_bytes!("fixtures/xfs-dirty.sparse"));
+    check(include_bytes!("fixtures/xfs5d-dirty.sparse"));
+}
+
 /// Runs the specification against the volume in `sparse`.
 fn check(sparse: &'static [u8]) {
     let profile = Profile::default();

@@ -14,8 +14,8 @@
 #
 # Then logs as the kernel leaves them, with each sector size and log
 # stripe unit: clean, before and after the log wraps, which must be read
-# alike; shut down mid-write, which must be refused as needing recovery;
-# and recovered by the kernel.
+# alike; shut down mid-write, which must be read as the kernel recovers
+# it; and recovered by the kernel.
 #
 # Listings are compared sorted, as the orders need not agree. Names that
 # are not UTF-8 are shown with `\xHH` escapes, and such entries are
@@ -161,8 +161,8 @@ PY
 
 failed=0
 
-# Compares the manifest of image `$1`, called `$2`, with what the kernel
-# shows.
+# Compares the manifest of image `$1`, called `$2`, or of image `$3` if
+# given, with what the kernel shows of `$1`.
 compare() {
     if ! sudo mount -o loop,ro "$1" "$mnt" 2>/dev/null; then
         echo "skipped: $2 (Linux cannot mount it here)"
@@ -170,7 +170,7 @@ compare() {
     fi
     kernel_manifest "$mnt" | sort > "$work/kernel"
     sudo umount "$mnt"
-    if ! "$manifest" "$1" > "$work/filer" 2> "$work/error"; then
+    if ! "$manifest" "${3:-$1}" > "$work/filer" 2> "$work/error"; then
         echo "FAILED: $2: $(cat "$work/error")"
         failed=1
         return
@@ -189,18 +189,13 @@ for img in "$work"/*.img; do
     compare "$img" "$(basename "$img" .img)"
 done
 
-# Checks that the manifest of image `$1`, called `$2`, is refused as
-# needing recovery.
-refused() {
-    if "$manifest" "$1" > /dev/null 2> "$work/error"; then
-        echo "NOT REFUSED: $2"
-        failed=1
-    elif grep -q "log needs recovery" "$work/error"; then
-        echo "refused: $2"
-    else
-        echo "FAILED: $2: $(cat "$work/error")"
-        failed=1
-    fi
+# Compares the manifest of image `$1`, whose log needs recovery, called
+# `$2`, with what the kernel shows of a copy it recovered.
+recovered() {
+    cp "$1" "$work/recovered.img"
+    sudo mount -o loop "$work/recovered.img" "$mnt"
+    sudo umount "$mnt"
+    compare "$work/recovered.img" "$2" "$1"
 }
 
 # Prints the byte offset of the log in image `$1`.
@@ -250,10 +245,41 @@ PY
     exit 1
 }
 
-# Writes files into directory `$1`, then shuts its volume down, so that
-# its log needs recovery.
+# Changes what is in directory `$1`, in a directory `$2` of its own, then
+# shuts its volume down, so that its log needs recovery: files written,
+# renamed, and fragmented; directories grown to each form, and one
+# removed, so that its blocks are cancelled; attributes set, one remote;
+# and a symlink too long for the inode.
 shut() {
-    sudo sh -c "for i in \$(seq 50); do echo \$i > '$1/s\$i'; done; sync"
+    sudo python3 -I - "$1" "$2" <<'PY'
+import os, shutil, sys
+base = os.path.join(sys.argv[1], sys.argv[2])
+os.mkdir(base)
+def put(path, data):
+    with open(os.path.join(base, path), "wb") as f:
+        f.write(data)
+for i in range(50):
+    put(f"f{i}", str(i).encode() * i)
+os.mkdir(os.path.join(base, "gone"))
+for i in range(500):
+    put(f"gone/g{i:04}", b"g")
+os.sync()
+shutil.rmtree(os.path.join(base, "gone"))
+os.mkdir(os.path.join(base, "big"))
+for i in range(2000):
+    put(f"big/b{i:04}", b"")
+put("attrs", b"attrs")
+for i in range(30):
+    os.setxattr(os.path.join(base, "attrs"), f"user.a{i:02}", b"v" * 40)
+os.setxattr(os.path.join(base, "attrs"), "user.remote", bytes(range(256)) * 20)
+with open(os.path.join(base, "frag"), "wb") as f:
+    for i in range(0, 400, 2):
+        f.seek(i * 4096)
+        f.write(bytes([i % 251]) * 4096)
+os.symlink("x/" * 450, os.path.join(base, "link"))
+os.rename(os.path.join(base, "f0"), os.path.join(base, "renamed"))
+os.sync()
+PY
     # A shutdown reaches the volume holding `$1`: never let that be the
     # root's.
     mountpoint -q "$1" || exit 1
@@ -274,9 +300,9 @@ logs() {
     sudo umount "$mnt"
     compare "$img" "$name, clean"
     sudo mount -o loop "$img" "$mnt"
-    shut "$mnt"
+    shut "$mnt" changes
     sudo umount "$mnt"
-    refused "$img" "$name, shut down"
+    recovered "$img" "$name, shut down"
     sudo mount -o loop "$img" "$mnt"
     sudo umount "$mnt"
     compare "$img" "$name, recovered"
@@ -285,9 +311,9 @@ logs() {
     sudo umount "$mnt"
     compare "$img" "$name, wrapped"
     sudo mount -o loop "$img" "$mnt"
-    shut "$mnt"
+    shut "$mnt" more
     sudo umount "$mnt"
-    refused "$img" "$name, wrapped, shut down"
+    recovered "$img" "$name, wrapped, shut down"
     sudo mount -o loop "$img" "$mnt"
     sudo umount "$mnt"
     compare "$img" "$name, wrapped, recovered"

@@ -2847,10 +2847,17 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
   realtime subvolume keep their metadata, but their contents are
   `Unsupported`: the driver reads one source, the data device.
 - The log: a clean log changes nothing for a reader. A volume that needs
-  recovery is refused until the log is replayed in memory, never read as
-  if clean (§17.12); so is one with an external log, whose state the
-  driver cannot see, unless the caller opts in to reading either as it
-  is.
+  recovery is read as recovery leaves it, its log replayed in memory,
+  never read as if clean (§17.12): committed transactions from the tail,
+  their buffer items (but cancelled ones, inode buffers, and quota) and
+  inode items laid over the volume's bytes, which reads see, v5 blocks
+  and inodes not replayed over if their LSN is newer, and resealed.
+  Items are in the writer's byte order, which the transaction header's
+  magic tells; the logged inode core in memory's order too, and a logged
+  B+ tree root in block form. Unfinished intents that change what reads
+  see (mapping, exchange, and attribute intents), and unknown items,
+  refuse the volume; so does an external log, whose state the driver
+  cannot see, unless the caller opts in to reading either as it is.
 
 **Robustness** follows §17.13: every block number is checked against its
 AG and the volume before it is read; B+ trees are bounded by their level

@@ -668,7 +668,7 @@ pub(crate) mod tests {
             put(216, &self.incompat.to_be_bytes());
             put(248, &[0x44; 16]);
             if self.versionnum & 0xF == 5 {
-                crate::crc::tests::seal(&mut b, CRC_AT);
+                crate::crc::seal(&mut b, CRC_AT);
             }
             b
         }

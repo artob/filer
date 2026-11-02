@@ -303,6 +303,27 @@ fn reads_what_later_features_change() {
     }
 }
 
+/// Volumes shut down before their logs were written back: what the
+/// specification's tree there is but in the log, which `tests/spec.rs`
+/// reads through.
+#[test]
+fn reads_dirty_volumes_through_their_logs() {
+    for sparse in [
+        &include_bytes!("fixtures/xfs-dirty.sparse")[..],
+        include_bytes!("fixtures/xfs5d-dirty.sparse"),
+    ] {
+        let replayed = open(sparse);
+        assert_eq!(
+            list(&block_on(replayed.open_dir("many")).unwrap(), 1000).len(),
+            600
+        );
+        let options = filer_xfs::Options::new().allow_dirty(true);
+        let as_is = block_on(Xfs::open_with(Sparse::new(sparse), options)).unwrap();
+        let error = block_on(as_is.open_dir("many")).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::NotFound);
+    }
+}
+
 /// A volume whose UUID changed after it was made: its metadata carries
 /// `sb_meta_uuid`, the old one.
 #[test]

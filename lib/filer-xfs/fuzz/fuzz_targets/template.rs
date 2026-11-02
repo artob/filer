@@ -25,6 +25,8 @@ pub struct Template {
     pub bmap: u64,
     /// The first extended attribute leaf.
     pub xattrs: u64,
+    /// The log.
+    pub log: u64,
 }
 
 /// The volume of `make.sh`'s `attrs`, with 4 KiB blocks and 256-byte
@@ -38,6 +40,12 @@ pub fn attrs() -> &'static Template {
 pub fn dirs() -> &'static Template {
     static TEMPLATE: OnceLock<Template> = OnceLock::new();
     TEMPLATE.get_or_init(|| build(include_bytes!("../../tests/fixtures/xfs-dirs.sparse")))
+}
+
+/// The volume of `make.sh`'s `spec_dirty`: its log needs recovery.
+pub fn dirty() -> &'static Template {
+    static TEMPLATE: OnceLock<Template> = OnceLock::new();
+    TEMPLATE.get_or_init(|| build(include_bytes!("../../tests/fixtures/xfs5d-dirty.sparse")))
 }
 
 /// The volume of `make.sh`'s `fill`, with 4 KiB blocks: files of every
@@ -78,6 +86,8 @@ fn build(sparse: &[u8]) -> Template {
     let leaves = find(8, 2, 0xD2FF);
     let bmap = find(0, 4, 0x424D_4150);
     let xattrs = find(8, 2, 0xFBEE);
+    let log_start = be(48, 8);
+    let log = ((log_start >> agblklog) * ag_blocks + (log_start & ((1 << agblklog) - 1))) * block;
     Template {
         image: Arc::new(image),
         superblock: 0,
@@ -86,6 +96,7 @@ fn build(sparse: &[u8]) -> Template {
         leaves,
         bmap,
         xattrs,
+        log,
     }
 }
 

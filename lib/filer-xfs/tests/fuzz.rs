@@ -3,7 +3,8 @@
 //! A dependency-free, structure-aware fuzzer: it mutates real volumes
 //! where their structures are (the superblock, the inodes, directory
 //! blocks, attribute blocks, and B+ tree blocks), with values chosen to
-//! hit boundaries, and walks each result with `common::exercise`, which
+//! hit boundaries, and the log, which recovery replays, and walks each
+//! result with `common::exercise`, which
 //! checks that every answer is consistent. On version 5 volumes, it mostly
 //! reseals the checksum of what it mutated, so that the mutation gets past
 //! it to what parses it.
@@ -111,6 +112,17 @@ impl Seed {
                 });
             }
         }
+        // The log's first records, which recovery reads if they are past
+        // its last unmount record.
+        let log_start = be(48, 8);
+        if log_start != 0 {
+            let ag = log_start >> agblklog;
+            let log = (ag * ag_blocks + (log_start & ((1 << agblklog) - 1))) * block;
+            regions.push(Region {
+                range: log..(log + 128 * 1024).min(len),
+                crc: None,
+            });
+        }
         // And anywhere, now and then.
         regions.push(Region {
             range: 0..len,
@@ -200,6 +212,8 @@ fn corpus() -> Vec<Seed> {
         include_bytes!("fixtures/xfs5-attrs.sparse"),
         include_bytes!("fixtures/xfs5d-later.sparse"),
         include_bytes!("fixtures/xfs5n-attrs.sparse"),
+        include_bytes!("fixtures/xfs-dirty.sparse"),
+        include_bytes!("fixtures/xfs5d-dirty.sparse"),
     ]
     .into_iter()
     .map(|sparse| Seed::new(Sparse::new(sparse)))

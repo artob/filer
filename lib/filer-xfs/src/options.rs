@@ -17,27 +17,30 @@ pub struct Options {
 }
 
 impl Options {
-    /// Returns the default options: volumes whose log needs recovery, or
-    /// cannot be checked, are refused.
+    /// Returns the default options: volumes whose log needs recovery are
+    /// read as recovery leaves them, replayed in memory; those whose log
+    /// holds work recovery would do that this driver does not, or is on
+    /// another device, which cannot be checked, are refused.
     #[must_use]
     pub const fn new() -> Self {
         Self { allow_dirty: false }
     }
 
-    /// Opens volumes whose log was not left clean, if `allow`: those not
-    /// unmounted cleanly, and those whose log is on another device, which
-    /// cannot be checked.
+    /// Reads volumes as they are on disk, if `allow`, whatever their logs:
+    /// those not unmounted cleanly, without replaying their logs, and
+    /// those whose log is on another device, which cannot be checked.
     ///
-    /// Such a volume is read as it is on disk, without the changes its log
-    /// holds: what was being written when it was last used may be missing
-    /// or half done, though every structure is still checked as always.
+    /// What was being written when such a volume was last used may then be
+    /// missing or half done, though every structure is still checked as
+    /// always.
     #[must_use]
     pub const fn allow_dirty(mut self, allow: bool) -> Self {
         self.allow_dirty = allow;
         self
     }
 
-    /// Returns `true` if volumes whose log was not left clean are opened.
+    /// Returns `true` if volumes are read as they are on disk, whatever
+    /// their logs.
     #[must_use]
     pub const fn allows_dirty(&self) -> bool {
         self.allow_dirty

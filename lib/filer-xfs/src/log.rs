@@ -10,7 +10,8 @@
 //! A volume unmounted cleanly writes, last, an unmount record: one
 //! operation of the log itself, flagged as an unmount. A log whose last
 //! record, ending at the head, is anything else may hold changes the
-//! volume does not have yet.
+//! volume does not have yet: from the tail that record names on, which
+//! `recover` replays.
 
 use crate::{XfsError, be, io, superblock::Superblock};
 use alloc::vec::Vec;
@@ -41,16 +42,43 @@ const SIZE: usize = 320;
 const CLIENT_LOG: u8 = 0xAA;
 const UNMOUNT: u8 = 0x20;
 
+/// Where a record header keeps the LSN of the log's tail.
+const TAIL: usize = 24;
+
 /// The internal log, as sectors of the volume.
-struct Log<'a, S: ?Sized> {
+pub(crate) struct Log<'a, S: ?Sized> {
     source: &'a S,
     /// The offset of the log's first sector.
     base: u64,
     /// The number of sectors.
-    sectors: u64,
+    pub(crate) sectors: u64,
+}
+
+/// A log that may hold changes the volume does not have: its records from
+/// sector `tail` to sector `head`, at which the next would be written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Dirty {
+    pub(crate) tail: u64,
+    pub(crate) head: u64,
 }
 
 impl<S: ReadAt + ?Sized> Log<'_, S> {
+    /// Reads `count` sectors from sector `first`, wrapping round the end
+    /// of the log.
+    pub(crate) async fn read_wrapping(&self, first: u64, count: u64) -> Result<Vec<u8>, Error> {
+        let bad = || XfsError::BadLogRecord.into_error(OpKind::Open);
+        let first = first.checked_rem(self.sectors).ok_or_else(bad)?;
+        if count > self.sectors {
+            return Err(bad());
+        }
+        let before_end = self.sectors.saturating_sub(first).min(count);
+        let mut bytes = self.read(first, before_end).await?;
+        if before_end < count {
+            bytes.extend(self.read(0, count.saturating_sub(before_end)).await?);
+        }
+        Ok(bytes)
+    }
+
     /// Reads `count` sectors from sector `first`, which must not wrap.
     async fn read(&self, first: u64, count: u64) -> Result<Vec<u8>, Error> {
         let off = first
@@ -81,22 +109,37 @@ fn cycle_of(sector: &[u8]) -> u32 {
     }
 }
 
-/// Checks that the volume's internal log was left clean: its last record
-/// an unmount record, nothing after it.
-pub(crate) async fn check<S: ReadAt + ?Sized>(source: &S, sb: &Superblock) -> Result<(), Error> {
+/// Returns the volume's internal log.
+pub(crate) fn of<'a, S: ReadAt + ?Sized>(
+    source: &'a S,
+    sb: &Superblock,
+) -> Result<Log<'a, S>, Error> {
     let op = OpKind::Open;
-    let dirty = || XfsError::NeedsRecovery.into_error(op);
+    let bad = || XfsError::BadLog.into_error(op);
     let (start, blocks) = sb
         .internal_log()
         .ok_or_else(|| XfsError::ExternalLog.into_error(op))?;
-    let log = Log {
+    Ok(Log {
         source,
-        base: sb.block_offset(start).ok_or_else(dirty)?,
+        base: sb.block_offset(start).ok_or_else(bad)?,
         sectors: u64::from(sb.block_size())
             .checked_div(SECTOR)
             .and_then(|per_block| per_block.checked_mul(u64::from(blocks)))
-            .ok_or_else(dirty)?,
-    };
+            .filter(|&sectors| sectors > 0)
+            .ok_or_else(bad)?,
+    })
+}
+
+/// Checks whether the volume's internal log was left clean, its last
+/// record an unmount record, nothing after it; and if not, returns where
+/// its records are.
+pub(crate) async fn check<S: ReadAt + ?Sized>(
+    source: &S,
+    sb: &Superblock,
+) -> Result<Option<Dirty>, Error> {
+    let op = OpKind::Open;
+    let dirty = || XfsError::NeedsRecovery.into_error(op);
+    let log = of(source, sb)?;
     let last = log.sectors.checked_sub(1).ok_or_else(dirty)?;
 
     // The head: where the cycle number drops from the first sector's, or
@@ -146,10 +189,15 @@ pub(crate) async fn check<S: ReadAt + ?Sized>(source: &S, sb: &Superblock) -> Re
         .ok_or_else(dirty)?
         .checked_rem(log.sectors)
         .ok_or_else(dirty)?;
-    is_unmount(&log, header, record, head)
-        .await?
-        .then_some(())
-        .ok_or_else(dirty)
+    if is_unmount(&log, header, record, head).await? {
+        return Ok(None);
+    }
+    // The tail, which the last record names: its cycle, and its sector.
+    let tail = be::u64_at(header, TAIL).ok_or_else(dirty)?;
+    let tail = (tail & u64::from(u32::MAX))
+        .checked_rem(log.sectors)
+        .ok_or_else(dirty)?;
+    Ok(Some(Dirty { tail, head }))
 }
 
 /// Returns the offset in `window`, a run of sectors, of the last record
@@ -261,7 +309,15 @@ mod tests {
             first[9] = flags;
         }
 
+        /// Checks the log, failing if it needs recovery.
         fn check(&self) -> Result<(), XfsError> {
+            match self.state()? {
+                None => Ok(()),
+                Some(_) => Err(XfsError::NeedsRecovery),
+            }
+        }
+
+        fn state(&self) -> Result<Option<Dirty>, XfsError> {
             block_on(check(&self.0, &superblock())).map_err(|error| {
                 *core::error::Error::source(&error)
                     .and_then(|source| source.downcast_ref::<XfsError>())

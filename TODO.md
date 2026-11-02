@@ -714,12 +714,18 @@ format grew; one step per item, each committed.
 
 ## `filer-xfs`
 
-Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
-grew; one step per item, each committed.
+Read-only XFS, v4 and v5, clean room (§17.16). What reading every
+volume Linux mounts still needs; one step per item, each committed.
 
-- [ ] **XFS-14: Log replay.** In memory: transactions, buffer and inode
-  items, intents. Done when volumes shut down mid-write read as the
-  kernel recovers them.
+- [ ] **XFS-15: The rest of recovery.** Unfinished mapping, exchange, and
+  attribute intents (BUI, XMI, ATTRI), which refuse volumes now, done in
+  memory; v5 record CRCs checked, as a write torn at the head needs.
+  Done when volumes shut down with such work pending read as the kernel
+  recovers them.
+- [ ] **XFS-16: Realtime data.** Realtime files' contents from a second
+  source, the realtime device, and from a zoned section of the data
+  device (`ZONED`), refused now. Done when fixtures of each read and
+  agree with the kernel.
 
 ## `filer-ntfs`
 

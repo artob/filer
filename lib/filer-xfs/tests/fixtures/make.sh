@@ -14,10 +14,12 @@
 # directory of each form, `*-attrs*.sparse` extended attributes of each form,
 # and inode flags, `xfs-ci.sparse` names on an `ASCII_CI` volume,
 # `xfs5-uuid.sparse` the specification's tree on a volume whose UUID changed,
-# so that its metadata carries `sb_meta_uuid`, and `xfs5d-later.sparse` what
-# later features change, and `xfs5n-rt.sparse` the data device of a volume
-# with a realtime device. No tool makes `attr1` attribute forks: Linux and
-# `mkfs.xfs -p` both turn a volume to `attr2` on its first attribute.
+# so that its metadata carries `sb_meta_uuid`, `xfs5d-later.sparse` what later
+# features change, `xfs5n-rt.sparse` the data device of a volume with a
+# realtime device, and `*-dirty.sparse` the specification's tree on a volume
+# shut down before its log was written back, whose log is kept but for the
+# empty headers past its head. No tool makes `attr1` attribute forks: Linux
+# and `mkfs.xfs -p` both turn a volume to `attr2` on its first attribute.
 #
 # Usage: tests/fixtures/make.sh [output-dir [fixture...]], on Linux with
 # xfsprogs, python3, and `sudo` for mounting and making devices; without
@@ -264,6 +266,40 @@ for name, found in [(b"hello.txt", True), (b"HELLO.TXT", True),
 PY
 }
 
+# Writes the specification's tree into directory `$1`, as `spec` does,
+# then shuts its volume down, so that its log needs recovery.
+spec_dirty() {
+    spec "$1"
+    sync
+    # A shutdown reaches the volume holding `$1`: never let that be the
+    # root's.
+    mountpoint -q "$1"
+    sudo xfs_io -x -c shutdown "$1"
+}
+
+# Zeroes the empty record headers of cycle 0 in the log of image `$1`,
+# which Linux writes past the head: sectors of no cycle either way.
+trim() {
+    python3 -I - "$1" <<'PY'
+import struct, subprocess, sys
+img = sys.argv[1]
+def field(name):
+    out = subprocess.run(["xfs_db", "-r", "-c", "sb 0", "-c", f"print {name}", img],
+                         capture_output=True, text=True, check=True).stdout
+    return int(out.split("=")[1])
+start, ag_blocks, ag_log = field("logstart"), field("agblocks"), field("agblklog")
+block, blocks = field("blocksize"), field("logblocks")
+base = ((start >> ag_log) * ag_blocks + (start & ((1 << ag_log) - 1))) * block
+with open(img, "r+b") as f:
+    for i in range(blocks * block // 512):
+        f.seek(base + i * 512)
+        sector = f.read(16)
+        if sector[:8] == b"\xfe\xed\xba\xbe\0\0\0\0" and sector[12:16] == bytes(4):
+            f.seek(base + i * 512)
+            f.write(bytes(512))
+PY
+}
+
 # Prints the attribute fork format of the inode at path `$2` of image
 # `$1`, and the magic of its first block, if any.
 fork() {
@@ -441,9 +477,12 @@ make() {
     if [ $# -gt 3 ]; then
         $4 "$img"
     fi
-    if [ -z "${KEEP_LOG:-}" ]; then
-        xfs_db -x -c "logformat -c 1" "$img" >/dev/null
-    fi
+    case $3 in
+        *_dirty) trim "$img" ;;
+        *) if [ -z "${KEEP_LOG:-}" ]; then
+            xfs_db -x -c "logformat -c 1" "$img" >/dev/null
+        fi ;;
+    esac
     # Leaves', attribute leaves', and nodes' magic numbers.
     case $2 in
         *crc=0*) leaf=d2f1 attr=fbee node=febe ;;
@@ -527,6 +566,7 @@ make xfs-attrs "$v4" attrs
 make xfs-ci "$v4 -n version=ci" ci
 make xfs-attrs-512 "$v4 -b size=512" attrs
 make spec "$v4" spec
+make xfs-dirty "$v4" spec_dirty
 
 v5="-m crc=1,finobt=0,rmapbt=0,reflink=0,bigtime=0,inobtcount=0"
 v5="$v5 -i sparse=0,nrext64=0"
@@ -544,6 +584,7 @@ make xfs5d-4k "" fill
 make xfs5d-dirs "" dirs
 make xfs5d-attrs "" attrs
 make xfs5d-later "" later
+make xfs5d-dirty "" spec_dirty
 
 # With the newest features: parent pointers, which bring range exchange,
 # and the metadata directory, which brings realtime groups.

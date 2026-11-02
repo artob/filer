@@ -65,8 +65,8 @@ impl Payload {
 
 impl<S: ReadAt + 'static> Xfs<S> {
     /// Opens the volume in `source` and returns its root directory, with
-    /// [`Rights::READ`]. A volume whose log was not left clean is refused;
-    /// [`open_with`](Self::open_with) can open it anyway.
+    /// [`Rights::READ`]. A volume whose log was not left clean is read as
+    /// Linux recovers it, the log replayed in memory, never written.
     ///
     /// # Errors
     ///
@@ -84,8 +84,9 @@ impl<S: ReadAt + 'static> Xfs<S> {
     /// if the superblock or the root directory is invalid, or the source is
     /// shorter than the volume; [`Unsupported`](ErrorKind::Unsupported) if
     /// the volume is of an unknown version or uses features this driver
-    /// does not read, or, unless `options` allow it, if its log needs
-    /// recovery or is on another device; any error reading the source.
+    /// does not read, or, unless `options` allow reading it as it is, if
+    /// its log needs work recovery would do that this driver does not, or
+    /// is on another device; any error reading the source.
     pub async fn open_with(source: S, options: Options) -> Result<Dir<Self>, Error> {
         let op = OpKind::Open;
         let volume = Volume::open(source, options).await?;

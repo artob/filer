@@ -51,6 +51,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "log"
+path = "fuzz_targets/log.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "bmap"
 path = "fuzz_targets/bmap.rs"
 test = false

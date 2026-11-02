@@ -9,6 +9,7 @@ use crate::{
     file_map::FileMap,
     inode::{self, Inode},
     log,
+    recover::{self, Overlay, Recovered},
     superblock::{self, Superblock},
     symlink,
 };
@@ -16,11 +17,12 @@ use alloc::sync::Arc;
 use core::future::Future;
 use filer_api::{DriverKey, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver};
 
-/// A volume: what every operation reads from.
+/// A volume: what every operation reads from, through what its log
+/// replays.
 pub(crate) struct Volume<S> {
     pub(crate) key: DriverKey,
     pub(crate) sb: Superblock,
-    pub(crate) source: S,
+    pub(crate) source: Recovered<S>,
 }
 
 /// A file, directory, or symlink that a path resolved to: its inode.
@@ -38,12 +40,21 @@ impl Node {
 }
 
 impl<S: ReadAt> Volume<S> {
-    /// Opens the volume in `source`, reading its superblock, and its log
-    /// unless dirty volumes are allowed.
+    /// Opens the volume in `source`, reading its superblock, and its log,
+    /// replaying what it holds, unless dirty volumes are allowed as they
+    /// are. The superblock is read again if the log changes it.
     pub(crate) async fn open(source: S, options: Options) -> Result<Self, Error> {
-        let sb = superblock::read(&source).await?;
-        if !options.allows_dirty() {
-            log::check(&source, &sb).await?;
+        let mut sb = superblock::read(&source).await?;
+        let mut overlay = Overlay::default();
+        if !options.allows_dirty()
+            && let Some(dirty) = log::check(&source, &sb).await?
+        {
+            let log = log::of(&source, &sb)?;
+            overlay = recover::replay(&source, &sb, &log, dirty).await?;
+        }
+        let source = Recovered { source, overlay };
+        if !source.overlay.is_empty() {
+            sb = superblock::read(&source).await?;
         }
         Ok(Self {
             key: DriverKey::new(),
