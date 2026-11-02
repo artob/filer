@@ -7,6 +7,7 @@ use alloc::boxed::Box;
 use filer_api::{
     Error, ErrorKind, OpKind,
     archive::{Codec, Decoder},
+    checksum::Crc32,
 };
 
 /// Compression methods.
@@ -66,12 +67,12 @@ struct Checked {
 impl Decoder for Checked {
     fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
         let (consumed, produced) = self.inner.decode(input, output)?;
-        self.crc.update(output.get(..produced).unwrap_or_default());
+        self.crc = self.crc.update(output.get(..produced).unwrap_or_default());
         Ok((consumed, produced))
     }
 
     fn finish(&mut self) -> Result<(), Error> {
-        if self.crc.value() == self.expected {
+        if self.crc.finish() == self.expected {
             Ok(())
         } else {
             Err(Error::new(ErrorKind::Corrupt, OpKind::Read))
@@ -107,67 +108,5 @@ mod deflate {
                 Err(_) => Err(Error::new(ErrorKind::Corrupt, OpKind::Read)),
             }
         }
-    }
-}
-
-/// CRC-32 as ZIP uses it (ISO-HDLC: reflected, polynomial 0x04C11DB7).
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct Crc32(u32);
-
-/// The CRC of each byte value, for a byte at a time.
-// Evaluated at compile time, where overflow fails the build.
-#[allow(
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::indexing_slicing
-)]
-const TABLE: [u32; 256] = {
-    let mut table = [0; 256];
-    let mut n = 0;
-    while n < 256 {
-        let mut crc = n;
-        let mut bit = 0;
-        while bit < 8 {
-            crc = if crc & 1 == 1 {
-                (crc >> 1) ^ 0xEDB8_8320
-            } else {
-                crc >> 1
-            };
-            bit += 1;
-        }
-        table[n as usize] = crc;
-        n += 1;
-    }
-    table
-};
-
-impl Crc32 {
-    pub(crate) const fn new() -> Self {
-        Self(!0)
-    }
-
-    pub(crate) fn update(&mut self, data: &[u8]) {
-        for &byte in data {
-            let [low, ..] = self.0.to_le_bytes();
-            let entry = TABLE.get(usize::from(low ^ byte)).copied().unwrap_or(0);
-            self.0 = (self.0 >> 8) ^ entry;
-        }
-    }
-
-    pub(crate) const fn value(&self) -> u32 {
-        !self.0
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn computes_crc32() {
-        let mut crc = Crc32::new();
-        assert_eq!(crc.value(), 0);
-        crc.update(b"123456789");
-        assert_eq!(crc.value(), 0xCBF4_3926);
     }
 }

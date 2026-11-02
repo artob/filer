@@ -46,7 +46,7 @@ so any release may break compatibility.
 - `filer-api`: `archive`, the shared machinery of archive drivers:
   `Archive`, `Index`, `Member`, `Limits`, and `ArchiveError`.
 - `filer-api`: `checksum`, the checksums drivers share: `Crc32c` and
-  `crc32c`.
+  `crc32c`, `Crc32` and `crc32`.
 - `filer-api`: Reading extended attributes: `Op::Xattr` with `XattrOp`,
   `XattrName`, `XattrNs`, `XattrEntry`, and `XattrNameError`;
   `File::xattr`, `xattr_into`, and `xattr_names`, likewise on `Dir`;
