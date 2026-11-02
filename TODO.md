@@ -717,9 +717,6 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-04: Directories and symlinks.** Short-form, block, leaf, and
-  node directories, read linearly; local and remote symlinks. Done when
-  malformed entries are `Corrupt`.
 - [ ] **XFS-05: Driver.** `Xfs`: open, read, stat, list, read links,
   close. Done when a `mkfs.xfs -m crc=0` image reads.
 - [ ] **XFS-06: Log check.** Find the log's head; a volume that needs

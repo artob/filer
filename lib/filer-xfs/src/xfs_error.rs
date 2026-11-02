@@ -96,6 +96,41 @@ pub enum XfsError {
         inode: u64,
     },
 
+    /// A directory's entry is malformed: its name is empty or holds `/` or
+    /// NUL, its type is unknown, it runs past its block or the inode, its
+    /// tag is not its offset, its offset does not ascend, or it names inode
+    /// 0.
+    BadDirEntry {
+        /// The directory's inode.
+        dir: u64,
+        /// The entry's directory offset.
+        offset: u64,
+    },
+
+    /// A directory's data block is malformed: the wrong magic number, more
+    /// hash leaves than fit, or entries not filling it.
+    BadDirBlock {
+        /// The directory's inode.
+        dir: u64,
+        /// The block's directory offset.
+        offset: u64,
+    },
+
+    /// A directory's size is not a whole number of directory blocks, or
+    /// more than its data blocks or the volume can hold.
+    BadDirectorySize {
+        /// The directory's inode.
+        dir: u64,
+        /// Its size in bytes.
+        size: u64,
+    },
+
+    /// A symlink's target is empty, longer than 1024 bytes, or holds NUL.
+    BadSymlink {
+        /// The symlink's inode.
+        inode: u64,
+    },
+
     /// `mkfs.xfs` did not finish making the volume.
     Unfinished,
 
@@ -192,6 +227,16 @@ impl core::fmt::Display for XfsError {
             Self::RealtimeData { inode } => {
                 write!(f, "inode {inode} has its data on the realtime device")
             },
+            Self::BadDirEntry { dir, offset } => {
+                write!(f, "directory {dir} has an invalid entry at {offset}")
+            },
+            Self::BadDirBlock { dir, offset } => {
+                write!(f, "directory {dir} has an invalid block at {offset}")
+            },
+            Self::BadDirectorySize { dir, size } => {
+                write!(f, "directory {dir} has an invalid size {size}")
+            },
+            Self::BadSymlink { inode } => write!(f, "symlink {inode} has an invalid target"),
             Self::Unfinished => f.write_str("mkfs.xfs did not finish making it"),
             Self::MissingFeatures(bits) => {
                 write!(f, "lacks required version features {bits:#06X}")
