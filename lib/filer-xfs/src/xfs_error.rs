@@ -72,6 +72,30 @@ pub enum XfsError {
         inode: u64,
     },
 
+    /// A file's map names a block outside the volume.
+    BadBlockNumber {
+        /// The file's inode.
+        inode: u64,
+        /// The block named, its AG above the AG block.
+        block: u64,
+    },
+
+    /// A file's map is malformed: its extents are empty, out of order,
+    /// overlapping, past the largest file, or cross an allocation group;
+    /// or a B+ tree block has the wrong magic number, level, or record
+    /// count, or keys out of order.
+    BadMap {
+        /// The file's inode.
+        inode: u64,
+    },
+
+    /// A file's data is on the realtime device, which this driver does not
+    /// read.
+    RealtimeData {
+        /// The file's inode.
+        inode: u64,
+    },
+
     /// `mkfs.xfs` did not finish making the volume.
     Unfinished,
 
@@ -116,14 +140,15 @@ pub enum FeatureSet {
 impl XfsError {
     /// Returns the [`ErrorKind`] this inconsistency is reported as:
     /// [`Unsupported`](ErrorKind::Unsupported) for an unknown version or
-    /// feature, or a missing one, and [`Corrupt`](ErrorKind::Corrupt) for
-    /// everything else.
+    /// feature, a missing one, or data on the realtime device, and
+    /// [`Corrupt`](ErrorKind::Corrupt) for everything else.
     #[must_use]
     pub const fn kind(&self) -> ErrorKind {
         match self {
             Self::UnsupportedVersion(_)
             | Self::MissingFeatures(_)
-            | Self::UnsupportedFeatures { .. } => ErrorKind::Unsupported,
+            | Self::UnsupportedFeatures { .. }
+            | Self::RealtimeData { .. } => ErrorKind::Unsupported,
             _ => ErrorKind::Corrupt,
         }
     }
@@ -160,6 +185,13 @@ impl core::fmt::Display for XfsError {
                 write!(f, "reference to inode {inode}, which is not in use")
             },
             Self::BadInode { inode } => write!(f, "inode {inode} is invalid"),
+            Self::BadBlockNumber { inode, block } => {
+                write!(f, "inode {inode} maps block {block}, outside the volume")
+            },
+            Self::BadMap { inode } => write!(f, "inode {inode} has an invalid map"),
+            Self::RealtimeData { inode } => {
+                write!(f, "inode {inode} has its data on the realtime device")
+            },
             Self::Unfinished => f.write_str("mkfs.xfs did not finish making it"),
             Self::MissingFeatures(bits) => {
                 write!(f, "lacks required version features {bits:#06X}")

@@ -717,10 +717,6 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-03: File maps.** Extent records (unwritten extents read as
-  zeros, holes), extent lists in the inode, and `BMAP` B+ trees, mapped
-  lazily per read. Done when unit tests cover each, and blocks outside
-  the volume are `Corrupt`.
 - [ ] **XFS-04: Directories and symlinks.** Short-form, block, leaf, and
   node directories, read linearly; local and remote symlinks. Done when
   malformed entries are `Corrupt`.

@@ -4,7 +4,7 @@
 //!
 //! This crate will provide a driver over XFS volumes, read from any
 //! [`filer_api::ReadAt`] source, reporting each inconsistency it finds as
-//! an [`XfsError`]. It parses superblocks and inodes so far. Writing is out of scope
+//! an [`XfsError`]. It parses superblocks, inodes, and file maps so far. Writing is out of scope
 //! for now (see `DESIGN.md` §17.16).
 //!
 //! **Clean room.** The mature implementations (the Linux kernel's `xfs`,
@@ -73,6 +73,7 @@ mod xfs_error;
 pub use xfs_error::*;
 
 mod be;
+mod file_map;
 mod inode;
 mod io;
 mod superblock;

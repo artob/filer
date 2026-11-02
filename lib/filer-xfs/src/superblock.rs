@@ -435,6 +435,19 @@ impl Superblock {
         (linear < self.blocks).then_some(linear)
     }
 
+    /// Returns the linear number of the first of `len` blocks from `block`
+    /// (numbered as for [`linear_block`](Self::linear_block)), if they all
+    /// lie in one AG of the volume.
+    pub(crate) fn linear_extent(&self, block: u64, len: u64) -> Option<u64> {
+        let last = block.checked_add(len.checked_sub(1)?)?;
+        let shift = u32::from(self.ag_block_log);
+        if block.checked_shr(shift)? != last.checked_shr(shift)? {
+            return None;
+        }
+        self.linear_block(last)?;
+        self.linear_block(block)
+    }
+
     /// Returns the offset of linear block `block`, if it is in the volume.
     pub(crate) fn block_offset(&self, block: u64) -> Option<u64> {
         (block < self.blocks).then(|| block.checked_mul(u64::from(self.block_size())))?
