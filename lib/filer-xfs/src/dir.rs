@@ -29,7 +29,7 @@ use crate::{
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use filer_api::{EntryName, Error, ErrorKind, FileKind, OpKind, ReadAt};
-use filer_fs::be;
+use filer_fs::{be, unix};
 
 /// The size of a single-block directory's tail (the leaf count and the
 /// stale count), and of each leaf entry before it.
@@ -108,21 +108,6 @@ impl DirEntry {
     }
 }
 
-/// Decodes an entry's file type, recorded with `FTYPE`.
-fn kind(byte: u8) -> Result<Option<FileKind>, ()> {
-    Ok(Some(match byte {
-        0 => return Ok(None),
-        1 => FileKind::File,
-        2 => FileKind::Dir,
-        3 => FileKind::CharDevice,
-        4 => FileKind::BlockDevice,
-        5 => FileKind::Fifo,
-        6 => FileKind::Socket,
-        7 => FileKind::Symlink,
-        _ => return Err(()),
-    }))
-}
-
 /// Parses the hash leaves of a leaf block of `shape`: hashes, ascending,
 /// and data entries' addresses, 0 for a stale leaf. A `leaf1` block ends
 /// with the best free space of each data block, and their count.
@@ -194,7 +179,7 @@ pub(crate) fn parse_short(bytes: &[u8], ftype: bool, dir: u64) -> Result<Vec<Dir
         let kind = if ftype {
             let byte = bytes.get(next).copied().ok_or(bad(offset))?;
             next = next.saturating_add(1);
-            kind(byte).map_err(|()| bad(offset))?
+            unix::entry_kind(byte).map_err(|_| bad(offset))?
         } else {
             None
         };
@@ -305,7 +290,7 @@ fn parse_entry(
             .get(name_at.saturating_add(name_len))
             .copied()
             .ok_or(bad)?;
-        kind(byte).map_err(|()| bad)?
+        unix::entry_kind(byte).map_err(|_| bad)?
     } else {
         None
     };

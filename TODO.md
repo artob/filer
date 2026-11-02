@@ -685,9 +685,6 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-06: Unix file types.** `FileKind` from a mode and from a
-  directory entry's type byte. Done when `filer-ext4` and `filer-xfs`
-  share them.
 - [ ] **FS-07: POSIX ACLs.** Encoding an ACL as Linux's `getxattr`
   returns it, with the tag checks. Done when `filer-ext4`'s and
   `filer-xfs`'s converters only decode their on-disk forms.

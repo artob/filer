@@ -7,7 +7,7 @@
 use crate::{Ext4Error, block_map::BlockMap, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{EntryName, Error, FileKind, OpKind, ReadAt};
-use filer_fs::le;
+use filer_fs::{le, unix};
 
 /// The longest name an entry holds.
 const MAX_NAME: usize = 255;
@@ -78,17 +78,7 @@ pub(crate) fn parse_block(
             if !EntryName::is_valid(name) && !matches!(name, b"." | b"..") {
                 return Err(bad);
             }
-            let kind = match kind {
-                0 => None,
-                1 => Some(FileKind::File),
-                2 => Some(FileKind::Dir),
-                3 => Some(FileKind::CharDevice),
-                4 => Some(FileKind::BlockDevice),
-                5 => Some(FileKind::Fifo),
-                6 => Some(FileKind::Socket),
-                7 => Some(FileKind::Symlink),
-                _ => return Err(bad),
-            };
+            let kind = unix::entry_kind(kind).map_err(|_| bad)?;
             let next = u64::try_from(end)
                 .ok()
                 .and_then(|end| base.checked_add(end))

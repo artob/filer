@@ -9,7 +9,7 @@ use crate::{
 use alloc::vec::Vec;
 use core::time::Duration;
 use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
-use filer_fs::{le, read_exact};
+use filer_fs::{le, read_exact, unix};
 
 /// The size of `i_block`: block numbers, an extent tree's root, inline
 /// data, a fast symlink's target, or a device number.
@@ -71,16 +71,7 @@ impl Inode {
         if mode == 0 || links == 0 {
             return Err(Ext4Error::UnusedInode { inode: number });
         }
-        let kind = match mode & 0xF000 {
-            0x1000 => FileKind::Fifo,
-            0x2000 => FileKind::CharDevice,
-            0x4000 => FileKind::Dir,
-            0x6000 => FileKind::BlockDevice,
-            0x8000 => FileKind::File,
-            0xA000 => FileKind::Symlink,
-            0xC000 => FileKind::Socket,
-            _ => return Err(bad),
-        };
+        let kind = unix::mode_kind(u32::from(mode)).ok_or(bad)?;
         let size = u64::from(u32_at(0x4)?) | u64::from(u32_at(0x6C)?) << 32;
         let mut block = [0; I_BLOCK_SIZE];
         block.copy_from_slice(bytes.get(0x28..0x64).ok_or(bad)?);

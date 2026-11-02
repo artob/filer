@@ -9,7 +9,7 @@ use crate::{
 use alloc::vec::Vec;
 use core::time::Duration;
 use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
-use filer_fs::{be, read_exact};
+use filer_fs::{be, read_exact, unix};
 
 /// An inode's magic number, `IN`.
 const MAGIC: u16 = 0x494E;
@@ -164,16 +164,7 @@ impl Inode {
         if mode == 0 || links == 0 {
             return Err(XfsError::UnusedInode { inode: number });
         }
-        let kind = match mode & 0xF000 {
-            0x1000 => FileKind::Fifo,
-            0x2000 => FileKind::CharDevice,
-            0x4000 => FileKind::Dir,
-            0x6000 => FileKind::BlockDevice,
-            0x8000 => FileKind::File,
-            0xA000 => FileKind::Symlink,
-            0xC000 => FileKind::Socket,
-            _ => return Err(bad),
-        };
+        let kind = unix::mode_kind(u32::from(mode)).ok_or(bad)?;
         let size = u64_at(56)?;
         if i64::try_from(size).is_err() {
             return Err(bad);

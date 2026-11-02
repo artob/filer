@@ -13,7 +13,7 @@
 //!
 //! So far: [`le`] and [`be`] read little- and big-endian fields, and
 //! [`read_exact`] reads them from a source; [`wtf8`] encodes UTF-16
-//! names.
+//! names, and [`unix`] decodes Unix file types.
 //!
 //! Like the drivers, it treats volumes as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
@@ -59,4 +59,5 @@ pub mod le;
 mod read;
 pub use read::*;
 
+pub mod unix;
 pub mod wtf8;
