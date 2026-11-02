@@ -15,7 +15,8 @@
 //! [`read_exact`] reads them from a source; [`wtf8`] encodes UTF-16
 //! names; [`unix`] decodes Unix file types, and [`posix_acl`] encodes
 //! POSIX ACLs as Linux returns them; [`map`] reads files through maps of
-//! their blocks.
+//! their blocks. A format implements [`FileSystem`], and [`Mounted`]
+//! serves it as a driver.
 //!
 //! Like the drivers, it treats volumes as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
@@ -62,6 +63,9 @@ mod read;
 pub use read::*;
 
 pub mod map;
+
+mod mount;
+pub use mount::*;
 pub mod posix_acl;
 pub mod unix;
 pub mod wtf8;

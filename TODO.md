@@ -685,11 +685,11 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-12: The driver shell.** A trait a format implements (root,
-  lookup, kinds, links, opening, reading, metadata, directory pages,
-  attributes) and one `Driver` over it, with room for writing (§17.13).
-  Design it in §17.17 first. Done when each driver's public type is a
-  thin wrapper and its `Walker` is gone, `filer-spec` passing unchanged.
+- [ ] **FS-12: The driver shell, for the rest.** `filer-xfs` is served by
+  `filer_fs::Mounted` (§17.17); move `filer-ext4`, `filer-ntfs`, and
+  `filer-fat` onto it, one commit each. Done when each driver's public
+  type is a thin wrapper and its `Walker` is gone, `filer-spec` passing
+  unchanged.
 
 ## `filer-ext4`
 

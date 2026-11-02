@@ -1,10 +1,10 @@
 // This is free and unencumbered software released into the public domain.
 
 //! A mounted volume: its superblock and source, the nodes paths resolve
-//! to, and lookup.
+//! to, and what the driver shell serves of them.
 
 use crate::{
-    Options, XfsError,
+    Options, XfsError, attr,
     dir::Directory,
     file_map::FileMap,
     inode::{self, Inode},
@@ -13,9 +13,13 @@ use crate::{
     superblock::{self, Superblock},
     symlink,
 };
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
-use filer_api::{DriverKey, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver};
+use filer_api::{
+    DirCookie, DriverKey, Entry, Error, ErrorKind, FileId, FileKind, LinkTarget, MetaMask,
+    Metadata, OpKind, ReadAt, XattrEntry, XattrNs,
+};
+use filer_fs::{FileSystem, Opened};
 
 /// A volume: what every operation reads from, through what its log
 /// replays.
@@ -111,12 +115,29 @@ impl<S: ReadAt> Volume<S> {
     }
 }
 
-/// The [`Resolver`] primitives over a volume. A private type, so that
-/// nodes cannot be resolved from without a handle.
-pub(crate) struct Walker<'a, S>(pub(crate) &'a Volume<S>);
+impl<S: ReadAt> Volume<S> {
+    /// Returns the id of inode `number`: the volume's, and the number.
+    fn id(&self, number: u64) -> FileId {
+        FileId::new(self.sb.volume_id(), u128::from(number))
+    }
+}
 
-impl<S: ReadAt> Resolver for Walker<'_, S> {
+impl<S: ReadAt + 'static> FileSystem for Volume<S> {
     type Node = Node;
+    type Dir = Directory;
+    type File = FileMap;
+
+    fn key(&self) -> &DriverKey {
+        &self.key
+    }
+
+    fn root(&self, op: OpKind) -> impl Future<Output = Result<Node, Error>> + Send {
+        Volume::root(self, op)
+    }
+
+    fn kind(&self, node: &Node) -> FileKind {
+        node.kind()
+    }
 
     fn lookup(
         &self,
@@ -124,15 +145,129 @@ impl<S: ReadAt> Resolver for Walker<'_, S> {
         name: &[u8],
         op: OpKind,
     ) -> impl Future<Output = Result<Node, Error>> + Send {
-        self.0.lookup(dir, name, op)
+        Volume::lookup(self, dir, name, op)
     }
 
-    fn kind(&self, node: &Node) -> FileKind {
-        node.kind()
+    fn read_link(
+        &self,
+        link: &Node,
+        op: OpKind,
+    ) -> impl Future<Output = Result<LinkTarget, Error>> + Send {
+        self.link(link, op)
     }
 
-    async fn read_link(&self, dir: &Node, name: &[u8], op: OpKind) -> Result<LinkTarget, Error> {
-        let node = self.0.lookup(dir, name, op).await?;
-        self.0.link(&node, op).await
+    async fn open_dir(&self, dir: &Node, op: OpKind) -> Result<Directory, Error> {
+        self.directory(dir, op)
+    }
+
+    async fn open_file(&self, file: &Node, op: OpKind) -> Result<FileMap, Error> {
+        self.map(file, op)
+    }
+
+    async fn read(
+        &self,
+        node: &Node,
+        map: &FileMap,
+        off: u64,
+        max: usize,
+        op: OpKind,
+    ) -> Result<Vec<u8>, Error> {
+        let size = node.inode().size();
+        map.read(&self.source, &self.sb, size, off, max, op).await
+    }
+
+    async fn metadata(
+        &self,
+        node: &Node,
+        _opened: Option<Opened<'_, Self>>,
+        _mask: MetaMask,
+        _op: OpKind,
+    ) -> Result<Metadata, Error> {
+        let inode = node.inode();
+        let times = inode.times();
+        let mut metadata = Metadata::default();
+        metadata.kind = Some(inode.kind());
+        metadata.id = Some(self.id(inode.number()));
+        metadata.len = Some(inode.size());
+        metadata.modified = Some(times.modified);
+        metadata.changed = Some(times.changed);
+        metadata.accessed = Some(times.accessed);
+        metadata.created = times.created;
+        metadata.attrs = Some(inode.attrs());
+        Ok(metadata)
+    }
+
+    async fn read_dir(
+        &self,
+        _node: &Node,
+        dir: &Directory,
+        cookie: Option<DirCookie>,
+        max: usize,
+        op: OpKind,
+    ) -> Result<(Vec<Entry>, Option<DirCookie>), Error> {
+        // The cookie is the offset of the next entry, or below it.
+        let mut position = cookie.map_or(0, DirCookie::get);
+        let first = dir.block_of(&self.sb, position);
+        let mut entries = Vec::new();
+        for index in first..dir.blocks(&self.sb) {
+            for found in dir.block(&self.source, &self.sb, index, op).await? {
+                if found.offset < position {
+                    continue;
+                }
+                if entries.len() >= max {
+                    return Ok((entries, Some(DirCookie::new(position))));
+                }
+                // Offsets ascend, so the next entry is past this one.
+                position = found.offset.saturating_add(1);
+                if found.is_dot() {
+                    continue;
+                }
+                let name = self.key.entry_name(&found.name).map_err(|_| {
+                    XfsError::BadDirEntry {
+                        dir: dir.inode(),
+                        offset: found.offset,
+                    }
+                    .into_error(op)
+                })?;
+                let mut listed = Entry::new(name);
+                listed.kind = found.kind;
+                listed.id = Some(self.id(found.inode));
+                entries.push(listed);
+            }
+        }
+        Ok((entries, None))
+    }
+
+    async fn xattr_names(&self, node: &Node, op: OpKind) -> Result<Vec<XattrEntry>, Error> {
+        let bad = || {
+            XfsError::BadXattr {
+                inode: node.inode().number(),
+            }
+            .into_error(op)
+        };
+        attr::read(&self.source, &self.sb, node.inode(), op)
+            .await?
+            .iter()
+            .map(|xattr| {
+                self.key
+                    .xattr_entry(xattr.ns, &xattr.name)
+                    .map_err(|_| bad())
+            })
+            .collect()
+    }
+
+    async fn xattr(
+        &self,
+        node: &Node,
+        ns: XattrNs,
+        name: &[u8],
+        _max: usize,
+        op: OpKind,
+    ) -> Result<Option<(Vec<u8>, u64)>, Error> {
+        let found = attr::find(&self.source, &self.sb, node.inode(), ns, name, op).await?;
+        Ok(found.map(|value| {
+            let len = u64::try_from(value.len()).unwrap_or(u64::MAX);
+            (value, len)
+        }))
     }
 }

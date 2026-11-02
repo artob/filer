@@ -2934,6 +2934,25 @@ Unlike `filer_api::archive` (D44), this is a crate of its own, per the
 placement rule (D20): it has semantics of its own, and only file system
 drivers need it.
 
+**The driver shell** (as built, 2026-11-02). A format implements
+`FileSystem`: its `DriverKey`, its root, a node's kind, lookup, a
+symlink's target, opening a directory or a file, reading a file,
+metadata (given what the handle holds open, as FAT and NTFS need it),
+a page of a directory, and extended attributes, `Unsupported` by
+default. Its associated `Node`, `Dir`, and `File` types are what lookups
+find and what opening keeps. `Mounted<F>` serves it as the `Driver`,
+the same way for every format: the `Op` dispatch, handle payloads, the
+open matrix (`IsADirectory`, `NotADirectory`, `NotRegularFile`), entry
+names to bytes with `ForeignNameMismatch`, paths through the userspace
+`Resolver`, buffers filled with `fill_from`, and errors naming their
+entries. A page of a directory is the format's to build, with its own
+cookies (offsets, slots, or counts) and its errors for bad names. Each
+driver's public type, such as `filer_xfs::Xfs<S>`, wraps a `Mounted`:
+its `open` functions open the root with `Mounted::root`, and it
+delegates `Driver`. Writing will add operations to `FileSystem`, each
+`Unsupported` by default, and their dispatch to `Mounted`, so FAT's
+writing (§17.13) extends the trait rather than replacing it.
+
 ### 17.18 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
