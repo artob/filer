@@ -7,7 +7,7 @@
 // Each target uses only part of it.
 #![allow(dead_code)]
 
-use crate::common::{Image, KINDS, dir, exercise::Overlay, file};
+use crate::common::{Image, KINDS, dir, Overlay, file};
 use std::sync::{Arc, OnceLock};
 
 /// A template volume, and the offsets of its structures.

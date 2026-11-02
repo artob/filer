@@ -10,7 +10,7 @@
 
 mod common;
 
-use common::exercise::exercise;
+use common::exercise;
 use filer_api::{ErrorKind, FileKind, MetaMask};
 use filer_spec::block_on;
 use filer_system::{Dir, ReadAt, ambient_authority};

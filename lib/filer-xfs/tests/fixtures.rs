@@ -341,7 +341,7 @@ fn reads_metadata_of_another_uuid() {
 /// only speed lookups up: when one is corrupt, lookups scan instead.
 #[test]
 fn refuses_corrupt_checksums() {
-    use common::exercise::{Overlay, exercise};
+    use common::{Overlay, exercise};
     use std::sync::Arc;
 
     // Magic numbers, at the start of a block or at 8, which a corrupt

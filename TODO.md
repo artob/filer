@@ -685,11 +685,6 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-10: The corruption exerciser (`filer-spec`).** `exercise`
-  over any driver's opened root, with the checks its format allows
-  (listed kinds match stats; what is listed is found; attributes are
-  read), and reads capped as `filer-xfs`'s are. Done when each driver's
-  `tests/common/exercise.rs` is gone.
 - [ ] **FS-11: The mutation loop (`filer-spec`).** The generator, the
   mutations by byte order and boundary values, a hook after each (XFS
   reseals CRCs), and the loop with its environment variables and the

@@ -12,11 +12,7 @@
 
 mod common;
 
-use common::{
-    Image, Kind,
-    exercise::{Overlay, exercise},
-    file, unsparse,
-};
+use common::{Image, Kind, Overlay, exercise, file, unsparse};
 use filer_spec::Image as _;
 use std::{ops::Range, panic, sync::Arc};
 

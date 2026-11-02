@@ -5,9 +5,23 @@
 // Each test binary compiles this module and uses only part of it.
 #![allow(dead_code)]
 
+use filer_ntfs::{Ntfs, Options};
 use std::collections::BTreeMap;
 
-pub mod exercise;
+/// A volume image as a base image with bytes patched over it.
+pub type Overlay = filer_spec::Overlay<Vec<u8>>;
+
+/// Opens `source` and walks it with [`filer_spec::exercise`], with
+/// the default checks, allowing dirty volumes: listed kinds come from
+/// the index's copy of a file's attributes and stats from its record,
+/// which a corrupt volume may make disagree. Shared by `tests/fuzz.rs` and the `cargo-fuzz` targets in
+/// `fuzz/`.
+pub fn exercise<S: filer_api::ReadAt + 'static>(source: S) -> filer_spec::Outcome {
+    filer_spec::exercise(
+        filer_spec::block_on(Ntfs::open_with(source, Options::new().allow_dirty(true))),
+        filer_spec::Checks::new(),
+    )
+}
 
 /// Expands a sparse fixture, as `tests/fixtures/make.sh` stores them.
 pub fn unsparse(sparse: &[u8]) -> Vec<u8> {

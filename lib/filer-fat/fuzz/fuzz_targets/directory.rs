@@ -16,5 +16,5 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
     let template = template::template(selector);
-    common::exercise::exercise(template::overlay(template, template.root, data));
+    common::exercise(template::overlay(template, template.root, data));
 });

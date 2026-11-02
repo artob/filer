@@ -16,5 +16,5 @@ fuzz_target!(|data: &[u8]| {
     let mut entry = Entry::new(b"member", Some(FILE), &[0; 64 * 1024]);
     entry.method = 8;
     entry.packed = Some(data.to_vec());
-    common::exercise::exercise(Writer::default().entry(entry).finish());
+    common::exercise(Writer::default().entry(entry).finish());
 });

@@ -12,5 +12,5 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     let template = template::dirty();
-    common::exercise::exercise(template::overlay(template, template.log, data));
+    common::exercise(template::overlay(template, template.log, data));
 });

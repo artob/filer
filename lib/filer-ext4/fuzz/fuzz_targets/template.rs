@@ -7,7 +7,7 @@
 // Each target uses only part of it.
 #![allow(dead_code)]
 
-use crate::common::{exercise::Overlay, unsparse};
+use crate::common::{Overlay, unsparse};
 use std::sync::{Arc, OnceLock};
 
 /// A template volume, and the offsets of its structures.

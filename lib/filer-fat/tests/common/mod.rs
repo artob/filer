@@ -8,9 +8,22 @@
 // Each test binary compiles this module and uses only part of it.
 #![allow(dead_code)]
 
+use filer_fat::Fat;
 use std::collections::BTreeMap;
 
-pub mod exercise;
+/// A volume image as a base image with bytes patched over it.
+pub type Overlay = filer_spec::Overlay<Vec<u8>>;
+
+/// Opens `source` and walks it with [`filer_spec::exercise`], with
+/// the checks FAT allows: listed kinds and stats come from the same
+/// entry, so they must agree; it has no extended attributes. Shared by `tests/fuzz.rs` and the `cargo-fuzz` targets in
+/// `fuzz/`.
+pub fn exercise<S: filer_api::ReadAt + 'static>(source: S) -> filer_spec::Outcome {
+    filer_spec::exercise(
+        filer_spec::block_on(Fat::open(source)),
+        filer_spec::Checks::new().kinds(true).xattrs(false),
+    )
+}
 
 /// Expands a sparse fixture, as `tests/fixtures/make.sh` stores them.
 pub fn unsparse(sparse: &[u8]) -> Vec<u8> {

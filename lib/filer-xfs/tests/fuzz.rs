@@ -16,10 +16,7 @@
 
 mod common;
 
-use common::{
-    Sparse,
-    exercise::{Overlay, exercise},
-};
+use common::{Overlay, Sparse, exercise};
 use filer_spec::Image;
 use std::{ops::Range, panic, sync::Arc};
 

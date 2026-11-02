@@ -14,7 +14,8 @@
 //! So far the specification covers read operations only.
 //!
 //! Drivers that read volume images also share their tests' tooling here:
-//! [`Sparse`] fixtures, and [`Overlay`]s that mutate them.
+//! [`Sparse`] fixtures, [`Overlay`]s that mutate them, and [`exercise`],
+//! which walks what a driver makes of a mutated volume.
 //!
 //! # Examples
 //!
@@ -44,6 +45,9 @@ mod block_on;
 pub use block_on::*;
 
 mod cases;
+
+mod exercise;
+pub use exercise::*;
 
 mod image;
 pub use image::*;
