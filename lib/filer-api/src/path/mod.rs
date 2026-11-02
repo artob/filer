@@ -20,7 +20,7 @@ pub use components::*;
 
 mod macros;
 
-mod name;
+pub(crate) mod name;
 pub use name::*;
 
 mod name_buf;

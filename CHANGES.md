@@ -11,6 +11,7 @@ so any release may break compatibility.
 - `filer-api`: `IoBufMut::fill_from`, appending as much of a slice as
   fits.
 - `filer-api`: `Error::with_entry_name`, naming an entry in an error.
+- `filer-api`: `EntryName::is_valid`, the rule every entry name meets.
 - `filer-posix`: Kernel-confined opens with `openat2` on Linux, falling
   back to the userspace walk; `Posix::with_userspace_resolution`.
 - `filer-api`: `Spawner` and `Job`; under `std`, `run_on` and
@@ -28,7 +29,7 @@ so any release may break compatibility.
 - `filer-fs`: New crate: the shared machinery of file system drivers,
   which `filer-fat`, `filer-ext4`, `filer-ntfs`, `filer-udf`, and
   `filer-xfs` depend on. So far `le` and `be`, field readers, and
-  `read_exact`, reading from a source.
+  `read_exact`, reading from a source; `wtf8`, for UTF-16 names.
 - `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
   FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`;
   the `code-pages` feature decodes short names in any `CodePage`.

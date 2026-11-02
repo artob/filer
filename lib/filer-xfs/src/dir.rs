@@ -28,7 +28,7 @@ use crate::{
     superblock::Superblock,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
-use filer_api::{Error, ErrorKind, FileKind, OpKind, ReadAt};
+use filer_api::{EntryName, Error, ErrorKind, FileKind, OpKind, ReadAt};
 use filer_fs::be;
 
 /// The size of a single-block directory's tail (the leaf count and the
@@ -157,9 +157,9 @@ fn parse_leaves(block: &[u8], shape: Shape) -> Option<Vec<(u32, u32)>> {
     Some(leaves)
 }
 
-/// Checks that `name` is a name: not empty, without `/` or NUL.
+/// Checks that `name` is a name, or `.` or `..`, which listings skip.
 fn is_name(name: &[u8]) -> bool {
-    !name.is_empty() && !name.iter().any(|&b| b == b'/' || b == 0)
+    EntryName::is_valid(name) || matches!(name, b"." | b"..")
 }
 
 /// Parses short-form directory `dir`'s entries from its data fork: a count

@@ -70,7 +70,7 @@ impl Name {
 }
 
 /// Checks the rules documented on [`Name`], on the bytes of a `str`.
-pub(super) const fn validate(bytes: &[u8]) -> Result<(), NameError> {
+pub(crate) const fn validate(bytes: &[u8]) -> Result<(), NameError> {
     match bytes {
         [] => return Err(NameError::Empty),
         [b'.'] | [b'.', b'.'] => return Err(NameError::DotOrDotDot),

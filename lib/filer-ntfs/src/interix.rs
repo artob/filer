@@ -11,9 +11,9 @@
 //! Any other system file is a regular file. The Linux kernel's `ntfs3`
 //! reads them all as regular files.
 
-use crate::wtf8;
 use alloc::boxed::Box;
 use filer_api::FileKind;
+use filer_fs::wtf8;
 
 /// The longest file that may be a special file, a symlink of a long
 /// target; longer ones are regular files, and never read to find out.

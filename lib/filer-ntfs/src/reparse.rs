@@ -8,9 +8,9 @@
 //! path buffer; symbolic links also hold flags, of which one marks a
 //! relative target. WSL symlinks hold a version and their target in UTF-8.
 
-use crate::wtf8;
 use alloc::{boxed::Box, vec::Vec};
 use filer_fs::le;
+use filer_fs::wtf8;
 
 /// A symbolic link.
 pub(crate) const SYMLINK: u32 = 0xA000_000C;

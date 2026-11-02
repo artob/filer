@@ -2912,8 +2912,7 @@ That moves here, step by step, each driver keeping only its format:
 
 - field readers for little- and big-endian structures, and exact reads
   from a source;
-- names: the rules every listed name meets, and WTF-8 for UTF-16 names
-  (FAT and NTFS, later exFAT and UDF);
+- WTF-8 for UTF-16 names (FAT and NTFS, later exFAT and UDF);
 - Unix file types from modes and directory entries (ext4, XFS);
 - POSIX ACLs in the form Linux's `getxattr` returns (ext4, XFS);
 - reading a file through a map of runs (all four);
@@ -2925,8 +2924,8 @@ That moves here, step by step, each driver keeping only its format:
   times (for exFAT).
 
 What stays elsewhere: helpers every driver needs, not only file systems
-(copying a slice into an `IoBufMut`, naming an entry in an error), go to
-`filer-api`; checksums stay in `filer_api::checksum` (D53); test tooling
+(copying a slice into an `IoBufMut`, naming an entry in an error, the
+rule every entry name meets), go to `filer-api`; checksums stay in `filer_api::checksum` (D53); test tooling
 the drivers share (the corruption exerciser, the mutation fuzz loop,
 sparse fixtures) goes to `filer-spec`. Each format keeps its own error
 enum, `Options`, and on-disk parsing.

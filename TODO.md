@@ -685,10 +685,6 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-05: Names.** The rule every listed name meets (not empty, no
-  `/` or NUL, not `.` or `..`), and WTF-8 for UTF-16 names. Done when
-  `filer-ntfs`'s `wtf8.rs`, `filer-fat`'s `LongName::to_wtf8`, and the
-  drivers' name checks are gone.
 - [ ] **FS-06: Unix file types.** `FileKind` from a mode and from a
   directory entry's type byte. Done when `filer-ext4` and `filer-xfs`
   share them.

@@ -1,13 +1,29 @@
 // This is free and unencumbered software released into the public domain.
 
 //! Names as UTF-16 units and as WTF-8 bytes: UTF-8, with unpaired
-//! surrogates encoded as if they were scalar values, so that every name
-//! NTFS can hold has a byte form, and back.
+//! surrogates encoded as if they were scalar values, so that every name a
+//! UTF-16 file system can hold (FAT's long names, NTFS's, and later
+//! exFAT's and UDF's) has a byte form, and back. Names that are not UTF-8
+//! become [`ForeignName`](filer_api::ForeignName)s, as Windows drivers
+//! make them (`DESIGN.md` §5).
+//!
+//! # Examples
+//!
+//! ```
+//! use filer_fs::wtf8;
+//!
+//! // An unpaired surrogate, which no UTF-8 string holds.
+//! let units = [0x61, 0xD800];
+//! let bytes = wtf8::encode(&units);
+//! assert_eq!(bytes, [0x61, 0xED, 0xA0, 0x80]);
+//! assert_eq!(wtf8::decode(&bytes), Some(units.to_vec()));
+//! ```
 
 use alloc::vec::Vec;
 
 /// Encodes UTF-16 `units` as WTF-8.
-pub(crate) fn encode(units: &[u16]) -> Vec<u8> {
+#[must_use]
+pub fn encode(units: &[u16]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(units.len());
     for unit in char::decode_utf16(units.iter().copied()) {
         match unit {
@@ -28,7 +44,8 @@ pub(crate) fn encode(units: &[u16]) -> Vec<u8> {
 
 /// Decodes WTF-8 `bytes` into UTF-16 units, or returns `None` if they are
 /// not WTF-8 (such as raw bytes from another driver).
-pub(crate) fn decode(bytes: &[u8]) -> Option<Vec<u16>> {
+#[must_use]
+pub fn decode(bytes: &[u8]) -> Option<Vec<u16>> {
     let mut units = Vec::with_capacity(bytes.len());
     let mut rest = bytes;
     while !rest.is_empty() {

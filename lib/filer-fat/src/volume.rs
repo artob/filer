@@ -11,7 +11,9 @@ use crate::{
 };
 use alloc::{sync::Arc, vec::Vec};
 use core::{future::Future, num::NonZeroU32};
-use filer_api::{DriverKey, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver};
+use filer_api::{
+    DriverKey, EntryName, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver,
+};
 use filer_fs::read_exact;
 
 /// The most slots a directory may have, per the specification.
@@ -295,7 +297,7 @@ impl<'a, S: ReadAt> DirStream<'a, S> {
                             code_page: page.number(),
                         })
                     })?;
-                    if !is_valid_name(&name) {
+                    if !EntryName::is_valid(&name) {
                         return Err(fail(FatError::BadName { dir, slot }));
                     }
                     return Ok(Some((entry, name)));
@@ -326,12 +328,6 @@ impl<'a, S: ReadAt> DirStream<'a, S> {
         self.pos = self.pos.saturating_add(SLOT_LEN);
         Ok(slot)
     }
-}
-
-/// Returns `true` if `name` can name an entry: it is not empty, has no
-/// `/` or NUL, and is not `.` or `..`.
-fn is_valid_name(name: &[u8]) -> bool {
-    !matches!(name, b"" | b"." | b"..") && !name.iter().any(|&b| b == b'/' || b == 0)
 }
 
 enum Match {

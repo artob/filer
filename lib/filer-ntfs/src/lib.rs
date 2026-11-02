@@ -97,7 +97,6 @@ mod stream;
 mod time;
 mod upcase;
 mod volume;
-mod wtf8;
 
 mod options;
 pub use options::*;

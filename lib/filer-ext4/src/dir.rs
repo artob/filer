@@ -6,7 +6,7 @@
 
 use crate::{Ext4Error, block_map::BlockMap, superblock::Superblock};
 use alloc::vec::Vec;
-use filer_api::{Error, FileKind, OpKind, ReadAt};
+use filer_api::{EntryName, Error, FileKind, OpKind, ReadAt};
 use filer_fs::le;
 
 /// The longest name an entry holds.
@@ -75,7 +75,7 @@ pub(crate) fn parse_block(
             let name = block
                 .get(name_start..name_start.saturating_add(name_len))
                 .ok_or(bad)?;
-            if name.is_empty() || name.iter().any(|&b| b == b'/' || b == 0) {
+            if !EntryName::is_valid(name) && !matches!(name, b"." | b"..") {
                 return Err(bad);
             }
             let kind = match kind {

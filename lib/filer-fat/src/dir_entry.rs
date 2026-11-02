@@ -17,6 +17,7 @@ use crate::{
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
 use core::num::NonZeroU32;
+use filer_fs::wtf8;
 
 /// The size of a directory slot, in bytes.
 pub(crate) const SLOT: usize = 32;
@@ -189,27 +190,6 @@ impl LongName {
     pub(crate) fn units(&self) -> &[u16] {
         &self.0
     }
-
-    /// Returns the name as WTF-8: UTF-8, with any unpaired surrogate
-    /// encoded as if it were a scalar value.
-    pub(crate) fn to_wtf8(&self) -> Vec<u8> {
-        let mut name = Vec::with_capacity(self.0.len());
-        for unit in char::decode_utf16(self.0.iter().copied()) {
-            match unit {
-                Ok(c) => name.extend_from_slice(c.encode_utf8(&mut [0; 4]).as_bytes()),
-                Err(error) => {
-                    // Surrogates are 0xD800 to 0xDFFF: three bytes.
-                    let [high, low] = error.unpaired_surrogate().to_be_bytes();
-                    name.extend_from_slice(&[
-                        0xE0 | (high >> 4),
-                        0x80 | ((high & 0x0F) << 2) | (low >> 6),
-                        0x80 | (low & 0x3F),
-                    ]);
-                },
-            }
-        }
-        name
-    }
 }
 
 impl core::fmt::Debug for LongName {
@@ -267,7 +247,7 @@ impl DirEntry {
     /// undefined.
     pub(crate) fn name(&self, page: CodePage) -> Result<Vec<u8>, u8> {
         match &self.long {
-            Some(long) => Ok(long.to_wtf8()),
+            Some(long) => Ok(wtf8::encode(long.units())),
             None => self.short.display(self.case, page).map(String::into_bytes),
         }
     }

@@ -33,7 +33,7 @@
 //! assert_eq!(tree.child(ROOT, b"README"), tree.child(docs, b"README"));
 //! ```
 
-use crate::{BlockingResolver, Error, ErrorKind, FileKind, LinkTarget, OpKind};
+use crate::{BlockingResolver, EntryName, Error, ErrorKind, FileKind, LinkTarget, OpKind};
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 /// An inode number: a node's index in its [`Tree`].
@@ -146,7 +146,7 @@ impl<F> Tree<F> {
     /// Panics if `ino` is not a node of this tree.
     pub fn link(&mut self, dir: Ino, name: &[u8], ino: Ino) -> Result<Option<Ino>, ErrorKind> {
         assert!(ino < self.nodes.len(), "no inode {ino} in this tree");
-        debug_assert!(is_entry_name(name), "invalid entry name {name:?}");
+        debug_assert!(EntryName::is_valid(name), "invalid entry name {name:?}");
         match self.nodes.get_mut(dir) {
             Some(Node::Dir(entries)) => Ok(entries.insert(Box::from(name), ino)),
             _ => Err(ErrorKind::NotADirectory),
@@ -176,11 +176,6 @@ impl<F> Tree<F> {
             },
         }
     }
-}
-
-/// Returns `true` for valid entry names.
-fn is_entry_name(name: &[u8]) -> bool {
-    !matches!(name, [] | b"." | b"..") && !name.iter().any(|&b| b == b'/' || b == 0)
 }
 
 impl<F> BlockingResolver for Tree<F> {

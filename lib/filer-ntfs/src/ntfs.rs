@@ -7,10 +7,7 @@ use crate::{
     reparse,
     stream::Stream,
     time,
-    volume::{
-        FIRST_USER_RECORD, Node, StandardInformation, Volume, Walker, is_valid_name, listed_name,
-    },
-    wtf8,
+    volume::{FIRST_USER_RECORD, Node, StandardInformation, Volume, Walker, listed_name},
 };
 use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
@@ -19,6 +16,7 @@ use filer_api::{
     FileKind, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow, Output,
     ReadAt, Resolve, Resolver, Rights, Target, XattrEntry, XattrNs, XattrOp, path::RelPath,
 };
+use filer_fs::wtf8;
 
 /// A read-only driver for an NTFS volume.
 ///
@@ -388,7 +386,7 @@ impl<S: ReadAt> Ntfs<S> {
                 }
                 .into_error(op)
             };
-            if !is_valid_name(&name) {
+            if !EntryName::is_valid(&name) {
                 return Err(bad());
             }
             let name = volume.key.entry_name(&name).map_err(|_| bad())?;

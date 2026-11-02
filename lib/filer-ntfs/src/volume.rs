@@ -14,7 +14,6 @@ use crate::{
     reparse::Reparse,
     stream::Stream,
     upcase::UpCase,
-    wtf8,
 };
 use alloc::{collections::BTreeSet, sync::Arc, vec::Vec};
 use core::future::Future;
@@ -22,6 +21,7 @@ use filer_api::{
     DriverKey, Error, ErrorKind, FileAttrs, FileKind, LinkTarget, OpKind, ReadAt, Resolver,
 };
 use filer_fs::le;
+use filer_fs::wtf8;
 
 /// The record of the root directory.
 pub(crate) const ROOT: u64 = 5;
@@ -374,12 +374,6 @@ async fn system_file<S: ReadAt + ?Sized>(
 /// listing shows: not a DOS name another entry shadows.
 pub(crate) fn listed_name(entry: &FileName) -> Option<Vec<u8>> {
     (!entry.is_dos_only()).then(|| wtf8::encode(&entry.name))
-}
-
-/// Returns `true` if `name` can name an entry: it is not empty, has no
-/// `/` or NUL, and is not `.` or `..`.
-pub(crate) fn is_valid_name(name: &[u8]) -> bool {
-    !matches!(name, b"" | b"." | b"..") && !name.iter().any(|&b| b == b'/' || b == 0)
 }
 
 /// The `$STANDARD_INFORMATION` of a file: its times and attributes.

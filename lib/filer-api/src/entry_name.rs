@@ -29,6 +29,27 @@ impl EntryName {
         }
     }
 
+    /// Returns `true` if the bytes `raw` can name an entry, whether as a
+    /// [`Name`] or a [`ForeignName`]: they are not empty, `.`, or `..`, and
+    /// hold no `/` or NUL. These are the names
+    /// [`DriverKey::entry_name`](crate::DriverKey::entry_name) accepts, so a
+    /// driver can check a name read from disk where it finds it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use filer_api::EntryName;
+    ///
+    /// assert!(EntryName::is_valid(b"notes.txt"));
+    /// assert!(EntryName::is_valid(b"caf\xE9"));
+    /// assert!(!EntryName::is_valid(b".."));
+    /// assert!(!EntryName::is_valid(b"a/b"));
+    /// ```
+    #[must_use]
+    pub const fn is_valid(raw: &[u8]) -> bool {
+        crate::path::name::validate(raw).is_ok()
+    }
+
     /// Returns `true` for a foreign name.
     #[must_use]
     pub fn is_foreign(&self) -> bool {
