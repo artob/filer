@@ -684,10 +684,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-01: Superblock.** Crate scaffolding, `Ext4Error`, and a
-  validated superblock: geometry, revision, and feature sets, refusing
-  unknown incompatible features. Done when unit tests cover every field
-  and rejection.
 - [ ] **EXT-02: Groups and inodes.** Group descriptors (32 bytes), inode
   location, and decoding: kind, size, times (with the extra fields),
   flags. Done when unit tests cover each, and bad numbers are `Corrupt`.

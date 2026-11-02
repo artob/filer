@@ -59,6 +59,7 @@ name = "filer-ext4"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-spec",
 ]
 
 [[package]]
