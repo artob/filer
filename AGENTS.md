@@ -55,9 +55,10 @@
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
   planned); `filer-ext4`, `filer-ntfs`, and `filer-xfs` are read-only file
   system drivers, and `filer-udf` a stub; `filer-fs` holds what they
-  share (each depends on it; shared code goes there, not into one
-  driver): a format implements `filer_fs::FileSystem`, its public type
-  wraps `filer_fs::Mounted`, and its tests use `filer-spec`'s `Sparse`,
+  share (each depends on it, `filer-windows` for `wtf8` and `reparse`;
+  shared code goes there, not into one driver): a format implements
+  `filer_fs::FileSystem`, its public type wraps `filer_fs::Mounted`, and
+  its tests use `filer-spec`'s `Sparse`,
   `Overlay`, `exercise`, and `fuzz`, and its `tests/differential.sh` runs
   a release `manifest` in parallel jobs through
   `lib/filer-spec/tests/jobs.sh`;

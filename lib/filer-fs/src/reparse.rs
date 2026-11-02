@@ -1,32 +1,46 @@
 // This is free and unencumbered software released into the public domain.
 
-//! Reparse points: `$REPARSE_POINT` values, per [MS-FSCC] §2.1.2.
+//! Reparse points, per [MS-FSCC] §2.1.2: NTFS's `$REPARSE_POINT` values,
+//! and what Windows' `FSCTL_GET_REPARSE_POINT` returns.
 //!
 //! A value starts with a 32-bit tag, a 16-bit data length, and two
 //! reserved bytes. Symbolic links and junctions (mount points) hold a
 //! substitute name and a print name in UTF-16, located by offsets into a
 //! path buffer; symbolic links also hold flags, of which one marks a
 //! relative target. WSL symlinks hold a version and their target in UTF-8.
+//!
+//! # Examples
+//!
+//! ```
+//! use filer_fs::reparse::{self, Reparse};
+//!
+//! // A cloud placeholder, whose data is not a link.
+//! let mut value = 0x9000_001Au32.to_le_bytes().to_vec();
+//! value.extend([0, 0, 0, 0]);
+//! assert_eq!(Reparse::parse(&value), Some(Reparse::Other(0x9000_001A)));
+//! assert!(reparse::is_link(reparse::SYMLINK));
+//! ```
+//!
+//! [MS-FSCC]: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/
 
+use crate::{le, wtf8};
 use alloc::{boxed::Box, vec::Vec};
-use filer_fs::le;
-use filer_fs::wtf8;
 
 /// A symbolic link.
-pub(crate) const SYMLINK: u32 = 0xA000_000C;
+pub const SYMLINK: u32 = 0xA000_000C;
 
 /// A junction (mount point).
-pub(crate) const MOUNT_POINT: u32 = 0xA000_0003;
+pub const MOUNT_POINT: u32 = 0xA000_0003;
 
 /// A WSL symlink.
-pub(crate) const LX_SYMLINK: u32 = 0xA000_001D;
+pub const LX_SYMLINK: u32 = 0xA000_001D;
 
 /// A symbolic link's flag marking its target relative.
 const SYMLINK_FLAG_RELATIVE: u32 = 0x0000_0001;
 
 /// What a reparse point makes of its file.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum Reparse {
+pub enum Reparse {
     /// A symlink to this target, as Filer sees it: `/`-separated, and
     /// absolute (from the volume's root) for an absolute Windows path on a
     /// drive.
@@ -36,15 +50,18 @@ pub(crate) enum Reparse {
     Other(u32),
 }
 
-/// Returns `true` if `tag` makes a symlink.
-pub(crate) const fn is_link(tag: u32) -> bool {
+/// Returns `true` if `tag` makes a symlink: a symbolic link, a junction,
+/// or a WSL symlink.
+#[must_use]
+pub const fn is_link(tag: u32) -> bool {
     matches!(tag, SYMLINK | MOUNT_POINT | LX_SYMLINK)
 }
 
 impl Reparse {
-    /// Parses a `$REPARSE_POINT` value, or returns `None` if it does not
+    /// Parses a reparse point's value, or returns `None` if it does not
     /// fit, or a link's target is empty or holds NUL.
-    pub(crate) fn parse(value: &[u8]) -> Option<Self> {
+    #[must_use]
+    pub fn parse(value: &[u8]) -> Option<Self> {
         let tag = le::u32_at(value, 0)?;
         let len = usize::from(le::u16_at(value, 4)?);
         let data = value.get(8..)?.get(..len)?;
@@ -102,7 +119,7 @@ fn windows_target(data: &[u8], buffer: usize, relative: bool) -> Option<Vec<u8>>
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use super::*;
     use alloc::vec;
 
@@ -111,7 +128,7 @@ pub(crate) mod tests {
     }
 
     /// Encodes a symbolic link (`flags` given) or junction (`None`).
-    pub(crate) fn windows_link(substitute: &str, print: &str, flags: Option<u32>) -> Vec<u8> {
+    fn windows_link(substitute: &str, print: &str, flags: Option<u32>) -> Vec<u8> {
         let (substitute, print) = (utf16(substitute), utf16(print));
         let mut data = Vec::new();
         let field = |n: usize| u16::try_from(n).unwrap().to_le_bytes();
@@ -137,7 +154,7 @@ pub(crate) mod tests {
     }
 
     /// Encodes a WSL symlink.
-    pub(crate) fn wsl_link(target: &str) -> Vec<u8> {
+    fn wsl_link(target: &str) -> Vec<u8> {
         let mut value = LX_SYMLINK.to_le_bytes().to_vec();
         value.extend(u16::try_from(4 + target.len()).unwrap().to_le_bytes());
         value.extend([0, 0]);

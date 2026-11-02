@@ -15,10 +15,11 @@
 //! [`read_exact`] reads them from a source; [`wtf8`] encodes UTF-16
 //! names; [`unix`] decodes Unix file types, and [`posix_acl`] encodes
 //! POSIX ACLs as Linux returns them; [`map`] reads files through maps of
-//! their blocks. A format implements [`FileSystem`], and [`Mounted`]
-//! serves it as a driver. [`partition`] reads partitioned disk images,
-//! and [`recover`] reads volumes as replaying their journals would leave
-//! them.
+//! their blocks; [`reparse`] parses Windows reparse points, which the
+//! Windows driver reads too. A format implements [`FileSystem`], and
+//! [`Mounted`] serves it as a driver. [`partition`] reads partitioned disk
+//! images, and [`recover`] reads volumes as replaying their journals would
+//! leave them.
 //!
 //! Like the drivers, it treats volumes as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
@@ -72,5 +73,6 @@ mod mount;
 pub use mount::*;
 pub mod posix_acl;
 pub mod recover;
+pub mod reparse;
 pub mod unix;
 pub mod wtf8;

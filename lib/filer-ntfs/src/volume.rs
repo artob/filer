@@ -11,7 +11,6 @@ use crate::{
     interix::{self, Interix},
     mft::{File, Mft},
     record::{AttrType, Body, FileRef},
-    reparse::{self, Reparse},
     stream::Stream,
     time,
     upcase::UpCase,
@@ -22,7 +21,11 @@ use filer_api::{
     DirCookie, DriverKey, Entry, EntryName, Error, ErrorKind, FileAttrs, FileId, FileKind,
     LinkTarget, MetaMask, Metadata, OpKind, ReadAt, XattrEntry, XattrNs,
 };
-use filer_fs::{FileSystem, Opened, le, wtf8};
+use filer_fs::{
+    FileSystem, Opened, le,
+    reparse::{self, Reparse},
+    wtf8,
+};
 
 /// The record of the root directory.
 pub(crate) const ROOT: u64 = 5;

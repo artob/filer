@@ -91,7 +91,6 @@ mod ntfs;
 pub use ntfs::*;
 
 mod record;
-mod reparse;
 mod runs;
 mod stream;
 mod time;
