@@ -599,10 +599,6 @@ Created with `publish = false` (D16).
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **ZIP-01d: Fuzzing `filer-zip`.** A pure-Rust fuzz test in `tests/`
-  and `cargo-fuzz` targets in `fuzz/` (D50) over parsing, indexing, and
-  decoding. Done when bombs and hostile names are covered and it builds
-  in CI.
 - [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA behind features, as
   pure-Rust decoders only (D45). Done when
   each decodes a test archive.

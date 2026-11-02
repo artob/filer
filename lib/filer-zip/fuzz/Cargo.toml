@@ -1,0 +1,45 @@
+# Coverage-guided fuzzing of `filer-zip` with `cargo-fuzz` (nightly):
+# `cargo fuzz run archive` from `lib/filer-zip`. libFuzzer is C++, so this
+# crate stays outside the workspace and is never a dependency of a
+# published crate (DESIGN.md D50); `tests/fuzz.rs` is the pure-Rust fuzzer.
+
+[package]
+name = "filer-zip-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+filer-api = { path = "../../filer-api" }
+filer-spec = { path = "../../filer-spec" }
+filer-zip = { path = ".." }
+libfuzzer-sys = "0.4"
+miniz_oxide = "0.9"
+
+# Its own workspace, apart from the repository's.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "archive"
+path = "fuzz_targets/archive.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "deflate"
+path = "fuzz_targets/deflate.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "name"
+path = "fuzz_targets/name.rs"
+test = false
+doc = false
+bench = false

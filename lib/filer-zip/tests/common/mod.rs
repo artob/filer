@@ -6,6 +6,8 @@
 // Each test binary compiles this module and uses only part of it.
 #![allow(dead_code)]
 
+pub mod exercise;
+
 /// Unix file modes, as Info-ZIP stores them in external attributes.
 pub const FILE: u32 = 0o100_644;
 pub const DIR: u32 = 0o040_755;

@@ -2138,7 +2138,12 @@ spans overlap are `Corrupt`, which stops David Fifield's bombs without
 recursion (2019): no archiver writes shared bytes. The
 full `filer-spec` passes on archives written from its tree, stored,
 deflated, and with ZIP64; a doc example reads an Info-ZIP archive with
-stored and deflated members.
+stored and deflated members. `tests/fuzz.rs` mutates archives at their
+records and checks each walk, including that the bytes read never
+exceed 1 MiB per file plus `max_ratio` times the input (the bound the
+limits and the overlap check together guarantee), and that generated
+names are refused exactly when unsafe; `fuzz/` has `cargo-fuzz` targets
+for whole archives, Deflate data, and names (D50).
 
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
@@ -2989,7 +2994,8 @@ of leverage:
    `FILE_SHARE_DELETE` and rename it), case-insensitive directories, APFS
    clones on the macOS job.
 6. **Fuzzing.** Pure-Rust fuzz tests, plus `cargo-fuzz` targets under the
-   D50 exemption, for on-disk parsers (`filer-fat` has both), name and
+   D50 exemption, for on-disk parsers (`filer-fat`, `filer-ntfs`, and
+   `filer-zip` have both), name and
    path validation, the journal parser, Windows reparse-data parsing, and
    archive member names.
 7. **Miri.** `filer-api`, `filer-heap`, and the routing drivers run under
