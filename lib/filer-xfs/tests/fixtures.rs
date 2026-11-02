@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::{Expected, MTIME, MTIME_NANOS, Sparse, expected, pattern};
+use common::{Expected, Image, MTIME, MTIME_NANOS, Sparse, expected, pattern};
 use core::time::Duration;
 use filer_api::{
     BufResult, Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op,

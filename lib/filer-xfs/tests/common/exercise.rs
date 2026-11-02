@@ -4,71 +4,14 @@
 //! check that every answer is consistent. Shared by `tests/fuzz.rs` and
 //! the `cargo-fuzz` targets in `fuzz/`.
 
-use super::Sparse;
-use filer_api::{
-    BufResult, Dir, Error, ErrorKind, FileKind, IoBufMut, MetaMask, ReadAt, XattrEntry,
-};
+use filer_api::{BufResult, Dir, Error, ErrorKind, FileKind, MetaMask, ReadAt, XattrEntry};
+use filer_spec::Sparse;
 use filer_spec::block_on;
 use filer_xfs::Xfs;
-use std::{collections::BTreeMap, future::Future, sync::Arc};
+use std::collections::BTreeMap;
 
-/// A volume image as a base image with bytes patched over it, and possibly
-/// cut short, so that mutating a large image costs nothing.
-#[derive(Clone)]
-pub struct Overlay {
-    pub base: Arc<Sparse>,
-    pub patches: BTreeMap<u64, u8>,
-    pub len: u64,
-}
-
-impl Overlay {
-    pub fn new(base: Arc<Sparse>) -> Self {
-        let len = base.len();
-        Self {
-            base,
-            patches: BTreeMap::new(),
-            len,
-        }
-    }
-
-    /// Patches `bytes` over the image at `at`, within its length.
-    pub fn patch(&mut self, at: u64, bytes: &[u8]) {
-        for (at, &byte) in (at..self.len).zip(bytes) {
-            self.patches.insert(at, byte);
-        }
-    }
-
-    /// Returns the byte at `at`, patched or not.
-    pub fn byte(&self, at: u64) -> u8 {
-        self.patches
-            .get(&at)
-            .copied()
-            .unwrap_or_else(|| self.base.byte(at))
-    }
-}
-
-impl ReadAt for Overlay {
-    fn read_at<B: IoBufMut>(
-        &self,
-        mut buf: B,
-        off: u64,
-    ) -> impl Future<Output = BufResult<usize, B>> + Send {
-        let result = buf.fill(&mut |spare| {
-            let n = (spare.len() as u64).min(self.len.saturating_sub(off)) as usize;
-            // Within the base, which the overlay is never longer than.
-            self.base.copy(off, &mut spare[..n]);
-            for (&at, &byte) in self.patches.range(off..off + n as u64) {
-                spare[(at - off) as usize] = byte;
-            }
-            Ok(n)
-        });
-        core::future::ready(BufResult(result, buf))
-    }
-
-    fn size(&self) -> impl Future<Output = filer_api::Result<u64>> + Send {
-        core::future::ready(Ok(self.len))
-    }
-}
+/// A volume image as a base image with bytes patched over it.
+pub type Overlay = filer_spec::Overlay<Sparse>;
 
 /// How deep the walk descends, and how many entries it visits at most.
 const MAX_DEPTH: usize = 12;

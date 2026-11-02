@@ -685,11 +685,17 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-09: Shared test tooling (`filer-spec`).** The corruption
-  exerciser and its overlay source, the mutation loop of `tests/fuzz.rs`,
-  and sparse fixtures. Done when each driver's tests keep only what is
-  its format's.
-- [ ] **FS-10: The driver shell.** A trait a format implements (root,
+- [ ] **FS-10: The corruption exerciser (`filer-spec`).** `exercise`
+  over any driver's opened root, with the checks its format allows
+  (listed kinds match stats; what is listed is found; attributes are
+  read), and reads capped as `filer-xfs`'s are. Done when each driver's
+  `tests/common/exercise.rs` is gone.
+- [ ] **FS-11: The mutation loop (`filer-spec`).** The generator, the
+  mutations by byte order and boundary values, a hook after each (XFS
+  reseals CRCs), and the loop with its environment variables and the
+  message reproducing a failure. Done when each driver's `tests/fuzz.rs`
+  keeps only its regions, values, and corpus.
+- [ ] **FS-12: The driver shell.** A trait a format implements (root,
   lookup, kinds, links, opening, reading, metadata, directory pages,
   attributes) and one `Driver` over it, with room for writing (§17.13).
   Design it in §17.17 first. Done when each driver's public type is a

@@ -17,6 +17,7 @@ use common::{
     exercise::{Overlay, exercise},
     unsparse,
 };
+use filer_spec::Image;
 use std::{ops::Range, panic, sync::Arc};
 
 /// SplitMix64: small, fast, and good enough to drive mutations.
@@ -127,7 +128,7 @@ fn mutate(seed: &Seed, rng: &mut Rng) -> Overlay {
                 let bytes: Vec<u8> = (0..8).map(|_| rng.next() as u8).collect();
                 input.patch(at & !7, &bytes);
             },
-            _ => input.len = rng.below(input.len),
+            _ => input.truncate(rng.below(input.length())),
         }
     }
     input

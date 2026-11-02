@@ -20,6 +20,7 @@ use common::{
     Sparse,
     exercise::{Overlay, exercise},
 };
+use filer_spec::Image;
 use std::{ops::Range, panic, sync::Arc};
 
 /// SplitMix64: small, fast, and good enough to drive mutations.
@@ -79,7 +80,7 @@ impl Seed {
         let ag_block = (root >> inopblog) & ((1 << agblklog) - 1);
         let slot = root & ((1 << inopblog) - 1);
         let inode = (ag * ag_blocks + ag_block) * block + slot * inode_size;
-        let len = image.len();
+        let len = image.length();
         let v5 = be(100, 2) & 0xF == 5;
         let sealed = |size, crc| v5.then_some((size, crc));
         // The superblock, and the first inodes.
@@ -185,7 +186,7 @@ fn mutate(seed: &Seed, rng: &mut Rng) -> Overlay {
                 let bytes: Vec<u8> = (0..8).map(|_| rng.next() as u8).collect();
                 input.patch(at & !7, &bytes);
             },
-            _ => input.len = rng.below(input.len),
+            _ => input.truncate(rng.below(input.length())),
         }
         // Mostly past the checksum.
         if let Some((size, offset)) = crc

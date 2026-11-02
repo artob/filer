@@ -12,6 +12,11 @@ use std::collections::BTreeMap;
 
 pub mod exercise;
 
+/// Expands a sparse fixture, as `tests/fixtures/make.sh` stores them.
+pub fn unsparse(sparse: &[u8]) -> Vec<u8> {
+    filer_spec::Sparse::new(sparse).to_vec()
+}
+
 const SECTOR: usize = 512;
 
 /// A file or directory to write.
@@ -488,20 +493,4 @@ fn short(name: [u8; 11], attrs: u8, case: u8, cluster: u32, size: u32) -> [u8; 3
     slot[26..28].copy_from_slice(&(cluster as u16).to_le_bytes());
     slot[28..32].copy_from_slice(&size.to_le_bytes());
     slot
-}
-
-/// Expands a sparse image, as `tests/fixtures/make.sh` stores them.
-pub fn unsparse(sparse: &[u8]) -> Vec<u8> {
-    let rest = sparse
-        .strip_prefix(b"FILER-SPARSE-1\n")
-        .expect("sparse magic");
-    let (size, mut rest) = rest.split_at(8);
-    let mut image = vec![0; u64::from_le_bytes(size.try_into().unwrap()) as usize];
-    while !rest.is_empty() {
-        let (index, sector) = rest.split_at(4);
-        let at = u32::from_le_bytes(index.try_into().unwrap()) as usize * SECTOR;
-        image[at..at + SECTOR].copy_from_slice(&sector[..SECTOR]);
-        rest = &sector[SECTOR..];
-    }
-    image
 }

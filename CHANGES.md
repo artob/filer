@@ -12,6 +12,8 @@ so any release may break compatibility.
   fits.
 - `filer-api`: `Error::with_entry_name`, naming an entry in an error.
 - `filer-api`: `EntryName::is_valid`, the rule every entry name meets.
+- `filer-spec`: `Sparse`, `Overlay`, and `Image`: sparse fixtures, and
+  images mutated without copying, for drivers that read volume images.
 - `filer-posix`: Kernel-confined opens with `openat2` on Linux, falling
   back to the userspace walk; `Posix::with_userspace_resolution`.
 - `filer-api`: `Spawner` and `Job`; under `std`, `run_on` and

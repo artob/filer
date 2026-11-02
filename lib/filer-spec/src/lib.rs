@@ -13,6 +13,9 @@
 //!
 //! So far the specification covers read operations only.
 //!
+//! Drivers that read volume images also share their tests' tooling here:
+//! [`Sparse`] fixtures, and [`Overlay`]s that mutate them.
+//!
 //! # Examples
 //!
 //! ```
@@ -41,6 +44,9 @@ mod block_on;
 pub use block_on::*;
 
 mod cases;
+
+mod image;
+pub use image::*;
 
 mod profile;
 pub use profile::*;
