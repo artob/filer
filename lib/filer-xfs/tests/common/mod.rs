@@ -162,6 +162,7 @@ pub fn expected() -> BTreeMap<String, Expected> {
         ("abs", "/notes.txt".to_owned()),
         ("dangling", "nope".to_owned()),
         ("long", format!("Sub/{}", "x".repeat(100))),
+        ("remote", "x/".repeat(450)),
     ] {
         tree.insert(link.to_owned(), Expected::Link(target.into_bytes()));
     }

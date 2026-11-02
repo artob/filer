@@ -717,10 +717,6 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-11: v5 metadata.** CRC32C in `filer_api::checksum` (D53),
-  shared with EXT-14; v3 inodes; self-describing headers on every block,
-  verified; `FTYPE` and `META_UUID`. Done when `mkfs.xfs` fixtures with
-  later features off read, and corrupted checksums are `Corrupt`.
 - [ ] **XFS-12: Later v5 features.** In the order they came: sparse
   inodes, reverse maps and reflinks (shared extents read like any other),
   `BIGTIME`, `NREXT64`. Done when default `mkfs.xfs` fixtures read and

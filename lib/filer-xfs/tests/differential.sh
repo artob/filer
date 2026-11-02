@@ -21,6 +21,10 @@
 # are not UTF-8 are shown with `\xHH` escapes, and such entries are
 # compared by their metadata only: Filer's paths are UTF-8.
 #
+# Fresh fixtures keep the logs the kernel wrote, as Linux refuses to
+# mount version 5 volumes whose logs were reformatted, as the committed
+# ones are: those are skipped.
+#
 # Usage: lib/filer-xfs/tests/differential.sh, from the repository root,
 # on Linux with xfsprogs, python3, and `sudo` for mounting.
 
@@ -40,7 +44,7 @@ manifest="$PWD/target/debug/examples/manifest"
 
 # The committed fixtures, and fresh ones.
 mkdir "$work/fresh"
-lib/filer-xfs/tests/fixtures/make.sh "$work/fresh"
+KEEP_LOG=1 lib/filer-xfs/tests/fixtures/make.sh "$work/fresh"
 for sparse in lib/filer-xfs/tests/fixtures/*.sparse "$work"/fresh/*.sparse; do
     case $sparse in "$work"/*) kind=fresh ;; *) kind=fixture ;; esac
     python3 -I - "$sparse" "$work/$kind-$(basename "$sparse" .sparse).img" <<'PY'
@@ -292,4 +296,9 @@ logs "log" "-m crc=0"
 logs "log of 4 KiB sectors" "-m crc=0 -s size=4096"
 logs "log of 32 KiB stripes" "-m crc=0 -l su=32k"
 logs "log of 256 KiB stripes" "-m crc=0 -l su=256k"
+v5="-m crc=1,finobt=0,rmapbt=0,reflink=0,bigtime=0,inobtcount=0"
+v5="$v5 -i sparse=0,nrext64=0"
+logs "version 5 log" "$v5"
+logs "version 5 log of 4 KiB sectors" "$v5 -s size=4096"
+logs "version 5 log of 256 KiB stripes" "$v5 -l su=256k"
 exit $failed

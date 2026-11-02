@@ -28,6 +28,7 @@ fn open(sparse: &[u8]) -> Root {
 fn walk(
     root: &Root,
     dir: &str,
+    v5: bool,
     found: &mut BTreeMap<String, Expected>,
     foreign: &mut Vec<(EntryName, Metadata)>,
 ) {
@@ -52,11 +53,11 @@ fn walk(
         assert_eq!(metadata.id, entry.id, "{path}: id");
         let kind = metadata.kind.unwrap();
         if matches!(kind, FileKind::File | FileKind::Symlink) {
-            check_time(&metadata, &path);
+            check_time(&metadata, &path, v5);
         }
         match kind {
             FileKind::Dir => {
-                walk(root, &path, found, foreign);
+                walk(root, &path, v5, found, foreign);
                 found.insert(path, Expected::Dir);
             },
             FileKind::File => {
@@ -80,9 +81,9 @@ fn walk(
     }
 }
 
-/// Checks the modification time `make.sh` gives, in nanoseconds; version
-/// 4 inodes record no creation time.
-fn check_time(metadata: &Metadata, path: &str) {
+/// Checks the modification time `make.sh` gives, in nanoseconds; only
+/// version 5's inodes record a creation time.
+fn check_time(metadata: &Metadata, path: &str, v5: bool) {
     let modified = metadata.modified.unwrap();
     assert_eq!(modified.secs(), MTIME, "{path}");
     assert_eq!(
@@ -91,7 +92,7 @@ fn check_time(metadata: &Metadata, path: &str) {
         "{path}"
     );
     assert_eq!(modified.nanos(), MTIME_NANOS, "{path}");
-    assert_eq!(metadata.created, None, "{path}");
+    assert_eq!(metadata.created.is_some(), v5, "{path}");
 }
 
 /// Reads the metadata of the entry `name` of `dir`, which has no path.
@@ -111,12 +112,12 @@ fn stat(dir: &Root, name: EntryName) -> Metadata {
     }
 }
 
-/// Checks a fixture `fill` wrote.
-fn check(sparse: &[u8]) {
+/// Checks a fixture `fill` wrote, on a version 5 volume if `v5`.
+fn check(sparse: &[u8], v5: bool) {
     let root = open(sparse);
     let mut found = BTreeMap::new();
     let mut foreign = Vec::new();
-    walk(&root, "", &mut found, &mut foreign);
+    walk(&root, "", v5, &mut found, &mut foreign);
     let expected = expected();
     let names = |tree: &BTreeMap<String, Expected>| tree.keys().cloned().collect::<Vec<_>>();
     assert_eq!(names(&found), names(&expected));
@@ -178,37 +179,143 @@ fn check(sparse: &[u8]) {
 
 #[test]
 fn reads_512_byte_blocks() {
-    check(include_bytes!("fixtures/xfs-512.sparse"));
+    check(include_bytes!("fixtures/xfs-512.sparse"), false);
 }
 
 /// With 512-byte inodes, and no kinds in directory entries.
 #[test]
 fn reads_1k_blocks() {
-    check(include_bytes!("fixtures/xfs-1k.sparse"));
+    check(include_bytes!("fixtures/xfs-1k.sparse"), false);
 }
 
 /// With 1 KiB inodes and 8 KiB directory blocks.
 #[test]
 fn reads_2k_blocks() {
-    check(include_bytes!("fixtures/xfs-2k.sparse"));
+    check(include_bytes!("fixtures/xfs-2k.sparse"), false);
 }
 
 #[test]
 fn reads_4k_blocks() {
-    check(include_bytes!("fixtures/xfs-4k.sparse"));
+    check(include_bytes!("fixtures/xfs-4k.sparse"), false);
 }
 
 /// With 2 KiB inodes and 64 KiB directory blocks.
 #[test]
 fn reads_large_inodes_and_directory_blocks() {
-    check(include_bytes!("fixtures/xfs-4k-big.sparse"));
+    check(include_bytes!("fixtures/xfs-4k-big.sparse"), false);
 }
 
 /// Filled by `mkfs.xfs -p`, as x86 Linux cannot mount version 4 volumes
 /// of blocks larger than its pages; its files have no holes.
 #[test]
 fn reads_64k_blocks() {
-    check(include_bytes!("fixtures/xfs-64k.sparse"));
+    check(include_bytes!("fixtures/xfs-64k.sparse"), false);
+}
+
+/// Version 5, the smallest blocks it allows: inodes, `BMA3` B+ trees, and
+/// directories, self-describing.
+#[test]
+fn reads_1k_blocks_v5() {
+    check(include_bytes!("fixtures/xfs5-1k.sparse"), true);
+}
+
+#[test]
+fn reads_4k_blocks_v5() {
+    check(include_bytes!("fixtures/xfs5-4k.sparse"), true);
+}
+
+/// Filled through Linux, which mounts version 5 volumes of blocks larger
+/// than its pages.
+#[test]
+fn reads_64k_blocks_v5() {
+    check(include_bytes!("fixtures/xfs5-64k.sparse"), true);
+}
+
+/// A volume whose UUID changed after it was made: its metadata carries
+/// `sb_meta_uuid`, the old one.
+#[test]
+fn reads_metadata_of_another_uuid() {
+    let root = open(include_bytes!("fixtures/xfs5-uuid.sparse"));
+    let file = block_on(root.open_file("a/b/c.txt")).unwrap();
+    assert_eq!(block_on(file.read_to_end()).unwrap(), b"contents");
+    let dir = block_on(root.open_dir("many")).unwrap();
+    assert_eq!(list(&dir, 1000).len(), 600);
+}
+
+/// Changing one byte of any version 5 metadata block makes what reads it
+/// `Corrupt`, by its checksum: the superblock, inodes, and blocks of each
+/// kind, found by their magic numbers. But a directory's leaves and nodes
+/// only speed lookups up: when one is corrupt, lookups scan instead.
+#[test]
+fn refuses_corrupt_checksums() {
+    use common::exercise::{Overlay, exercise};
+    use std::sync::Arc;
+
+    // Magic numbers, at the start of a block or at 8, which a corrupt
+    // block of makes some read fail, or none; each in the volume that has
+    // it, and walks fastest.
+    type Magics<'a> = &'a [&'a [u8]];
+    let cases: [(&[u8], Magics<'_>, Magics<'_>); 3] = [
+        (
+            include_bytes!("fixtures/xfs5-4k.sparse"),
+            &[b"IN", b"XDB3", b"XSLM"],
+            &[],
+        ),
+        (
+            include_bytes!("fixtures/xfs5-dirs.sparse"),
+            &[b"XDD3"],
+            &[&[0x3D, 0xF1], &[0x3D, 0xFF], &[0x3E, 0xBE]],
+        ),
+        (
+            include_bytes!("fixtures/xfs5-attrs.sparse"),
+            &[b"XARM", b"BMA3", &[0x3B, 0xEE], &[0x3E, 0xBE]],
+            &[],
+        ),
+    ];
+    for (sparse, fails, passes) in cases {
+        let image = Arc::new(Sparse::new(sparse));
+        // The superblock's sector, past what is parsed.
+        let mut overlay = Overlay::new(image.clone());
+        overlay.patch(500, &[1]);
+        let error = block_on(Xfs::open(overlay)).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Corrupt);
+        // The first block of each kind, a byte in its first sector past
+        // any header.
+        let first = |magic: &[u8]| {
+            let at = if magic.len() == 2 && magic != b"IN" {
+                8
+            } else {
+                0
+            };
+            image.sectors().find(|&offset| {
+                let mut found = vec![0; magic.len()];
+                image.copy(offset + at, &mut found);
+                found == magic
+            })
+        };
+        let corrupt = |offset: u64| {
+            let mut overlay = Overlay::new(image.clone());
+            overlay.patch(offset + 255, &[!image.byte(offset + 255)]);
+            exercise(overlay).errors
+        };
+        for &magic in fails {
+            let name = magic.escape_ascii();
+            let offset = first(magic).unwrap_or_else(|| panic!("{name}: none"));
+            assert!(corrupt(offset) > 0, "{name}: corrupt, but read");
+        }
+        // Each of which a few lookups show, as a walk would scan for each
+        // of thousands.
+        for &magic in passes {
+            let offset = first(magic).unwrap();
+            let mut overlay = Overlay::new(image.clone());
+            overlay.patch(offset + 255, &[!image.byte(offset + 255)]);
+            let root = block_on(Xfs::open(overlay)).unwrap();
+            for path in ["leaf/f00399", "node/f00000", "node/f00999", "btree/f01999"] {
+                let found = block_on(root.symlink_metadata(path, MetaMask::all()));
+                assert!(found.is_ok(), "{}: {path}", magic.escape_ascii());
+            }
+        }
+    }
 }
 
 /// Lists directory `dir` in batches of at most `max` entries.
@@ -248,7 +355,17 @@ fn lists_in_batches() {
 /// block, leaf, node, and node mapped by a B+ tree.
 #[test]
 fn reads_each_form_of_directory() {
-    let root = open(include_bytes!("fixtures/xfs-dirs.sparse"));
+    check_dirs(include_bytes!("fixtures/xfs-dirs.sparse"));
+}
+
+#[test]
+fn reads_each_form_of_directory_v5() {
+    check_dirs(include_bytes!("fixtures/xfs5-dirs.sparse"));
+}
+
+/// Checks a fixture `dirs` wrote.
+fn check_dirs(sparse: &[u8]) {
+    let root = open(sparse);
     let target = block_on(root.symlink_metadata("target", MetaMask::all()))
         .unwrap()
         .id;
@@ -334,16 +451,17 @@ fn check_attributes(sparse: &[u8]) {
     assert_eq!(names("leaf.txt"), leaf);
     for i in [0, 7, 15] {
         let name = format!("user.a{i:02}");
-        assert_eq!(value("leaf.txt", &name), Some(pattern(10, i)), "{name}");
+        assert_eq!(value("leaf.txt", &name), Some(pattern(30, i)), "{name}");
     }
     // Nodes over leaves, and those mapped by a B+ tree.
-    for (path, prefix) in [("node.txt", 'n'), ("btree.txt", 'b')] {
+    for (path, prefix, count) in [("node.txt", 'n', 400), ("btree.txt", 'b', 1200)] {
         let pad = prefix.to_string().repeat(40);
-        let expected: Vec<String> = (0..400)
+        let mut expected: Vec<String> = (0..count)
             .map(|i| format!("user.{prefix}{i:03}{pad}"))
             .collect();
+        expected.sort();
         assert_eq!(names(path), expected, "{path}");
-        for i in [0, 199, 399] {
+        for i in [0, count / 2, count - 1] {
             let name = format!("user.{prefix}{i:03}{pad}");
             assert_eq!(value(path, &name), Some(pattern(20, i)), "{path}: {name}");
         }
@@ -416,6 +534,17 @@ fn reads_attributes_and_flags() {
 #[test]
 fn reads_attributes_in_small_blocks() {
     check_attributes(include_bytes!("fixtures/xfs-attrs-512.sparse"));
+}
+
+/// Leaves, nodes, and remote values' blocks, self-describing.
+#[test]
+fn reads_attributes_and_flags_v5() {
+    check_attributes(include_bytes!("fixtures/xfs5-attrs.sparse"));
+}
+
+#[test]
+fn reads_attributes_in_small_blocks_v5() {
+    check_attributes(include_bytes!("fixtures/xfs5-attrs-1k.sparse"));
 }
 
 /// On an `ASCII_CI` volume, names are found in any case, as Linux finds

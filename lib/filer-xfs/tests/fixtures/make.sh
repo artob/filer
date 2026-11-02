@@ -2,17 +2,21 @@
 # This is free and unencumbered software released into the public domain.
 #
 # Makes the XFS fixtures with real tools: `mkfs.xfs` formats each volume,
-# version 4 so far, and the Linux kernel fills it with the tree
-# `tests/fixtures.rs` expects, through a loop mount. Volumes of 64 KiB
-# blocks, which x86 Linux cannot mount, are filled by `mkfs.xfs -p` from
-# the same tree instead. Each image is stored as `<name>.sparse`: the
+# version 4 (`xfs-*`) or version 5 with all later features off
+# (`xfs5-*`), and the Linux kernel fills it with the tree
+# `tests/fixtures.rs` expects, through a loop mount. Version 4 volumes of
+# 64 KiB blocks, which x86 Linux cannot mount, are filled by `mkfs.xfs -p`
+# from the same tree instead. Each image is stored as `<name>.sparse`: the
 # magic `FILER-SPARSE-2\n`, the image size (u64, little-endian), then runs
 # of identical nonzero 512-byte sectors, each as its first sector (u32),
-# its count (u32), and the sector's bytes. `spec.sparse` holds the
-# specification's tree instead, `xfs-dirs.sparse` a directory of each
-# form, `xfs-attrs*.sparse` extended attributes of each form, and inode
-# flags, and `xfs-ci.sparse` names on an `ASCII_CI` volume. No tool makes `attr1` attribute forks: Linux and
-# `mkfs.xfs -p` both turn a volume to `attr2` on its first attribute.
+# its count (u32), and the sector's bytes. `spec*.sparse` hold the
+# specification's tree instead, `*-dirs.sparse` a directory of each form,
+# `*-attrs*.sparse` extended attributes of each form, and inode flags,
+# `xfs-ci.sparse` names on an `ASCII_CI` volume, and `xfs5-uuid.sparse`
+# the specification's tree on a volume whose UUID changed, so that its
+# metadata carries `sb_meta_uuid`. No tool makes `attr1` attribute forks:
+# Linux and `mkfs.xfs -p` both turn a volume to `attr2` on its first
+# attribute.
 #
 # Usage: tests/fixtures/make.sh [output-dir [fixture...]], on Linux with
 # xfsprogs, python3, and `sudo` for mounting and making devices; without
@@ -24,7 +28,9 @@
 # filled, each volume's log is reformatted, clean and empty, by `xfs_db
 # logformat`, as the records the kernel wrote would be most of its
 # nonzero sectors; `tests/differential.sh` checks logs the kernel leaves,
-# clean and not.
+# clean and not. Linux refuses to mount version 5 volumes so formatted,
+# whose metadata records log positions past the new log's start; with
+# `KEEP_LOG=1`, as `tests/differential.sh` sets, the kernel's log stays.
 
 set -eu
 out=$(cd "${1:-$(dirname "$0")}" && pwd)
@@ -124,7 +130,7 @@ put("n" * 255, pattern(6, 13))
 with open(os.path.join(root.encode(), b"caf\xe9.txt"), "wb") as f:
     f.write(pattern(3, 14))
 os.utime(os.path.join(root.encode(), b"caf\xe9.txt"), ns=(MTIME, MTIME))
-# Symlinks: fast (in the inode) and slow (in a block).
+# Symlinks: in the inode, and, too long for any, in blocks.
 for link, target in [
     ("link", "README.TXT"),
     ("deeplink", "Sub/Deeper/leaf.txt"),
@@ -132,6 +138,7 @@ for link, target in [
     ("abs", "/notes.txt"),
     ("dangling", "nope"),
     ("long", "Sub/" + "x" * 100),
+    ("remote", "x/" * 450),
 ]:
     os.symlink(target, os.path.join(root, link))
     touch(link)
@@ -158,7 +165,7 @@ PY
 # in blocks of their own.
 attrs() {
     sudo python3 -I - "$1" <<'PY'
-import os, struct, subprocess, sys
+import os, shutil, struct, subprocess, sys
 root = sys.argv[1]
 
 def pattern(size, seed):
@@ -187,20 +194,32 @@ os.setxattr(put("big.txt", b"big"), "user.big", pattern(900, 1))
 os.setxattr(put("remote.txt", b"remote"), "user.remote", pattern(10000, 2))
 full = put("leaf.txt", b"leaf")
 for i in range(16):
-    os.setxattr(full, f"user.a{i:02}", pattern(10, i))
+    os.setxattr(full, f"user.a{i:02}", pattern(30, i))
 full = put("node.txt", b"node")
 for i in range(400):
     os.setxattr(full, f"user.n{i:03}" + "n" * 40, pattern(20, i))
-# Each new attribute block lands after the filler's last, so that few
-# are contiguous; the filler is then deleted.
+# Each new attribute block lands in a hole between files, or after the
+# filler's last, so that few are contiguous; holes and filler are then
+# deleted.
 full = put("btree.txt", b"btree")
+holes = os.path.join(root, "holes")
+os.mkdir(holes)
+for i in range(400):
+    with open(os.path.join(holes, str(i)), "wb") as f:
+        f.write(b"\0")
+os.sync()
+for i in range(0, 400, 2):
+    os.remove(os.path.join(holes, str(i)))
+os.sync()
 filler = os.path.join(root, "filler")
 with open(filler, "wb") as f:
-    for i in range(400):
+    # Fewer than Linux lists: their names in 64 KiB.
+    for i in range(1200):
         os.setxattr(full, f"user.b{i:03}" + "b" * 40, pattern(20, i))
         if i % 10 == 0:
             f.write(bytes(65536)); f.flush(); os.fsync(f.fileno())
 os.remove(filler)
+shutil.rmtree(holes)
 os.setxattr(put("trusted.txt"), "trusted.secret", b"trusted")
 os.setxattr(put("security.txt"), "security.label", b"label")
 os.setxattr(put("foreign.txt").encode(), b"user.caf\xe9", b"foreign")
@@ -255,11 +274,16 @@ fork() {
 }
 
 # Fails unless the attribute forks `attrs` wrote in image `$1` are of the
-# forms the files are named for.
+# forms the files are named for, whose leaves have magic `$2`, and nodes
+# `$3`; but with 512-byte blocks, one leaf does not hold `leaf.txt`'s.
 check_attrs() {
     found="$(fork "$1" small.txt), $(fork "$1" leaf.txt), $(fork "$1" node.txt)"
     found="$found, $(fork "$1" btree.txt)"
-    if [ "$found" != "local, extents fbee, extents febe, btree febe" ]; then
+    leaf=$2
+    if [ "$(xfs_db -r -c "sb 0" -c "print blocksize" "$1" | sed 's/.*= //')" = 512 ]; then
+        leaf=$3
+    fi
+    if [ "$found" != "local, extents $leaf, extents $3, btree $3" ]; then
         echo "attribute forms: $found" >&2
         exit 1
     fi
@@ -337,19 +361,24 @@ leaf() {
 }
 
 # Fails unless the directories `dirs` wrote in image `$1` are of the forms
-# they are named for.
+# they are named for, whose leaves have magic `$2`, and nodes `$3`.
 check_dirs() {
     found="$(field "$1" short core.format) $(field "$1" block core.size)"
     found="$found $(leaf "$1" leaf) $(leaf "$1" node) $(leaf "$1" btree)"
     found="$found $(field "$1" btree core.format)"
-    if [ "$found" != "1 (local) 4096 d2f1 febe febe 3 (btree)" ]; then
+    if [ "$found" != "1 (local) 4096 $2 $3 $3 3 (btree)" ]; then
         echo "directory forms: $found" >&2
         exit 1
     fi
 }
 
+# Gives image `$1` a new UUID, so that its metadata carries the old one.
+uuid() {
+    xfs_admin -U generate "$1" >/dev/null 2>&1
+}
+
 # Makes fixture `$1`, formatted by `mkfs.xfs` with options `$2`, filled by
-# `$3` through the kernel.
+# `$3` through the kernel, then changed by `$4`, if given.
 make() {
     case " $only " in "  " | *" $1 "*) ;; *) return ;; esac
     img="$work/$1.img"
@@ -359,10 +388,20 @@ make() {
     sudo mount -o loop "$img" "$mnt"
     $3 "$mnt"
     sudo umount "$mnt"
-    xfs_db -x -c logformat "$img" >/dev/null
+    if [ $# -gt 3 ]; then
+        $4 "$img"
+    fi
+    if [ -z "${KEEP_LOG:-}" ]; then
+        xfs_db -x -c "logformat -c 1" "$img" >/dev/null
+    fi
+    # Leaves', attribute leaves', and nodes' magic numbers.
+    case $2 in
+        *crc=1*) leaf=3df1 attr=3bee node=3ebe ;;
+        *) leaf=d2f1 attr=fbee node=febe ;;
+    esac
     case $3 in
-        dirs) check_dirs "$img" ;;
-        attrs) check_attrs "$img" ;;
+        dirs) check_dirs "$img" "$leaf" "$node" ;;
+        attrs) check_attrs "$img" "$attr" "$node" ;;
     esac
     sparse "$img" "$out/$1.sparse"
 }
@@ -417,3 +456,14 @@ make xfs-attrs "$v4" attrs
 make xfs-ci "$v4 -n version=ci" ci
 make xfs-attrs-512 "$v4 -b size=512" attrs
 make spec "$v4" spec
+
+v5="-m crc=1,finobt=0,rmapbt=0,reflink=0,bigtime=0,inobtcount=0"
+v5="$v5 -i sparse=0,nrext64=0"
+make xfs5-1k "$v5 -b size=1024" fill
+make xfs5-4k "$v5" fill
+make xfs5-64k "$v5 -b size=65536" fill
+make xfs5-dirs "$v5" dirs
+make xfs5-attrs "$v5" attrs
+make xfs5-attrs-1k "$v5 -b size=1024" attrs
+make xfs5-uuid "$v5" spec uuid
+make spec5 "$v5" spec

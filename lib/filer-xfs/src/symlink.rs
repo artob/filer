@@ -1,9 +1,12 @@
 // This is free and unencumbered software released into the public domain.
 
 //! Symlink targets: local ones in the inode, remote ones in data blocks.
+//! With version 5, each extent of those starts with a header of its own,
+//! self-describing (`crc::REMOTE`) over the whole extent, which names the
+//! part of the target it holds after the header.
 
 use crate::{
-    XfsError,
+    XfsError, be, crc,
     file_map::FileMap,
     inode::{Format, Inode},
     superblock::Superblock,
@@ -13,6 +16,10 @@ use filer_api::{Error, OpKind, ReadAt};
 
 /// The longest target: Linux's `PATH_MAX` less its NUL.
 const MAX_TARGET: u64 = 1024;
+
+/// The magic number of a version 5 target's header, `XSLM`, and its size.
+const MAGIC: u32 = 0x5853_4C4D;
+const HEADER: usize = 56;
 
 /// Reads the target of symlink `inode`, which must not be empty, contain
 /// NUL, or be longer than 1024 bytes.
@@ -37,10 +44,65 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         inode.data().bytes.clone()
     } else {
         let map = FileMap::data(inode, sb).map_err(fail)?;
-        map.read(source, sb, size, 0, len, op).await?
+        if sb.is_v5() {
+            remote_v5(source, sb, &map, inode.number(), len, op).await?
+        } else {
+            map.read(source, sb, size, 0, len, op).await?
+        }
     };
     if target.len() != len || target.contains(&0) {
         return Err(bad());
+    }
+    Ok(target)
+}
+
+/// Reads a version 5 remote target of `len` bytes, of symlink `inode`
+/// mapped by `map`: from as many blocks as hold it after a header in each
+/// extent of them.
+async fn remote_v5<S: ReadAt + ?Sized>(
+    source: &S,
+    sb: &Superblock,
+    map: &FileMap,
+    inode: u64,
+    len: usize,
+    op: OpKind,
+) -> Result<Vec<u8>, Error> {
+    let fail = |error: XfsError| error.into_error(op);
+    let bad = || fail(XfsError::BadSymlink { inode });
+    let block = usize::try_from(sb.block_size()).map_err(|_| bad())?;
+    let room = block.checked_sub(HEADER).ok_or_else(bad)?;
+    let blocks = u64::try_from(len.div_ceil(room)).map_err(|_| bad())?;
+    let mut target = Vec::with_capacity(len);
+    let mut logical = 0;
+    while logical < blocks {
+        let run = map
+            .map(source, sb, logical, blocks.saturating_sub(logical), op)
+            .await?;
+        let physical = run.physical.ok_or_else(bad)?;
+        let offset = sb.block_offset(physical).ok_or_else(bad)?;
+        let run_len = usize::try_from(run.len)
+            .ok()
+            .and_then(|n| n.checked_mul(block))
+            .ok_or_else(bad)?;
+        let bytes = crate::io::read_exact(source, offset, run_len).await?;
+        crc::check(&bytes, crc::REMOTE, sb, offset, inode).map_err(fail)?;
+        let part = len
+            .saturating_sub(target.len())
+            .min(run_len.saturating_sub(HEADER));
+        let header = (
+            be::u32_at(&bytes, 0),
+            be::u32_at(&bytes, 4).and_then(|at| usize::try_from(at).ok()),
+            be::u32_at(&bytes, 8).and_then(|len| usize::try_from(len).ok()),
+        );
+        if header != (Some(MAGIC), Some(target.len()), Some(part)) {
+            return Err(bad());
+        }
+        target.extend_from_slice(
+            bytes
+                .get(HEADER..HEADER.saturating_add(part))
+                .ok_or_else(bad)?,
+        );
+        logical = logical.saturating_add(run.len);
     }
     Ok(target)
 }

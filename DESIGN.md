@@ -2762,8 +2762,10 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
   nanoseconds since 1901-12-13T20:45:52Z), size, extent counts, flags,
   the data fork's format, and the attribute fork's offset (`di_forkoff`
   × 8 into the literal area after the core) and format. v3 adds the
-  CRC, `di_flags2`, the creation time, the inode's own number, and the
-  UUID. Fork formats: device, local (in the inode), extents, B+ tree.
+  CRC (at 100, over the whole inode), `di_flags2` (120), the creation
+  time (144), the inode's own number (152), and the UUID (160); its
+  literal area starts at 176. Fork formats: device, local (in the
+  inode), extents, B+ tree.
 - File maps: 128-bit extent records (unwritten flag, 54-bit file block,
   52-bit volume block, 21-bit length), sorted and disjoint; unwritten
   extents read as zeros, and gaps are holes. A `BMAP` (v5 `BMA3`) B+ tree
@@ -2799,9 +2801,16 @@ with `xfs_db -x` and reading back the name `xfs_db` prints (done
   both so and converted. `attr1` and `attr2` differ only in how
   `di_forkoff` is chosen.
 - v5 metadata blocks are self-describing: their magic, the volume's UUID
-  (or `sb_meta_uuid` with `META_UUID`), their own disk address, their
-  owner (inode or AG), and a CRC32C of the block with the CRC field
-  zeroed. The superblock's CRC covers its sector.
+  (or `sb_meta_uuid` with `META_UUID`, which `xfs_admin -U` sets), their
+  own disk address in 512-byte units, their owner (inode or AG), and a
+  CRC32C of the block with the CRC field zeroed, stored little-endian.
+  The fields' offsets (CRC, address, UUID, owner): `BMA3` 64, 24, 40,
+  56, after a 72-byte header; `XDB3` and `XDD3` 4, 8, 24, 40, with
+  entries from 64; leaves and nodes (0x3DF1, 0x3DFF, 0x3EBE, 0x3BEE) 12,
+  16, 32, 48, their counts at 56, entries from 64 (attribute leaves from
+  80); `XARM` and `XSLM` 12, 40, 16, 32, data from 56. A remote value
+  has a header in each block, a symlink target in each extent, whose
+  CRC covers it all. The superblock's CRC covers its whole sector.
 - The log: a circle of 512-byte sectors, each stamped with its cycle
   number; records with `0xFEEDBABE` headers. A volume whose last record
   is not an unmount record with nothing pending needs recovery.

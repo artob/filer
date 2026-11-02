@@ -10,6 +10,17 @@ use filer_xfs::Xfs;
 
 #[test]
 fn passes_the_specification() {
+    check(include_bytes!("fixtures/spec.sparse"));
+}
+
+/// On a version 5 volume.
+#[test]
+fn passes_the_specification_v5() {
+    check(include_bytes!("fixtures/spec5.sparse"));
+}
+
+/// Runs the specification against the volume in `sparse`.
+fn check(sparse: &'static [u8]) {
     let profile = Profile::default();
     let report = filer_spec::run_blocking(profile, |tree| {
         // The fixture holds exactly this tree; if the specification's
@@ -62,7 +73,7 @@ fn passes_the_specification() {
             .map(String::from),
         );
         assert_eq!(paths, expected, "the specification's tree changed");
-        let image = common::Sparse::new(include_bytes!("fixtures/spec.sparse"));
+        let image = common::Sparse::new(sparse);
         filer_spec::block_on(Xfs::open(image)).unwrap()
     });
     println!("{report}");

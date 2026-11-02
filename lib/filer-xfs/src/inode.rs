@@ -3,7 +3,7 @@
 //! Inodes: finding them by number, and decoding their cores and forks.
 
 use crate::{
-    XfsError, be, io,
+    XfsError, be, crc, io,
     superblock::{Superblock, Version},
 };
 use alloc::vec::Vec;
@@ -14,8 +14,15 @@ use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
 const MAGIC: u16 = 0x494E;
 
 /// The size of a version 1 or 2 inode's core, which the forks follow in
-/// the literal area.
+/// the literal area, and of a version 3 inode's.
 const CORE_SIZE: usize = 100;
+const CORE_SIZE_V3: usize = 176;
+
+/// Where a version 3 inode keeps its checksum, its own number, and the
+/// metadata UUID.
+const CRC_AT: usize = 100;
+const NUMBER_AT: usize = 152;
+const UUID_AT: usize = 160;
 
 /// The size of an extent record in an extent list.
 pub(crate) const EXTENT_SIZE: usize = 16;
@@ -23,6 +30,13 @@ pub(crate) const EXTENT_SIZE: usize = 16;
 /// `di_flags`: the file cannot change, and can only be appended to.
 const IMMUTABLE: u16 = 0x8;
 const APPEND: u16 = 0x10;
+
+/// `di_flags2` of version 3 inodes: the file is accessed directly; and
+/// times and extent counts of the `BIGTIME` and `NREXT64` features, which
+/// are not read yet.
+const DAX: u64 = 0x1;
+const BIGTIME: u64 = 0x8;
+const NREXT64: u64 = 0x10;
 
 /// Times are recorded to the nanosecond.
 const NANOSECONDS: Duration = Duration::from_nanos(1);
@@ -88,6 +102,8 @@ pub(crate) struct Inode {
     blocks: u64,
     /// `di_flags`.
     flags: u16,
+    /// `di_flags2`; zero before version 3.
+    flags2: u64,
     times: Times,
     data: Fork,
     attr: Option<Fork>,
@@ -119,9 +135,14 @@ impl Inode {
         let links = match (version, inode_version) {
             // Version 1 inodes count links in 16 bits.
             (Version::V4, 1) => u32::from(u16_at(6)?),
-            (Version::V4, 2) => u32_at(16)?,
+            (Version::V4, 2) | (Version::V5, 3) => u32_at(16)?,
             _ => return Err(bad),
         };
+        let v3 = inode_version == 3;
+        let flags2 = if v3 { u64_at(120)? } else { 0 };
+        if (v3 && u64_at(NUMBER_AT)? != number) || flags2 & (BIGTIME | NREXT64) != 0 {
+            return Err(bad);
+        }
         let mode = u16_at(2)?;
         if mode == 0 || links == 0 {
             return Err(XfsError::UnusedInode { inode: number });
@@ -145,12 +166,13 @@ impl Inode {
             accessed: time(32)?,
             modified: time(40)?,
             changed: time(48)?,
-            created: None,
+            created: if v3 { Some(time(144)?) } else { None },
         };
 
         // The literal area after the core holds the data fork, then, from
         // `di_forkoff` 8-byte units on, the attribute fork.
-        let literal = bytes.get(CORE_SIZE..).ok_or(bad)?;
+        let core = if v3 { CORE_SIZE_V3 } else { CORE_SIZE };
+        let literal = bytes.get(core..).ok_or(bad)?;
         let fork_off = usize::from(u8_at(82)?).checked_mul(8).ok_or(bad)?;
         let (data_area, attr_area) = match fork_off {
             0 => (literal, None),
@@ -201,6 +223,7 @@ impl Inode {
             links,
             blocks: u64_at(64)?,
             flags: u16_at(90)?,
+            flags2,
             times,
             data,
             attr,
@@ -237,11 +260,12 @@ impl Inode {
         self.flags
     }
 
-    /// Returns the flags Filer reports: immutable and append-only.
+    /// Returns the flags Filer reports: immutable, append-only, and DAX.
     pub(crate) fn attrs(&self) -> FileAttrs {
         let mut attrs = FileAttrs::empty();
         attrs.set(FileAttrs::IMMUTABLE, self.flags & IMMUTABLE != 0);
         attrs.set(FileAttrs::APPEND_ONLY, self.flags & APPEND != 0);
+        attrs.set(FileAttrs::DAX, self.flags2 & DAX != 0);
         attrs
     }
 
@@ -292,7 +316,24 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         .ok_or_else(|| XfsError::BadInodeNumber(number).into_error(op))?;
     let len = usize::try_from(sb.inode_size()).unwrap_or(usize::MAX);
     let bytes = io::read_exact(source, off, len).await?;
+    check(&bytes, sb, off).map_err(|error| error.into_error(op))?;
     Inode::parse(&bytes, number, sb.version()).map_err(|error| error.into_error(op))
+}
+
+/// Checks a version 3 inode's checksum, over the whole inode, and that it
+/// carries the metadata UUID, as read from byte `offset`. An inode never
+/// written has neither, but is of version 3 only once it has been.
+fn check(bytes: &[u8], sb: &Superblock, offset: u64) -> Result<(), XfsError> {
+    if !sb.is_v5() || bytes.get(4) != Some(&3) {
+        return Ok(());
+    }
+    if !crc::is_valid(bytes, CRC_AT) {
+        return Err(XfsError::BadChecksum { offset });
+    }
+    if bytes.get(UUID_AT..UUID_AT.saturating_add(16)) != Some(sb.meta_uuid()) {
+        return Err(XfsError::Misplaced { offset });
+    }
+    Ok(())
 }
 
 #[cfg(test)]

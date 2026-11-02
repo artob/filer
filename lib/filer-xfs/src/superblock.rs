@@ -2,7 +2,7 @@
 
 //! The superblock, and the volume layout it describes.
 
-use crate::{FeatureSet, XfsError, be};
+use crate::{FeatureSet, XfsError, be, crc, io};
 use alloc::vec::Vec;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
 
@@ -12,6 +12,9 @@ const MAGIC: u32 = 0x5846_5342;
 /// The bytes of the superblock that are read: its fields end before them,
 /// in the smallest sector.
 pub(crate) const SUPERBLOCK_SIZE: usize = 512;
+
+/// Where a version 5 superblock keeps its checksum.
+const CRC_AT: usize = 224;
 
 /// The smallest and largest block sizes; version 5 needs 1 KiB.
 const MIN_BLOCK_SIZE: u32 = 512;
@@ -64,11 +67,18 @@ pub(crate) mod feature {
     /// (0x100) is version 5's.
     pub(crate) const SUPPORTED_FEATURES2: u32 = 0x28A;
 
-    /// The version 5 incompatible features known: `FTYPE` (0x1),
-    /// `SPINODES` (0x2), `META_UUID` (0x4), `BIGTIME` (0x8),
-    /// `NEEDSREPAIR` (0x10), `NREXT64` (0x20), `EXCHANGE` (0x40), `PARENT`
-    /// (0x80), and `METADIR` (0x100).
-    pub(crate) const KNOWN_INCOMPAT: u32 = 0x1FF;
+    /// `sb_features2`: metadata has checksums, which version 5 sets.
+    pub(crate) const CRC: u32 = 0x100;
+
+    /// Version 5 incompatible features: directory entries record the file
+    /// type; metadata carries `sb_meta_uuid`, not the volume's UUID.
+    pub(crate) const INCOMPAT_FTYPE: u32 = 0x1;
+    pub(crate) const META_UUID: u32 = 0x4;
+    /// The version 5 incompatible features this driver reads: `FTYPE` and
+    /// `META_UUID`. Not yet `SPINODES` (0x2), `BIGTIME` (0x8), `NREXT64`
+    /// (0x20), `EXCHANGE` (0x40), `PARENT` (0x80), or `METADIR` (0x100),
+    /// nor `NEEDSREPAIR` (0x10), which Linux refuses to mount.
+    pub(crate) const SUPPORTED_INCOMPAT: u32 = INCOMPAT_FTYPE | META_UUID;
 }
 
 /// A volume's on-disk format version.
@@ -116,6 +126,9 @@ pub(crate) struct Superblock {
     log_blocks: u32,
     features: Features,
     uuid: [u8; 16],
+    /// The UUID metadata carries: `sb_meta_uuid` with `META_UUID`, else
+    /// `uuid`.
+    meta_uuid: [u8; 16],
 }
 
 fn u16_at(bytes: &[u8], at: usize) -> Result<u16, XfsError> {
@@ -150,7 +163,8 @@ fn low_bits(value: u64, bits: u8) -> u64 {
 impl Superblock {
     /// Parses and validates a superblock, of which the first 512 bytes are
     /// read: its magic number, version, features, and geometry, refusing
-    /// features it does not read.
+    /// features it does not read. A version 5 superblock's checksum covers
+    /// its whole sector, which [`check_crc`](Self::check_crc) checks.
     pub(crate) fn parse(bytes: &[u8]) -> Result<Self, XfsError> {
         if bytes.len() < SUPERBLOCK_SIZE {
             return Err(XfsError::ShortSuperblock);
@@ -243,10 +257,18 @@ impl Superblock {
         if u8_at(bytes, 126)? != 0 {
             return Err(XfsError::Unfinished);
         }
-        let mut uuid = [0; 16];
-        if let Some(from) = bytes.get(32..48) {
-            uuid.copy_from_slice(from);
-        }
+        let uuid_at = |at: usize| {
+            bytes
+                .get(at..at.saturating_add(16))
+                .and_then(|uuid| <[u8; 16]>::try_from(uuid).ok())
+                .ok_or(XfsError::ShortSuperblock)
+        };
+        let uuid = uuid_at(32)?;
+        let meta_uuid = if features.incompat & feature::META_UUID != 0 {
+            uuid_at(248)?
+        } else {
+            uuid
+        };
         let mut sb = Self {
             version,
             block_log,
@@ -263,6 +285,7 @@ impl Superblock {
             log_blocks: u32_at(bytes, 96)?,
             features,
             uuid,
+            meta_uuid,
         };
         if sb.inode_offset(sb.root_inode).is_none() {
             return Err(XfsError::BadInodeNumber(sb.root_inode));
@@ -284,10 +307,6 @@ impl Superblock {
                 },
                 _ => return Err(XfsError::BadLog),
             }
-        }
-        // Version 5's self-describing metadata is not read yet.
-        if version == Version::V5 {
-            return Err(XfsError::UnsupportedVersion(5));
         }
         Ok(sb)
     }
@@ -323,27 +342,28 @@ impl Superblock {
             features2,
             ..Features::default()
         };
-        match version {
-            Version::V4 => {
-                let unknown = features2 & !feature::SUPPORTED_FEATURES2;
-                if unknown != 0 {
-                    return Err(XfsError::UnsupportedFeatures {
-                        set: FeatureSet::Features2,
-                        bits: unknown,
-                    });
-                }
-            },
-            Version::V5 => {
-                features.ro_compat = u32_at(bytes, 212)?;
-                features.incompat = u32_at(bytes, 216)?;
-                let unknown = features.incompat & !feature::KNOWN_INCOMPAT;
-                if unknown != 0 {
-                    return Err(XfsError::UnsupportedFeatures {
-                        set: FeatureSet::Incompat,
-                        bits: unknown,
-                    });
-                }
-            },
+        let supported = match version {
+            Version::V4 => feature::SUPPORTED_FEATURES2,
+            Version::V5 => feature::SUPPORTED_FEATURES2 | feature::CRC,
+        };
+        let unknown = features2 & !supported;
+        if unknown != 0 {
+            return Err(XfsError::UnsupportedFeatures {
+                set: FeatureSet::Features2,
+                bits: unknown,
+            });
+        }
+        if version == Version::V5 {
+            // Read-only compatible features change nothing a reader sees.
+            features.ro_compat = u32_at(bytes, 212)?;
+            features.incompat = u32_at(bytes, 216)?;
+            let unsupported = features.incompat & !feature::SUPPORTED_INCOMPAT;
+            if unsupported != 0 {
+                return Err(XfsError::UnsupportedFeatures {
+                    set: FeatureSet::Incompat,
+                    bits: unsupported,
+                });
+            }
         }
         Ok(features)
     }
@@ -361,7 +381,6 @@ impl Superblock {
 
     /// Returns the sector size in bytes: a power of two from 512 bytes to
     /// the block size.
-    #[allow(dead_code, reason = "for checksums, later")]
     pub(crate) const fn sector_size(&self) -> u32 {
         1 << self.sector_log
     }
@@ -414,7 +433,29 @@ impl Superblock {
 
     /// Returns `true` if directory entries record the file type.
     pub(crate) const fn has_ftype(&self) -> bool {
-        self.features.features2 & feature::FTYPE != 0
+        match self.version {
+            Version::V4 => self.features.features2 & feature::FTYPE != 0,
+            Version::V5 => self.features.incompat & feature::INCOMPAT_FTYPE != 0,
+        }
+    }
+
+    /// Returns `true` if metadata is self-describing, with checksums.
+    pub(crate) fn is_v5(&self) -> bool {
+        self.version == Version::V5
+    }
+
+    /// Returns the UUID metadata carries.
+    pub(crate) const fn meta_uuid(&self) -> &[u8; 16] {
+        &self.meta_uuid
+    }
+
+    /// Checks a version 5 superblock's checksum over its `sector`, whose
+    /// size is the sector size; a version 4 one has none.
+    pub(crate) fn check_crc(&self, sector: &[u8]) -> Result<(), XfsError> {
+        if self.is_v5() && !crc::is_valid(sector, CRC_AT) {
+            return Err(XfsError::BadChecksum { offset: 0 });
+        }
+        Ok(())
     }
 
     /// Returns `true` if directories match names case-insensitively.
@@ -495,6 +536,13 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(source: &S) -> Result<Superblock, E
         Err(error) => return Err(error),
     }
     let superblock = Superblock::parse(&bytes).map_err(|error| error.into_error(op))?;
+    if superblock.is_v5() {
+        let len = usize::try_from(superblock.sector_size()).unwrap_or(usize::MAX);
+        let sector = io::read_exact(source, 0, len).await?;
+        superblock
+            .check_crc(&sector)
+            .map_err(|error| error.into_error(op))?;
+    }
     let volume = superblock.volume_len();
     if volume > size {
         return Err(XfsError::Truncated {
@@ -604,10 +652,28 @@ pub(crate) mod tests {
             put(200, &self.features2.to_be_bytes());
             put(204, &self.bad_features2.to_be_bytes());
             put(216, &self.incompat.to_be_bytes());
+            put(248, &[0x44; 16]);
+            if self.versionnum & 0xF == 5 {
+                crate::crc::tests::seal(&mut b, CRC_AT);
+            }
             b
         }
 
-        fn parse(&self) -> Result<Superblock, XfsError> {
+        /// The same volume, version 5 with the features `mkfs.xfs` sets
+        /// with all later ones off, and 512-byte inodes.
+        pub(crate) fn v5() -> Self {
+            let mut f = Self::new();
+            f.versionnum = 0xB4A5;
+            f.features2 = 0x18A;
+            f.bad_features2 = 0x18A;
+            f.incompat = 0x1;
+            f.inode_size = 512;
+            f.inode_log = 9;
+            f.block_log(12);
+            f
+        }
+
+        pub(crate) fn parse(&self) -> Result<Superblock, XfsError> {
             Superblock::parse(&self.bytes())
         }
 
@@ -812,30 +878,51 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn refuses_version_5_for_now() {
+    fn parses_version_5() {
+        let f = Fields::v5();
+        let s = f.parse().unwrap();
+        assert!(s.is_v5() && s.has_ftype());
+        assert_eq!(s.meta_uuid(), &[[0x11; 8], [0x22; 8]].concat()[..]);
+        assert_eq!(s.check_crc(&f.bytes()), Ok(()));
+        let mut bytes = f.bytes();
+        bytes[300] ^= 1;
+        assert_eq!(
+            s.check_crc(&bytes),
+            Err(XfsError::BadChecksum { offset: 0 })
+        );
+        // Version 4 has no checksum.
+        let v4 = Fields::new();
+        assert_eq!(v4.parse().unwrap().check_crc(&[0; 512]), Ok(()));
+
+        // Metadata carries `sb_meta_uuid` with `META_UUID`.
+        let mut m = Fields::v5();
+        m.incompat |= 0x4;
+        assert_eq!(m.parse().unwrap().meta_uuid(), &[0x44; 16]);
+
+        // Later incompatible features, and the checksum bit on version 4.
+        let incompat = |bits| XfsError::UnsupportedFeatures {
+            set: FeatureSet::Incompat,
+            bits,
+        };
+        for bits in [0x2, 0x8, 0x10, 0x20, 0x40, 0x80, 0x100, 0x200] {
+            let mut f = Fields::v5();
+            f.incompat |= bits;
+            assert_eq!(f.parse(), Err(incompat(bits)), "{bits:#X}");
+        }
         let mut f = Fields::new();
-        f.versionnum = 0xB4A5;
-        f.features2 = 0x18A;
-        f.bad_features2 = 0x18A;
-        f.incompat = 0x2B;
-        f.inode_size = 512;
-        f.inode_log = 9;
-        f.block_log(12);
-        f.root_inode = 64;
-        assert_eq!(f.parse(), Err(XfsError::UnsupportedVersion(5)));
-        f.incompat |= 0x200;
+        f.features2 |= 0x100;
         assert_eq!(
             f.parse(),
             Err(XfsError::UnsupportedFeatures {
-                set: FeatureSet::Incompat,
-                bits: 0x200
+                set: FeatureSet::Features2,
+                bits: 0x100
             })
         );
         // Version 5 needs larger blocks and inodes.
-        f.incompat = 0x2B;
+        let mut f = Fields::v5();
         f.block_log(9);
         assert_eq!(f.parse(), Err(XfsError::BadBlockSize(512)));
-        f.block_log(12);
+        let mut f = Fields::v5();
         f.inode_size = 256;
         f.inode_log = 8;
         f.block_log(12);

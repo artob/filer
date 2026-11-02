@@ -4,9 +4,11 @@
 //!
 //! [`Xfs`] implements [`filer_api::Driver`] over XFS volumes, read from
 //! any [`filer_api::ReadAt`] source, reporting each inconsistency it finds
-//! as an [`XfsError`]. It reads version 4 volumes so far; volumes using
-//! later features are refused by their feature flags. Writing is out of
-//! scope for now (see `DESIGN.md` §17.16).
+//! as an [`XfsError`]. It reads version 4 volumes, and version 5 volumes
+//! without the features added since (as of xfsprogs 6.18, the default
+//! `mkfs.xfs` sets some); volumes using those are refused by their
+//! feature flags. Writing is out of scope for now (see `DESIGN.md`
+//! §17.16).
 //!
 //! **Clean room.** The mature implementations (the Linux kernel's `xfs`,
 //! and xfsprogs' `libxfs`) are GPL, so this public-domain crate is written
@@ -75,6 +77,7 @@ pub use xfs_error::*;
 
 mod attr;
 mod be;
+mod crc;
 mod da;
 mod dir;
 mod file_map;

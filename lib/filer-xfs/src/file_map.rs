@@ -9,7 +9,7 @@
 //! on the way down: no file's whole map is ever held.
 
 use crate::{
-    XfsError, be,
+    XfsError, be, crc,
     inode::{EXTENT_SIZE, Fork, Format, Inode},
     io,
     superblock::Superblock,
@@ -17,11 +17,14 @@ use crate::{
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
 
-/// A `BMAP` B+ tree block's magic number.
+/// A B+ tree block's magic number: `BMAP`, or with version 5 `BMA3`.
 const BMAP_MAGIC: u32 = 0x424D_4150;
+const BMA3_MAGIC: u32 = 0x424D_4133;
 
-/// The size of a `BMAP` block's header, and of its root's in the inode.
+/// The size of a `BMAP` block's header, of a `BMA3` block's, and of a
+/// root's in the inode.
 const BLOCK_HEADER: usize = 24;
+const BLOCK_HEADER_V3: usize = 72;
 const ROOT_HEADER: usize = 4;
 
 /// The size of a B+ tree node's key, and of its pointer.
@@ -182,6 +185,11 @@ impl FileMap {
             Step::Child { pointer, upper } => (pointer, upper),
         };
         let block_len = usize::try_from(sb.block_size()).map_err(|_| bad())?;
+        let (magic, header_len) = if sb.is_v5() {
+            (BMA3_MAGIC, BLOCK_HEADER_V3)
+        } else {
+            (BMAP_MAGIC, BLOCK_HEADER)
+        };
         loop {
             level = level.checked_sub(1).ok_or_else(bad)?;
             let at = sb
@@ -199,22 +207,25 @@ impl FileMap {
                 be::u16_at(&block, 4),
                 be::u16_at(&block, 6),
             );
-            let (Some(BMAP_MAGIC), Some(found), Some(count)) = header else {
+            let (Some(found_magic), Some(found), Some(count)) = header else {
                 return Err(bad());
             };
-            if found != level {
+            if found_magic != magic || found != level {
                 return Err(bad());
+            }
+            if sb.is_v5() {
+                crc::check(&block, crc::BMAP, sb, at, self.inode).map_err(fail)?;
             }
             if level == 0 {
                 let len = usize::from(count).checked_mul(EXTENT_SIZE);
                 let records = len
-                    .and_then(|len| block.get(BLOCK_HEADER..BLOCK_HEADER.checked_add(len)?))
+                    .and_then(|len| block.get(header_len..header_len.checked_add(len)?))
                     .ok_or_else(bad)?;
                 let extents: Vec<Extent> = decode_all(records).collect();
                 check(&extents, upper, sb).ok_or_else(bad)?;
                 return run(&extents, logical, max, upper, sb).ok_or_else(bad);
             }
-            let (keys, pointers) = node(&block, BLOCK_HEADER, count, sb).ok_or_else(bad)?;
+            let (keys, pointers) = node(&block, header_len, count, sb).ok_or_else(bad)?;
             match step(&keys, &pointers, logical, upper) {
                 Step::Hole(len) => return hole(len, max).ok_or_else(bad),
                 Step::Child {

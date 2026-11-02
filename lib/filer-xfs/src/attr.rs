@@ -13,9 +13,13 @@
 //! `SGI_ACL_FILE` and `SGI_ACL_DEFAULT`, in a form of XFS's own; Linux
 //! shows each both as it is and as `system.posix_acl_access` or
 //! `system.posix_acl_default`, converted, and so does this driver.
+//!
+//! With version 5, leaf and node blocks are self-describing (`crc::DA`),
+//! and a remote value's every block starts with a header of its own
+//! (`crc::REMOTE`), naming the part of the value it holds.
 
 use crate::{
-    XfsError, be, da,
+    XfsError, be, crc, da,
     file_map::FileMap,
     hash,
     inode::{Format, Inode},
@@ -25,15 +29,23 @@ use crate::{
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use filer_api::{Error, ErrorKind, OpKind, ReadAt, XattrNs};
 
-/// The magic number of a leaf block.
+/// The magic number of a leaf block, and with version 5.
 const LEAF_MAGIC: u16 = 0xFBEE;
+const LEAF_MAGIC_V3: u16 = 0x3BEE;
+
+/// The magic number of a version 5 remote value's block, `XARM`, and the
+/// size of its header.
+const REMOTE_MAGIC: u32 = 0x5841_524D;
+const REMOTE_HEADER: usize = 56;
 
 /// The sizes of a short-form fork's header and an entry's fixed fields.
 const SHORT_HEADER: usize = 4;
 const SHORT_ENTRY: usize = 3;
 
-/// The sizes of a leaf block's header and of an entry in its table.
+/// The sizes of a leaf block's header, with version 5, and of an entry in
+/// its table.
 const LEAF_HEADER: usize = 32;
+const LEAF_HEADER_V3: usize = 80;
 const LEAF_ENTRY: usize = 8;
 
 /// Entry flags: the value is in the entry; the `trusted` namespace; the
@@ -170,25 +182,35 @@ fn parse_short(fork: &[u8], inode: u64) -> Result<Vec<Xattr>, XfsError> {
     Ok(found)
 }
 
-/// Parses a leaf block: a header holding the count at 12, then the table
-/// of entries, each a hash, the offset of its name and value, and flags.
-/// A local entry is a value's length, a name's length, the name, and the
-/// value; a remote one the value's first block and length, then a name's
-/// length and the name.
-fn parse_leaf(block: &[u8], inode: u64) -> Result<Vec<LeafEntry>, XfsError> {
+/// Returns the leaf magic number of a volume, version 5 if `v5`.
+const fn leaf_magic(v5: bool) -> u16 {
+    if v5 { LEAF_MAGIC_V3 } else { LEAF_MAGIC }
+}
+
+/// Parses a leaf block, of version 5 if `v5`: a header holding the count
+/// after the self-description, then the table of entries, each a hash,
+/// the offset of its name and value, and flags. A local entry is a value's
+/// length, a name's length, the name, and the value; a remote one the
+/// value's first block and length, then a name's length and the name.
+fn parse_leaf(block: &[u8], v5: bool, inode: u64) -> Result<Vec<LeafEntry>, XfsError> {
     let bad = XfsError::BadXattr { inode };
-    if be::u16_at(block, 8) != Some(LEAF_MAGIC) {
+    if be::u16_at(block, 8) != Some(leaf_magic(v5)) {
         return Err(bad);
     }
-    let count = usize::from(be::u16_at(block, 12).ok_or(bad)?);
+    let (header, count_at) = if v5 {
+        (LEAF_HEADER_V3, 56)
+    } else {
+        (LEAF_HEADER, 12)
+    };
+    let count = usize::from(be::u16_at(block, count_at).ok_or(bad)?);
     let table_end = count
         .checked_mul(LEAF_ENTRY)
-        .and_then(|len| len.checked_add(LEAF_HEADER))
+        .and_then(|len| len.checked_add(header))
         .filter(|&end| end <= block.len())
         .ok_or(bad)?;
     let mut found = Vec::with_capacity(count);
     for i in 0..count {
-        let entry = LEAF_HEADER.saturating_add(i.saturating_mul(LEAF_ENTRY));
+        let entry = header.saturating_add(i.saturating_mul(LEAF_ENTRY));
         let hash = be::u32_at(block, entry).ok_or(bad)?;
         let at = usize::from(be::u16_at(block, entry.saturating_add(4)).ok_or(bad)?);
         let flags = block.get(entry.saturating_add(6)).copied().ok_or(bad)?;
@@ -245,12 +267,56 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
         XfsError::BadXattr { inode: self.inode }.into_error(self.op)
     }
 
+    /// Reads the leaf or node at fork block `logical`, which must be
+    /// mapped, checking a version 5 one's header.
+    async fn block(&self, logical: u32) -> Result<Vec<u8>, Error> {
+        let len = usize::try_from(self.sb.block_size()).map_err(|_| self.bad())?;
+        let (bytes, offset) = self.read(logical, len).await?;
+        if self.sb.is_v5() {
+            crc::check(&bytes, crc::DA, self.sb, offset, self.inode)
+                .map_err(|error| error.into_error(self.op))?;
+        }
+        Ok(bytes)
+    }
+
+    /// Reads a remote value of `len` bytes from fork block `first`: with
+    /// version 5, a block at a time, each holding the part its header
+    /// names after the header.
+    async fn value(&self, first: u32, len: usize) -> Result<Vec<u8>, Error> {
+        if !self.sb.is_v5() {
+            return Ok(self.read(first, len).await?.0);
+        }
+        let size = usize::try_from(self.sb.block_size()).map_err(|_| self.bad())?;
+        let room = size.checked_sub(REMOTE_HEADER).ok_or_else(|| self.bad())?;
+        let mut value = Vec::with_capacity(len);
+        let mut logical = first;
+        while value.len() < len {
+            let (bytes, offset) = self.read(logical, size).await?;
+            crc::check(&bytes, crc::REMOTE, self.sb, offset, self.inode)
+                .map_err(|error| error.into_error(self.op))?;
+            let part = len.saturating_sub(value.len()).min(room);
+            let header = (
+                be::u32_at(&bytes, 0),
+                be::u32_at(&bytes, 4).and_then(|at| usize::try_from(at).ok()),
+                be::u32_at(&bytes, 8).and_then(|len| usize::try_from(len).ok()),
+            );
+            if header != (Some(REMOTE_MAGIC), Some(value.len()), Some(part)) {
+                return Err(self.bad());
+            }
+            let data = REMOTE_HEADER..REMOTE_HEADER.saturating_add(part);
+            value.extend_from_slice(bytes.get(data).ok_or_else(|| self.bad())?);
+            logical = logical.checked_add(1).ok_or_else(|| self.bad())?;
+        }
+        Ok(value)
+    }
+
     /// Reads `len` bytes from fork block `first`, all of which must be
-    /// mapped.
-    async fn read(&self, first: u32, len: usize) -> Result<Vec<u8>, Error> {
+    /// mapped, and returns them and the byte offset of the first block.
+    async fn read(&self, first: u32, len: usize) -> Result<(Vec<u8>, u64), Error> {
         let block = u64::from(self.sb.block_size());
         let mut out = Vec::with_capacity(len);
         let mut logical = u64::from(first);
+        let mut start = None;
         while out.len() < len {
             let want = len.saturating_sub(out.len());
             let blocks = u64::try_from(want).map_err(|_| self.bad())?.div_ceil(block);
@@ -260,6 +326,7 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
                 .await?;
             let physical = run.physical.ok_or_else(|| self.bad())?;
             let at = self.sb.block_offset(physical).ok_or_else(|| self.bad())?;
+            start = start.or(Some(at));
             let n = run
                 .len
                 .checked_mul(block)
@@ -269,13 +336,13 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
             out.extend(io::read_exact(self.source, at, n).await?);
             logical = logical.checked_add(run.len).ok_or_else(|| self.bad())?;
         }
-        Ok(out)
+        Ok((out, start.unwrap_or(0)))
     }
 
     /// Reads every attribute, from the leaf or node at fork block 0 down.
     async fn all(&self) -> Result<Vec<Xattr>, Error> {
         let fail = |error: XfsError| error.into_error(self.op);
-        let size = usize::try_from(self.sb.block_size()).map_err(|_| self.bad())?;
+        let v5 = self.sb.is_v5();
         let mut found = Vec::new();
         // Blocks to read, in order, each with the level it must have, if
         // known; every block once.
@@ -285,9 +352,9 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
             if !seen.insert(logical) {
                 return Err(self.bad());
             }
-            let block = self.read(logical, size).await?;
-            if da::magic(&block) == Some(da::NODE_MAGIC) {
-                let node = da::Node::parse(&block).ok_or_else(|| self.bad())?;
+            let block = self.block(logical).await?;
+            if da::magic(&block) == Some(da::node_magic(v5)) {
+                let node = da::Node::parse(&block, v5).ok_or_else(|| self.bad())?;
                 if level.is_some_and(|level| level != node.level) {
                     return Err(self.bad());
                 }
@@ -299,10 +366,10 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
             if level.is_some_and(|level| level != 0) {
                 return Err(self.bad());
             }
-            for entry in parse_leaf(&block, self.inode).map_err(fail)? {
+            for entry in parse_leaf(&block, v5, self.inode).map_err(fail)? {
                 let value = match entry.value {
                     Value::Local(value) => value,
-                    Value::Remote { block, len } => self.read(block, len).await?,
+                    Value::Remote { block, len } => self.value(block, len).await?,
                 };
                 let bad = XfsError::BadXattr { inode: self.inode };
                 found.extend(named(entry.flags, &entry.name, value, bad).map_err(fail)?);
@@ -315,17 +382,17 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
     /// hash, failing if the index is inconsistent.
     async fn find(&self, flags: u8, name: &[u8]) -> Result<Option<Vec<u8>>, Error> {
         let fail = |error: XfsError| error.into_error(self.op);
-        let size = usize::try_from(self.sb.block_size()).map_err(|_| self.bad())?;
+        let v5 = self.sb.is_v5();
         let hash = hash::hash(name);
         // Down the nodes, if any, to the leaf where entries of the hash
         // start; each block's level one below its parent's.
         let mut at = 0;
         let mut level = None;
         let mut block = loop {
-            let block = self.read(at, size).await?;
+            let block = self.block(at).await?;
             match da::magic(&block) {
-                Some(da::NODE_MAGIC) => {
-                    let node = da::Node::parse(&block).ok_or_else(|| self.bad())?;
+                Some(magic) if magic == da::node_magic(v5) => {
+                    let node = da::Node::parse(&block, v5).ok_or_else(|| self.bad())?;
                     if level.is_some_and(|level| level != node.level) {
                         return Err(self.bad());
                     }
@@ -335,7 +402,9 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
                     level = Some(node.level.saturating_sub(1));
                     at = child;
                 },
-                Some(LEAF_MAGIC) if level.is_none_or(|level| level == 0) => break block,
+                Some(magic) if magic == leaf_magic(v5) && level.is_none_or(|level| level == 0) => {
+                    break block;
+                },
                 _ => return Err(self.bad()),
             }
         };
@@ -345,7 +414,7 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
             if !seen.insert(at) {
                 return Err(self.bad());
             }
-            let entries = parse_leaf(&block, self.inode).map_err(fail)?;
+            let entries = parse_leaf(&block, v5, self.inode).map_err(fail)?;
             if entries.is_sorted_by_key(|entry| entry.hash) {
                 let start = entries.partition_point(|entry| entry.hash < hash);
                 for entry in entries.into_iter().skip(start) {
@@ -358,7 +427,7 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
                     }
                     return Ok(Some(match entry.value {
                         Value::Local(value) => value,
-                        Value::Remote { block, len } => self.read(block, len).await?,
+                        Value::Remote { block, len } => self.value(block, len).await?,
                     }));
                 }
             } else {
@@ -368,7 +437,7 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
                 0 => return Ok(None),
                 next => at = next,
             }
-            block = self.read(at, size).await?;
+            block = self.block(at).await?;
         }
     }
 }
@@ -664,7 +733,7 @@ mod tests {
             ),
             (LOCAL | INCOMPLETE, b"c", Value::Local(b"x".to_vec())),
         ]);
-        let entries = parse_leaf(&block, 131).unwrap();
+        let entries = parse_leaf(&block, false, 131).unwrap();
         assert_eq!(entries.len(), 4);
         assert_eq!(entries[0].name, b"a");
         assert_eq!(entries[0].value, Value::Local(b"one".to_vec()));
@@ -680,18 +749,18 @@ mod tests {
         let bad = Err(XfsError::BadXattr { inode: 131 });
         let mut b = block.clone();
         b[8] = 0;
-        assert_eq!(parse_leaf(&b, 131), bad);
+        assert_eq!(parse_leaf(&b, false, 131), bad);
         // More entries than fit, a name inside the table or past the block,
         // and a value longer than Linux sets.
         let mut b = block.clone();
         b[12..14].copy_from_slice(&600u16.to_be_bytes());
-        assert_eq!(parse_leaf(&b, 131), bad);
+        assert_eq!(parse_leaf(&b, false, 131), bad);
         let mut b = block.clone();
         b[36..38].copy_from_slice(&40u16.to_be_bytes());
-        assert_eq!(parse_leaf(&b, 131), bad);
+        assert_eq!(parse_leaf(&b, false, 131), bad);
         let mut b = block.clone();
         b[36..38].copy_from_slice(&4095u16.to_be_bytes());
-        assert_eq!(parse_leaf(&b, 131), bad);
+        assert_eq!(parse_leaf(&b, false, 131), bad);
         let big = leaf(&[(
             0,
             b"big",
@@ -700,7 +769,7 @@ mod tests {
                 len: 65_537,
             },
         )]);
-        assert_eq!(parse_leaf(&big, 131), bad);
+        assert_eq!(parse_leaf(&big, false, 131), bad);
     }
 
     /// An image of `Fields::new()`'s volume, 4 KiB blocks.

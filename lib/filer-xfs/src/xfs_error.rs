@@ -131,6 +131,20 @@ pub enum XfsError {
         inode: u64,
     },
 
+    /// Version 5 metadata at byte `offset` of the volume fails its
+    /// checksum: a superblock, an inode, or a block.
+    BadChecksum {
+        /// Where it is.
+        offset: u64,
+    },
+
+    /// A version 5 block at byte `offset` of the volume names another
+    /// place, another owner, or another volume than where it was found.
+    Misplaced {
+        /// Where it is.
+        offset: u64,
+    },
+
     /// An inode's extended attributes are malformed: an entry, a block,
     /// or a value does not fit, or a block is not what its place needs.
     BadXattr {
@@ -255,6 +269,12 @@ impl core::fmt::Display for XfsError {
                 write!(f, "directory {dir} has an invalid size {size}")
             },
             Self::BadSymlink { inode } => write!(f, "symlink {inode} has an invalid target"),
+            Self::BadChecksum { offset } => {
+                write!(f, "metadata at byte {offset} fails its checksum")
+            },
+            Self::Misplaced { offset } => {
+                write!(f, "metadata at byte {offset} belongs elsewhere")
+            },
             Self::BadXattr { inode } => {
                 write!(f, "inode {inode} has invalid extended attributes")
             },
