@@ -3040,6 +3040,8 @@ That moves here, step by step, each driver keeping only its format:
 - recovery in memory: the `Overlay` of 128-byte chunks that replaying a
   log or journal puts, and `Recovered`, a source read through it (XFS,
   and ext4's journal);
+- Windows NT times and the file attributes that are flags (NTFS, and
+  `filer-windows`, which reads both from Windows);
 - reparse points, and Filer's reading of links' targets (NTFS, and
   `filer-windows`, which reads the same values through
   `FSCTL_GET_REPARSE_POINT`, so both report a link alike);
@@ -3056,7 +3058,7 @@ enum, `Options`, and on-disk parsing.
 Unlike `filer_api::archive` (D44), this is a crate of its own, per the
 placement rule (D20): it has semantics of its own, and only file system
 drivers need it, with `filer-windows` for the on-disk forms it shares
-with NTFS (WTF-8 names and reparse points).
+with NTFS (WTF-8 names, NT times and attributes, and reparse points).
 
 **The driver shell** (as built, 2026-11-02). A format implements
 `FileSystem`: its `DriverKey`, its root, a node's kind, lookup, a

@@ -40,10 +40,11 @@ so any release may break compatibility.
 - `filer-fs`: New crate: the shared machinery of file system drivers,
   which `filer-fat`, `filer-ext4`, `filer-ntfs`, `filer-udf`, and
   `filer-xfs` depend on. So far `le` and `be`, field readers, and
-  `read_exact`, reading from a source; `wtf8`, for UTF-16 names;
-  `reparse`, for Windows reparse points (moved from `filer-ntfs`); `unix`,
-  for Unix file types; `posix_acl`, for POSIX ACLs; and `map`, reading
-  files through maps of their blocks; `FileSystem` and `Mounted`, the
+  `read_exact`, reading from a source; `wtf8`, for UTF-16 names; `nt`,
+  for Windows NT times and attributes, and `reparse`, for reparse points
+  (both moved from `filer-ntfs`); `unix`, for Unix file types;
+  `posix_acl`, for POSIX ACLs; and `map`, reading files through maps of
+  their blocks; `FileSystem` and `Mounted`, the
   driver shell, and `Opened`; `partition`, reading MBR and GPT partition
   tables, with `Window`, a source of one partition; `recover`, with
   `Overlay` and `Recovered`, reading a volume as replaying its journal

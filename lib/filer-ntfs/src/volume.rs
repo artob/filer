@@ -12,17 +12,16 @@ use crate::{
     mft::{File, Mft},
     record::{AttrType, Body, FileRef},
     stream::Stream,
-    time,
     upcase::UpCase,
 };
 use alloc::{collections::BTreeSet, sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
-    DirCookie, DriverKey, Entry, EntryName, Error, ErrorKind, FileAttrs, FileId, FileKind,
-    LinkTarget, MetaMask, Metadata, OpKind, ReadAt, XattrEntry, XattrNs,
+    DirCookie, DriverKey, Entry, EntryName, Error, ErrorKind, FileId, FileKind, LinkTarget,
+    MetaMask, Metadata, OpKind, ReadAt, XattrEntry, XattrNs,
 };
 use filer_fs::{
-    FileSystem, Opened, le,
+    FileSystem, Opened, le, nt,
     reparse::{self, Reparse},
     wtf8,
 };
@@ -415,34 +414,6 @@ impl StandardInformation {
     }
 }
 
-impl StandardInformation {
-    /// The file attributes that are flags, and the flags they map to.
-    /// Read-only is a permission; directory and reparse point, the kind.
-    const FLAGS: [(u32, FileAttrs); 9] = [
-        (0x0000_0002, FileAttrs::HIDDEN),
-        (0x0000_0004, FileAttrs::SYSTEM),
-        (0x0000_0020, FileAttrs::ARCHIVE),
-        (0x0000_0200, FileAttrs::SPARSE),
-        (0x0000_0800, FileAttrs::COMPRESSED),
-        (0x0000_1000, FileAttrs::OFFLINE),
-        (0x0000_4000, FileAttrs::ENCRYPTED),
-        // Recall on open, and recall on data access.
-        (0x0004_0000, FileAttrs::DATALESS),
-        (0x0040_0000, FileAttrs::DATALESS),
-    ];
-
-    /// Returns the file's flags.
-    pub(crate) fn flags(&self) -> FileAttrs {
-        let mut flags = FileAttrs::empty();
-        for (bit, flag) in Self::FLAGS {
-            if self.attributes & bit != 0 {
-                flags |= flag;
-            }
-        }
-        flags
-    }
-}
-
 impl<S: ReadAt> Volume<S> {
     /// Returns the id of the file with record `number`: the volume serial
     /// number, and the record.
@@ -540,11 +511,11 @@ impl<S: ReadAt + 'static> FileSystem for Volume<S> {
             (_, FileKind::Dir, _) => None,
             (_, _, None) => Some(self.data_len(node, op)?),
         };
-        metadata.created = time::timestamp(information.created);
-        metadata.modified = time::timestamp(information.modified);
-        metadata.changed = time::timestamp(information.changed);
-        metadata.accessed = time::timestamp(information.accessed);
-        metadata.attrs = Some(information.flags());
+        metadata.created = nt::timestamp(information.created);
+        metadata.modified = nt::timestamp(information.modified);
+        metadata.changed = nt::timestamp(information.changed);
+        metadata.accessed = nt::timestamp(information.accessed);
+        metadata.attrs = Some(nt::flags(information.attributes));
         Ok(metadata)
     }
 

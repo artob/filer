@@ -15,8 +15,8 @@
 //! [`read_exact`] reads them from a source; [`wtf8`] encodes UTF-16
 //! names; [`unix`] decodes Unix file types, and [`posix_acl`] encodes
 //! POSIX ACLs as Linux returns them; [`map`] reads files through maps of
-//! their blocks; [`reparse`] parses Windows reparse points, which the
-//! Windows driver reads too. A format implements [`FileSystem`], and
+//! their blocks; [`nt`] converts Windows NT times and attributes, and
+//! [`reparse`] parses reparse points, which the Windows driver reads too. A format implements [`FileSystem`], and
 //! [`Mounted`] serves it as a driver. [`partition`] reads partitioned disk
 //! images, and [`recover`] reads volumes as replaying their journals would
 //! leave them.
@@ -66,6 +66,7 @@ mod read;
 pub use read::*;
 
 pub mod map;
+pub mod nt;
 
 pub mod partition;
 

@@ -93,7 +93,6 @@ pub use ntfs::*;
 mod record;
 mod runs;
 mod stream;
-mod time;
 mod upcase;
 mod volume;
 
