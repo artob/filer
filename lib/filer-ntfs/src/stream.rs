@@ -193,7 +193,20 @@ impl Stream {
             .checked_mul(cluster_size)
             .and_then(|len| len.checked_sub(within))
             .ok_or_else(corrupt)?;
-        let n = want.min(cap(contiguous));
+        let mut n = want.min(cap(contiguous));
+        if let Self::NonResident {
+            compression: Some(unit),
+            ..
+        } = self
+        {
+            // A unit stored as is ends where the next, perhaps compressed
+            // one in the same run, begins.
+            let unit_bytes = unit.checked_mul(cluster_size).ok_or_else(corrupt)?;
+            let left = unit_bytes
+                .checked_sub(off.checked_rem(unit_bytes).ok_or_else(corrupt)?)
+                .ok_or_else(corrupt)?;
+            n = n.min(cap(left));
+        }
         let Some(lcn) = run.lcn else {
             return Ok(vec![0; n]);
         };

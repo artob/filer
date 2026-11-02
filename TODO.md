@@ -718,16 +718,17 @@ format grew; one step per item, each committed.
 
 Read-only NTFS, clean room (§17.14). One step per item, each committed.
 
-- [ ] **NTFS-10: Windows-made fixtures.** Volumes formatted and filled by
-  Windows itself (long and short names, streams, attributes, compression,
-  symlinks, junctions, a large directory), as through `dockur/windows`,
-  which needs a host with KVM, about 4 GB of memory, and 64 GB of disk.
-  Done when `tests/fixtures.rs` reads them and agrees with `ntfs3`.
 - [ ] **NTFS-11: Index descent.** Lookups walk a whole `$I30` index in
   order, which is correct whatever its collation, but linear. Descend the
   B+ tree by `$UpCase` collation instead, falling back to the walk if a
-  node is out of order. Done when Windows-made fixtures with large
-  directories agree with the walk.
+  node is out of order. Done when every lookup in `tests/windows.rs`'s
+  `many` and `collation` directories agrees with the walk.
+- [ ] **NTFS-12: WOF.** Files compressed by Windows Overlay Filter
+  (`compact /exe`, reparse tag `0x80000017`) keep their data in the
+  `WofCompressedData` stream, in XPRESS (4, 8, or 16 KiB chunks, [MS-XCA]
+  §2.3, Huffman) or LZX. Filer refuses them; the Linux kernel's `ntfs3`
+  reads them. Done when `wof.bin` in `windows-4k` reads as Windows reads
+  it, in pure Rust, clean room.
 
 ## `filer-fat`
 

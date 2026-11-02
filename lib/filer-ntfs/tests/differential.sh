@@ -19,7 +19,9 @@
 # `C:/target.txt`, or makes `./Sub`, where Filer resolves from the
 # volume's root), WSL symlinks (plain files to `ntfs3`), and reparse
 # points of other tags (`ntfs3` reads their `$DATA` as contents, where
-# Filer refuses to). Interix special files (symlinks, FIFOs, sockets, and
+# Filer refuses to), files compressed by WOF (which `ntfs3` decompresses,
+# Filer refuses to, and ntfs-3g shows as symlinks), and encrypted files
+# (whose streams Filer cannot list, as it refuses to open them). Interix special files (symlinks, FIFOs, sockets, and
 # devices) are regular files to `ntfs3`, and are compared with ntfs-3g
 # only. `ntfs3` also reports no birth time for symlinks.
 #
@@ -105,11 +107,14 @@ PY
 }
 
 # Prints what ntfs-3g shows: path, kind, flags, and extended attributes,
-# in the manifest's format.
+# in the manifest's format. A stream larger than Linux lets an attribute
+# value be is left as `@big@`, and listed in `$2` (path, tab, name), for
+# `ntfs3g_big` to read as a file.
 ntfs3g_manifest() {
-    python3 -I - "$1" <<'PY'
-import os, stat, sys
+    python3 -I - "$1" "$2" <<'PY'
+import errno, os, stat, sys
 root = sys.argv[1]
+big = open(sys.argv[2], "w", encoding="utf-8")
 # File attributes and the flags Filer reports them as.
 FLAGS = [(0x2, "hidden"), (0x4, "system"), (0x20, "archive"),
          (0x200, "sparse"), (0x800, "compressed"), (0x1000, "offline"),
@@ -134,8 +139,18 @@ def walk(rel):
             continue
         bits = int.from_bytes(os.getxattr(full, "system.ntfs_attrib_be"), "big")
         flags = joined(flag for mask, flag in FLAGS if bits & mask)
-        xattrs = joined(f"{attr}={fnv1a(os.getxattr(full, attr)):016x}"
-                        for attr in os.listxattr(full) if attr.startswith("user."))
+        pairs = []
+        for attr in os.listxattr(full):
+            if not attr.startswith("user."):
+                continue
+            try:
+                pairs.append(f"{attr}={fnv1a(os.getxattr(full, attr)):016x}")
+            except OSError as error:
+                if error.errno != errno.E2BIG:
+                    raise
+                pairs.append(f"{attr}=@big@")
+                print(f"{path}\t{attr}", file=big)
+        xattrs = joined(pairs)
         kind = next((letter for test, letter in [
             (stat.S_ISDIR, "d"), (stat.S_ISFIFO, "p"), (stat.S_ISSOCK, "s"),
             (stat.S_ISCHR, "c"), (stat.S_ISBLK, "b")] if test(st.st_mode)), "f")
@@ -147,13 +162,39 @@ walk("")
 PY
 }
 
+# Fills in the streams `ntfs3g_manifest` listed in `$2` as too large, in
+# listing `$3`, reading them as `file:stream` through ntfs-3g mounted at
+# `$1` with `streams_interface=windows`.
+ntfs3g_big() {
+    python3 -I - "$1" "$2" "$3" <<'PY'
+import os, sys
+root = sys.argv[1]
+
+def fnv1a(data):
+    h = 0xCBF29CE484222325
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+lines = open(sys.argv[3], encoding="utf-8").read().splitlines()
+for entry in open(sys.argv[2], encoding="utf-8").read().splitlines():
+    path, attr = entry.split("\t")
+    data = open(os.path.join(root, path) + ":" + attr[len("user."):], "rb").read()
+    lines = [line.replace(f"{attr}=@big@", f"{attr}={fnv1a(data):016x}")
+             if line.split("\t")[0] == path else line for line in lines]
+with open(sys.argv[3], "w", encoding="utf-8") as out:
+    out.write("".join(line + "\n" for line in lines))
+PY
+}
+
 # Normalizes listing `$1`, keeping fields `$2` (0-based, comma-separated),
 # into `$1.$3`, sorted: `k` for comparing with `ntfs3`, `x` with ntfs-3g.
 normalize() {
     python3 -I - "$1" "$2" "$3" <<'PY' | sort > "$1.$3"
 import sys
 # Entries that differ by design, by path (see above).
-by_design = {"abs", "junction", "wsl", "cloud.bin", "a/abs"}
+by_design = {"abs", "junction", "wsl", "cloud.bin", "a/abs", "wof.bin",
+             "secret.txt"}
 if sys.argv[3] == "k":
     by_design |= {"ilink", "idirlink", "ichr", "iblk", "fifo", "sock",
                   "special/fifo"}
@@ -185,8 +226,14 @@ for img in "$work"/*.img; do
     kernel_manifest "$mnt" > "$work/$name.kernel"
     sudo umount "$mnt"
     sudo mount -t ntfs-3g -o "ro,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
-    ntfs3g_manifest "$mnt" > "$work/$name.ntfs3g"
+    ntfs3g_manifest "$mnt" "$work/big" > "$work/$name.ntfs3g"
     sudo umount "$mnt"
+    if [ -s "$work/big" ]; then
+        sudo mount -t ntfs-3g \
+            -o "ro,streams_interface=windows,uid=$(id -u),gid=$(id -g)" "$img" "$mnt"
+        ntfs3g_big "$mnt" "$work/big" "$work/$name.ntfs3g"
+        sudo umount "$mnt"
+    fi
     "$manifest" "$img" > "$work/$name.filer"
     normalize "$work/$name.kernel" 0,1,2,3,4,5,6 k
     normalize "$work/$name.filer" 0,1,2,3,4,5,6 k

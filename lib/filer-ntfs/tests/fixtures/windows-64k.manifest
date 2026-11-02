@@ -1,0 +1,30 @@
+A long file name with spaces.txt	f	100	1704164646	1683356889	-	2e46263fbb3b0a69	archive	-
+abs	l	11	1793584120	1793584120	-	/target.txt	archive	-
+big.bin	f	300000	1704164646	1683356889	-	31a25e55ed095fe0	archive	-
+dangling	l	4	1793584120	1793584120	-	nope	archive	-
+deep	l	19	1793584120	1793584120	-	Sub/Deeper/leaf.txt	archive	-
+dirlink	l	3	1793584120	1793584120	-	Sub	-	-
+emoji 😀.bin	f	5	1704164646	1683356889	-	c9918c691a4a07d4	archive	-
+empty	f	0	1704164646	1683356889	-	cbf29ce484222325	archive	-
+frag.a	f	98304	1704164646	1683356889	-	54b971e6f2cd82e0	archive	-
+frag.b	f	98304	1704164646	1683356889	-	b1a887746c89e2b0	archive	-
+hidden.txt	f	3	1704164646	1683356889	-	0d19ca188959a570	archive,hidden	-
+junction	l	4	1793584120	1793584120	-	/Sub	-	-
+link	l	10	1793584120	1793584120	-	target.txt	archive	-
+Long name for DOS.txt	f	6	1704164646	1683356889	-	b07db87597be1f64	archive	-
+notes.txt	f	10	1793584120	1683356889	-	508f53adae57239c	archive	user.large=b980da1c1ae44e2b,user.Zone.Identifier=d72ba8ca93e3ea79
+offline.txt	f	3	1704164646	1683356889	-	75194218c44551ac	offline	-
+plain.txt	f	3	1704164646	1683356889	-	5ae9be18b561dbc9	-	-
+README.TXT	f	9	1793584120	1683356889	-	9bbfe41544761e04	archive	user.extra=96e2e70e1ad5f2c7
+readonly.txt	f	3	1704164646	1683356889	-	64036618baa92ea2	-	-
+small	f	4	1704164646	1683356889	-	fa008ad2a8c4c4d1	archive	-
+sparse.bin	f	1000003	1704164646	1683356889	-	a90b2101d63eff0a	archive,sparse	-
+Sub	d	-	1793584120	1793584119	-	-	archive	user.tag=caa83e18f46e5f54
+Sub/Deeper	d	-	1793584119	1793584119	-	-	-	-
+Sub/Deeper/leaf.txt	f	5	1704164646	1683356889	-	a9e72a87a245ac88	archive	-
+Sub/hardlink	f	4	1704164646	1683356889	-	fa008ad2a8c4c4d1	archive	-
+Sub/nested.bin	f	5000	1704164646	1683356889	-	e52c952713d6c662	archive	-
+System Volume Information	d	-	1793584119	1793584119	-	-	hidden,system	-
+system.txt	f	3	1704164646	1683356889	-	0451a2188457833f	system	-
+target.txt	f	6	1704164646	1683356889	-	16f3e46051eee3e8	archive	-
+Ünïcödé ✓.txt	f	7	1704164646	1683356889	-	1f995a314ef9dcc2	archive	-

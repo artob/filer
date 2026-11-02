@@ -8,6 +8,7 @@
 use std::collections::BTreeMap;
 
 pub mod exercise;
+pub mod manifest;
 
 const SECTOR: usize = 512;
 

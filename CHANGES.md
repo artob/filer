@@ -56,6 +56,11 @@ so any release may break compatibility.
   implementation.
 - `filer-tar`: `Tar` is a thin wrapper around `filer_api::archive::Archive`;
   `filer_tar::Limits` is now a re-export of `filer_api::archive::Limits`.
+### Fixed
+- `filer-ntfs`: Reading a compression unit stored as is no longer runs on
+  into a compressed unit that follows it in the same run, as Windows
+  writes them; `stat` of an encrypted file reports its length instead of
+  failing.
 
 ## 0.0.1 - 2026-11-01
 The first usable version: read-only access through a capability-based

@@ -353,7 +353,7 @@ impl<S: ReadAt> Ntfs<S> {
             (Some(Payload::File { data, .. }), _, _) => Some(data.len()),
             (_, _, Some(target)) => u64::try_from(target.len()).ok(),
             (_, FileKind::Dir, _) => None,
-            (_, _, None) => Some(self.0.data(node, op)?.len()),
+            (_, _, None) => Some(self.0.data_len(node, op)?),
         };
         metadata.created = time::timestamp(information.created);
         metadata.modified = time::timestamp(information.modified);

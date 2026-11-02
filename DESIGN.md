@@ -2556,23 +2556,45 @@ clusters, and 4 KiB sectors with 4 KiB records), made by `mkntfs` and
 filled through ntfs-3g, are read in tests; one more holds files ntfs-3g
 compressed, another links of every kind (reparse points and Interix
 files, with FIFOs and sockets made by ntfs-3g), another named streams
-(100 of them on one file, so listed in
-`$ATTRIBUTE_LIST`) and file attributes, and another `filer-spec`'s tree.
-`tests/differential.sh` compares them, and fresh ones, with the Linux
-kernel's `ntfs3`: every name, kind, size, content, and time agrees; and
-with ntfs-3g, which has streams as attributes as `ntfs3` does not: every
-flag and attribute agrees.
-Listings are compared sorted, as the order differs by design: Filer lists
-an index in collation order, as Windows does, where `ntfs3` lists a
-node's separating entries after its children. Reparse points differ by
-design too: `ntfs3` keeps a drive in absolute targets (`C:/path`), makes
-junctions `./path`, reads WSL symlinks as files and other tags' `$DATA`
-as contents; the script lists those entries and leaves them to the
-fixture tests. `ntfs3` reads Interix files as regular files, so those are
-compared with ntfs-3g only. `tests/fuzz.rs` mutates the fixtures' boot sectors, MFTs,
-and index records and walks each result, as for `filer-fat`, and
-`fuzz/` has `cargo-fuzz` targets for the boot sector, the MFT, indexes,
-and compressed data (D50).
+(100 of them on one file, so listed in `$ATTRIBUTE_LIST`) and file
+attributes, and another `filer-spec`'s tree.
+
+Windows itself makes four more (4 KiB, 512-byte, 64 KiB, and 128 KiB
+clusters), in Windows 11 run by `dockur/windows` under KVM
+(`tests/fixtures/make-windows.sh`): long names with the DOS names
+Windows makes, Unicode, fragmented, sparse, and compressed files, hard
+links, symbolic links and junctions, streams on files and directories,
+attributes, and in the 4 KiB one a 1000-entry directory (an index of
+several levels), names chosen to test collation (case, accents, `ß`,
+`ǅ`, `İ` and `ı`, punctuation), 100 streams and 40 hard links on one
+file, a directory with per-directory case sensitivity, an encrypted file,
+and a file compressed by WOF. Windows writes its own manifest of each,
+and `tests/windows.rs` requires Filer's to equal it line by line, in
+Windows' listing order, so collation order is checked too; only access
+times (which Windows' reading updates), `System Volume Information`
+(which Windows keeps from administrators), and what Filer refuses to
+read (encrypted and WOF-compressed contents, and WOF's sparse flag, which
+Windows hides) are left out. These found a bug no ntfs-3g fixture could:
+a compression unit stored as is, followed in the same run by a
+compressed one, as Windows writes them, was read on into the next.
+
+`tests/differential.sh` compares every fixture, and fresh ones, with the
+Linux kernel's `ntfs3`: every name, kind, size, content, and time agrees;
+and with ntfs-3g, which has streams as attributes as `ntfs3` does not:
+every flag and attribute agrees (streams over Linux's 64 KiB limit on
+attribute values are read as `file:stream` instead). Listings are
+compared sorted, as the order differs by design: Filer lists an index in
+collation order, as Windows does, where `ntfs3` lists a node's separating
+entries after its children. Reparse points differ by design too: `ntfs3`
+keeps a drive in absolute targets (`C:/path`), makes junctions `./path`,
+reads WSL symlinks as files and other tags' `$DATA` as contents, and
+decompresses WOF files, which Filer refuses; the script lists those
+entries and leaves them to the fixture tests. `ntfs3` reads Interix files
+as regular files, so those are compared with ntfs-3g only.
+`tests/fuzz.rs` mutates the fixtures' boot sectors, MFTs, and index
+records, Windows' among them, and walks each result, as for `filer-fat`,
+and `fuzz/` has `cargo-fuzz` targets for the boot sector, the MFT,
+indexes, and compressed data (D50).
 
 ### 17.15 `filer-ext4`
 

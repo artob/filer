@@ -815,6 +815,57 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn reads_units_sharing_a_run() {
+        // A unit stored as is, and a compressed one right after it in the
+        // same run, as Windows writes them: reading the first must not run
+        // on into the second's compressed data.
+        let mut volume = Volume::new(&[(4, 4)]);
+        let token = (2u16 << 12 | 6).to_le_bytes();
+        let chunk = [
+            0x05,
+            0xB0,
+            0b0000_1000,
+            b'a',
+            b'b',
+            b'c',
+            token[0],
+            token[1],
+        ];
+        let runs = encode_runs(&[(Some(120), 17), (None, 15)]);
+        let size = 2 * 65536;
+        let file = RecordBuilder::new(5).non_resident(
+            AttrType::DATA,
+            "",
+            (0, 31),
+            &runs,
+            u64::try_from(size).unwrap(),
+            0x0001,
+        );
+        volume
+            .write_record(&volume.mft_record())
+            .write_record(&file)
+            .write(120, &[9; 65536])
+            .write(136, &chunk);
+        let mft = volume.mft().unwrap();
+        let source = volume.bytes.as_slice();
+        let found =
+            block_on(mft.file(source, &volume.geometry, reference(5), OpKind::Read)).unwrap();
+        let stream = found
+            .stream(&volume.geometry, AttrType::DATA, "")
+            .unwrap()
+            .unwrap();
+        let read = |off, max| {
+            block_on(stream.read(source, &volume.geometry, off, max, OpKind::Read)).unwrap()
+        };
+        assert_eq!(read(65530, 100), vec![9; 6]);
+        assert_eq!(&read(65536, 12), b"abcabcabcabc");
+        let all =
+            block_on(stream.read_exact(source, &volume.geometry, 0, size, OpKind::Read)).unwrap();
+        assert_eq!(all[..65536], [9; 65536]);
+        assert_eq!(&all[65536..65548], b"abcabcabcabc");
+    }
+
+    #[test]
     fn encodes_runs_for_tests() {
         assert_eq!(
             encode_runs(&[(Some(0x5634), 0x18), (None, 0x10), (Some(0x5624), 8)]),

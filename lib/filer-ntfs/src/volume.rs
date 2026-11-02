@@ -310,6 +310,19 @@ impl<S: ReadAt> Volume<S> {
             .map_err(fail)
     }
 
+    /// Returns the length of the unnamed `$DATA` of file `node`, which
+    /// needs no decrypting if it is encrypted.
+    pub(crate) fn data_len(&self, node: &Node, op: OpKind) -> Result<u64, Error> {
+        let fail = |error: NtfsError| error.into_error(op);
+        let extents = node.file().extents(AttrType::DATA, "").map_err(fail)?;
+        if extents.is_empty() {
+            return Ok(0);
+        }
+        Stream::new(&extents, &self.geometry, node.number())
+            .map(|stream| stream.len())
+            .map_err(fail)
+    }
+
     /// Finds the entry `name` in directory `dir`.
     ///
     /// Names match exactly, or else ignoring case by `$UpCase`, as on

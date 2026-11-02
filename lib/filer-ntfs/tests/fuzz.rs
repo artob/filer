@@ -128,6 +128,8 @@ fn corpus() -> Vec<Seed> {
         include_bytes!("fixtures/ntfs-compressed.sparse"),
         include_bytes!("fixtures/ntfs-links.sparse"),
         include_bytes!("fixtures/ntfs-streams.sparse"),
+        include_bytes!("fixtures/windows-4k.sparse"),
+        include_bytes!("fixtures/windows-512.sparse"),
     ]
     .into_iter()
     .map(|sparse| Seed::new(unsparse(sparse)))

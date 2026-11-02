@@ -34,7 +34,9 @@
 //! `tests/differential.sh` compares with the Linux kernel's `ntfs3`
 //! driver, a module that Ubuntu ships in `linux-modules-extra-$(uname -r)`
 //! (kept current by `linux-generic`), and, for streams and flags, with
-//! `ntfs-3g`.
+//! `ntfs-3g`. `tests/fixtures/make-windows.sh` makes fixtures with Windows
+//! itself, run in Docker by `dockur/windows`, which needs KVM, about 4 GB
+//! of memory, and 40 GB of disk.
 //!
 //! Volumes are untrusted input: like `filer-fat`, the driver will yield
 //! errors, never a panic, a hang, or unbounded memory use, and every codec
