@@ -62,7 +62,7 @@ fn passes_the_specification() {
             .map(String::from),
         );
         assert_eq!(paths, expected, "the specification's tree changed");
-        let image = common::unsparse(include_bytes!("fixtures/spec.sparse"));
+        let image = common::Sparse::new(include_bytes!("fixtures/spec.sparse"));
         filer_spec::block_on(Xfs::open(image)).unwrap()
     });
     println!("{report}");

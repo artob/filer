@@ -717,12 +717,12 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-09: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when
-  both run clean. Ends v4 parity.
 - [ ] **XFS-10: Hashed lookups.** The directory name hash, checked
   against `xfs_db hash`; descend leaf and node blocks, falling back to the
-  scan on inconsistency; `ASCII_CI` directories. Done when large
-  directories agree with the scan.
+  scan on inconsistency; attributes by hash too; `ASCII_CI` directories.
+  Then let `tests/common/exercise.rs` walk 4096 entries and read every
+  attribute, as scans now keep it from. Done when large directories
+  agree with the scan.
 - [ ] **XFS-11: v5 metadata.** CRC32C in `filer_api::checksum` (D53),
   shared with EXT-14; v3 inodes; self-describing headers on every block,
   verified; `FTYPE` and `META_UUID`. Done when `mkfs.xfs` fixtures with

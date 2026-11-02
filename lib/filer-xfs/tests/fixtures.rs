@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::{Expected, MTIME, MTIME_NANOS, expected, pattern, unsparse};
+use common::{Expected, MTIME, MTIME_NANOS, Sparse, expected, pattern};
 use core::time::Duration;
 use filer_api::{
     BufResult, Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op,
@@ -15,11 +15,11 @@ use filer_spec::block_on;
 use filer_xfs::Xfs;
 use std::collections::BTreeMap;
 
-type Root = Dir<Xfs<Vec<u8>>>;
+type Root = Dir<Xfs<Sparse>>;
 
 /// Opens the volume in a fixture.
 fn open(sparse: &[u8]) -> Root {
-    block_on(Xfs::open(unsparse(sparse))).unwrap()
+    block_on(Xfs::open(Sparse::new(sparse))).unwrap()
 }
 
 /// Reads everything below `dir`, recursively, checking that listings and
