@@ -2662,13 +2662,18 @@ map blocks lazily, a read's range at a time, merging contiguous blocks
 into one source read, so no file's whole map is ever held.
 
 **Verification.** `tests/fixtures/make.sh` formats volumes with
-`mke2fs` (revisions 0 and 1; 1, 2, and 4 KiB blocks; and 64 KiB, which
-x86 Linux cannot mount, so it is filled by `mke2fs -d`), fills them
-through the kernel, and stores them sparsely; `tests/differential.sh`
-compares each, and fresh ones, with the kernel: names, kinds, sizes,
-contents, times, flags, and extended attributes. `tests/fuzz.rs` and
-`fuzz/` mutate the superblock, the descriptors, inode tables, and
-directories, as for `filer-fat`.
+`mke2fs` (revisions 0 and 1; 1, 2, and 4 KiB blocks; 128-byte inodes;
+and 64 KiB blocks, which x86 Linux cannot mount, so that one is filled
+by `mke2fs -d`), fills them through the kernel (hard links, holes deep
+enough for triple indirect blocks, fast and slow symlinks, special files,
+names that are not UTF-8, hashed directories), and stores them sparsely;
+`filer-spec` runs on its own tree. `tests/differential.sh` compares each,
+and fresh ones, with the kernel, and all agree: names, kinds, sizes,
+contents, link targets, and all four times to the nanosecond. Listings
+are compared sorted, as the order differs by design: Linux lists hashed
+directories in hash order, Filer every directory in block order.
+`tests/fuzz.rs` and `fuzz/` mutate the superblock, the descriptors,
+inode tables, and directories, as for `filer-fat`.
 
 ### 17.16 Later
 

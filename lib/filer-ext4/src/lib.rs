@@ -29,10 +29,12 @@
 //! never read as if clean. Case-folded and encrypted directories need
 //! their own care.
 //!
-//! **Development.** Fixtures are made with `mke2fs` and inspected with
-//! `debugfs`, both in the `e2fsprogs` package on Debian and Ubuntu; the
-//! differential test compares with the Linux kernel's `ext4` driver, which
-//! Ubuntu's kernel has built in.
+//! **Development.** `tests/fixtures/make.sh` makes the fixtures with
+//! `mke2fs` (in the `e2fsprogs` package on Debian and Ubuntu), filling
+//! them through the Linux kernel, and needs `python3` and `sudo`;
+//! `debugfs` inspects them. `tests/differential.sh` compares with the
+//! kernel's `ext4` driver, which Ubuntu's kernel has built in, and which
+//! mounts ext2 and ext3 too.
 //!
 //! Volumes are untrusted input: like `filer-fat`, the driver will yield
 //! errors, never a panic, a hang, or unbounded memory use, and every codec

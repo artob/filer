@@ -12,6 +12,8 @@ license.workspace = true
 keywords = ["ext4", "ext3", "ext2", "filesystem", "no-std"]
 categories.workspace = true
 publish.workspace = true
+# The fixtures are large; tests run from the repository.
+exclude = ["tests/fixtures/*.sparse"]
 
 [lints]
 workspace = true

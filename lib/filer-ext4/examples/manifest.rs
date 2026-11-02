@@ -26,8 +26,8 @@
 
 use filer_ext4::Ext4;
 use filer_system::{
-    Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op, OpKind,
-    Output, ReadAt, Resolve, Target, Timestamp, XattrEntry, ambient_authority,
+    Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op, OpKind, Output,
+    ReadAt, Resolve, Target, Timestamp, XattrEntry, ambient_authority,
 };
 use std::{
     error::Error,

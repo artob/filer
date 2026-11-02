@@ -684,9 +684,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-06: Fixtures and verification.** `mke2fs` fixtures
-  (revisions 0 and 1; 1, 2, 4, and 64 KiB blocks) filled through the
-  kernel, `filer-spec`, and the differential test. Done when all agree.
 - [ ] **EXT-07: Extended attributes and flags.** In-inode and block
   attributes, POSIX ACLs as Linux returns them, and inode flags. Done
   when fixtures agree with the kernel.
