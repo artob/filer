@@ -13,7 +13,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::be;
+use filer_fs::{be, read_exact};
 
 /// The longest target: Linux's `PATH_MAX` less its NUL.
 const MAX_TARGET: u64 = 1024;
@@ -85,7 +85,7 @@ async fn remote_v5<S: ReadAt + ?Sized>(
             .ok()
             .and_then(|n| n.checked_mul(block))
             .ok_or_else(bad)?;
-        let bytes = crate::io::read_exact(source, offset, run_len).await?;
+        let bytes = read_exact(source, offset, run_len, op).await?;
         crc::check(&bytes, crc::REMOTE, sb, offset, inode).map_err(fail)?;
         let part = len
             .saturating_sub(target.len())

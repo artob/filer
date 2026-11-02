@@ -2,10 +2,9 @@
 
 //! The superblock, and the volume layout it describes.
 
-use crate::{FeatureSet, XfsError, crc, io};
-use alloc::vec::Vec;
-use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
-use filer_fs::be;
+use crate::{FeatureSet, XfsError, crc};
+use filer_api::{Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::{be, read_exact};
 
 /// The superblock's magic number, `XFSB`.
 const MAGIC: u32 = 0x5846_5342;
@@ -540,20 +539,17 @@ impl Superblock {
 pub(crate) async fn read<S: ReadAt + ?Sized>(source: &S) -> Result<Superblock, Error> {
     let op = OpKind::Open;
     let size = source.size().await?;
-    let BufResult(result, bytes) = source
-        .read_exact_at(Vec::with_capacity(SUPERBLOCK_SIZE), 0)
-        .await;
-    match result {
-        Ok(()) => {},
+    let bytes = match read_exact(source, 0, SUPERBLOCK_SIZE, op).await {
+        Ok(bytes) => bytes,
         Err(error) if error.kind() == ErrorKind::UnexpectedEof => {
             return Err(XfsError::ShortSuperblock.into_error(op));
         },
         Err(error) => return Err(error),
-    }
+    };
     let superblock = Superblock::parse(&bytes).map_err(|error| error.into_error(op))?;
     if superblock.is_v5() {
         let len = usize::try_from(superblock.sector_size()).unwrap_or(usize::MAX);
-        let sector = io::read_exact(source, 0, len).await?;
+        let sector = read_exact(source, 0, len, op).await?;
         superblock
             .check_crc(&sector)
             .map_err(|error| error.into_error(op))?;

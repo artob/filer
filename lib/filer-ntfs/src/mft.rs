@@ -6,11 +6,11 @@ use crate::{
     NtfsError,
     geometry::Geometry,
     record::{AttrType, Attribute, Body, FileRef, Record},
-    stream::{self, Stream},
+    stream::Stream,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::le;
+use filer_fs::{le, read_exact};
 
 /// The MFT: `$MFT`'s unnamed `$DATA`, read in records.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -107,8 +107,7 @@ impl Mft {
             .cluster_offset(geometry.mft())
             .ok_or_else(|| fail(NtfsError::BadMftCluster(geometry.mft())))?;
         let len = usize::try_from(record_size).map_err(|_| fail(NtfsError::BadRecordSize(0)))?;
-        let base =
-            Record::parse(0, stream::read_exact(source, at, len, op).await?).map_err(fail)?;
+        let base = Record::parse(0, read_exact(source, at, len, op).await?).map_err(fail)?;
         if !base.in_use() || base.base().is_some() {
             return Err(fail(NtfsError::BadReference { record: 0 }));
         }

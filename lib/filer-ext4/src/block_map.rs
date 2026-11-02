@@ -8,10 +8,10 @@
 //! Blocks are mapped lazily, a run at a time, reading the indirect blocks
 //! on the way: no file's whole map is ever held.
 
-use crate::{Ext4Error, inode::Inode, io, superblock::Superblock};
+use crate::{Ext4Error, inode::Inode, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::le;
+use filer_fs::{le, read_exact};
 
 /// The number of direct block numbers, and where the indirect, double
 /// indirect, and triple indirect ones are in `i_block`.
@@ -103,7 +103,7 @@ impl BlockMap {
                 });
             }
             let at = self.check(u64::from(pointer), 1, sb).map_err(fail)?;
-            let block = io::read_exact(source, at, block_len(sb)).await?;
+            let block = read_exact(source, at, block_len(sb), op).await?;
             let index = offset.checked_div(child).ok_or_else(too_large)?;
             let index = usize::try_from(index).map_err(|_| too_large())?;
             offset = offset.checked_rem(child).ok_or_else(too_large)?;
@@ -211,7 +211,7 @@ impl BlockMap {
                         .checked_mul(block)
                         .and_then(|from| from.checked_add(within))
                         .ok_or_else(too_large)?;
-                    out.extend(io::read_exact(source, from, n).await?);
+                    out.extend(read_exact(source, from, n, op).await?);
                 },
             }
             if n == 0 {

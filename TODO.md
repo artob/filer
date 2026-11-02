@@ -685,10 +685,6 @@ order; one step per item, each committed. Helpers every driver needs go to
 second user: XFS's recovery overlay (with EXT-10) and FAT's local times
 (with FMT-01).
 
-- [ ] **FS-02: Source reads.** One exact read of `len` bytes at an
-  offset, its error naming the caller's operation, as `filer-fat`'s and
-  `filer-ntfs`'s do. Done when the drivers' `io.rs` files and copies are
-  gone.
 - [ ] **FS-03: Copying into buffers (`filer-api`).** An `IoBufMut` method
   that copies a slice in and returns how much fit. Done when no crate
   writes the `fill` closure by hand (19 now).

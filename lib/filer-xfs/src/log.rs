@@ -13,10 +13,10 @@
 //! volume does not have yet: from the tail that record names on, which
 //! `recover` replays.
 
-use crate::{XfsError, io, superblock::Superblock};
+use crate::{XfsError, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::be;
+use filer_fs::{be, read_exact};
 
 /// The size of a log sector.
 const SECTOR: u64 = 512;
@@ -91,7 +91,7 @@ impl<S: ReadAt + ?Sized> Log<'_, S> {
         let (Some(off), Some(len)) = (off, len) else {
             return Err(XfsError::NeedsRecovery.into_error(OpKind::Open));
         };
-        io::read_exact(self.source, off, len).await
+        read_exact(self.source, off, len, OpKind::Open).await
     }
 
     /// Returns the cycle number of sector `n`.

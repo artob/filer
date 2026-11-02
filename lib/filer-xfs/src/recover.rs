@@ -39,6 +39,7 @@ use crate::{
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::future::Future;
 use filer_api::{BufResult, Error, IoBufMut, OpKind, ReadAt};
+use filer_fs::read_exact;
 use filer_fs::{be, le};
 
 /// The size of a sector, of the chunks buffers are logged in, and of what
@@ -602,7 +603,7 @@ impl<S: ReadAt + ?Sized> Replayer<'_, S> {
 
     /// Reads `len` bytes at `at`, through what is replayed so far.
     async fn read(&self, at: u64, len: usize) -> Result<Vec<u8>, Error> {
-        let mut bytes = crate::io::read_exact(self.source, at, len).await?;
+        let mut bytes = read_exact(self.source, at, len, OpKind::Open).await?;
         self.overlay.lay(at, &mut bytes);
         Ok(bytes)
     }

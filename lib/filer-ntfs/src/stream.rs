@@ -11,7 +11,8 @@ use crate::{
     runs::{self, Run},
 };
 use alloc::{vec, vec::Vec};
-use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
+use filer_api::{Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::read_exact;
 
 /// The largest compression unit read, in bytes: 16 clusters of 4 KiB.
 const MAX_UNIT: u64 = 64 * 1024;
@@ -311,21 +312,4 @@ impl Stream {
         }
         Ok(bytes)
     }
-}
-
-/// Reads exactly `len` bytes of the volume at `at`. The volume lies within
-/// the source, as opening checked, so running short means the source
-/// shrank, and that error stands as it is.
-pub(crate) async fn read_exact<S: ReadAt + ?Sized>(
-    source: &S,
-    at: u64,
-    len: usize,
-    op: OpKind,
-) -> Result<Vec<u8>, Error> {
-    let BufResult(result, bytes) = source.read_exact_at(Vec::with_capacity(len), at).await;
-    result.map_err(|error| match error.op() {
-        OpKind::Read if op != OpKind::Read => Error::new(error.kind(), op),
-        _ => error,
-    })?;
-    Ok(bytes)
 }

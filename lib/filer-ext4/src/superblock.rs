@@ -3,9 +3,8 @@
 //! The superblock, and the volume layout it describes.
 
 use crate::Ext4Error;
-use alloc::vec::Vec;
-use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
-use filer_fs::le;
+use filer_api::{Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::{le, read_exact};
 
 /// Where the superblock starts, and its size.
 pub(crate) const SUPERBLOCK_OFFSET: u64 = 1024;
@@ -289,16 +288,13 @@ impl Superblock {
 pub(crate) async fn read<S: ReadAt + ?Sized>(source: &S) -> Result<Superblock, Error> {
     let op = OpKind::Open;
     let size = source.size().await?;
-    let BufResult(result, bytes) = source
-        .read_exact_at(Vec::with_capacity(SUPERBLOCK_SIZE), SUPERBLOCK_OFFSET)
-        .await;
-    match result {
-        Ok(()) => {},
+    let bytes = match read_exact(source, SUPERBLOCK_OFFSET, SUPERBLOCK_SIZE, op).await {
+        Ok(bytes) => bytes,
         Err(error) if error.kind() == ErrorKind::UnexpectedEof => {
             return Err(Ext4Error::ShortSuperblock.into_error(op));
         },
         Err(error) => return Err(error),
-    }
+    };
     let superblock = Superblock::parse(&bytes).map_err(|error| error.into_error(op))?;
     let volume = superblock.volume_len();
     if volume > size {

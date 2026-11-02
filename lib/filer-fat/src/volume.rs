@@ -11,9 +11,8 @@ use crate::{
 };
 use alloc::{sync::Arc, vec::Vec};
 use core::{future::Future, num::NonZeroU32};
-use filer_api::{
-    BufResult, DriverKey, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver,
-};
+use filer_api::{DriverKey, Error, ErrorKind, FileKind, LinkTarget, OpKind, ReadAt, Resolver};
+use filer_fs::read_exact;
 
 /// The most slots a directory may have, per the specification.
 const MAX_DIR_SLOTS: u64 = 65_536;
@@ -179,19 +178,7 @@ impl<S: ReadAt> Volume<S> {
         };
         let wanted = left.min(contiguous);
         let wanted = usize::try_from(wanted).map_or(max, |wanted| wanted.min(max));
-        self.read_exact(at, wanted, op).await
-    }
-
-    /// Reads exactly `len` bytes at `at`. The volume lies within the
-    /// source, as opening checked, so running short means the source
-    /// shrank, and that error stands as it is.
-    async fn read_exact(&self, at: u64, len: usize, op: OpKind) -> Result<Vec<u8>, Error> {
-        let BufResult(result, bytes) = self.source.read_exact_at(Vec::with_capacity(len), at).await;
-        result.map_err(|error| match error.op() {
-            OpKind::Read if op != OpKind::Read => Error::new(error.kind(), op),
-            _ => error,
-        })?;
-        Ok(bytes)
+        read_exact(&self.source, at, wanted, op).await
     }
 
     /// Finds the entry `name` in the directory `node`.
@@ -326,7 +313,7 @@ impl<'a, S: ReadAt> DirStream<'a, S> {
             let (at, contiguous) = self.extent.locate(geometry, self.pos).ok_or_else(fail)?;
             let len = contiguous.min(DIR_READ);
             let len = usize::try_from(len).map_err(|_| fail())?;
-            self.block = self.volume.read_exact(at, len, op).await?;
+            self.block = read_exact(&self.volume.source, at, len, op).await?;
             self.used = 0;
         }
         let slot = self

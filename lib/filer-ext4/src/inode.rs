@@ -3,13 +3,13 @@
 //! Inodes: finding them in their group's table, and decoding them.
 
 use crate::{
-    Ext4Error, group, io,
+    Ext4Error, group,
     superblock::{GOOD_OLD_INODE_SIZE, Superblock},
 };
 use alloc::vec::Vec;
 use core::time::Duration;
 use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
-use filer_fs::le;
+use filer_fs::{le, read_exact};
 
 /// The size of `i_block`: block numbers, an extent tree's root, inline
 /// data, a fast symlink's target, or a device number.
@@ -215,7 +215,7 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         .block_offset(desc.inode_table())
         .and_then(|table| table.checked_add(u64::from(slot).checked_mul(u64::from(size))?))
         .ok_or_else(bad)?;
-    let bytes = io::read_exact(source, off, usize::from(size)).await?;
+    let bytes = read_exact(source, off, usize::from(size), op).await?;
     Inode::parse(&bytes, number).map_err(fail)
 }
 

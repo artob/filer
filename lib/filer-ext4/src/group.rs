@@ -2,9 +2,9 @@
 
 //! Block group descriptors.
 
-use crate::{Ext4Error, io, superblock::Superblock};
+use crate::{Ext4Error, superblock::Superblock};
 use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::le;
+use filer_fs::{le, read_exact};
 
 /// A block group's descriptor, as far as reading needs it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,7 +51,7 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         .checked_mul(u64::from(size))
         .and_then(|at| at.checked_add(sb.descriptors_offset()))
         .ok_or_else(bad)?;
-    let bytes = io::read_exact(source, off, usize::from(size)).await?;
+    let bytes = read_exact(source, off, usize::from(size), op).await?;
     GroupDesc::parse(&bytes, group, sb).map_err(fail)
 }
 

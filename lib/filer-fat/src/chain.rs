@@ -8,7 +8,8 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::num::NonZeroU32;
-use filer_api::{BufResult, Error, OpKind, ReadAt};
+use filer_api::{Error, OpKind, ReadAt};
+use filer_fs::read_exact;
 
 /// How much of the FAT is read at a time while walking a chain.
 const WINDOW: u64 = 4096;
@@ -129,11 +130,7 @@ impl<'a, S: ReadAt + ?Sized> FatReader<'a, S> {
                 .ok_or_else(|| FatError::BadLayout.into_error(op))?;
             // Opening checked that the source holds the volume, so running
             // out now means the source shrank: that error stands as it is.
-            let BufResult(result, bytes) = self
-                .source
-                .read_exact_at(Vec::with_capacity(wanted), offset)
-                .await;
-            result?;
+            let bytes = read_exact(self.source, offset, wanted, op).await?;
             self.window = Some((start, bytes));
         }
         let (start, bytes) = self

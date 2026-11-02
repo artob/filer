@@ -4,10 +4,10 @@
 //! block named by `i_file_acl`. Both hold entries naming a prefix by index,
 //! and values elsewhere in the same region.
 
-use crate::{Ext4Error, inode::Inode, io, superblock::Superblock};
+use crate::{Ext4Error, inode::Inode, superblock::Superblock};
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt, XattrNs};
-use filer_fs::le;
+use filer_fs::{le, read_exact};
 
 /// The magic number of both an attribute block and in-inode attributes.
 const MAGIC: u32 = 0xEA02_0000;
@@ -179,7 +179,7 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         }
         let at = sb.block_offset(block).ok_or_else(bad)?;
         let len = usize::try_from(sb.block_size()).map_err(|_| bad())?;
-        let bytes = io::read_exact(source, at, len).await?;
+        let bytes = read_exact(source, at, len, op).await?;
         xattrs.extend(in_block(&bytes, inode.number()).map_err(fail)?);
     }
     Ok(xattrs)

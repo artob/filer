@@ -82,7 +82,6 @@ mod dir;
 mod file_map;
 mod hash;
 mod inode;
-mod io;
 mod log;
 mod recover;
 mod superblock;

@@ -23,12 +23,11 @@ use crate::{
     file_map::FileMap,
     hash,
     inode::{Format, Inode},
-    io,
     superblock::Superblock,
 };
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use filer_api::{Error, ErrorKind, OpKind, ReadAt, XattrNs};
-use filer_fs::be;
+use filer_fs::{be, read_exact};
 
 /// The magic number of a leaf block, and with version 5.
 const LEAF_MAGIC: u16 = 0xFBEE;
@@ -334,7 +333,7 @@ impl<S: ReadAt + ?Sized> Blocks<'_, S> {
                 .and_then(|n| usize::try_from(n).ok())
                 .ok_or_else(|| self.bad())?
                 .min(want);
-            out.extend(io::read_exact(self.source, at, n).await?);
+            out.extend(read_exact(self.source, at, n, self.op).await?);
             logical = logical.checked_add(run.len).ok_or_else(|| self.bad())?;
         }
         Ok((out, start.unwrap_or(0)))

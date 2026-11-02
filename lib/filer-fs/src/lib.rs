@@ -11,7 +11,8 @@
 //! what they share lives, so that each driver is its format and little
 //! else (`DESIGN.md` §17.17, D54).
 //!
-//! So far: [`le`] and [`be`] read little- and big-endian fields.
+//! So far: [`le`] and [`be`] read little- and big-endian fields, and
+//! [`read_exact`] reads them from a source.
 //!
 //! Like the drivers, it treats volumes as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
@@ -49,5 +50,10 @@
     )
 )]
 
+extern crate alloc;
+
 pub mod be;
 pub mod le;
+
+mod read;
+pub use read::*;

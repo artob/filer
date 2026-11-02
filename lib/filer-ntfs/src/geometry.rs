@@ -3,9 +3,8 @@
 //! The boot sector, and the volume layout it describes.
 
 use crate::NtfsError;
-use alloc::vec::Vec;
-use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
-use filer_fs::le;
+use filer_api::{Error, ErrorKind, OpKind, ReadAt};
+use filer_fs::{le, read_exact};
 
 /// The size of the boot sector the parser reads.
 pub(crate) const BOOT_SECTOR: usize = 512;
@@ -177,16 +176,13 @@ impl Geometry {
 pub(crate) async fn read<S: ReadAt + ?Sized>(source: &S) -> Result<Geometry, Error> {
     let op = OpKind::Open;
     let size = source.size().await?;
-    let BufResult(result, sector) = source
-        .read_exact_at(Vec::with_capacity(BOOT_SECTOR), 0)
-        .await;
-    match result {
-        Ok(()) => {},
+    let sector = match read_exact(source, 0, BOOT_SECTOR, op).await {
+        Ok(sector) => sector,
         Err(error) if error.kind() == ErrorKind::UnexpectedEof => {
             return Err(NtfsError::ShortBootSector.into_error(op));
         },
         Err(error) => return Err(error),
-    }
+    };
     let geometry = Geometry::parse(&sector).map_err(|error| error.into_error(op))?;
     if geometry.volume_len > size {
         let volume = geometry.volume_len;

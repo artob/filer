@@ -11,12 +11,11 @@
 use crate::{
     XfsError, crc,
     inode::{EXTENT_SIZE, Fork, Format, Inode},
-    io,
     superblock::Superblock,
 };
 use alloc::vec::Vec;
 use filer_api::{Error, OpKind, ReadAt};
-use filer_fs::be;
+use filer_fs::{be, read_exact};
 
 /// A B+ tree block's magic number: `BMAP`, or with version 5 `BMA3`.
 const BMAP_MAGIC: u32 = 0x424D_4150;
@@ -202,7 +201,7 @@ impl FileMap {
                         block: pointer,
                     })
                 })?;
-            let block = io::read_exact(source, at, block_len).await?;
+            let block = read_exact(source, at, block_len, op).await?;
             let header = (
                 be::u32_at(&block, 0),
                 be::u16_at(&block, 4),
@@ -280,7 +279,7 @@ impl FileMap {
                         .block_offset(physical)
                         .and_then(|from| from.checked_add(within))
                         .ok_or_else(bad)?;
-                    out.extend(io::read_exact(source, from, n).await?);
+                    out.extend(read_exact(source, from, n, op).await?);
                 },
             }
             if n == 0 {

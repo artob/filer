@@ -3,13 +3,13 @@
 //! Inodes: finding them by number, and decoding their cores and forks.
 
 use crate::{
-    XfsError, crc, io,
+    XfsError, crc,
     superblock::{Superblock, Version},
 };
 use alloc::vec::Vec;
 use core::time::Duration;
 use filer_api::{Error, FileAttrs, FileKind, OpKind, ReadAt, Timestamp};
-use filer_fs::be;
+use filer_fs::{be, read_exact};
 
 /// An inode's magic number, `IN`.
 const MAGIC: u16 = 0x494E;
@@ -338,7 +338,7 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         .inode_offset(number)
         .ok_or_else(|| XfsError::BadInodeNumber(number).into_error(op))?;
     let len = usize::try_from(sb.inode_size()).unwrap_or(usize::MAX);
-    let bytes = io::read_exact(source, off, len).await?;
+    let bytes = read_exact(source, off, len, op).await?;
     check(&bytes, sb, off).map_err(|error| error.into_error(op))?;
     Inode::parse(&bytes, number, sb.version()).map_err(|error| error.into_error(op))
 }
