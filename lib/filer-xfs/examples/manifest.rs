@@ -46,7 +46,14 @@ fn main() -> ExitCode {
     match block_on(run(Path::new(image))) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("manifest: {error}");
+            // With its causes, such as why a volume is refused.
+            let mut message = error.to_string();
+            let mut source = error.source();
+            while let Some(cause) = source {
+                message = format!("{message}: {cause}");
+                source = cause.source();
+            }
+            eprintln!("manifest: {message}");
             ExitCode::FAILURE
         },
     }

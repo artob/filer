@@ -717,15 +717,11 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-07: Fixtures and verification.** v4 fixtures (512 B to
-  64 KiB blocks, 256 B to 2 KiB inodes, large directory blocks, without
-  `FTYPE`) filled through the kernel, `filer-spec`, and the differential
-  test; logs that have wrapped, and logs with a stripe unit, checked clean
-  and dirty. Done when all agree.
 - [ ] **XFS-08: Extended attributes and flags.** Short-form, leaf, node,
   and B+ tree attribute forks, remote values, `attr1` and `attr2`; POSIX
-  ACLs as Linux returns them; inode flags. Done when fixtures agree with
-  the kernel.
+  ACLs as Linux returns them; inode flags. Turn on `xattrs` in
+  `tests/spec.rs`, and compare attributes in `tests/differential.sh`.
+  Done when fixtures agree with the kernel.
 - [ ] **XFS-09: Fuzzing.** Pure-Rust and `cargo-fuzz` (D50). Done when
   both run clean. Ends v4 parity.
 - [ ] **XFS-10: Hashed lookups.** The directory name hash, checked

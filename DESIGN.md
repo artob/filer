@@ -2834,9 +2834,14 @@ and off), fills them through the Linux kernel (fragmented and sparse
 files whose maps become B+ trees, directories of every form, local and
 remote symlinks, special files, names that are not UTF-8, extended
 attributes of every form), and stores them sparsely; `filer-spec` runs
-on its own tree. `tests/differential.sh` compares each, and fresh ones,
-with the kernel: names, kinds, sizes, contents, link targets, times, flags,
-and extended attributes; listings are compared sorted. `tests/fuzz.rs`
+on its own tree. Linux mounts no v4 volume of blocks larger than its
+pages, so those are filled by `mkfs.xfs -p`. Each log is then cleared by
+`xfs_db logformat`, as the kernel's records would be most of a fixture.
+`tests/differential.sh` compares each, and fresh ones, with the kernel:
+names, kinds, sizes, contents, link targets, times, flags, and extended
+attributes; listings are compared sorted. It then checks logs as the
+kernel leaves them, with each sector size and log stripe unit: clean,
+wrapped, shut down mid-write (refused), and recovered. `tests/fuzz.rs`
 and `cargo-fuzz` targets in `fuzz/` mutate the superblock, inodes,
 directory blocks, B+ tree blocks, and attribute forks (D50).
 
