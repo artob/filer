@@ -2713,8 +2713,9 @@ driver. Writing is out of scope. It is built in the order the format
 grew: v4 volumes first (the oldest that `mkfs.xfs` still makes, deprecated
 but mounted by Linux 7.0), then v5's self-describing metadata and CRCs,
 then v5's later features one by one, each refused by its feature flag
-until it lands. Version 1 directories and inodes, older than any tool
-that still runs, are refused.
+until it lands. Volumes without version 2 directories, 32-bit link
+counts, or unwritten extent flags, older than any tool that still runs,
+are refused.
 
 **Clean room (D52).** The Linux kernel's `xfs` and xfsprogs (`libxfs`)
 are GPL. The driver is written from descriptions of the format only: the

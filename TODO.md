@@ -717,10 +717,6 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-01: Superblock.** `XfsError` and a validated superblock:
-  geometry, v4 version bits and `features2`, v5 feature sets, refusing
-  unknown incompatible features and those not read yet. Done when unit
-  tests cover every field and rejection.
 - [ ] **XFS-02: Inodes.** Inode numbers to AG, block, and slot; v1 and v2
   cores: kind, permissions, size, links, times, flags, fork formats and
   offsets. Done when unit tests cover each, and bad numbers are

@@ -1,0 +1,29 @@
+// This is free and unencumbered software released into the public domain.
+
+//! Big-endian fields of on-disk structures, read without panicking.
+
+#![allow(dead_code, reason = "used by the driver, which comes later")]
+
+/// Returns the `u16` at byte `at` of `bytes`, if it fits.
+pub(crate) fn u16_at(bytes: &[u8], at: usize) -> Option<u16> {
+    bytes
+        .get(at..)?
+        .first_chunk()
+        .map(|b| u16::from_be_bytes(*b))
+}
+
+/// Returns the `u32` at byte `at` of `bytes`, if it fits.
+pub(crate) fn u32_at(bytes: &[u8], at: usize) -> Option<u32> {
+    bytes
+        .get(at..)?
+        .first_chunk()
+        .map(|b| u32::from_be_bytes(*b))
+}
+
+/// Returns the `u64` at byte `at` of `bytes`, if it fits.
+pub(crate) fn u64_at(bytes: &[u8], at: usize) -> Option<u64> {
+    bytes
+        .get(at..)?
+        .first_chunk()
+        .map(|b| u64::from_be_bytes(*b))
+}
