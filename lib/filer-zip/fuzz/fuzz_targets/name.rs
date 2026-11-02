@@ -21,5 +21,5 @@ fuzz_target!(|data: &[u8]| {
         .dir(&dir)
         .symlink(name, b"../outside")
         .finish();
-    common::exercise(archive);
+    common::exercise::exercise(archive);
 });
