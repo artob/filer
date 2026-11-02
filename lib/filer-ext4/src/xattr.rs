@@ -146,7 +146,14 @@ pub(crate) fn in_block(block: &[u8], inode: u32) -> Result<Vec<Xattr>, Ext4Error
     parse(block, BLOCK_HEADER, 0, inode)
 }
 
-/// Reads all of `inode`'s attributes: those in it, then its block's.
+/// Returns `true` for `system.data`, which holds inline data's bytes past
+/// `i_block` rather than an attribute, and which Linux does not list.
+fn is_inline_data(xattr: &Xattr) -> bool {
+    xattr.ns == XattrNs::System && xattr.name == b"data"
+}
+
+/// Reads all of `inode`'s attributes: those in it, then its block's, but
+/// for `system.data`.
 pub(crate) async fn read<S: ReadAt + ?Sized>(
     source: &S,
     sb: &Superblock,
@@ -176,6 +183,7 @@ pub(crate) async fn read<S: ReadAt + ?Sized>(
         }
         xattrs.extend(in_block(&bytes, inode.number()).map_err(fail)?);
     }
+    xattrs.retain(|xattr| !is_inline_data(xattr));
     Ok(xattrs)
 }
 

@@ -122,6 +122,7 @@ fn corpus() -> Vec<Seed> {
         include_bytes!("fixtures/ext2-htree-tea.sparse"),
         include_bytes!("fixtures/ext3-extents-deep.sparse"),
         include_bytes!("fixtures/ext4-1k.sparse"),
+        include_bytes!("fixtures/ext4-inline-spill.sparse"),
     ]
     .into_iter()
     .map(|sparse| Seed::new(unsparse(sparse)))

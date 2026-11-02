@@ -394,6 +394,12 @@ fn reads_ext4() {
         include_bytes!("fixtures/ext4-meta-bg.sparse"),
         Times::Nanoseconds,
     );
+    // `inline_data`: small files, directories, and symlinks in their
+    // inodes, continued in their `system.data` attributes.
+    check(
+        include_bytes!("fixtures/ext4-inline.sparse"),
+        Times::Nanoseconds,
+    );
     // `gdt_csum`, CRC-16 over group descriptors, without `metadata_csum`.
     check(
         include_bytes!("fixtures/ext4-gdt-csum.sparse"),
@@ -531,6 +537,33 @@ fn refuses_structures_failing_their_checksums() {
         }
     }
     assert!(failed > 0);
+}
+
+/// Inline data continued past `i_block` in `system.data`: a directory's
+/// entries, and files at either side of its 60 bytes.
+#[test]
+fn reads_inline_data_past_i_block() {
+    let root = block_on(Ext4::open(unsparse(include_bytes!(
+        "fixtures/ext4-inline-spill.sparse"
+    ))))
+    .unwrap();
+    let spill = block_on(root.open_dir("spill")).unwrap();
+    let mut entries = spill.entries().unwrap();
+    let mut names = Vec::new();
+    while let Some(entry) = block_on(entries.next()) {
+        names.push(entry.unwrap().name.to_string());
+    }
+    names.sort();
+    let expected: Vec<String> = (0..6).map(|i| format!("entry{i}")).collect();
+    assert_eq!(names, expected);
+    for name in &expected {
+        block_on(spill.symlink_metadata(name.as_str(), MetaMask::all())).unwrap();
+    }
+    for size in [60u8, 61, 120] {
+        let file = block_on(root.open_file(format!("bytes{size}").as_str())).unwrap();
+        let read = block_on(file.read_to_end()).unwrap();
+        assert_eq!(read, (0..size).collect::<Vec<u8>>());
+    }
 }
 
 #[test]

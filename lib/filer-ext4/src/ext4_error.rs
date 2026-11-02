@@ -91,6 +91,12 @@ pub enum Ext4Error {
         /// The file's inode.
         inode: u32,
     },
+    /// A file's inline data is shorter than its size, or it is mapped as
+    /// blocks.
+    BadInlineData {
+        /// The file's inode.
+        inode: u32,
+    },
     /// A file's size is more than its map can address.
     FileTooLarge {
         /// The file's inode.
@@ -251,6 +257,9 @@ impl core::fmt::Display for Ext4Error {
             },
             Self::BadExtentTree { inode } => {
                 write!(f, "inode {inode} has an invalid extent tree")
+            },
+            Self::BadInlineData { inode } => {
+                write!(f, "inode {inode} has invalid inline data")
             },
             Self::FileTooLarge { inode } => {
                 write!(f, "inode {inode} is larger than its map addresses")

@@ -92,6 +92,7 @@ pub use ext4::*;
 mod group;
 mod hash;
 mod htree;
+mod inline;
 mod inode;
 mod journal;
 

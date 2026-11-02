@@ -274,6 +274,23 @@ with open(os.path.join(root, "unwritten"), "wb") as f:
 PY
 }
 
+# Writes inline data that continues past `i_block` into directory `$1`:
+# `spill`, a directory of six entries, past the 56 bytes `i_block` has
+# room for, and files of 60, 61, and 120 bytes, each byte its offset.
+inline() {
+    sudo python3 -I - "$1" <<'PY'
+import os, sys
+root = sys.argv[1]
+spill = os.path.join(root, "spill")
+os.mkdir(spill)
+for i in range(6):
+    open(os.path.join(spill, f"entry{i}"), "wb").close()
+for size in [60, 61, 120]:
+    with open(os.path.join(root, f"bytes{size}"), "wb") as f:
+        f.write(bytes(range(size)))
+PY
+}
+
 # Makes fixture `$1` as `make` does, filled by `big`, its directories
 # hashed by version `$4` (`legacy`, `half_md4`, or `tea`) over signed or,
 # if `$5` is `unsigned`, unsigned bytes.
@@ -373,6 +390,8 @@ make ext4-meta-bg 256M "-t ext4 -b 1024 -O meta_bg,^resize_inode" fill
 make ext4-gdt-csum 32M "-t ext4 -b 4096 -O ^metadata_csum,^metadata_csum_seed,uninit_bg" fill
 make ext4-attrs 8M "-t ext4 -b 4096" attrs
 make ext4-extents-deep 16M "-t ext4 -b 1024" deep
+make ext4-inline 32M "-t ext4 -b 4096 -O inline_data" fill
+make ext4-inline-spill 8M "-t ext4 -b 4096 -O inline_data" inline
 make ext3-extents-4k 32M "-t ext3 -b 4096 -O extent" fill
 make ext3-extents-deep 16M "-t ext3 -b 1024 -O extent" deep
 hashed ext2-htree-tea 16M "-t ext2 -b 1024" tea unsigned

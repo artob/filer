@@ -7,6 +7,7 @@ use crate::{
     Ext4Error, Options,
     dir::Directory,
     file_map::FileMap,
+    inline,
     inode::{self, Inode},
     journal,
     superblock::{self, ROOT_INODE, Superblock},
@@ -96,8 +97,13 @@ impl<S: ReadAt> Volume<S> {
         if node.kind() != FileKind::Dir {
             return Err(Error::new(ErrorKind::NotADirectory, op));
         }
-        let map = self.map(node, op)?;
         let inode = node.inode();
+        if inode.has_inline_data() {
+            let entries = inline::entries(inode, self.sb.has_filetype())
+                .map_err(|error| error.into_error(op))?;
+            return Ok(Directory::inline(node.number(), entries));
+        }
+        let map = self.map(node, op)?;
         let indexed = inode.is_indexed() && self.sb.has_dir_index();
         let seed = self
             .sb

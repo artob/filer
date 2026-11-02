@@ -1,10 +1,12 @@
 // This is free and unencumbered software released into the public domain.
 
 //! A file's map of its blocks: a block map, as ext2 and ext3 keep, or an
-//! extent tree, as ext4 does for inodes with the extents flag.
+//! extent tree, as ext4 does for inodes with the extents flag; or, for
+//! inline data, the bytes themselves.
 
 use crate::{
-    Ext4Error, block_map::BlockMap, extent::ExtentTree, inode::Inode, superblock::Superblock,
+    Ext4Error, block_map::BlockMap, extent::ExtentTree, inline, inode::Inode,
+    superblock::Superblock,
 };
 use alloc::vec::Vec;
 use core::num::NonZeroU64;
@@ -16,13 +18,23 @@ use filer_fs::map::{self, Mapping, Run};
 pub(crate) enum FileMap {
     Blocks(BlockMap),
     Extents(ExtentTree),
+    /// Inline data, which has no blocks: the file's bytes.
+    Inline {
+        inode: u32,
+        data: Vec<u8>,
+    },
 }
 
 impl FileMap {
     /// Returns the map of `inode`, which must address every block of its
     /// size.
     pub(crate) fn new(inode: &Inode, sb: &Superblock) -> Result<Self, Ext4Error> {
-        if inode.has_extents() {
+        if inode.has_inline_data() {
+            Ok(Self::Inline {
+                inode: inode.number(),
+                data: inline::data(inode)?,
+            })
+        } else if inode.has_extents() {
             ExtentTree::new(inode, sb).map(Self::Extents)
         } else {
             BlockMap::new(inode, sb).map(Self::Blocks)
@@ -34,6 +46,7 @@ impl FileMap {
         match self {
             Self::Blocks(map) => map.inode(),
             Self::Extents(tree) => tree.inode(),
+            Self::Inline { inode, .. } => *inode,
         }
     }
 
@@ -50,6 +63,9 @@ impl FileMap {
         match self {
             Self::Blocks(map) => map.map(source, sb, logical, max, op).await,
             Self::Extents(tree) => tree.map(source, sb, logical, max, op).await,
+            Self::Inline { inode, .. } => {
+                Err(Ext4Error::BadInlineData { inode: *inode }.into_error(op))
+            },
         }
     }
 
@@ -64,6 +80,11 @@ impl FileMap {
         len: usize,
         op: OpKind,
     ) -> Result<Vec<u8>, Error> {
+        if let Self::Inline { data, .. } = self {
+            let start = usize::try_from(off.min(size)).unwrap_or(usize::MAX);
+            let rest = data.get(start..).unwrap_or_default();
+            return Ok(rest.get(..len).unwrap_or(rest).to_vec());
+        }
         map::read(&OnVolume { map: self, sb }, source, size, off, len, op).await
     }
 }

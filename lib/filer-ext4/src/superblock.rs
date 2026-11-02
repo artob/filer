@@ -69,6 +69,9 @@ pub(crate) mod feature {
     /// Incompatible: the seed of `metadata_csum` checksums is kept in the
     /// superblock, not derived from the UUID.
     pub(crate) const INCOMPAT_CSUM_SEED: u32 = 0x2000;
+    /// Incompatible: small files and directories may be kept in their
+    /// inodes.
+    pub(crate) const INCOMPAT_INLINE_DATA: u32 = 0x8000;
 }
 
 /// The incompatible features this driver reads.
@@ -77,7 +80,8 @@ const SUPPORTED_INCOMPAT: u32 = feature::INCOMPAT_FILETYPE
     | feature::INCOMPAT_EXTENTS
     | feature::INCOMPAT_64BIT
     | feature::INCOMPAT_FLEX_BG
-    | feature::INCOMPAT_CSUM_SEED;
+    | feature::INCOMPAT_CSUM_SEED
+    | feature::INCOMPAT_INLINE_DATA;
 
 /// A volume's feature sets. Revision 0 volumes have none.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

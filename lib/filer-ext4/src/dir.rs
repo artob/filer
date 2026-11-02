@@ -111,6 +111,8 @@ pub(crate) struct Directory {
     indexed: bool,
     /// The seed of its blocks' checksums, under `metadata_csum`.
     seed: Option<Crc32c>,
+    /// The entries of an inline directory, which has no blocks.
+    inline: Option<Vec<DirEntry>>,
 }
 
 impl Directory {
@@ -136,7 +138,24 @@ impl Directory {
             size,
             indexed,
             seed,
+            inline: None,
         })
+    }
+
+    /// Returns inline directory `inode`'s contents, `entries`, which read
+    /// as one block.
+    pub(crate) fn inline(inode: u32, entries: Vec<DirEntry>) -> Self {
+        Self {
+            inode,
+            map: FileMap::Inline {
+                inode,
+                data: Vec::new(),
+            },
+            size: 0,
+            indexed: false,
+            seed: None,
+            inline: Some(entries),
+        }
     }
 
     /// Returns the directory's inode number.
@@ -146,6 +165,9 @@ impl Directory {
 
     /// Returns the number of blocks in the directory.
     pub(crate) fn blocks(&self, sb: &Superblock) -> u64 {
+        if self.inline.is_some() {
+            return 1;
+        }
         self.size
             .checked_div(u64::from(sb.block_size()))
             .unwrap_or(0)
@@ -207,6 +229,13 @@ impl Directory {
         index: u64,
         op: OpKind,
     ) -> Result<Vec<DirEntry>, Error> {
+        if let Some(entries) = &self.inline {
+            return Ok(if index == 0 {
+                entries.clone()
+            } else {
+                Vec::new()
+            });
+        }
         let base = self.offset(sb, index, op)?;
         let bytes = self.raw_block(source, sb, index, op).await?;
         parse_block(&bytes, base, sb.has_filetype(), self.inode).map_err(|e| e.into_error(op))

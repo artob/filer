@@ -2677,8 +2677,11 @@ TEA cipher, and checked against `debugfs`'s `dx_hash`.
   entries, interior nodes of indexes and leaves of extents in blocks
   below, at most five levels; an extent longer than 32768 is allocated
   but unwritten, and reads as zeros, as do blocks no extent holds);
-  inline data (ext4); a symlink target under 60 bytes; or a device
-  number.
+  inline data (ext4, `inline_data` and the inode's flag: a file's bytes,
+  continued in the in-inode attribute `system.data`, which listings
+  hide, as Linux's do; a directory's parent's inode number, then entries
+  as a block holds them, continued likewise); a symlink target under 60
+  bytes; or a device number.
 - Directories: blocks of entries (inode, record length, name length,
   and with `filetype` a type byte), never split across blocks; inode 0
   marks an unused entry. Hashed (htree) directories hide their index in
@@ -2750,7 +2753,8 @@ as `mke2fs -t ext4` makes them, of 1 and 4 KiB blocks, one with
 `meta_bg` of two metagroups, one with `gdt_csum` instead of
 `metadata_csum`, and, checksummed, one of attributes, one of a hashed
 directory two levels deep, and one of deep extent trees, whose every
-checksummed structure, changed, is `Corrupt`; and one of a
+checksummed structure, changed, is `Corrupt`; two with `inline_data`,
+one of a directory and files continued past `i_block`; and one of a
 file of 2000 extents two levels deep and one allocated but unwritten
 but for its middle; and three that need
 recovery, of 1 and 4 KiB blocks and with `metadata_csum`, copied while
