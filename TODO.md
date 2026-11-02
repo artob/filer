@@ -599,17 +599,29 @@ Created with `publish = false` (D16).
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **ZIP-01: `filer-zip`.** Central directory, stored and Deflate
-  members, synthesized directories, later entry wins, header agreement,
-  strict limits (ratio, total size, entries). Done when it passes the
-  read-only `filer-spec` subset and a fuzz target covers zip bombs and
-  name quarantine.
+- [ ] **ZIP-01b: Deflate.** Compressed members in `filer_api::archive`
+  (`Member` gains a codec and compressed size; `Archive` takes a decoder
+  that format crates implement), Deflate via `miniz_oxide` behind a
+  feature in `all`, CRC-32 checked, decompressed members cached. Done when
+  `filer-spec` passes on Deflate archives.
+- [ ] **ZIP-01c: Zip bomb limits.** `Limits` gains per-member ratio and
+  total uncompressed size, enforced on declared sizes at open and on
+  output while decoding; overlapping members (David Fifield's
+  non-recursive bombs) are `Corrupt`. Done when bombs fail with
+  `LimitExceeded` or `Corrupt`.
+- [ ] **ZIP-01d: Fuzzing `filer-zip`.** A pure-Rust fuzz test in `tests/`
+  and `cargo-fuzz` targets in `fuzz/` (D50) over parsing, indexing, and
+  decoding. Done when bombs and hostile names are covered and it builds
+  in CI.
 - [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA behind features, as
   pure-Rust decoders only (D45). Done when
   each decodes a test archive.
 - [ ] **ZIP-03: Legacy names.** Decode names without the UTF-8 flag with
   `known-codepages`, CP437 by default and any `CodePage` by option, as
-  `filer-fat` does. Done when CP437 and CP866 archives list correctly.
+  `filer-fat` does; also Info-ZIP's Unicode path extra field (0x7075).
+  The backslash check in `index.rs` must then apply to decoded names, as
+  Shift-JIS trail bytes may be 0x5C. Done when CP437 and CP866 archives
+  list correctly.
 - [ ] **AR-01: `filer-ar`.** GNU and BSD long names, hidden symbol
   tables. Done when it reads a `.deb` and passes the read-only
   `filer-spec` subset its format can express.

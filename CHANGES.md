@@ -38,6 +38,9 @@ so any release may break compatibility.
   `reads_xattrs` case.
 - `filer-ntfs`: Named data streams, read as `user.` extended attributes,
   and file attributes, as `FileAttrs`; `NtfsError::BadStreamName`.
+- `filer-zip`: `Zip`, a read-only driver over ZIP archives with stored
+  members, including ZIP64; `filer_zip::Limits` re-exports
+  `filer_api::archive::Limits`.
 - `filer-ntfs`: Interix special files: symlinks, FIFOs, sockets, and
   devices.
 ### Changed

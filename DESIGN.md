@@ -2111,6 +2111,25 @@ remove that copy. The full `filer-spec` passes, with nothing skipped, on
 archives written from its tree; a doc example reads a bsdtar archive, and
 a test reads an archive stored as a `File` in `filer-heap`.
 
+**`filer-zip` as built** (2026-11-01, stored members): an own parser
+too (answering Q7 for ZIP), reading the end of central directory record,
+ZIP64 records and extra fields, and the central directory, through a
+reader that fetches it in 64 KiB chunks. The end record must be the one
+candidate whose comment runs exactly to the archive's end; a comment
+holding a second plausible record is `Corrupt`, as is a ZIP64 record that
+a non-sentinel field of the classic record contradicts. Each member's
+local header must agree with its central header on name, method,
+encryption, and, without a data descriptor, CRC and sizes, and its data
+must lie before the central directory. Names with a backslash or a drive
+letter are `InvalidName`, besides what `Index` refuses. Directories,
+symlinks, and special files come from Unix modes (hosts 3 and 19), with
+a trailing `/` or the DOS directory attribute also making directories.
+Times come from the NTFS extra field, then the extended timestamp, then
+the DOS fields, read as UTC. Compressed and encrypted members and spanned
+archives are `Unsupported` at open, for now. The full `filer-spec` passes
+on archives written from its tree, with and without ZIP64; a doc example
+reads an Info-ZIP archive.
+
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
 bytes. As built (2026-11-01), that tree is `filer_api::tree::Tree<F>`,
@@ -3125,8 +3144,8 @@ Notes on the 2026-10-31 decisions:
 - **Q6.** Optional `miette` diagnostics for `filer_api::Error`?
 - **Q7.** Archive support: own small zip and tar readers (`no_std`
   possible) or existing crates (bigger, `std`)? Packaging is settled
-  (separate `filer-tar` and `filer-zip`, D41); TAR has its own parser
-  (§17.7); for ZIP, the choice is open.
+  (separate `filer-tar` and `filer-zip`, D41); both have their own
+  parsers (§17.7).
 - **Q8.** Should `Dir::open_ambient` accept `camino::Utf8Path` (and Dogma.rs
   types, §5.7) directly, or only `std::path::Path`?
 - **Q9.** Watching (§26): in scope for 1.0 or never?
