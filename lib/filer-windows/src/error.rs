@@ -1,5 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
+use crate::sys;
 use filer_api::{Error, ErrorKind, OpKind, RawOsError};
 use windows_sys::Win32::Foundation::{
     ERROR_ACCESS_DENIED, ERROR_ALREADY_EXISTS, ERROR_BAD_NET_NAME, ERROR_BAD_NETPATH,
@@ -11,6 +12,10 @@ use windows_sys::Win32::Foundation::{
     ERROR_NOT_A_REPARSE_POINT, ERROR_NOT_SAME_DEVICE, ERROR_NOT_SUPPORTED, ERROR_OPERATION_ABORTED,
     ERROR_PATH_NOT_FOUND, ERROR_PRIVILEGE_NOT_HELD, ERROR_SEM_TIMEOUT, ERROR_SHARING_VIOLATION,
     ERROR_TIMEOUT, ERROR_USER_MAPPED_FILE, ERROR_WRITE_PROTECT,
+};
+use windows_sys::Win32::Foundation::{
+    NTSTATUS, STATUS_DELETE_PENDING, STATUS_FILE_IS_A_DIRECTORY, STATUS_NOT_A_DIRECTORY,
+    STATUS_OBJECT_NAME_INVALID,
 };
 
 /// Windows system error codes and the kinds they map to.
@@ -56,10 +61,36 @@ const KINDS: &[(u32, ErrorKind)] = &[
 /// Converts a Windows system error code from `op` into an [`Error`],
 /// keeping the code.
 pub(crate) fn win32(code: u32, op: OpKind) -> Error {
-    let kind = KINDS
+    Error::new(kind(code), op).with_os(RawOsError::Windows(code))
+}
+
+/// Returns the kind of the Windows system error code `code`.
+fn kind(code: u32) -> ErrorKind {
+    KINDS
         .iter()
         .find(|(c, _)| *c == code)
-        .map_or(ErrorKind::Other, |(_, kind)| *kind);
+        .map_or(ErrorKind::Other, |(_, kind)| *kind)
+}
+
+/// `NTSTATUS` values that their Windows system error codes misstate (a
+/// file opened as a directory, for one, is `ERROR_ACCESS_DENIED`), and
+/// the kinds they map to.
+const STATUS_KINDS: &[(NTSTATUS, ErrorKind)] = &[
+    (STATUS_FILE_IS_A_DIRECTORY, ErrorKind::IsADirectory),
+    (STATUS_NOT_A_DIRECTORY, ErrorKind::NotADirectory),
+    (STATUS_OBJECT_NAME_INVALID, ErrorKind::InvalidNameForTarget),
+    // Deleted, but still open somewhere: gone as far as opening goes.
+    (STATUS_DELETE_PENDING, ErrorKind::NotFound),
+];
+
+/// Converts an `NTSTATUS` from `op` into an [`Error`], keeping the Windows
+/// system error code it stands for.
+pub(crate) fn nt(status: NTSTATUS, op: OpKind) -> Error {
+    let code = sys::win32(status);
+    let kind = STATUS_KINDS
+        .iter()
+        .find(|(s, _)| *s == status)
+        .map_or_else(|| kind(code), |(_, kind)| *kind);
     Error::new(kind, op).with_os(RawOsError::Windows(code))
 }
 
@@ -86,5 +117,18 @@ mod tests {
             ErrorKind::Busy
         );
         assert_eq!(win32(0xFFFF, OpKind::Read).kind(), ErrorKind::Other);
+    }
+
+    #[test]
+    fn maps_statuses_by_their_codes_or_themselves() {
+        let e = nt(STATUS_FILE_IS_A_DIRECTORY, OpKind::Open);
+        assert_eq!(e.kind(), ErrorKind::IsADirectory);
+        assert_eq!(e.os(), Some(RawOsError::Windows(ERROR_ACCESS_DENIED)));
+        let e = nt(
+            windows_sys::Win32::Foundation::STATUS_OBJECT_NAME_NOT_FOUND,
+            OpKind::Open,
+        );
+        assert_eq!(e.kind(), ErrorKind::NotFound);
+        assert_eq!(e.os(), Some(RawOsError::Windows(ERROR_FILE_NOT_FOUND)));
     }
 }

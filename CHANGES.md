@@ -23,7 +23,8 @@ so any release may break compatibility.
   `DefaultPool`, the built-in thread pool.
 - `filer-windows`: `Windows`, the Windows driver, with `blocking` and
   `thread_pool` constructors and `open_ambient_dir` and `open_ambient`,
-  opening roots.
+  opening roots; opening files and directories beneath them, and reading
+  symbolic links and junctions.
 - `filer-posix`, `filer-system`: `thread_pool(spawner)` constructors, which
   run each operation on a `Spawner` instead of inside `poll`.
 - `filer-ar`, `filer-cpio`, and `filer-rar`: New crates, with no items yet.

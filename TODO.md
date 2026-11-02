@@ -278,8 +278,8 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
   Escapes, `InRoot`, `Deny`, and loops are covered. Still missing: magic
   links (`/proc/self/fd/*`) on real drivers, mount crossing with
   `cross_mounts: false`, and races (a directory swapped for a symlink
-  mid-resolution). Done when each asserts `EscapeBlocked` or the specified
-  result.
+  mid-resolution), with junctions on `filer-windows`. Done when each
+  asserts `EscapeBlocked` or the specified result.
 
 - [ ] **SPEC-03: Remaining foreign-name cases.**
   Listing, stat, and cross-driver refusal are covered. Still missing: open,
@@ -361,13 +361,6 @@ run by `filer-heap` and `filer-posix`; extend it with each new operation.
   OpenBSD VM.
 
 ## `filer-windows`
-
-- [ ] **WIN-02: Relative opens and the userspace walk.**
-  A `sys` module holding all `unsafe` (the crate root switches from
-  `forbid` to `deny`, §3.3); `NtCreateFile` with `RootDirectory`,
-  `FILE_OPEN_REPARSE_POINT`, reparse data reading, and the generic
-  resolver (§17.2). Done when SPEC-02 passes on Windows, including
-  junctions.
 
 - [ ] **WIN-03: Data and metadata.**
   Positional read and write, `GetFileInformationByHandleEx` metadata,

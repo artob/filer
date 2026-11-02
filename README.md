@@ -39,6 +39,9 @@
 | `filer-cli` | All | `filer` command-line interface |
 | `known-codepages` | All | DOS code pages, for FAT and ZIP names |
 
+Only `filer-windows` contains `unsafe`: the system calls the standard
+library lacks, each wrapped safely in its private `sys` module.
+
 ## 👨‍💻 Development
 
 ```bash

@@ -172,6 +172,7 @@ name = "filer-windows"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-fs",
  "filer-spec",
  "windows-sys",
 ]

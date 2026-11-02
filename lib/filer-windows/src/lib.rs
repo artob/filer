@@ -3,9 +3,11 @@
 //! Windows backend for the Filer API.
 //!
 //! [`Windows`] implements [`filer_api::Driver`] on Windows over
-//! [`windows-sys`]. So far it opens roots, executed by the
-//! [blocking](Windows::blocking) executor or on a
-//! [thread pool](Windows::thread_pool).
+//! [`windows-sys`]. So far it opens roots, files, and directories, with
+//! paths confined by the generic [`filer_api::BlockingResolver`], and
+//! reads links, executed by the [blocking](Windows::blocking) executor or
+//! on a [thread pool](Windows::thread_pool). All of its `unsafe` is in one
+//! private module of safe wrappers over the system calls.
 //!
 //! Items are gated on `cfg(windows)` and the `std` feature, enabled by
 //! default, so the crate still builds, empty, without `std` and on other
@@ -14,7 +16,7 @@
 //! [`windows-sys`]: https://docs.rs/windows-sys
 
 #![no_std]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // No input may make this crate panic (DESIGN.md D47).
 #![deny(
@@ -59,6 +61,10 @@ mod error;
 
 #[cfg(all(windows, feature = "std"))]
 mod node;
+
+#[cfg(all(windows, feature = "std"))]
+#[allow(unsafe_code, reason = "all of the crate's `unsafe` is here")]
+mod sys;
 
 #[cfg(all(windows, feature = "std"))]
 mod windows;

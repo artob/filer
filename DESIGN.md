@@ -186,9 +186,10 @@ windows; this section holds the rationale.
 - The workspace lint table sets `unsafe_code = "deny"`,
   `unsafe_op_in_unsafe_fn = "deny"`, and Clippy's
   `undocumented_unsafe_blocks = "deny"`.
-- Every crate without `unsafe` (currently all of them, including the empty
-  OS driver shells) also declares `#![forbid(unsafe_code)]` at the crate
-  root, marking it unsafe-free in a way no module can override.
+- Every crate without `unsafe` (currently all but `filer-windows`,
+  including the empty OS driver shells) also declares
+  `#![forbid(unsafe_code)]` at the crate root, marking it unsafe-free in a
+  way no module can override.
 - A driver crate that comes to need `unsafe` (expected: `filer-windows`,
   `filer-uring`, and `filer-posix` only for gaps in `rustix`, see §17.1)
   switches its crate root from `forbid` to `deny` in the same change and
@@ -1961,10 +1962,29 @@ roots through the standard library's `OpenOptions`: `CreateFileW` with
 `FILE_FLAG_BACKUP_SEMANTICS`, to which the standard library adds `\\?\`
 for long paths, listing, traversal, and attribute access, and all share
 modes; anything but a directory is `NotADirectory`. Win32 error codes map
-to `ErrorKind` through a table, keeping the code. `tests/windows.sh` runs
-the crate's tests in Windows from Linux: it builds them for
-`x86_64-pc-windows-gnu` and runs them in the `dockur/windows` container
-that `filer-ntfs`'s fixtures use.
+to `ErrorKind` through a table, keeping the code; an `NTSTATUS` maps
+through the code `RtlNtStatusToDosError` gives, except where the code
+misstates it (a file opened as a directory is `ERROR_ACCESS_DENIED`).
+`Op::Open` and `Op::ReadLink` resolve through the generic
+`BlockingResolver`: `lookup` opens one component with `NtCreateFile`
+relative to the directory, with `FILE_READ_ATTRIBUTES` only (which needs
+no permission on the file), `FILE_OPEN_REPARSE_POINT`, and
+`OBJ_CASE_INSENSITIVE`, and classifies it by `FileAttributeTagInfo`:
+symbolic links, junctions, and WSL symlinks are symlinks, other name
+surrogates `Other`, and other reparse points (cloud placeholders, WOF,
+dedup) the files or directories they stand for. Directories, and files
+at the end, are reopened from that handle with an empty relative name
+(`ReOpenFile` refuses directories), without `FILE_OPEN_REPARSE_POINT`, so
+a filter's files read through the filter; nothing is opened by name
+twice, except a link read for its target. Targets come from
+`FSCTL_GET_REPARSE_POINT` through `filer_fs::reparse`, as `filer-ntfs`
+reads them, so a junction's `\??\C:\path` is `/path`, absolute: an
+escape under `Beneath`, from the root under `InRoot`. Names holding `\`
+or `:` (another component, or a stream) are `InvalidNameForTarget`,
+since `NtCreateFile` would parse them. `crosses_mount` compares volume
+serial numbers. `tests/windows.sh` runs the crate's tests in Windows
+from Linux: it builds them for `x86_64-pc-windows-gnu` and runs them in
+the `dockur/windows` container that `filer-ntfs`'s fixtures use.
 
 `winx` (0.36.4) has useful helpers (`reopen_file`, reparse-point
 `read_link`, access-mode queries), but it constrains `windows-sys` to
