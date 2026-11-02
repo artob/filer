@@ -717,10 +717,6 @@ format grew; one step per item, each committed.
 Read-only XFS, v4 and v5, clean room (§17.16). In the order the format
 grew; one step per item, each committed.
 
-- [ ] **XFS-02: Inodes.** Inode numbers to AG, block, and slot; v1 and v2
-  cores: kind, permissions, size, links, times, flags, fork formats and
-  offsets. Done when unit tests cover each, and bad numbers are
-  `Corrupt`.
 - [ ] **XFS-03: File maps.** Extent records (unwritten extents read as
   zeros, holes), extent lists in the inode, and `BMAP` B+ trees, mapped
   lazily per read. Done when unit tests cover each, and blocks outside

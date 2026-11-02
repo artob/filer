@@ -57,6 +57,21 @@ pub enum XfsError {
     /// block, or slot does not exist.
     BadInodeNumber(u64),
 
+    /// A reference to an inode names one that is not in use.
+    UnusedInode {
+        /// The inode's number.
+        inode: u64,
+    },
+
+    /// An inode is malformed: a wrong magic number or version, an unknown
+    /// file type, a negative size, a time's nanoseconds of a second or
+    /// more, a fork format that does not fit its kind, or a fork larger
+    /// than the inode.
+    BadInode {
+        /// The inode's number.
+        inode: u64,
+    },
+
     /// `mkfs.xfs` did not finish making the volume.
     Unfinished,
 
@@ -141,6 +156,10 @@ impl core::fmt::Display for XfsError {
             },
             Self::BadLog => f.write_str("its log lies outside the volume"),
             Self::BadInodeNumber(inode) => write!(f, "reference to invalid inode {inode}"),
+            Self::UnusedInode { inode } => {
+                write!(f, "reference to inode {inode}, which is not in use")
+            },
+            Self::BadInode { inode } => write!(f, "inode {inode} is invalid"),
             Self::Unfinished => f.write_str("mkfs.xfs did not finish making it"),
             Self::MissingFeatures(bits) => {
                 write!(f, "lacks required version features {bits:#06X}")
