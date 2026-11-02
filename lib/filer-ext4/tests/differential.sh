@@ -142,17 +142,22 @@ PY
 }
 
 # Compares image `$3`, expanded from sparse fixture `$2`, with what Linux
-# shows of it: the one kind of job.
+# shows of it: the one kind of job. A volume whose journal needs recovery
+# is read as it is on disk by both, Linux's `noload` not replaying it.
 perform() {
     img="$scratch/$3.img"
     unsparse "$2" "$img"
-    if ! sudo mount -o loop,ro "$img" "$mnt" 2>/dev/null; then
+    options=loop,ro
+    dirty=
+    case $3 in *dirty*) options=$options,noload dirty=--allow-dirty ;; esac
+    if ! sudo mount -o "$options" "$img" "$mnt" 2>/dev/null; then
         echo "skipped: $3 (Linux cannot mount it here)"
         return
     fi
     kernel_manifest "$mnt" | sort > "$scratch/kernel"
     sudo umount "$mnt"
-    "$manifest" "$img" | sort > "$scratch/filer"
+    # shellcheck disable=SC2086
+    "$manifest" $dirty "$img" | sort > "$scratch/filer"
     if diff -u "$scratch/kernel" "$scratch/filer" > "$scratch/diff"; then
         echo "same: $3 ($(wc -l < "$scratch/filer") entries)"
     else

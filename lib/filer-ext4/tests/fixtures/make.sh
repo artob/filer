@@ -255,6 +255,37 @@ populate() {
     sparse "$img" "$out/$1.sparse"
 }
 
+# Makes fixture `$1` as `make` does, with the specification's tree, then
+# changes it and shuts it down, its journal flushed but the changes not
+# yet written in place, so that it needs recovery: files written, one
+# renamed and one removed, in a new directory.
+dirty() {
+    case " $only " in "  " | *" $1 "*) ;; *) return ;; esac
+    img="$work/$1.img"
+    truncate -s "$2" "$img"
+    # shellcheck disable=SC2086
+    mke2fs -q -F -L FILER $3 "$img"
+    sudo mount -o loop "$img" "$mnt"
+    spec "$mnt"
+    sync
+    sudo python3 -I - "$mnt" <<'PY'
+import os, sys
+base = os.path.join(sys.argv[1], "more")
+os.mkdir(base)
+for i in range(40):
+    with open(os.path.join(base, f"m{i:02}"), "wb") as f:
+        f.write(bytes([i]) * (i * 100))
+os.rename(os.path.join(base, "m00"), os.path.join(base, "renamed"))
+os.remove(os.path.join(base, "m01"))
+PY
+    # A shutdown reaches the volume holding `$mnt`: never let that be the
+    # root's.
+    mountpoint -q "$mnt" || exit 1
+    sudo xfs_io -x -c "shutdown -f" "$mnt"
+    sudo umount "$mnt"
+    sparse "$img" "$out/$1.sparse"
+}
+
 make ext2-1k 32M "-t ext2 -b 1024" fill
 make ext2-2k 32M "-t ext2 -b 2048" fill
 make ext2-4k 32M "-t ext2 -b 4096" fill
@@ -264,3 +295,6 @@ populate ext2-64k 64M "-t ext2 -b 65536" fill
 make ext2-attrs 8M "-t ext2 -b 4096" attrs
 make ext2-attrs-128 8M "-t ext2 -b 1024 -I 128" attrs
 make spec 32M "-t ext2 -b 4096" spec
+make ext3-1k 32M "-t ext3 -b 1024" fill
+make ext3-4k 32M "-t ext3 -b 4096" fill
+dirty ext3-dirty 32M "-t ext3 -b 4096"

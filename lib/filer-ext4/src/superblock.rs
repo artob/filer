@@ -160,9 +160,6 @@ impl Superblock {
         if unknown != 0 {
             return Err(Ext4Error::UnsupportedFeatures { incompat: unknown });
         }
-        if features.incompat & feature::INCOMPAT_RECOVER != 0 {
-            return Err(Ext4Error::NeedsRecovery);
-        }
         let mut uuid = [0; 16];
         if let Some(from) = bytes.get(0x68..0x78) {
             uuid.copy_from_slice(from);
@@ -257,6 +254,12 @@ impl Superblock {
     /// Returns `true` if directory entries record the file type.
     pub(crate) const fn has_filetype(&self) -> bool {
         self.features.incompat & feature::INCOMPAT_FILETYPE != 0
+    }
+
+    /// Returns `true` if the journal holds changes not yet written to the
+    /// volume, as when it was not unmounted cleanly.
+    pub(crate) const fn needs_recovery(&self) -> bool {
+        self.features.incompat & feature::INCOMPAT_RECOVER != 0
     }
 
     #[allow(dead_code, reason = "for checksums, later")]
@@ -492,10 +495,11 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn refuses_a_journal_needing_recovery() {
+    fn tells_a_journal_needing_recovery() {
         let mut f = Fields::new();
+        assert!(!f.parse().unwrap().needs_recovery());
         f.features.incompat |= feature::INCOMPAT_RECOVER;
-        assert_eq!(f.parse(), Err(Ext4Error::NeedsRecovery));
+        assert!(f.parse().unwrap().needs_recovery());
         assert_eq!(Ext4Error::NeedsRecovery.kind(), ErrorKind::Unsupported);
     }
 

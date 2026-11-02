@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::volume::Volume;
+use crate::{Options, volume::Volume};
 use core::future::Future;
 use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
 use filer_fs::Mounted;
@@ -43,7 +43,17 @@ pub struct Ext4<S>(Mounted<Volume<S>>);
 
 impl<S: ReadAt + 'static> Ext4<S> {
     /// Opens the volume in `source` and returns its root directory, with
-    /// [`Rights::READ`].
+    /// [`Rights::READ`], with the default [`Options`].
+    ///
+    /// # Errors
+    ///
+    /// As [`open_with`](Self::open_with).
+    pub async fn open(source: S) -> Result<Dir<Self>, Error> {
+        Self::open_with(source, Options::new()).await
+    }
+
+    /// Opens the volume in `source` with `options` and returns its root
+    /// directory, with [`Rights::READ`].
     ///
     /// # Errors
     ///
@@ -52,10 +62,10 @@ impl<S: ReadAt + 'static> Ext4<S> {
     /// the root directory is invalid, or the source is shorter than the
     /// volume; [`Unsupported`](filer_api::ErrorKind::Unsupported) if the
     /// volume is of an unknown revision, uses incompatible features this
-    /// driver does not read, or its journal needs recovery; any error
-    /// reading the source.
-    pub async fn open(source: S) -> Result<Dir<Self>, Error> {
-        let mounted = Mounted::new(Volume::open(source).await?);
+    /// driver does not read, or, unless `options` allow reading it as it
+    /// is, its journal needs recovery; any error reading the source.
+    pub async fn open_with(source: S, options: Options) -> Result<Dir<Self>, Error> {
+        let mounted = Mounted::new(Volume::open(source, options).await?);
         let root = mounted.root().await?;
         Ok(Dir::new(Self(mounted), root)?.restrict(Rights::READ))
     }

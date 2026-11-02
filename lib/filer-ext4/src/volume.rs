@@ -4,7 +4,7 @@
 //! to, and what the driver shell serves of them.
 
 use crate::{
-    Ext4Error,
+    Ext4Error, Options,
     block_map::BlockMap,
     dir::Directory,
     inode::{self, Inode},
@@ -45,9 +45,13 @@ impl Node {
 }
 
 impl<S: ReadAt> Volume<S> {
-    /// Opens the volume in `source`, reading its superblock.
-    pub(crate) async fn open(source: S) -> Result<Self, Error> {
+    /// Opens the volume in `source`, reading its superblock; refuses one
+    /// whose journal needs recovery, unless `options` allow it.
+    pub(crate) async fn open(source: S, options: Options) -> Result<Self, Error> {
         let sb = superblock::read(&source).await?;
+        if sb.needs_recovery() && !options.allows_dirty() {
+            return Err(Ext4Error::NeedsRecovery.into_error(OpKind::Open));
+        }
         Ok(Self {
             key: DriverKey::new(),
             sb,

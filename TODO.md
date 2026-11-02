@@ -680,9 +680,6 @@ From §17.12 (D40). Create each crate when its item starts.
 Read-only ext2, ext3, and ext4, clean room (§17.15). In the order the
 format grew; one step per item, each committed.
 
-- [ ] **EXT-09: ext3 journals.** Clean journals read as ext2; volumes
-  needing recovery are refused, with an opt-in to read them as they are.
-  Done when `mke2fs -t ext3` fixtures read and agree with the kernel.
 - [ ] **EXT-10: Journal replay.** JBD2 in memory: descriptor, commit, and
   revoke blocks; 64-bit and checksummed tags, laid over the source as
   `filer-xfs` lays its log's, moving its `recover::Overlay` and

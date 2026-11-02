@@ -11,7 +11,7 @@ use filer_api::{
     BufResult, Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op,
     Output, Resolve, Symlinks, Target, XattrEntry, XattrNs,
 };
-use filer_ext4::Ext4;
+use filer_ext4::{Ext4, Ext4Error, Options};
 use filer_spec::block_on;
 use std::collections::BTreeMap;
 
@@ -218,6 +218,34 @@ fn reads_64k_blocks() {
         include_bytes!("fixtures/ext2-64k.sparse"),
         Times::WholeSeconds,
     );
+}
+
+/// ext3: a journal, clean, which changes nothing for a reader.
+#[test]
+fn reads_ext3() {
+    check(
+        include_bytes!("fixtures/ext3-1k.sparse"),
+        Times::Nanoseconds,
+    );
+    check(
+        include_bytes!("fixtures/ext3-4k.sparse"),
+        Times::Nanoseconds,
+    );
+}
+
+/// A volume shut down before its journal was written back: refused, as
+/// it may be inconsistent, unless read as it is on disk.
+#[test]
+fn refuses_journals_needing_recovery() {
+    let image = unsparse(include_bytes!("fixtures/ext3-dirty.sparse"));
+    let error = block_on(Ext4::open(image.clone())).unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::Unsupported);
+    let source = core::error::Error::source(&error).unwrap();
+    assert_eq!(source.downcast_ref(), Some(&Ext4Error::NeedsRecovery));
+    let options = Options::new().allow_dirty(true);
+    let root = block_on(Ext4::open_with(image, options)).unwrap();
+    let file = block_on(root.open_file("a/b/c.txt")).unwrap();
+    assert_eq!(block_on(file.read_to_end()).unwrap(), b"contents");
 }
 
 #[test]

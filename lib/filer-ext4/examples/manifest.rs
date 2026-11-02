@@ -22,9 +22,11 @@
 //! The image is opened as a file of the native driver, and `Ext4` reads it
 //! through that file: one driver layered over another.
 //!
-//! Usage: `cargo run -p filer-ext4 --example manifest -- IMAGE`.
+//! Usage: `cargo run -p filer-ext4 --example manifest -- [--allow-dirty]
+//! IMAGE`, where `--allow-dirty` reads a volume whose journal needs
+//! recovery as it is on disk.
 
-use filer_ext4::Ext4;
+use filer_ext4::{Ext4, Options};
 use filer_system::{
     Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op, OpKind, Output,
     ReadAt, Resolve, Target, Timestamp, XattrEntry, ambient_authority,
@@ -39,11 +41,15 @@ use std::{
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
-    let [image] = &args[..] else {
-        eprintln!("usage: manifest IMAGE");
-        return ExitCode::FAILURE;
+    let (options, image) = match &args[..] {
+        [image] => (Options::new(), image),
+        [flag, image] if flag == "--allow-dirty" => (Options::new().allow_dirty(true), image),
+        _ => {
+            eprintln!("usage: manifest [--allow-dirty] IMAGE");
+            return ExitCode::FAILURE;
+        },
     };
-    match block_on(run(Path::new(image))) {
+    match block_on(run(Path::new(image), options)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("manifest: {error}");
@@ -52,7 +58,7 @@ fn main() -> ExitCode {
     }
 }
 
-async fn run(image: &Path) -> Result<(), Box<dyn Error>> {
+async fn run(image: &Path, options: Options) -> Result<(), Box<dyn Error>> {
     let parent = image.parent().filter(|p| !p.as_os_str().is_empty());
     let parent = parent.unwrap_or(Path::new("."));
     let name = image
@@ -61,7 +67,7 @@ async fn run(image: &Path) -> Result<(), Box<dyn Error>> {
         .unwrap_or("");
     let dir = filer_system::open_ambient(parent, ambient_authority())?;
     let file = dir.open_file(name).await?;
-    let root = Ext4::open(file).await?;
+    let root = Ext4::open_with(file, options).await?;
     walk(&root, "", &mut std::io::stdout().lock()).await
 }
 

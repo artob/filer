@@ -26,8 +26,9 @@ so any release may break compatibility.
 - `filer-ar`, `filer-cpio`, and `filer-rar`: New crates, with no items yet.
 - `filer-ext4`, `filer-ntfs`, `filer-udf`, and `filer-xfs`: New crates for
   read-only file system drivers, with no items yet but `filer-ext4`'s
-  `Ext4` driver (reading ext2 so far) and `Ext4Error`, `filer-ntfs`'s
-  `Ntfs` driver, `Options`, and `NtfsError`, and `filer-xfs`'s `Xfs`
+  `Ext4` driver (reading ext2 and ext3 so far), `Options`, and
+  `Ext4Error`, `filer-ntfs`'s `Ntfs` driver, `Options`, and `NtfsError`,
+  and `filer-xfs`'s `Xfs`
   driver (reading version 4 and 5 volumes, with every feature but zoned
   realtime sections, and no realtime files' contents; replaying logs
   that need recovery), `Options`, `XfsError`, and `FeatureSet`.
