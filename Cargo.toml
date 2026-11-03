@@ -45,7 +45,9 @@ filer-fat = { version = "0.0.2", path = "lib/filer-fat", default-features = fals
 filer-fs = { version = "0.0.2", path = "lib/filer-fs", default-features = false }
 filer-heap = { version = "0.0.2", path = "lib/filer-heap", default-features = false }
 filer-minix = { version = "0.0.2", path = "tmp/filer-minix", default-features = false }
+filer-msft = { version = "0.0.2", path = "lib/filer-msft", default-features = false }
 filer-ntfs = { version = "0.0.2", path = "lib/filer-ntfs", default-features = false }
+filer-pack = { version = "0.0.2", path = "lib/filer-pack", default-features = false }
 filer-posix = { version = "0.0.2", path = "lib/filer-posix", default-features = false }
 filer-rar = { version = "0.0.2", path = "tmp/filer-rar", default-features = false }
 filer-refs = { version = "0.0.2", path = "tmp/filer-refs", default-features = false }
@@ -85,7 +87,9 @@ filer-fat = { path = "lib/filer-fat" }
 filer-fs = { path = "lib/filer-fs" }
 filer-heap = { path = "lib/filer-heap" }
 filer-minix = { path = "tmp/filer-minix" }
+filer-msft = { path = "lib/filer-msft" }
 filer-ntfs = { path = "lib/filer-ntfs" }
+filer-pack = { path = "lib/filer-pack" }
 filer-posix = { path = "lib/filer-posix" }
 filer-rar = { path = "tmp/filer-rar" }
 filer-refs = { path = "tmp/filer-refs" }

@@ -551,15 +551,15 @@ Created with `publish = false` (D16).
 Microsoft's on-disk conventions, shared by file system, archive, and
 Windows drivers (§17.17, D60).
 
-- [ ] **MSFT-01: Create `filer-msft` out of `filer-fs` and `filer-fat`.**
+- [ ] **MSFT-01: Fill `filer-msft` from `filer-fs` and `filer-fat`.**
   Move `nt`, `wtf8`, and `reparse` from `filer-fs`, and FAT's local date
   and time from `filer-fat` (`fat_time.rs`, with its offset and
-  granularity parameters, as a `dos` module), into `lib/filer-msft`, a
-  `no_std` crate depending on `filer-api` only, with `filer-api`'s lint
-  block and docs saying it holds the conventions of Microsoft's formats
-  and nothing of Microsoft's. `filer-fat`, `filer-ntfs`, and
-  `filer-windows` depend on it; `filer-windows` keeps `filer-fs` for
-  `le` alone. Add it to the README crate table and `AGENTS.md`. Done
+  granularity parameters, as a `dos` module), into `lib/filer-msft`, the
+  empty `no_std` crate depending on `filer-api` only, published at 0.0.2
+  with `filer-api`'s lint block and docs saying it holds the conventions
+  of Microsoft's formats and nothing of Microsoft's. `filer-fat`,
+  `filer-ntfs`, and `filer-windows` depend on it; `filer-windows` keeps
+  `filer-fs` for `le` alone. Add it to `AGENTS.md`; update its docs. Done
   when `filer-fs` exports none of the three modules, `filer-fat` decodes
   no times itself, and every check in `AGENTS.md` passes.
 
@@ -573,15 +573,15 @@ Windows drivers (§17.17, D60).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-01: Create `filer-pack` from `filer_api::archive` (D59).**
+- [ ] **PACK-01: Fill `filer-pack` from `filer_api::archive` (D59).**
   Move the module whole, `lock.rs` and the `spin` dependency with it,
-  into `lib/filer-pack`, a `no_std` crate depending on `filer-api` only,
-  with `filer-api`'s lint block; nothing is re-exported from `filer-api`.
-  `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
-  depend on it and forward `std`. Add it to the README crate table and
-  `AGENTS.md`, and update §17.17's mentions of the module. Done when
-  `filer-api` has no `archive` module and no `spin`, and every check in
-  `AGENTS.md` passes.
+  into `lib/filer-pack`, the empty `no_std` crate depending on
+  `filer-api` only, published at 0.0.2 with `filer-api`'s lint block;
+  nothing is re-exported from `filer-api`. `filer-tar`, `filer-zip`,
+  `filer-ar`, `filer-cpio`, and `filer-archive` depend on it and forward
+  `std`. Add it to `AGENTS.md`, update its docs, and update §17.17's
+  mentions of the module. Done when `filer-api` has no `archive` module
+  and no `spin`, and every check in `AGENTS.md` passes.
 - [ ] **PACK-02: Limits inside `Index`.** `Index::new(format, limits)`
   counts recorded members against `max_entries` and checks names and
   link targets against `max_path_len`, with today's reasons; a shared

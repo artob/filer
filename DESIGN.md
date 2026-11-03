@@ -397,7 +397,9 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `known-codepages`, the read-only `filer-tar`, `filer-zip`, `filer-ar`,
 `filer-cpio`, and `filer-archive` over them, `filer-ext4`, `filer-fat`,
 `filer-ntfs`, `filer-xfs`, and `filer-volume` over them, and as empty
-skeletons `filer-wasi`, `filer-whatwg`, and `filer-cli` (D30, D38, D41).
+skeletons `filer-wasi`, `filer-whatwg`, and `filer-cli` (D30, D38, D41),
+and `filer-pack` and `filer-msft`, published empty in `lib/` as their
+first items (PACK-01, MSFT-01) come next.
 Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
 and the file systems `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
 `filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,

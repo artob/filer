@@ -157,6 +157,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-msft"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-ntfs"
 version = "0.0.2"
 dependencies = [
@@ -164,6 +171,13 @@ dependencies = [
  "filer-fs",
  "filer-spec",
  "filer-system",
+]
+
+[[package]]
+name = "filer-pack"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
 ]
 
 [[package]]

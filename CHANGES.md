@@ -12,6 +12,9 @@ so any release may break compatibility.
   `filer-minix`, `filer-refs`, `filer-squashfs`, `filer-ufs`, and
   `filer-zfs`: New crates, with no items yet, published at 0.0.2 to
   reserve their names.
+- `filer-msft` and `filer-pack`: New crates, with no items yet,
+  published at 0.0.2: they are to hold Microsoft's on-disk conventions
+  and the archive drivers' shared machinery.
 
 ## 0.0.2 - 2026-11-03
 Read-only file systems (ext2/3/4, FAT, NTFS, XFS) and more archive
