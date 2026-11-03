@@ -589,12 +589,6 @@ Created with `publish = false` (D16).
   `filer-ar`'s and `filer-cpio`'s copies of the adapter. Done when the
   three fuzz tests and the `cargo-fuzz` targets build on the shared
   walk.
-- [ ] **PACK-09: `filer-msft` in archives.**
-  Replace `filer-zip`'s NT and DOS time decoding with `filer-msft`'s,
-  and its and `filer-cpio`'s mode matches with
-  `FileKind::from_unix_mode`;
-  `filer-zip`'s field cursor stays. Done when `filer-zip`'s `header.rs`
-  decodes no times itself and neither index matches mode bits.
 - [ ] **PACK-10: Chunked header reads (optional).** `filer-tar`,
   `filer-ar`, and `filer-cpio` issue one source read per header; share
   `filer-zip`'s forward `Reader` through `filer-pack` if a `File` source

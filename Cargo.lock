@@ -326,6 +326,7 @@ version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-heap",
+ "filer-msft",
  "filer-pack",
  "filer-spec",
  "miniz_oxide",

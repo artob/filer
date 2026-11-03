@@ -47,6 +47,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-msft"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-pack"
 version = "0.0.2"
 dependencies = [
@@ -66,6 +73,7 @@ name = "filer-zip"
 version = "0.0.2"
 dependencies = [
  "filer-api",
+ "filer-msft",
  "filer-pack",
  "miniz_oxide",
 ]

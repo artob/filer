@@ -8,6 +8,7 @@
 use alloc::vec::Vec;
 use core::time::Duration;
 use filer_api::{FileKind, Timestamp};
+use filer_msft::{dos, nt};
 
 /// The end of central directory record, without its comment.
 pub(crate) const EOCD_LEN: usize = 22;
@@ -50,12 +51,6 @@ const UNIX_HOSTS: [u8; 2] = [3, 19];
 
 /// The MS-DOS directory attribute.
 const DOS_DIRECTORY: u32 = 0x10;
-
-/// Seconds from 1601-01-01, the Windows epoch, to the Unix epoch.
-const WINDOWS_TO_UNIX: i64 = 11_644_473_600;
-
-/// Days from 1970-01-01 to 1980-01-01, the DOS epoch.
-const DAYS_TO_1980: i64 = 3652;
 
 /// A little-endian reader over a slice that never panics.
 struct Fields<'a>(&'a [u8]);
@@ -329,15 +324,12 @@ impl Central {
         let [_, host] = self.fixed.made_by.to_le_bytes();
         let external = self.fixed.external;
         if UNIX_HOSTS.contains(&host) {
-            match (external >> 16) & 0o170_000 {
-                0o040_000 => return Kind::Dir,
-                0o120_000 => return Kind::Symlink,
-                0o010_000 => return Kind::Special(FileKind::Fifo),
-                0o020_000 => return Kind::Special(FileKind::CharDevice),
-                0o060_000 => return Kind::Special(FileKind::BlockDevice),
-                0o140_000 => return Kind::Special(FileKind::Socket),
+            match FileKind::from_unix_mode(external >> 16) {
+                Some(FileKind::Dir) => return Kind::Dir,
+                Some(FileKind::Symlink) => return Kind::Symlink,
                 // Regular files, and archivers that wrote no mode.
-                _ => {},
+                Some(FileKind::File) | None => {},
+                Some(kind) => return Kind::Special(kind),
             }
         }
         if external & DOS_DIRECTORY != 0 {
@@ -487,60 +479,15 @@ fn ntfs_time(extra: &[u8]) -> Option<Timestamp> {
         let len = f.u16()?;
         let mut attribute = Fields(f.bytes(len.into())?);
         if tag == 1 {
-            let ticks = attribute.u64()?;
-            let secs = i64::try_from(ticks / 10_000_000).ok()?;
-            let nanos = u32::try_from(ticks % 10_000_000).ok()?.checked_mul(100)?;
-            let secs = secs.checked_sub(WINDOWS_TO_UNIX)?;
-            return Some(Timestamp::new(secs, nanos).with_granularity(Duration::from_nanos(100)));
+            return nt::timestamp(attribute.u64()?);
         }
     }
 }
 
-/// Converts DOS date and time fields, a local time with no zone, to a
-/// timestamp read as UTC at 2-second granularity; `None` if out of range.
-pub(crate) fn dos_time(date: u16, time: u16) -> Option<Timestamp> {
-    let year = 1980_u16.checked_add(date >> 9)?;
-    let month = (date >> 5) & 0x0F;
-    let day = date & 0x1F;
-    let hour = time >> 11;
-    let minute = (time >> 5) & 0x3F;
-    let second = (time & 0x1F).checked_mul(2)?;
-    if !(1..=12).contains(&month)
-        || day == 0
-        || day > days_in_month(year, month)
-        || hour > 23
-        || minute > 59
-        || second > 59
-    {
-        return None;
-    }
-    let mut days = DAYS_TO_1980;
-    for year in 1980..year {
-        days = days.checked_add(if is_leap(year) { 366 } else { 365 })?;
-    }
-    for month in 1..month {
-        days = days.checked_add(days_in_month(year, month).into())?;
-    }
-    days = days.checked_add(day.into())?.checked_sub(1)?;
-    let secs = days
-        .checked_mul(86_400)?
-        .checked_add(i64::from(hour).checked_mul(3600)?)?
-        .checked_add(i64::from(minute).checked_mul(60)?)?
-        .checked_add(second.into())?;
-    Some(Timestamp::new(secs, 0).with_granularity(Duration::from_secs(2)))
-}
-
-const fn is_leap(year: u16) -> bool {
-    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
-}
-
-const fn days_in_month(year: u16, month: u16) -> u16 {
-    match month {
-        2 if is_leap(year) => 29,
-        2 => 28,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
-    }
+/// Returns the time of DOS date and time fields, a local time whose zone
+/// ZIP does not record, read as UTC; `None` if unset or out of range.
+fn dos_time(date: u16, time: u16) -> Option<Timestamp> {
+    dos::Stamp::decode(date, time, 0).to_timestamp(dos::UtcOffset::UTC, dos::TWO_SECONDS)
 }
 
 #[cfg(test)]

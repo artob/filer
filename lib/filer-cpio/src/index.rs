@@ -6,10 +6,7 @@
 
 use crate::{
     codec::Sum,
-    header::{
-        BLOCK, CHAR, DIR, FIFO, FILE, Format, Header, MAX_HEADER, SOCKET, SYMLINK, TRAILER, TYPE,
-        align, is_compressed, parse,
-    },
+    header::{Format, Header, MAX_HEADER, TRAILER, align, is_compressed, parse},
 };
 use alloc::collections::BTreeMap;
 use core::time::Duration;
@@ -95,9 +92,13 @@ pub(crate) async fn index<S: ReadAt>(
             continue;
         }
         let crc = matches!(format, Format::Newc { crc: true });
-        match header.mode & TYPE {
-            DIR => index.dir(name, offset)?,
-            FILE if header.nlink > 1 => {
+        let kind = u32::try_from(header.mode)
+            .ok()
+            .and_then(FileKind::from_unix_mode)
+            .ok_or_else(|| corrupt("unknown file type"))?;
+        match kind {
+            FileKind::Dir => index.dir(name, offset)?,
+            FileKind::File if header.nlink > 1 => {
                 let member = member(&header, data, crc);
                 let key = (archive, header.dev, header.ino);
                 match nodes.get(&key) {
@@ -113,17 +114,14 @@ pub(crate) async fn index<S: ReadAt>(
                     },
                 }
             },
-            FILE => index.insert(name, Node::File(member(&header, data, crc)), offset)?,
-            SYMLINK => {
+            FileKind::File => index.insert(name, Node::File(member(&header, data, crc)), offset)?,
+            FileKind::Symlink => {
                 let len = index.target_len(header.size, offset)?;
                 let target = CPIO.read(source, data, len).await?;
                 index.insert(name, Node::Symlink(target.into_boxed_slice()), offset)?;
             },
-            CHAR => index.insert(name, Node::Special(FileKind::CharDevice), offset)?,
-            BLOCK => index.insert(name, Node::Special(FileKind::BlockDevice), offset)?,
-            FIFO => index.insert(name, Node::Special(FileKind::Fifo), offset)?,
-            SOCKET => index.insert(name, Node::Special(FileKind::Socket), offset)?,
-            _ => return Err(corrupt("unknown file type")),
+            // Devices, FIFOs, and sockets.
+            kind => index.insert(name, Node::Special(kind), offset)?,
         }
         offset = next;
     }

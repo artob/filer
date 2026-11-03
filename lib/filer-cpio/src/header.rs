@@ -83,16 +83,6 @@ pub(crate) struct Header {
     pub(crate) check: u32,
 }
 
-/// File types, from a mode's type bits.
-pub(crate) const TYPE: u64 = 0o170_000;
-pub(crate) const SOCKET: u64 = 0o140_000;
-pub(crate) const SYMLINK: u64 = 0o120_000;
-pub(crate) const FILE: u64 = 0o100_000;
-pub(crate) const BLOCK: u64 = 0o060_000;
-pub(crate) const DIR: u64 = 0o040_000;
-pub(crate) const CHAR: u64 = 0o020_000;
-pub(crate) const FIFO: u64 = 0o010_000;
-
 /// Parses a header of `format` from `bytes`, which hold at least its
 /// length, or returns `None` if a field is malformed.
 pub(crate) fn parse(format: Format, bytes: &[u8]) -> Option<Header> {
@@ -226,7 +216,7 @@ mod tests {
         .concat();
         let header = parse(Format::Newc { crc: false }, newc.as_bytes()).unwrap();
         assert_eq!(header.ino, 2);
-        assert_eq!(header.mode & TYPE, SYMLINK);
+        assert_eq!(header.mode, 0o120_777);
         assert_eq!((header.mtime, header.size, header.name_len), (10, 13, 5));
         assert_eq!(header.dev, 8 << 32 | 3);
 
