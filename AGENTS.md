@@ -67,8 +67,8 @@
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.
-- New crates must also be added to the package lists in
-  `.github/workflows/ci.yaml` and to the README crate table.
+- New crates must also be added to the README crate table. CI derives its
+  package lists from `cargo metadata` and builds every `lib/*/fuzz/`.
 - `filer-cli` is binary-only: its `[[bin]]` has `required-features = ["std"]`,
   so `no_std` builds skip it. It has no doctests; CI's packaged-doctest loop
   omits it. `filer-system` depends on each backend only under its `cfg`;

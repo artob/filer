@@ -31,19 +31,6 @@ later sections assume earlier ones are done.
   the same change. When an item resolves a **VERIFY** note, rewrite that
   note in `DESIGN.md` with the finding and its date.
 
-## Project bootstrap
-
-The workspace, root files, CI, and five empty crates (`filer-api`,
-`filer-posix`, `filer-wasi`, `filer-windows`, `filer-cli`) exist. Versions
-start at 0.0.0 and releases stay 0.0.x until the criteria at the end of
-this file are met (D29).
-
-- [ ] **BOOT-01: Derive CI package lists.**
-  `ci.yaml` hard-codes the package list in the packaged-doctest and
-  feature jobs. Derive it from `cargo metadata` (excluding `filer-cli` from
-  doctests, which has no library). Done when CI is green and adding a crate
-  needs no workflow edit.
-
 ## Questions for the maintainer
 
 - [ ] **ASK-01: Umbrella crate name (Q11).**
@@ -566,7 +553,7 @@ Created with `publish = false` (D16).
   directories. Done when `filer-spec` passes.
 - [ ] **TAR-01: Fuzzing `filer-tar`.** The driver passes `filer-spec` and
   hostile-archive tests. Still missing: a fuzz target over `header.rs` and
-  indexing (with CI-03). Done when it builds in CI.
+  indexing. Done when it builds in CI.
 - [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz behind features, indexed on
   open with checkpoints or cached members. Done when `.tar.gz` passes the
   same subset.
@@ -737,9 +724,6 @@ Blocked on ASK-01; `filer-system` (§17.10) may make it unnecessary.
   tests select fixtures by environment variable and skip cleanly without.
 - [ ] **CI-02: Miri.** For `filer-api`, `filer-heap`, routing drivers, and
   pure parts of `sys` modules. Done when green.
-- [ ] **CI-03: Fuzz build check.** The `fuzz/` crates of `filer-ext4`,
-  `filer-fat`, and `filer-ntfs` build in CI; extend the job to each new
-  one (D50). Done when all build.
 - [ ] **CI-04: `cargo-semver-checks`.** Once a release exists, per crate.
 - [ ] **DOC-01: Crate overviews.** Rustdoc landing pages with feature-gated
   examples passing the packaged-doctest job in all four feature modes.
