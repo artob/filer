@@ -26,14 +26,14 @@ dependencies = [
 
 [[package]]
 name = "filer-7z"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-api"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "bitflags",
  "ref-cast",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "filer-ar"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "filer-archive"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-7z",
  "filer-api",
@@ -65,14 +65,14 @@ dependencies = [
 
 [[package]]
 name = "filer-cli"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-system",
 ]
 
 [[package]]
 name = "filer-cpio"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -80,7 +80,7 @@ dependencies = [
 
 [[package]]
 name = "filer-ext4"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "filer-fat"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -102,7 +102,7 @@ dependencies = [
 
 [[package]]
 name = "filer-fs"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "filer-heap"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -118,7 +118,7 @@ dependencies = [
 
 [[package]]
 name = "filer-ntfs"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "filer-posix"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -137,21 +137,21 @@ dependencies = [
 
 [[package]]
 name = "filer-rar"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-spec"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-system"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-posix",
@@ -162,7 +162,7 @@ dependencies = [
 
 [[package]]
 name = "filer-tar"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-heap",
@@ -171,7 +171,7 @@ dependencies = [
 
 [[package]]
 name = "filer-udf"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -179,7 +179,7 @@ dependencies = [
 
 [[package]]
 name = "filer-volume"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-ext4",
@@ -193,21 +193,21 @@ dependencies = [
 
 [[package]]
 name = "filer-wasi"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-whatwg"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-windows"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -217,7 +217,7 @@ dependencies = [
 
 [[package]]
 name = "filer-xfs"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -227,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "filer-zip"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-heap",
@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "known-codepages"
-version = "0.0.1"
+version = "0.0.2"
 
 [[package]]
 name = "libc"

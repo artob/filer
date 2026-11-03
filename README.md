@@ -5,7 +5,15 @@
 
 **Filer provides a filesystem API with platform-specific backends for Rust.**
 
-**Status:** pre-release; no items are exported yet.
+Every backend serves the same capability-based API: a `Dir` grants access
+only beneath itself, so paths cannot escape it. The API is async-first,
+pure Rust, and builds with `#![no_std]`. Besides the native file system,
+drivers read disk images and archives from any source, even a file inside
+another driver.
+
+**Status:** experimental; every 0.0.x release may break the last. Reading
+works natively on Unix and Windows, in memory, and in the file systems and
+archives below; writing is not implemented yet.
 
 ## 🛠️ Prerequisites
 
@@ -15,32 +23,49 @@
 
 ### Crates
 
+Start with one of these:
+
+| Crate | Summary |
+| --- | --- |
+| `filer-system` | The API, plus the native driver for the target |
+| `filer-volume` | Read-only volumes of any supported file system |
+| `filer-archive` | Read-only archives of any supported format |
+
+Native backends:
+
 | Crate | Platforms | Summary |
 | --- | --- | --- |
-| `filer-7z` | All | Read-only 7z archive driver |
-| `filer-api` | All | Platform-independent API |
-| `filer-ar` | All | Read-only ar archive driver |
-| `filer-archive` | All | Read-only archives of any supported format |
-| `filer-cpio` | All | Read-only cpio archive driver |
-| `filer-ext4` | All | Read-only ext2/3/4 file system driver |
-| `filer-fat` | All | FAT12/16/32 file system driver |
-| `filer-fs` | All | Shared machinery of file system drivers |
-| `filer-heap` | All | In-memory driver |
-| `filer-ntfs` | All | Read-only NTFS file system driver |
 | `filer-posix` | Unix | POSIX backend |
-| `filer-rar` | All | Read-only RAR archive driver |
-| `filer-spec` | All | Executable driver specification, for tests |
-| `filer-system` | All | Native backend for the target, plus the API |
-| `filer-tar` | All | Read-only TAR archive driver |
-| `filer-udf` | All | Read-only UDF file system driver |
-| `filer-volume` | All | Read-only volumes of any supported file system |
-| `filer-wasi` | WASI | WASI backend |
-| `filer-whatwg` | Browsers | WHATWG File System (OPFS) backend |
 | `filer-windows` | Windows | Windows backend |
-| `filer-xfs` | All | Read-only XFS file system driver |
-| `filer-zip` | All | Read-only ZIP archive driver |
-| `filer-cli` | All | `filer` command-line interface |
-| `known-codepages` | All | DOS code pages, for FAT and ZIP names |
+| `filer-wasi` | WASI | WASI backend (planned) |
+| `filer-whatwg` | Browsers | WHATWG File System (OPFS) backend (planned) |
+
+File systems and archives, all read-only and on every platform:
+
+| Crate | Summary |
+| --- | --- |
+| `filer-ext4` | ext2, ext3, and ext4 |
+| `filer-fat` | FAT12, FAT16, and FAT32 |
+| `filer-ntfs` | NTFS |
+| `filer-xfs` | XFS |
+| `filer-udf` | UDF (planned) |
+| `filer-tar` | TAR |
+| `filer-zip` | ZIP |
+| `filer-ar` | ar: Debian packages, static libraries |
+| `filer-cpio` | cpio: initramfs images |
+| `filer-rar` | RAR (planned) |
+| `filer-7z` | 7z (planned) |
+
+Foundations:
+
+| Crate | Summary |
+| --- | --- |
+| `filer-api` | Platform-independent API |
+| `filer-heap` | In-memory driver |
+| `filer-fs` | Shared machinery of file system drivers |
+| `filer-spec` | Executable driver specification, for tests |
+| `known-codepages` | DOS code pages, for FAT names |
+| `filer-cli` | `filer` command-line interface (planned) |
 
 Only `filer-windows` contains `unsafe`: the system calls the standard
 library lacks, each wrapped safely in its private `sys` module.

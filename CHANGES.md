@@ -7,121 +7,56 @@ The format is based on [Keep a Changelog], and this project adheres to
 so any release may break compatibility.
 
 ## Unreleased
+
+## 0.0.2 - 2026-11-03
+Read-only file systems (ext2/3/4, FAT, NTFS, XFS) and more archive
+formats (ar, cpio, ZIP), each also opened by `filer-volume` or
+`filer-archive` without naming its format; the Windows driver; and
+thread-pool executors.
 ### Added
-- `filer-volume`: New crate: `Volume`, a driver opening a volume of any
-  supported file system (ext2/3/4, FAT, NTFS, XFS; each a feature, as is
-  the empty `filer-udf`), detected by its first bytes, or with a given
-  `VolumeDriver`, or as a partition of a disk image; `VolumeFormat`, the
-  format in detail (ext2/3/4, FAT12/16/32, NTFS, XFS); `VolumeOptions`
-  and `VolumeError`.
-- `filer-archive`: New crate: `Archive`, a driver opening an archive of
-  any supported format (ar, cpio, TAR, ZIP; each a feature, as are the
-  empty `filer-rar` and `filer-7z`) by its file name's extension, or as a given
-  `Format`, and `FormatError`.
-- `filer-api`: `Dir::names`, listing a directory's names at once, and
-  comparisons of `EntryName` with strings.
-- `filer-api`: `archive::Index::add` and `Index::alias`, for hardlinks that
-  name their target by inode rather than by path.
-- `filer-spec`: `Profile::empty_dirs`, off for formats whose directories
-  are only implied by their files' names.
-- `filer-api`: `IoBufMut::fill_from`, appending as much of a slice as
-  fits.
-- `filer-api`: `Error::with_entry_name`, naming an entry in an error.
-- `filer-api`: `EntryName::is_valid`, the rule every entry name meets.
-- `filer-spec`: `Sparse`, `Overlay`, and `Image`: sparse fixtures, and
-  images mutated without copying, for drivers that read volume images;
-  `exercise`, with `Checks` and `Outcome`, walking what a driver makes of
-  a corrupt volume; with `std`, `fuzz`, a structure-aware fuzzer of
-  volume images.
-- `filer-posix`: Kernel-confined opens with `openat2` on Linux, falling
-  back to the userspace walk; `Posix::with_userspace_resolution`.
-- `filer-api`: `Spawner` and `Job`; under `std`, `run_on` and
-  `DefaultPool`, the built-in thread pool.
-- `filer-system`: `System` is `filer-windows`'s driver on Windows.
-- `filer-windows`: `Windows`, the Windows driver, with `blocking` and
-  `thread_pool` constructors and `open_ambient_dir` and `open_ambient`,
-  opening roots; opening files and directories beneath them, reading
-  files and metadata, listing directories, and reading symbolic links and
-  junctions. It passes the specification.
-- `filer-posix`, `filer-system`: `thread_pool(spawner)` constructors, which
-  run each operation on a `Spawner` instead of inside `poll`.
-- `filer-ar`: New crate: `Ar`, the read-only ar archive driver (Debian
-  packages and static libraries, with System V, GNU, BSD, and Windows
-  names), and `Limits`.
-- `filer-cpio`: New crate: `Cpio`, the read-only cpio archive driver
-  (`newc` with or without checksums, `odc`, and old binary; hardlinks by
-  inode; concatenated archives, as in initramfs images), and `Limits`.
-- `filer-7z` and `filer-rar`: New crates, with no items yet.
-- `filer-ext4`, `filer-ntfs`, `filer-udf`, and `filer-xfs`: New crates for
-  read-only file system drivers, with no items yet but `filer-ext4`'s
-  `Ext4` driver (reading ext2, ext3, and ext4 as `mke2fs` makes them,
-  checking their checksums, and replaying journals that need recovery),
-  `Options`, and `Ext4Error`, `filer-ntfs`'s `Ntfs` driver, `Options`,
-  and `NtfsError`, and `filer-xfs`'s `Xfs` driver (reading version 4 and 5
-  volumes, with every feature but zoned realtime sections, and no realtime
-  files' contents; replaying logs that need recovery), `Options`,
-  `XfsError`, and `FeatureSet`.
-- `filer-fs`: New crate: the shared machinery of file system drivers,
-  which `filer-fat`, `filer-ext4`, `filer-ntfs`, `filer-udf`, and
-  `filer-xfs` depend on. So far `le` and `be`, field readers, and
-  `read_exact`, reading from a source; `wtf8`, for UTF-16 names; `nt`,
-  for Windows NT times and attributes, and `reparse`, for reparse points
-  (both moved from `filer-ntfs`); `unix`, for Unix file types;
-  `posix_acl`, for POSIX ACLs; and `map`, reading files through maps of
-  their blocks; `FileSystem` and `Mounted`, the
-  driver shell, and `Opened`; `partition`, reading MBR and GPT partition
-  tables, with `Window`, a source of one partition; `recover`, with
-  `Overlay` and `Recovered`, reading a volume as replaying its journal
-  would leave it.
-- `filer-fat`: New crate. `Fat`, a read-only driver for FAT12, FAT16, and
-  FAT32 volumes, with `Options`, `UtcOffset`, `FatType`, and `FatError`;
-  the `code-pages` feature decodes short names in any `CodePage`.
-- `known-codepages`: New crate. `CodePage`, the single-byte DOS and
-  Windows code pages, decoded by table.
-- `filer-api`: `archive`, the shared machinery of archive drivers:
-  `Archive`, `Index`, `Member`, `Limits`, and `ArchiveError`.
-- `filer-api`: `checksum`, the checksums drivers share: `Crc32c` and
-  `crc32c`, with `Crc32c::from_state` and `state`; `Crc32` and `crc32`;
-  `Crc16Modbus` and `crc16_modbus`.
-- `filer-api`: Reading extended attributes: `Op::Xattr` with `XattrOp`,
-  `XattrName`, `XattrNs`, `XattrEntry`, and `XattrNameError`;
-  `File::xattr`, `xattr_into`, and `xattr_names`, likewise on `Dir`;
-  `DriverKey::xattr_entry`; `Output::Xattr` and `Output::XattrNames`.
-- `filer-api`: `FileAttrs` (file flags) in `Metadata::attrs`, requested
-  with `MetaMask::ATTRS`.
-- `filer-api`: `Op::unsupported` and `Op::into_buf`, so a driver's answer
-  to an operation it does not implement returns the operation's buffer.
-- `filer-heap`: Extended attributes, set by `HeapBuilder::xattr`.
-- `filer-spec`: `Profile::xattrs`, `TreeEntry::Xattr`, and the
-  `reads_xattrs` case.
-- `filer-ntfs`: Named data streams, read as `user.` extended attributes,
-  and file attributes, as `FileAttrs`; `NtfsError::BadStreamName`.
-- `filer-api`: `archive::Codec`, `Decoder`, and `Stored`, so archive
-  drivers can serve compressed members; `Member`, `Index`, and `Archive`
-  take the format's codec as a type parameter, defaulting to `Stored`;
-  `Member::packed` and `Member::encoded`; `Limits::max_total_size`,
-  `max_ratio`, `exceeds_ratio`, and `RATIO_EXEMPT`, against
-  decompression bombs.
-- `filer-zip`: `Zip`, a read-only driver over ZIP archives with stored
-  and, under the `deflate` feature, Deflate members, including ZIP64; `filer_zip::Limits` re-exports
-  `filer_api::archive::Limits`.
-- `filer-ntfs`: Interix special files: symlinks, FIFOs, sockets, and
-  devices.
+- `filer-api`:
+  - Executors: `Spawner` and `Job`; with `std`, `DefaultPool` and
+    `run_on`.
+  - Resolution: `BlockingResolver`, the synchronous walk.
+  - Listing: `Dir::names`, and comparisons of `EntryName` with strings.
+  - Extended attributes: `Op::Xattr`, `XattrName`, `XattrEntry`, and
+    `File::xattr` and `Dir::xattr`, with their kin.
+  - Metadata: `FileAttrs`, in `Metadata::attrs`.
+  - `archive`: what archive drivers share: `Archive`, `Index`, `Member`,
+    `Limits`, `ArchiveError`, and `Codec` for compressed members.
+  - `checksum`: CRC-32C, CRC-32, and CRC-16/MODBUS.
+- `filer-ar`: New crate. `Ar`: ar archives, such as Debian packages and
+  static libraries.
+- `filer-archive`: New crate. `Archive`, opening an archive of any
+  supported format by its file name, with `Format`; a feature per format.
+- `filer-cpio`: New crate. `Cpio`: cpio archives, such as initramfs
+  images.
+- `filer-ext4`: New crate. `Ext4`: ext2, ext3, and ext4.
+- `filer-fat`: New crate. `Fat`: FAT12, FAT16, and FAT32; the
+  `code-pages` feature.
+- `filer-fs`: New crate. What file system drivers share: `FileSystem`
+  and `Mounted`, the driver shell; `partition`, for MBR and GPT; and
+  `recover`, `map`, `nt`, `reparse`, `wtf8`, and the rest.
+- `filer-heap`: Extended attributes.
+- `filer-ntfs`: New crate. `Ntfs`: NTFS, with named streams as extended
+  attributes.
+- `filer-posix`: `Posix::thread_pool`; opens confined by the Linux kernel
+  with `openat2`.
+- `filer-spec`: Cases for extended attributes; `Sparse`, `Overlay`, and
+  `exercise`, for drivers of volume images; with `std`, `fuzz`.
+- `filer-system`: `System::thread_pool`; on Windows, `filer-windows`.
+- `filer-volume`: New crate. `Volume`, opening a volume of any supported
+  file system as its first bytes say, or a partition of a disk, with
+  `VolumeFormat` and `VolumeDriver`; a feature per driver.
+- `filer-windows`: `Windows`, the Windows driver.
+- `filer-xfs`: New crate. `Xfs`: XFS, versions 4 and 5.
+- `filer-zip`: `Zip`: ZIP archives, with ZIP64; the `deflate` feature.
+- `known-codepages`: New crate. `CodePage`: DOS and Windows code pages.
+- `filer-7z`, `filer-rar`, and `filer-udf`: New crates, with no items yet.
 ### Changed
-- `filer-api`: `tree::Tree::node` returns an `Option`, `None` for a node
-  the tree lacks, where it panicked; `IoBufMut::fill` panics only in
-  debug builds when its callback claims more than it was given. Every
-  library crate now denies panicking constructs by lint (D47).
-- `filer-api`: `Resolver` is now asynchronous, as async-first; the
-  synchronous walk is `BlockingResolver`, and both share one
-  implementation.
-- `filer-tar`: `Tar` is a thin wrapper around `filer_api::archive::Archive`;
-  `filer_tar::Limits` is now a re-export of `filer_api::archive::Limits`.
-### Fixed
-- `filer-ntfs`: Reading a compression unit stored as is no longer runs on
-  into a compressed unit that follows it in the same run, as Windows
-  writes them; `stat` of an encrypted file reports its length instead of
-  failing.
+- `filer-api`: `Resolver` is asynchronous; `tree::Tree::node` returns an
+  `Option`.
+- `filer-tar`: `Limits` is `filer_api::archive::Limits`.
 
 ## 0.0.1 - 2026-11-01
 The first usable version: read-only access through a capability-based
