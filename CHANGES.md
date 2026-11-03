@@ -8,6 +8,8 @@ so any release may break compatibility.
 
 ## Unreleased
 ### Added
+- `filer-api`: `archive::Index::add` and `Index::alias`, for hardlinks that
+  name their target by inode rather than by path.
 - `filer-spec`: `Profile::empty_dirs`, off for formats whose directories
   are only implied by their files' names.
 - `filer-api`: `IoBufMut::fill_from`, appending as much of a slice as

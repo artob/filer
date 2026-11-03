@@ -21,7 +21,10 @@ use alloc::vec::Vec;
 /// - creates the directories a name implies;
 /// - lets the later of duplicate members win, even where a file replaces a
 ///   directory or the reverse;
-/// - makes a hardlink share its target's node, and so its file id.
+/// - makes a hardlink share its target's node, and so its file id, whether
+///   the format names the target by path ([`hardlink`](Self::hardlink),
+///   as TAR does) or by inode ([`add`](Self::add) and
+///   [`alias`](Self::alias), as cpio does).
 ///
 /// Errors name the archive format and the offset of the header at fault
 /// (see [`ArchiveError`]).
@@ -77,12 +80,51 @@ impl<C> Index<C> {
     /// [`InvalidName`](ErrorKind::InvalidName) if `name` could escape the
     /// archive root or names the root itself.
     pub fn insert(&mut self, name: &[u8], node: Node<Member<C>>, offset: u64) -> Result<(), Error> {
+        self.add(name, node, offset).map(|_| ())
+    }
+
+    /// Records the non-directory member `name` as `node`, as
+    /// [`insert`](Self::insert) does, and returns the node's inode, for
+    /// [`alias`](Self::alias).
+    ///
+    /// # Errors
+    ///
+    /// As for [`insert`](Self::insert).
+    pub fn add(&mut self, name: &[u8], node: Node<Member<C>>, offset: u64) -> Result<Ino, Error> {
         let components = self.components(name, offset)?;
         let Some((&last, parents)) = components.split_last() else {
             return Err(self.fail(ErrorKind::InvalidName, offset, "member names the root"));
         };
         let parent = self.make_dirs(parents, offset)?;
         let ino = self.tree.add(node);
+        self.link(parent, last, ino, offset)?;
+        Ok(ino)
+    }
+
+    /// Records `name` as another link to `ino`, a node [`add`](Self::add)
+    /// returned, from the header at `offset`: a hardlink whose format
+    /// names its target by inode rather than by path, as cpio does, so
+    /// that the link holds even if a later member takes the target's
+    /// name.
+    ///
+    /// # Errors
+    ///
+    /// [`InvalidName`](ErrorKind::InvalidName) for unsafe names;
+    /// [`Corrupt`](ErrorKind::Corrupt) if `ino` is not a node of this
+    /// index, or is a directory.
+    pub fn alias(&mut self, name: &[u8], ino: Ino, offset: u64) -> Result<(), Error> {
+        let components = self.components(name, offset)?;
+        let Some((&last, parents)) = components.split_last() else {
+            return Err(self.fail(ErrorKind::InvalidName, offset, "member names the root"));
+        };
+        let is_file = self
+            .tree
+            .node(ino)
+            .is_some_and(|node| node.kind() != FileKind::Dir);
+        if !is_file {
+            return Err(self.fail(ErrorKind::Corrupt, offset, "bad hardlink"));
+        }
+        let parent = self.make_dirs(parents, offset)?;
         self.link(parent, last, ino, offset)
     }
 
@@ -95,26 +137,17 @@ impl<C> Index<C> {
     /// [`Corrupt`](ErrorKind::Corrupt) if `target` is not an earlier
     /// member, or is a directory.
     pub fn hardlink(&mut self, name: &[u8], target: &[u8], offset: u64) -> Result<(), Error> {
-        let components = self.components(name, offset)?;
-        let Some((&last, parents)) = components.split_last() else {
-            return Err(self.fail(ErrorKind::InvalidName, offset, "member names the root"));
-        };
-        let bad = || {
-            ArchiveError::new(self.format, offset, "bad hardlink").into_error(ErrorKind::Corrupt)
-        };
+        // The name is checked first, so that an unsafe one is reported as
+        // such whatever the target.
+        self.components(name, offset)?;
+        let bad = || self.fail(ErrorKind::Corrupt, offset, "bad hardlink");
         let target = safe_components(target).ok_or_else(bad)?;
         let target = target
             .iter()
             .try_fold(ROOT, |dir, name| self.tree.child(dir, name))
-            .filter(|&ino| {
-                self.tree
-                    .node(ino)
-                    .is_some_and(|node| node.kind() != FileKind::Dir)
-            })
             .filter(|_| !target.is_empty())
             .ok_or_else(bad)?;
-        let parent = self.make_dirs(parents, offset)?;
-        self.link(parent, last, target, offset)
+        self.alias(name, target, offset)
     }
 
     /// Returns the tree built so far.
@@ -237,5 +270,26 @@ mod tests {
         let tree = index.into_tree();
         let x = tree.child(ROOT, b"x").unwrap();
         assert_eq!(tree.child(ROOT, b"link"), tree.child(x, b"original"));
+    }
+
+    #[test]
+    fn shares_nodes_by_inode() {
+        let mut index = Index::new("test");
+        let ino = index.add(b"original", file(1), 0).unwrap();
+        // A later member takes the name; the link keeps the node.
+        index.insert(b"original", file(2), 0).unwrap();
+        index.alias(b"d/link", ino, 0).unwrap();
+        index.dir(b"dir", 0).unwrap();
+        let dir = index.tree().child(ROOT, b"dir").unwrap();
+        for bad in [dir, 1000] {
+            let error = index.alias(b"bad", bad, 0).unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::Corrupt, "{bad}");
+        }
+        let error = index.alias(b"../evil", ino, 0).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::InvalidName);
+        let tree = index.into_tree();
+        let d = tree.child(ROOT, b"d").unwrap();
+        assert_eq!(tree.child(d, b"link"), Some(ino));
+        assert_ne!(tree.child(ROOT, b"original"), Some(ino));
     }
 }
