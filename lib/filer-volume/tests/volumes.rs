@@ -6,24 +6,32 @@
 //! copied here. Tests of a format this build does not read check that it
 //! is refused instead, so they pass with any features.
 
-use filer_api::{Dir, Driver, EntryName, ErrorKind, Rights};
+use filer_api::{Dir, Driver, ErrorKind, Rights};
 use filer_spec::{Sparse, block_on};
-use filer_volume::{Volume, VolumeDriver, VolumeError, VolumeOptions};
+use filer_volume::{Volume, VolumeDriver, VolumeError, VolumeFormat, VolumeOptions};
 
-/// A volume of each format, with its driver and the path of a fixture
-/// in the workspace.
-const VOLUMES: [(VolumeDriver, &str); 5] = [
+/// A volume of each format, as the path of a fixture in the workspace.
+const VOLUMES: [(VolumeFormat, &str); 8] = [
     (
-        VolumeDriver::Ext4,
+        VolumeFormat::Ext2,
         "filer-ext4/tests/fixtures/ext2-attrs.sparse",
     ),
-    (VolumeDriver::Fat, "filer-fat/tests/fixtures/fat12.sparse"),
-    (VolumeDriver::Fat, "filer-fat/tests/fixtures/fat32.sparse"),
     (
-        VolumeDriver::Ntfs,
+        VolumeFormat::Ext3,
+        "filer-ext4/tests/fixtures/ext3-4k.sparse",
+    ),
+    (
+        VolumeFormat::Ext4,
+        "filer-ext4/tests/fixtures/ext4-4k.sparse",
+    ),
+    (VolumeFormat::Fat12, "filer-fat/tests/fixtures/fat12.sparse"),
+    (VolumeFormat::Fat16, "filer-fat/tests/fixtures/fat16.sparse"),
+    (VolumeFormat::Fat32, "filer-fat/tests/fixtures/fat32.sparse"),
+    (
+        VolumeFormat::Ntfs,
         "filer-ntfs/tests/fixtures/ntfs-links.sparse",
     ),
-    (VolumeDriver::Xfs, "filer-xfs/tests/fixtures/spec.sparse"),
+    (VolumeFormat::Xfs, "filer-xfs/tests/fixtures/spec.sparse"),
 ];
 
 fn fixture(path: &str) -> Vec<u8> {
@@ -41,14 +49,16 @@ fn volume_error(error: &filer_api::Error) -> Option<VolumeError> {
         .copied()
 }
 
-fn names<D: Driver>(root: &Dir<D>) -> Vec<EntryName> {
-    let mut names = block_on(root.names()).unwrap();
+/// Lists `root`, sorted, as text: a foreign name differs between drivers.
+fn names<D: Driver>(root: &Dir<D>) -> Vec<String> {
+    let names = block_on(root.names()).unwrap();
+    let mut names: Vec<String> = names.iter().map(ToString::to_string).collect();
     names.sort();
     names
 }
 
 /// Returns what `driver` itself lists at the root of `image`.
-fn listed_by_its_driver(driver: VolumeDriver, image: Vec<u8>) -> Vec<EntryName> {
+fn listed_by_its_driver(driver: VolumeDriver, image: Vec<u8>) -> Vec<String> {
     match driver {
         #[cfg(feature = "ext4")]
         VolumeDriver::Ext4 => names(&block_on(filer_volume::ext4::Ext4::open(image)).unwrap()),
@@ -64,8 +74,10 @@ fn listed_by_its_driver(driver: VolumeDriver, image: Vec<u8>) -> Vec<EntryName> 
 
 #[test]
 fn detects_and_opens_each_format() {
-    for (driver, path) in VOLUMES {
+    for (format, path) in VOLUMES {
         let image = fixture(path);
+        let driver = format.driver();
+        assert_eq!(VolumeFormat::detect(&image), Some(format), "{path}");
         assert_eq!(VolumeDriver::detect(&image), Some(driver), "{path}");
         let opened = block_on(Volume::open(image.clone()));
         if !driver.is_enabled() {
@@ -76,14 +88,16 @@ fn detects_and_opens_each_format() {
         }
         let root = opened.unwrap();
         assert_eq!(root.driver().volume_driver(), driver);
+        assert_eq!(root.driver().format(), Some(format), "{path}");
         assert_eq!(root.rights(), Rights::READ);
         assert_eq!(
             names(&root),
             listed_by_its_driver(driver, image.clone()),
             "{path}"
         );
+        // Opened with its driver, it is still known for its format.
         let root = block_on(Volume::open_as(image, driver)).unwrap();
-        assert_eq!(root.driver().volume_driver(), driver);
+        assert_eq!(root.driver().format(), Some(format), "{path}");
     }
 }
 

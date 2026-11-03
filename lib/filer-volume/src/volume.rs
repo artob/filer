@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::VolumeDriver;
+use crate::{VolumeDriver, VolumeFormat};
 use alloc::vec::Vec;
 use core::future::Future;
 use filer_api::{
@@ -12,25 +12,26 @@ use filer_fs::partition::{self, Window};
 /// by the [`VolumeDriver`] of its format.
 ///
 /// [`open`](Self::open) detects the format from the volume's first bytes
-/// (see [`VolumeDriver::detect`]), [`open_as`](Self::open_as) takes the
+/// (see [`VolumeFormat::detect`]), [`open_as`](Self::open_as) takes the
 /// driver from the caller, and [`open_partition`](Self::open_partition)
 /// opens one partition of a disk image; either way, the format's own
-/// driver reads the volume and serves it, so everything its docs say of reading,
-/// corruption, and recovery holds here. The volume's root comes back as
-/// a [`Dir`] with only [`READ`](filer_api::Rights::READ) rights, of one
-/// type whatever the format or the source, as the format's driver is held
-/// as a [`DynDriver`]: each operation costs one boxed future.
+/// driver reads the volume and serves it, so everything its docs say of
+/// reading, corruption, and recovery holds here. The volume's root comes
+/// back as a [`Dir`] with only [`READ`](filer_api::Rights::READ) rights,
+/// of one type whatever the format or the source, as the format's driver
+/// is held as a [`DynDriver`]: each operation costs one boxed future.
 ///
 /// # Examples
 ///
 /// ```
-/// use filer_volume::{VolumeDriver, Volume};
+/// use filer_volume::{Volume, VolumeDriver, VolumeFormat};
 ///
 /// # #[cfg(feature = "fat")]
 /// # filer_spec::block_on(async {
 /// let image: &'static [u8] = include_bytes!("../tests/data/hello.img");
 /// let root = Volume::open(image).await?;
 /// assert_eq!(root.driver().volume_driver(), VolumeDriver::Fat);
+/// assert_eq!(root.driver().format(), Some(VolumeFormat::Fat12));
 /// let file = root.open_file("hello/world.txt").await?;
 /// assert_eq!(file.read_to_end().await?, b"Hello, world!\n");
 /// # Ok::<(), filer_api::Error>(())
@@ -40,6 +41,7 @@ use filer_fs::partition::{self, Window};
 pub struct Volume {
     inner: DynDriver,
     driver: VolumeDriver,
+    format: Option<VolumeFormat>,
 }
 
 impl Volume {
@@ -69,7 +71,7 @@ impl Volume {
         options: VolumeOptions,
     ) -> Result<Dir<Self>, Error> {
         match detect(&source).await? {
-            Some(driver) => Self::open_as_with(source, driver, options).await,
+            Some(format) => open(source, format.driver(), Some(format), options).await,
             None if partition::read(&source).await?.is_some() => {
                 Err(unsupported(VolumeError::Partitioned))
             },
@@ -102,33 +104,11 @@ impl Volume {
         driver: VolumeDriver,
         options: VolumeOptions,
     ) -> Result<Dir<Self>, Error> {
-        match driver {
-            #[cfg(feature = "ext4")]
-            VolumeDriver::Ext4 => wrap(
-                filer_ext4::Ext4::open_with(source, options.ext4).await?,
-                driver,
-            ),
-            #[cfg(feature = "fat")]
-            VolumeDriver::Fat => wrap(
-                filer_fat::Fat::open_with(source, options.fat).await?,
-                driver,
-            ),
-            #[cfg(feature = "ntfs")]
-            VolumeDriver::Ntfs => wrap(
-                filer_ntfs::Ntfs::open_with(source, options.ntfs).await?,
-                driver,
-            ),
-            #[cfg(feature = "xfs")]
-            VolumeDriver::Xfs => wrap(
-                filer_xfs::Xfs::open_with(source, options.xfs).await?,
-                driver,
-            ),
-            #[allow(unreachable_patterns, reason = "with every format enabled")]
-            _ => {
-                let _ = (source, options);
-                Err(unsupported(VolumeError::Disabled(driver)))
-            },
-        }
+        // The format, if the volume's first bytes name one of the driver's.
+        let format = detect(&source)
+            .await?
+            .filter(|format| format.driver() == driver);
+        open(source, driver, format, options).await
     }
 
     /// Opens partition `number` of the disk image in `source`, numbered as
@@ -162,17 +142,66 @@ impl Volume {
     pub fn volume_driver(&self) -> VolumeDriver {
         self.driver
     }
+
+    /// Returns the volume's format, as its first bytes tell it: `None`
+    /// if they name none of its driver's, as may happen to a volume
+    /// opened with [`open_as`](Self::open_as).
+    #[must_use]
+    pub fn format(&self) -> Option<VolumeFormat> {
+        self.format
+    }
 }
 
-/// Returns the driver for the volume in `source`, by its first bytes.
-async fn detect<S: ReadAt>(source: &S) -> Result<Option<VolumeDriver>, Error> {
+/// Opens the volume in `source` with `driver`, as a volume of `format`
+/// if its first bytes say so.
+async fn open<S: ReadAt + 'static>(
+    source: S,
+    driver: VolumeDriver,
+    format: Option<VolumeFormat>,
+    options: VolumeOptions,
+) -> Result<Dir<Volume>, Error> {
+    match driver {
+        #[cfg(feature = "ext4")]
+        VolumeDriver::Ext4 => wrap(
+            filer_ext4::Ext4::open_with(source, options.ext4).await?,
+            driver,
+            format,
+        ),
+        #[cfg(feature = "fat")]
+        VolumeDriver::Fat => wrap(
+            filer_fat::Fat::open_with(source, options.fat).await?,
+            driver,
+            format,
+        ),
+        #[cfg(feature = "ntfs")]
+        VolumeDriver::Ntfs => wrap(
+            filer_ntfs::Ntfs::open_with(source, options.ntfs).await?,
+            driver,
+            format,
+        ),
+        #[cfg(feature = "xfs")]
+        VolumeDriver::Xfs => wrap(
+            filer_xfs::Xfs::open_with(source, options.xfs).await?,
+            driver,
+            format,
+        ),
+        #[allow(unreachable_patterns, reason = "with every format enabled")]
+        _ => {
+            let _ = (source, format, options);
+            Err(unsupported(VolumeError::Disabled(driver)))
+        },
+    }
+}
+
+/// Returns the format of the volume in `source`, by its first bytes.
+async fn detect<S: ReadAt>(source: &S) -> Result<Option<VolumeFormat>, Error> {
     let size = source.size().await?;
-    let len = usize::try_from(size).map_or(VolumeDriver::DETECT_LEN, |size| {
-        size.min(VolumeDriver::DETECT_LEN)
+    let len = usize::try_from(size).map_or(VolumeFormat::DETECT_LEN, |size| {
+        size.min(VolumeFormat::DETECT_LEN)
     });
     let BufResult(result, head) = source.read_exact_at(Vec::with_capacity(len), 0).await;
     result?;
-    Ok(VolumeDriver::detect(&head))
+    Ok(VolumeFormat::detect(&head))
 }
 
 fn unsupported(error: VolumeError) -> Error {
@@ -185,10 +214,15 @@ fn unsupported(error: VolumeError) -> Error {
     not(any(feature = "ext4", feature = "fat", feature = "ntfs", feature = "xfs")),
     allow(dead_code)
 )]
-fn wrap<D: Driver>(root: Dir<D>, driver: VolumeDriver) -> Result<Dir<Volume>, Error> {
+fn wrap<D: Driver>(
+    root: Dir<D>,
+    driver: VolumeDriver,
+    format: Option<VolumeFormat>,
+) -> Result<Dir<Volume>, Error> {
     let volume = Volume {
         inner: DynDriver::new(root.driver().clone()),
         driver,
+        format,
     };
     Ok(Dir::new(volume, root.handle().clone())?.restrict(root.rights()))
 }
@@ -207,6 +241,7 @@ impl core::fmt::Debug for Volume {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Volume")
             .field("driver", &self.driver)
+            .field("format", &self.format)
             .field("id", &self.id())
             .finish()
     }

@@ -28,6 +28,11 @@
 //! opening a volume with it fails with
 //! [`Unsupported`](filer_api::ErrorKind::Unsupported).
 //!
+//! [`VolumeFormat`] tells a volume's format more precisely than its
+//! driver does: ext2, ext3, or ext4 by the superblock's feature flags, and
+//! FAT12, FAT16, or FAT32 by the count of clusters, as `blkid` tells them;
+//! [`Volume::format`] gives an open volume's.
+//!
 //! A disk image with a partition table (MBR or GPT) is not a volume, but
 //! [`Volume::open_partition`] opens one of its partitions.
 //!
@@ -123,6 +128,9 @@ extern crate alloc;
 
 mod volume_driver;
 pub use volume_driver::*;
+
+mod volume_format;
+pub use volume_format::*;
 
 mod volume;
 pub use volume::*;

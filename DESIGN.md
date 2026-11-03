@@ -3204,9 +3204,15 @@ partition through `filer_fs::partition`'s `Window`. As in
 driver is a feature re-exporting its crate as a module, `code-pages`
 forwards `filer-fat`'s (not in `all`, as in `filer-fat`), `udf` enables
 the empty `filer-udf`, and opening a volume with a disabled driver is
-`Unsupported` with a `VolumeError`.
-Its tests open fixtures of the drivers' own crates, so none is copied,
-and check that each lists as its driver does.
+`Unsupported` with a `VolumeError`. `VolumeFormat` is the format in
+detail: ext2, ext3 (a journal), or ext4 (any feature flag past ext3's),
+and FAT12, FAT16, or FAT32 (by the count of clusters, as Microsoft's
+specification and `filer-fat` decide), with `Ntfs` and `Xfs`; detection
+lives there, `VolumeDriver::detect` is its `driver`, and
+`Volume::format` gives an open volume's, or `None` if `open_as` opened
+it with a driver its first bytes do not name. `blkid` agrees with it on
+every fixture. Its tests open fixtures of the drivers' own crates, so
+none is copied, and check that each lists as its driver does.
 
 ### 17.19 Later
 
