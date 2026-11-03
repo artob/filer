@@ -19,6 +19,8 @@ workspace = true
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+# Every item is Windows-only, so the default Linux build would be empty.
+default-target = "x86_64-pc-windows-msvc"
 
 [features]
 default = ["all", "std"]

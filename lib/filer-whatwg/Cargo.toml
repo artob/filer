@@ -19,6 +19,8 @@ workspace = true
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+# Its items are browser-only, so the default Linux build would be empty.
+default-target = "wasm32-unknown-unknown"
 
 [features]
 default = ["all", "std"]
