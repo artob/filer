@@ -20,14 +20,15 @@
 //!   [`Member`] records with their format's codec, and [`Verified`]
 //!   checks a [`Digest`] of what a decoder produced, such as a CRC-32;
 //! - [`Streams`] keeps [`Stream`]s part way through what they decode,
-//!   so that reading on from where a read stopped decodes no more;
+//!   so that reading on from where a read stopped decodes no more, and
+//!   [`Unpacked`] reads a packed range of a source decoded, as a source
+//!   in turn: a compressed tarball, or a solid block;
 //! - [`Limits`] bounds what an untrusted archive may make the index hold;
 //! - [`Parser`] reads a format's headers, and its errors carry an
 //!   [`ArchiveError`] naming the format, header offset, and reason.
 //!
-//! More is to move in (D59): a [`ReadAt`] source over a decoded stream,
-//! for compressed tarballs and solid archives; and pure-Rust decoders,
-//! one feature per algorithm.
+//! More is to move in (D59): pure-Rust decoders, one feature per
+//! algorithm.
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will
@@ -109,3 +110,9 @@ pub use streams::{Stream, StreamId, Streams};
 
 mod verified;
 pub use verified::*;
+
+#[cfg(test)]
+mod toy;
+
+mod unpacked;
+pub use unpacked::*;

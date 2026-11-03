@@ -2,6 +2,7 @@
 
 use crate::{Decoder, lock::Lock};
 use alloc::{boxed::Box, vec, vec::Vec};
+use core::ops::Range;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
 
 /// How many streams [`Streams`] keeps.
@@ -104,6 +105,36 @@ impl Streams {
             kept.push((id, stream));
         });
     }
+
+    /// Reads the decoded bytes within `wanted` of `id`, whose packed bytes
+    /// lie at `packed` in `source` and which decodes to `size` bytes, as
+    /// [`Stream::read`] does: on the kept stream that [`take`](Self::take)
+    /// finds, or on a new one decoding with what `decoder` returns, which
+    /// is then kept unless it reached the end.
+    ///
+    /// # Errors
+    ///
+    /// Those of `decoder` and [`Stream::read`]. A stream that fails is not
+    /// kept.
+    pub async fn read<S: ReadAt>(
+        &self,
+        id: StreamId,
+        source: &S,
+        packed: Range<u64>,
+        size: u64,
+        wanted: Range<u64>,
+        decoder: impl FnOnce() -> Result<Box<dyn Decoder>, Error> + Send,
+    ) -> Result<Vec<u8>, Error> {
+        let mut stream = match self.take(id, wanted.start) {
+            Some(stream) => stream,
+            None => Stream::new(decoder()?),
+        };
+        let data = stream.read(source, packed, size, wanted).await?;
+        if stream.decoded < size {
+            self.keep(id, stream);
+        }
+        Ok(data)
+    }
 }
 
 /// A decoder part way through what it decodes: a member, a compressed
@@ -162,9 +193,9 @@ impl Stream {
     pub async fn read<S: ReadAt>(
         &mut self,
         source: &S,
-        packed: core::ops::Range<u64>,
+        packed: Range<u64>,
         size: u64,
-        wanted: core::ops::Range<u64>,
+        wanted: Range<u64>,
     ) -> Result<Vec<u8>, Error> {
         let corrupt = || Error::new(ErrorKind::Corrupt, OpKind::Read);
         let (off, end) = (wanted.start, wanted.end.min(size));
@@ -233,6 +264,6 @@ pub(crate) async fn read_exact<S: ReadAt>(
 }
 
 /// Converts a length that fits in memory to a `u64`.
-fn to_u64(n: usize) -> u64 {
+pub(crate) fn to_u64(n: usize) -> u64 {
     u64::try_from(n).unwrap_or(u64::MAX)
 }

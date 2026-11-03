@@ -2347,7 +2347,8 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   (done, 2026-11-03: `Streams` of `Stream`s by `StreamId`, a `Stream`
   holding the decode loop over a packed range), and over it a `ReadAt`
   source over one decoded stream, for compressed tarballs and initramfs
-  images, and for solid blocks;
+  images, and for solid blocks (done, 2026-11-03: `Unpacked`, over a
+  `Codec` as its decoder factory);
 - the decoders, one per algorithm behind one feature each, Deflate
   first, from `filer-zip`; each format crate forwards the features it
   uses, as `filer-archive` forwards `deflate`; each decoder crate is

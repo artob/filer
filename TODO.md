@@ -551,13 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-05: A `ReadAt` source over a decoded stream.** `Unpacked<S>`
-  (name open) wraps a source, a decoder factory, and a declared length,
-  and serves any offset by continuing or restarting a stream through
-  PACK-04's cache: the base of TAR-02 and CPIO-02, and of solid blocks
-  (7Z-01). Tested with the driver tests' toy codec. Done when reads at
-  random offsets match a decoded copy and a sequential read decodes
-  once.
 - [ ] **PACK-06: Decoders behind features.** Move `filer-zip`'s Deflate
   adaptor over `miniz_oxide` to `filer-pack` behind `deflate`, the first
   of one feature per algorithm; `filer-zip` forwards it and drops its
@@ -587,8 +580,8 @@ Created with `publish = false` (D16).
   hostile-archive tests. Still missing: a fuzz target over `header.rs` and
   indexing, on PACK-08's shared walk. Done when it builds in CI.
 - [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz from `filer-pack`
-  (PACK-05, PACK-07) behind features, indexed on open with checkpoints or
-  cached members. Done when `.tar.gz` passes the same subset.
+  (`Unpacked`, PACK-07) behind features, indexed on open with checkpoints
+  or cached members. Done when `.tar.gz` passes the same subset.
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
@@ -604,7 +597,7 @@ Created with `publish = false` (D16).
 - [ ] **CPIO-02: Compressed initramfs images.** Distributions follow an
   uncompressed early archive with a compressed one (zstd on Ubuntu),
   which `filer-cpio` refuses as `Unsupported`. Decode it behind features,
-  through `filer-pack`'s decoded source (PACK-05) and decoders (PACK-07).
+  through `filer-pack`'s `Unpacked` and decoders (PACK-07).
   Done when a distribution's image reads as GNU cpio extracts it once
   decompressed.
 - [ ] **ARC-01: Detect archive formats by content.** `filer-archive`
@@ -615,8 +608,8 @@ Created with `publish = false` (D16).
   each fixture of each format opens without a name.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
-  (PACK-07), which TAR-02's `xz` shares, and its stream cache for solid
-  blocks (PACK-04). Done when archives 7-Zip writes, solid and not, read
+  (PACK-07), which TAR-02's `xz` shares, and its `Streams` or `Unpacked`
+  for solid blocks. Done when archives 7-Zip writes, solid and not, read
   as it extracts them.
 - [ ] **RAR-01: `filer-rar` (on demand).** Only as a clean-room,
   decompression-only reader (§17.7). Done when its licensing approach is

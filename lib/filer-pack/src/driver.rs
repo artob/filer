@@ -1,6 +1,9 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{Codec, Member, Stored, Stream, StreamId, Streams, streams::read_exact};
+use crate::{
+    Codec, Member, Stored, StreamId, Streams,
+    streams::{read_exact, to_u64},
+};
 use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
@@ -175,20 +178,19 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         off: u64,
         wanted: usize,
     ) -> Result<Vec<u8>, Error> {
-        let id = StreamId::new(to_u64(ino));
-        let mut stream = match self.streams.take(id, off) {
-            Some(stream) => stream,
-            None => Stream::new(member.codec.decoder()?),
-        };
         let packed = member.offset..member.offset.saturating_add(member.packed);
-        let end = off.saturating_add(to_u64(wanted));
-        let data = stream
-            .read(&*self.source, packed, member.size, off..end)
-            .await?;
-        if stream.decoded() < member.size {
-            self.streams.keep(id, stream);
-        }
-        Ok(data)
+        let wanted = off..off.saturating_add(to_u64(wanted));
+        let decoder = || member.codec.decoder();
+        self.streams
+            .read(
+                StreamId::new(to_u64(ino)),
+                &*self.source,
+                packed,
+                member.size,
+                wanted,
+                decoder,
+            )
+            .await
     }
 
     /// Returns the inode a handle refers to, if this archive minted it.
@@ -335,11 +337,6 @@ impl<S, C> core::fmt::Debug for Archive<S, C> {
     }
 }
 
-/// Returns `n` as a `u64`, which it fits on every target Filer builds for.
-fn to_u64(n: usize) -> u64 {
-    u64::try_from(n).unwrap_or(u64::MAX)
-}
-
 /// Returns the id of node `ino`: archives have no volume number.
 fn id(ino: Ino) -> FileId {
     FileId::new(0, u128::try_from(ino).unwrap_or(u128::MAX))
@@ -348,73 +345,15 @@ fn id(ino: Ino) -> FileId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Decoder, Index, Limits, Parser, streams::OUTPUT_CHUNK};
+    use crate::{
+        Index, Limits, Parser,
+        streams::OUTPUT_CHUNK,
+        toy::{Doubled, STARTED},
+    };
     use alloc::{boxed::Box, vec};
-    use core::sync::atomic::{AtomicUsize, Ordering};
+    use core::sync::atomic::Ordering;
     use filer_api::{BufResult, Dir, MetaMask, Rights};
     use filer_spec::block_on;
-
-    /// Decoders started, across every test in this module.
-    static STARTED: AtomicUsize = AtomicUsize::new(0);
-
-    /// A toy codec: each packed byte decodes to two copies of itself, and
-    /// the decoded bytes must sum to `sum`.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    struct Doubled {
-        sum: u64,
-    }
-
-    struct Doubler {
-        pending: Option<u8>,
-        sum: u64,
-        expected: u64,
-    }
-
-    impl Decoder for Doubler {
-        fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
-            let (mut consumed, mut produced) = (0, 0);
-            while produced < output.len() {
-                let byte = match self.pending.take() {
-                    Some(byte) => byte,
-                    None => {
-                        let Some(&byte) = input.get(consumed) else {
-                            break;
-                        };
-                        consumed += 1;
-                        self.pending = Some(byte);
-                        byte
-                    },
-                };
-                output[produced] = byte;
-                produced += 1;
-                self.sum += u64::from(byte);
-            }
-            Ok((consumed, produced))
-        }
-
-        fn finish(&mut self) -> Result<(), Error> {
-            if self.sum == self.expected {
-                Ok(())
-            } else {
-                Err(Error::new(ErrorKind::Corrupt, OpKind::Read))
-            }
-        }
-    }
-
-    impl Codec for Doubled {
-        fn is_stored(&self) -> bool {
-            false
-        }
-
-        fn decoder(&self) -> Result<Box<dyn Decoder>, Error> {
-            STARTED.fetch_add(1, Ordering::Relaxed);
-            Ok(Box::new(Doubler {
-                pending: None,
-                sum: 0,
-                expected: self.sum,
-            }))
-        }
-    }
 
     /// Returns an archive whose file `f` decodes `packed` as `size` bytes.
     fn archive(packed: &'static [u8], size: u64, sum: u64) -> Dir<Archive<&'static [u8], Doubled>> {
