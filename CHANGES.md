@@ -36,7 +36,10 @@ so any release may break compatibility.
 - `filer-ar`: New crate: `Ar`, the read-only ar archive driver (Debian
   packages and static libraries, with System V, GNU, BSD, and Windows
   names), and `Limits`.
-- `filer-cpio` and `filer-rar`: New crates, with no items yet.
+- `filer-cpio`: New crate: `Cpio`, the read-only cpio archive driver
+  (`newc` with or without checksums, `odc`, and old binary; hardlinks by
+  inode; concatenated archives, as in initramfs images), and `Limits`.
+- `filer-rar`: New crate, with no items yet.
 - `filer-ext4`, `filer-ntfs`, `filer-udf`, and `filer-xfs`: New crates for
   read-only file system drivers, with no items yet but `filer-ext4`'s
   `Ext4` driver (reading ext2, ext3, and ext4 as `mke2fs` makes them,

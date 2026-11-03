@@ -388,8 +388,8 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
 `known-codepages`, the read-only `filer-tar`, `filer-zip`, `filer-ar`,
-`filer-ext4`, `filer-fat`, `filer-ntfs`, and `filer-xfs`, and as empty
-skeletons `filer-wasi`, `filer-whatwg`, `filer-udf`, `filer-cpio`,
+`filer-cpio`, `filer-ext4`, `filer-fat`, `filer-ntfs`, and `filer-xfs`,
+and as empty skeletons `filer-wasi`, `filer-whatwg`, `filer-udf`,
 `filer-rar`, and `filer-cli` (D30, D38, D41).
 The rest are created when their first `TODO.md` item starts.
 
@@ -2227,6 +2227,30 @@ doc example opens a `.deb`'s `data.tar` with `filer-tar`. `tests/fuzz.rs`
 mutates headers and checks that a walk never reads more than the
 archive's length; `fuzz/` has a `cargo-fuzz` target over the same walk.
 
+**`filer-cpio` as built** (2026-11-03): an own parser of `newc` (with
+or without checksums), `odc`, and the old binary format in either byte
+order, each header by its own magic number. Hardlinks are found by
+device and inode number among non-directories whose link count exceeds
+one, within each archive, and share one node through the new
+`Index::add` and `Index::alias`, so a link holds even if a later member
+takes the first link's name; since `newc` stores a file's data only
+with its last link, a first pass collects the headers and a second
+builds the tree with each file's data from its last link that has any.
+A `newc` checksum is a `Codec`, `Sum`, checked when a read reaches a
+regular file's end; GNU cpio writes 0 for other members, so theirs are
+not checked. Archives concatenated, as in a Linux initramfs image, read
+as one, with zeros allowed between them; a compressed archive among
+them (gzip, bzip2, LZMA, xz, LZO, LZ4, zstd) is `Unsupported`, which
+for now means most distributions' images (an uncompressed early archive
+of microcode, then a compressed one), and anything else after a trailer
+is `Corrupt`. Unknown file types are `Corrupt`; an archive may end
+without its trailer. The full `filer-spec` passes in every format; the
+fixtures come from GNU cpio in each of its formats and macOS's
+`bsdcpio`, and an uncompressed initramfs image; decompressed by hand, a
+real Ubuntu image's 2,468 entries read as GNU cpio extracts them.
+`tests/fuzz.rs` mutates headers and names; `fuzz/` has a `cargo-fuzz`
+target over the same walk.
+
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
 bytes. As built (2026-11-01), that tree is `filer_api::tree::Tree<F>`,
@@ -2280,8 +2304,8 @@ TARs; an RPM is a header followed by a compressed cpio):
   of decompression only, as libarchive's is; solid archives also make
   reads at an offset costly.
 
-`filer-ar` is built (above); `filer-cpio` and `filer-rar` exist as
-published empty crates, to reserve their names.
+`filer-ar` and `filer-cpio` are built (above); `filer-rar` exists as a
+published empty crate, to reserve its name.
 
 ### 17.8 `filer-wasi`
 

@@ -569,9 +569,11 @@ Created with `publish = false` (D16).
   The backslash check in `index.rs` must then apply to decoded names, as
   Shift-JIS trail bytes may be 0x5C. Done when CP437 and CP866 archives
   list correctly.
-- [ ] **CPIO-01: `filer-cpio`.** `odc`, `newc`, and old binary formats;
-  hardlinks by device and inode. Done when it reads an initramfs image and
-  passes `filer-spec`.
+- [ ] **CPIO-02: Compressed initramfs images.** Distributions follow an
+  uncompressed early archive with a compressed one (zstd on Ubuntu),
+  which `filer-cpio` refuses as `Unsupported`. Decode it behind features,
+  sharing TAR-02's pure-Rust decoders. Done when a distribution's image
+  reads as GNU cpio extracts it once decompressed.
 - [ ] **RAR-01: `filer-rar` (on demand).** Only as a clean-room,
   decompression-only reader (§17.7). Done when its licensing approach is
   recorded in `DESIGN.md` before any code.
