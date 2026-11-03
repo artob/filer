@@ -2370,6 +2370,28 @@ with Microsoft's file systems come from `filer-msft` (D60, §17.17),
 Unix modes from a `FileKind` constructor in `filer-api`, and the field
 readers stay per crate for now.
 
+**Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
+`filer-ar`, and `filer-cpio` read each header with a read of its own, and
+cpio its name with another, where `filer-zip` reads its central
+directory ahead in 64 KiB chunks. Opening archives of 20,000 one-byte
+members (release build, Apple M4, macOS 26.6), from memory, from a
+`File` on the blocking native driver, and on its thread pool:
+
+| Archive | Reads | Memory | Blocking | Thread pool |
+| --- | --- | --- | --- | --- |
+| tar | 20,002 | 12 ms | 19 ms | 97 ms |
+| ar | 20,001 | 4 ms | 10 ms | 92 ms |
+| cpio | 40,003 | 4 ms | 17 ms | 180 ms |
+
+A read through the blocking driver costs under half a microsecond more
+than one from memory, but through the thread pool, which async programs
+use, about 4.5 µs: opening then takes 8 to 40 times as long, and an
+archive of the Linux kernel's sources (some 90,000 members) would spend
+most of a second on it. That decides it: the parsers are to share a
+forward reader, which reads ahead in chunks and jumps past what a header
+says to skip, so that small members cost a fraction of a read each and
+large ones one read each, as now (TODO PACK-11).
+
 **Read-only, permanently (D43).** Archive drivers read archives as
 directories and will never create or modify them: writing archives is out
 of scope for this project, not merely deferred. It also does not fit the
