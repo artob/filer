@@ -144,11 +144,6 @@ No OS access; everything builds without `std` (§7.6).
   normalization-insensitive rules (normalization via a small table or an
   optional dependency, decided in the item).
 
-- [ ] **CORE-07: `FileKind` from Unix mode bits.** A constructor on
-  `FileKind` (name open) takes the type bits of a mode, as
-  `filer_fs::unix::mode_kind` does; ext4, XFS, and `filer-posix` call it
-  and `unix` keeps `entry_kind`. Done when `filer-fs` has no `mode_kind`
-  and the three drivers' tests pass.
 - [ ] **CORE-06: Remaining buffers.**
   `IoBuf` (`Vec<u8>`, `Box<[u8]>`), `IoBufMut` (`Vec<u8>`), and `BufResult`
   exist. Still missing (§7.1): `IoBuf` for `String` and `&'static [u8]`,
@@ -594,9 +589,10 @@ Created with `publish = false` (D16).
   `filer-ar`'s and `filer-cpio`'s copies of the adapter. Done when the
   three fuzz tests and the `cargo-fuzz` targets build on the shared
   walk.
-- [ ] **PACK-09: `filer-msft` in archives (after CORE-07).**
+- [ ] **PACK-09: `filer-msft` in archives.**
   Replace `filer-zip`'s NT and DOS time decoding with `filer-msft`'s,
-  and its and `filer-cpio`'s mode matches with CORE-07's constructor;
+  and its and `filer-cpio`'s mode matches with
+  `FileKind::from_unix_mode`;
   `filer-zip`'s field cursor stays. Done when `filer-zip`'s `header.rs`
   decodes no times itself and neither index matches mode bits.
 - [ ] **PACK-10: Chunked header reads (optional).** `filer-tar`,

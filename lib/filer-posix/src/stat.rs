@@ -18,8 +18,10 @@ pub(crate) fn file_kind(file_type: FileType) -> FileKind {
 }
 
 /// Returns the kind of the file `stat` describes.
+// The mode's type differs by platform: `u32` on Linux, `u16` on macOS.
+#[allow(clippy::useless_conversion, reason = "a mode of any platform's type")]
 pub(crate) fn kind(stat: &Stat) -> FileKind {
-    file_kind(FileType::from_raw_mode(stat.st_mode))
+    FileKind::from_unix_mode(u32::from(stat.st_mode)).unwrap_or(FileKind::Other)
 }
 
 /// Returns the device `stat`'s file is on.

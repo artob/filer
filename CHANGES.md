@@ -20,14 +20,15 @@ so any release may break compatibility.
   `filer_api::archive` moved whole to its root, with `spin`. `Index`
   now applies `Limits` itself, taking them in `Index::new` with a
   `Parser`, which reads a format's headers and names it in errors.
-- `filer-api`: `Tree::node_mut`.
+- `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 ### Changed
 - `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the
   members an archive shows, no longer ar's symbol and name tables or
   cpio's trailers.
 ### Removed
 - `filer-api`: `archive`, now `filer-pack`'s, and the `spin` dependency.
-- `filer-fs`: `nt`, `reparse`, and `wtf8`, now `filer-msft`'s.
+- `filer-fs`: `nt`, `reparse`, and `wtf8`, now `filer-msft`'s, and
+  `unix::mode_kind`, now `FileKind::from_unix_mode`.
 
 ## 0.0.2 - 2026-11-03
 Read-only file systems (ext2/3/4, FAT, NTFS, XFS) and more archive

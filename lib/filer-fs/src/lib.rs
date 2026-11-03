@@ -12,8 +12,9 @@
 //! else (`DESIGN.md` §17.17, D54).
 //!
 //! So far: [`le`] and [`be`] read little- and big-endian fields, and
-//! [`read_exact`] reads them from a source; [`unix`] decodes Unix file
-//! types, and [`posix_acl`] encodes POSIX ACLs as Linux returns them;
+//! [`read_exact`] reads them from a source; [`unix`] decodes directory
+//! entries' Unix file types, and [`posix_acl`] encodes POSIX ACLs as
+//! Linux returns them;
 //! [`map`] reads files through maps of their blocks. A format implements
 //! [`FileSystem`], and [`Mounted`] serves it as a driver. [`partition`]
 //! reads partitioned disk images, and [`recover`] reads volumes as

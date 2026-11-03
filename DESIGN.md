@@ -3213,7 +3213,8 @@ That moves here, step by step, each driver keeping only its format:
   from a source;
 - WTF-8 for UTF-16 names (FAT and NTFS, later exFAT and Joliet), moved
   to `filer-msft` (D60);
-- Unix file types from modes and directory entries (ext4, XFS);
+- Unix file types from directory entries (ext4, XFS); from modes, they
+  moved to `FileKind::from_unix_mode` in `filer-api` (D60);
 - POSIX ACLs in the form Linux's `getxattr` returns (ext4, XFS);
 - reading a file through a map of runs (all four);
 - the driver shell: a trait a format implements, and one `Driver` over
@@ -3283,7 +3284,9 @@ whole; `reparse` reads its two little-endian fields itself, as
 `filer-msft` depends on `filer-api` alone. FAT's times became `dos`,
 public now: `Stamp` (unset, valid, or invalid as written), `DateTime`,
 the three granularities, and `UtcOffset`, which `filer-fat` re-exports
-for its `Options`.
+for its `Options`. CORE-07 named the constructor
+`FileKind::from_unix_mode`, as `FileKind` is platform-independent; ext4,
+XFS, and `filer-posix` call it.
 
 **The driver shell** (as built, 2026-11-02). A format implements
 `FileSystem`: its `DriverKey`, its root, a node's kind, lookup, a
