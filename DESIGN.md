@@ -290,13 +290,13 @@ on macOS and the BSDs (their system call interface is private), and
 `windows-sys` on Windows. On Linux, `rustix` calls the kernel directly,
 with no C library at all.
 
-Consequences: compression codecs are pure-Rust decoders (for example
-`miniz_oxide` for Deflate, `ruzstd` for zstd, `lzma-rs` for xz and LZMA;
-verify each when adopting it), which suffices since archive drivers only
-read; `filer-fuse` must use a FUSE mount path that needs no `libfuse`
-(**VERIFY** `fuser` without its `libfuse` feature). CI fails if `cc`,
-`cmake`, `pkg-config`, or `bindgen` enters the dependency tree on any
-target.
+Consequences: compression codecs are pure-Rust decoders (`miniz_oxide`
+for Deflate, `ruzstd` for zstd, `lzma-rust2` for xz and LZMA, and bzip2
+written here, as `LEGAL.md` assesses them), which suffices since archive
+drivers only read; `filer-fuse` must use a FUSE mount path that needs no
+`libfuse` (**VERIFY** `fuser` without its `libfuse` feature). CI fails
+if `cc`, `cmake`, `pkg-config`, or `bindgen` enters the dependency tree
+on any target.
 
 **Fuzzing tooling (D50).** The one exemption: `cargo-fuzz` targets, in a
 `fuzz/` crate inside the crate they fuzz, may depend on `libfuzzer-sys`,
@@ -3699,6 +3699,8 @@ only when the first item needs it.
 | `ref-cast` | 1.0 | `filer-api` | path DSTs (D4) |
 | `spin` | 0.12 | `filer-pack`, `filer-heap` | `no_std` lock |
 | `miniz_oxide` | 0.9 | `filer-pack` | Deflate; `no_std`; no `unsafe` |
+| `ruzstd` | 0.9 | `filer-pack` | zstd; `no_std`; planned (`LEGAL.md`) |
+| `lzma-rust2` | 0.25 | `filer-pack` | xz, LZMA; `no_std`, no `optimization` |
 | `async-lock` | 3.4 | `filer-tx`, `filer-quota` | MSRV 1.85; `no_std` |
 | `serde` | 1.0 | several | optional |
 | `bytes` | 1.12 | `filer-api` | optional |

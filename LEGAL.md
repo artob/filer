@@ -310,6 +310,61 @@ Safe inputs: RARLAB's technotes and libarchive (facts). Do not copy
 The Unarchiver or unarr (LGPL), or libarchive (BSD, notice required);
 newer Rust decoders of unstated provenance are off limits too.
 
+## Decoders
+
+Archives compress with a handful of algorithms, and `filer-pack` decodes
+each behind a feature of its own (`DESIGN.md` §17.7, D59). Each decoder
+is pure Rust and builds with `#![no_std]` (D45), and is either a crate
+under a permissive license, which stays its own (nothing of it is copied
+into this code base), or written here from a description of its format.
+Assessed 2026-11-03: re-check each crate's version, license and features
+when adopting it.
+
+- **Deflate and gzip: `miniz_oxide`, and RFC 1952 written here.**
+  `miniz_oxide` 0.9 (MIT, Zlib or Apache-2.0; `no_std` with `alloc`; no
+  `unsafe`) already decodes ZIP's raw Deflate, behind `deflate`. gzip
+  wraps Deflate in a header and a trailer holding a CRC-32 and the
+  length, which the container code checks through `Verified`: written
+  from RFC 1952, not from zlib or `flate2`. Deflate's patent (US
+  5,051,745) expired in 2008.
+- **zstd: `ruzstd`.** `ruzstd` 0.9 (MIT; `no_std` with `alloc`;
+  maintained, and the most used pure-Rust decoder) reads the format RFC
+  8878 documents, through a sans-I/O call, `FrameDecoder::decode_from_to`,
+  that progresses only by whole blocks of up to 128 KiB, so its adaptor
+  buffers input. Its window is capped at 128 MiB by default, which bounds
+  its memory. It has `unsafe` code and internal panics, and is fuzzed
+  upstream; `filer-pack`'s fuzz targets cover it too, and any panic found
+  is a bug to report there. Its `hash` feature checks frame checksums with
+  `twox-hash`, pure Rust. zstd's own code (BSD-3-Clause or GPL-2.0) is not
+  copied. zstd 1.0 came with an explicit patent grant, dropped in 1.3.1
+  (2017) when the license became BSD and GPLv2; no patent is known to be
+  asserted against implementations.
+- **xz, LZMA and LZMA2 (and lzip): `lzma-rust2`.** `lzma-rust2` 0.25
+  (Apache-2.0; a port of XZ for Java, which is public domain; `no_std`
+  with `alloc` without its default features; maintained) has sans-I/O
+  streams for raw LZMA, LZMA2, xz and lzip, with memory limits and the
+  BCJ and Delta filters: one crate for compressed tarballs and for 7z.
+  Without its `optimization` feature, which stays off, it forbids
+  `unsafe` code. Its `xz` feature checks SHA-256 with RustCrypto's
+  `sha2`, pure Rust while its `asm` feature stays off (CI's check for C
+  would catch it). Also considered: `xz4rust` 0.2 (MIT; `no_std` without
+  `alloc`), xz only, without the LZMA1 that 7z mostly uses; and `lzma-rs`
+  0.3 (MIT), std readers only, last released in 2023. Porting the LZMA SDK
+  (public domain, see 7z) remains the fallback. No patent is known.
+- **bzip2: written here.** No crate fits. `bzip2` 0.6 is std only; its
+  pure-Rust backend, `libbz2-rs-sys` 0.2 (bzip2-1.0.6 license), builds
+  with `#![no_std]` but offers only libbzip2's C interface, whose raw
+  pointers would take `unsafe` code that `filer-pack` forbids; and
+  `bzip2-rs` 0.1 (MIT or Apache-2.0) is std only and unmaintained since
+  2021. A decoder is small (Huffman tables, move-to-front, the inverse
+  Burrows–Wheeler transform, and CRC-32s per block and stream): write it
+  from Joe Tsai's *bzip2 format* (2016), an independent description
+  reverse-engineered from bzip2 1.0.6, as no official one exists, with
+  bzip2's own source (BSD-style, notice required) and Wuffs' decoder
+  (Apache-2.0) read for facts only. No patent applies: the
+  Burrows–Wheeler transform is unpatented, and bzip2 dropped bzip's
+  arithmetic coding for Huffman coding over patent concerns.
+
 ## Summary
 
 | Format    | Patents                          | Format documentation      | Verdict                  |
