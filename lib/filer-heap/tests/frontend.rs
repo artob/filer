@@ -50,3 +50,17 @@ fn erases_the_driver_type() {
     let file = block_on(root.open_file("config/app.toml")).unwrap();
     assert_eq!(block_on(file.read_to_end()).unwrap(), b"debug = true");
 }
+
+#[test]
+fn lists_names() {
+    let root = heap().root_dir();
+    let mut names = block_on(root.names()).unwrap();
+    names.sort();
+    assert_eq!(names, ["config", "empty"]);
+    let config = block_on(root.open_dir("config")).unwrap();
+    let mut names = block_on(config.names()).unwrap();
+    names.sort();
+    assert_eq!(names, ["app.toml", "current", "root"]);
+    let empty = block_on(root.open_dir("empty")).unwrap();
+    assert!(block_on(empty.names()).unwrap().is_empty());
+}

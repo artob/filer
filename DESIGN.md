@@ -1128,10 +1128,14 @@ pub struct Entry {
 
 impl<D: Driver> Dir<D> {
     pub fn entries(&self) -> ReadDir<D>; // impl Stream<Item = Result<Entry>>
+    pub async fn names(&self) -> Result<Vec<EntryName>>;
 }
 ```
 
-- Streams, never a `Vec`. Order is unspecified; sorting is the caller's job.
+- Streams, and a `Vec` only of names (D55): `names` collects a listing's
+  names for when they are all a caller needs, and an `EntryName` compares
+  equal to a string of its text, so a listing checks against literals.
+  Order is unspecified in both; sorting is the caller's job.
 - Each driver hop fetches a large batch (`getdents64` with a 32 KiB buffer
   or more); the stream yields from the batch.
 - `kind` may be `None` legitimately (some filesystems return `DT_UNKNOWN`).
@@ -3713,6 +3717,7 @@ Record changes here with a date and one line of rationale.
 | D52 | Formats implemented only in GPL code are written clean room | Accepted |
 | D53 | Checksums drivers share live in `filer_api::checksum` | Accepted |
 | D54 | File system drivers share code in `filer-fs` | Accepted |
+| D55 | `Dir::names` collects a listing's names; `entries` streams | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

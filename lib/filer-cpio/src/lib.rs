@@ -31,12 +31,8 @@
 //! # filer_spec::block_on(async {
 //! let image: &'static [u8] = include_bytes!("../tests/data/initramfs.img");
 //! let root = Cpio::open(image).await?;
-//! let mut names = Vec::new();
-//! let mut entries = root.entries()?;
-//! while let Some(entry) = entries.next().await {
-//!     names.push(entry?.name.to_string());
-//! }
-//! names.sort();
+//! // An archive lists names in byte order.
+//! let names = root.names().await?;
 //! assert_eq!(names, ["dir", "empty", "fifo", "hard1", "kernel", "link"]);
 //!
 //! let microcode = root.open_file("kernel/x86/microcode/GenuineIntel.bin").await?;

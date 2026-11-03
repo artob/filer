@@ -226,6 +226,39 @@ impl<D: Driver> Dir<D> {
         ))
     }
 
+    /// Lists the names in this directory, all at once: for when the names
+    /// are all that is needed. They come in the listing's order, which
+    /// [`entries`](Self::entries) leaves unspecified, and compare equal to
+    /// strings, so a listing can be checked against string literals.
+    ///
+    /// It holds the whole listing in memory; to list a large directory as
+    /// it comes, or with each entry's kind, use [`entries`](Self::entries).
+    ///
+    /// # Errors
+    ///
+    /// As for [`entries`](Self::entries), and the first error from
+    /// [`ReadDir::next`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use filer_api::{Dir, Driver};
+    /// # async fn example<D: Driver>(dir: Dir<D>) -> filer_api::Result<()> {
+    /// for name in dir.names().await? {
+    ///     println!("{name}");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn names(&self) -> crate::Result<Vec<EntryName>> {
+        let mut entries = self.entries()?;
+        let mut names = Vec::new();
+        while let Some(entry) = entries.next().await {
+            names.push(entry?.name);
+        }
+        Ok(names)
+    }
+
     /// Reads the target of the symlink at `path`.
     ///
     /// # Errors
@@ -568,6 +601,10 @@ mod tests {
         assert_eq!(count.load(Ordering::Relaxed), 1);
         let blind = dir.restrict(Rights::empty());
         assert_eq!(blind.entries().unwrap_err().kind(), ErrorKind::RightsDenied);
+        let error = block_on(dir.names()).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Unsupported);
+        let error = block_on(blind.names()).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::RightsDenied);
     }
 
     #[test]

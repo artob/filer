@@ -10,6 +10,17 @@ use crate::{
 ///
 /// Operations on existing entries (open, stat, remove, rename from) accept
 /// an `EntryName`; operations that create entries accept only a [`Name`].
+///
+/// A UTF-8 name compares equal to a string of its text, and a foreign name
+/// to none:
+///
+/// ```
+/// use filer_api::{DriverKey, EntryName};
+///
+/// let key = DriverKey::new();
+/// assert_eq!(key.entry_name(b"notes.txt").unwrap(), "notes.txt");
+/// assert_ne!(key.entry_name(b"caf\xE9").unwrap(), "caf\u{FFFD}");
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EntryName {
     /// A valid UTF-8 name.
@@ -54,6 +65,18 @@ impl EntryName {
     #[must_use]
     pub fn is_foreign(&self) -> bool {
         matches!(self, Self::Foreign(_))
+    }
+}
+
+impl PartialEq<str> for EntryName {
+    fn eq(&self, other: &str) -> bool {
+        self.as_name().is_some_and(|name| name.as_str() == other)
+    }
+}
+
+impl PartialEq<&str> for EntryName {
+    fn eq(&self, other: &&str) -> bool {
+        *self == **other
     }
 }
 

@@ -8,6 +8,8 @@ so any release may break compatibility.
 
 ## Unreleased
 ### Added
+- `filer-api`: `Dir::names`, listing a directory's names at once, and
+  comparisons of `EntryName` with strings.
 - `filer-api`: `archive::Index::add` and `Index::alias`, for hardlinks that
   name their target by inode rather than by path.
 - `filer-spec`: `Profile::empty_dirs`, off for formats whose directories
