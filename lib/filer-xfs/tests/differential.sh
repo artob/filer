@@ -2,7 +2,7 @@
 # This is free and unencumbered software released into the public domain.
 #
 # Compares `filer-xfs` with the Linux kernel's `xfs` driver: for each
-# image, the `manifest` example's listing must equal what Linux shows with
+# image, the `xfs-manifest` example's listing must equal what Linux shows with
 # the image loop-mounted read-only: names, kinds, sizes, contents, symlink
 # targets, the modification, change, access, and creation times to the
 # nanosecond, the inode flags Filer reports (immutable, append-only,
@@ -209,8 +209,8 @@ took() {
 
 # A release build, as a debug one reads each volume some seventy times
 # slower.
-cargo build -q --release -p filer-xfs --example manifest
-manifest="$PWD/target/release/examples/manifest"
+cargo build -q --release -p filer-xfs --example xfs-manifest
+manifest="$PWD/target/release/examples/xfs-manifest"
 
 case " $phases " in *" images "*)
     # The committed fixtures, and fresh ones.

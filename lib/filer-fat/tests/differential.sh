@@ -2,7 +2,7 @@
 # This is free and unencumbered software released into the public domain.
 #
 # Compares `filer-fat` with the Linux kernel's FAT driver: for each image,
-# the `manifest` example's listing must equal what Linux shows with
+# the `fat-manifest` example's listing must equal what Linux shows with
 # the image loop-mounted read-only. The images are the fixtures, the test
 # writer's samples, and volumes made by `mkfs.fat` and written by the
 # Linux kernel itself, with names and sizes chosen to probe edge cases.
@@ -82,8 +82,9 @@ mkdir "$mnt"
 trap clean_work EXIT
 
 # A release build, as a debug one reads each volume many times slower.
-cargo build -q --release -p filer-fat --example manifest --features code-pages
-manifest="$PWD/target/release/examples/manifest"
+cargo build -q --release -p filer-fat --example fat-manifest \
+    --features code-pages
+manifest="$PWD/target/release/examples/fat-manifest"
 
 # The fixtures.
 for sparse in lib/filer-fat/tests/fixtures/*.sparse; do

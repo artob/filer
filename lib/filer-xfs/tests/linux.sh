@@ -1,10 +1,10 @@
 # This is free and unencumbered software released into the public domain.
 #
 # What `tests/differential.sh` and `tests/external.sh` share, sourced by
-# them: printing what the Linux kernel shows of an image in the `manifest`
-# example's format, and comparing the two. They set `work`, a directory of
-# their own; `mnt`, a mount point in it; `manifest`, the example; and
-# `failed`, set to 1 by any difference.
+# them: printing what the Linux kernel shows of an image in the
+# `xfs-manifest` example's format, and comparing the two. They set `work`,
+# a directory of their own; `mnt`, a mount point in it; `manifest`, the
+# example; and `failed`, set to 1 by any difference.
 # Comparisons keep their files in `scratch`, or in `work` if it is unset,
 # so that several can run at once, each with a `scratch` and `mnt` of its
 # own. If `FILER_XFS_KEEP` names a directory, the image of each comparison

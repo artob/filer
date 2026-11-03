@@ -36,5 +36,5 @@ filer-spec = { workspace = true, features = ["std"] }
 filer-system = { workspace = true, features = ["std"] }
 
 [[example]]
-name = "manifest"
+name = "ext4-manifest"
 required-features = ["std"]

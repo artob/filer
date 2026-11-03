@@ -2,7 +2,7 @@
 # This is free and unencumbered software released into the public domain.
 #
 # Compares `filer-ext4` with the Linux kernel's `ext4` driver, which also
-# mounts ext2 and ext3: for each image, the `manifest` example's listing
+# mounts ext2 and ext3: for each image, the `ext4-manifest` example's listing
 # must equal what Linux shows with the image mounted read-only, its
 # journal recovered if need be: names, kinds, sizes, contents, symlink
 # targets, the modification, change, access, and creation times to the
@@ -181,8 +181,8 @@ failed=0
 
 # A release build, as a debug one reads each volume some twenty times
 # slower.
-cargo build -q --release -p filer-ext4 --example manifest
-manifest="$PWD/target/release/examples/manifest"
+cargo build -q --release -p filer-ext4 --example ext4-manifest
+manifest="$PWD/target/release/examples/ext4-manifest"
 
 # The committed fixtures, and fresh ones, each a job.
 mkdir "$work/fresh"

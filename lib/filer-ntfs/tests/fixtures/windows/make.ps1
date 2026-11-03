@@ -2,7 +2,7 @@
 #
 # Makes the Windows fixtures: Windows itself formats each volume (a fixed
 # VHD with one partition) and fills it, then writes its own manifest of
-# it, in the format of the `manifest` example, but for access times
+# it, in the format of the `ntfs-manifest` example, but for access times
 # (which reading updates) and in Windows' listing order. Run elevated, on
 # Windows 10 or later with EFS (Pro or better); `make-windows.sh` runs it
 # in a Windows container and keeps the results.

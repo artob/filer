@@ -6,7 +6,7 @@
 # fetches just their fixture files, at the commits named below, into
 # `$FILER_XFS_EXTERNAL` (by default `target/xfs-external`), checks them
 # by `tests/external.sha256`, unpacks them, and runs `tests/external.rs`.
-# On Linux, it then compares the `manifest` example with what the kernel
+# On Linux, it then compares the `xfs-manifest` example with what the kernel
 # shows of each image it mounts, as `tests/differential.sh` does: of a
 # copy it recovered, as images may need that, each image a job, as many
 # at once as there are cores (or `FILER_JOBS`). None of the projects'
@@ -79,8 +79,8 @@ done < "$repo/lib/filer-xfs/tests/external.sha256"
 FILER_XFS_EXTERNAL=$dir cargo test -q --release -p filer-xfs --test external -- --ignored
 
 [ "$(uname)" = Linux ] || exit 0
-cargo build -q --release -p filer-xfs --example manifest
-manifest="$repo/target/release/examples/manifest"
+cargo build -q --release -p filer-xfs --example xfs-manifest
+manifest="$repo/target/release/examples/xfs-manifest"
 work=$(mktemp -d -p /var/tmp)
 trap clean_work EXIT
 failed=0

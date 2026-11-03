@@ -37,5 +37,5 @@ filer-spec = { workspace = true, features = ["std"] }
 filer-system = { workspace = true, features = ["std"] }
 
 [[example]]
-name = "manifest"
+name = "xfs-manifest"
 required-features = ["std"]

@@ -16,7 +16,7 @@
 //! The image is opened as a file of the native driver, and `Fat` reads it
 //! through that file: one driver layered over another.
 //!
-//! Usage: `cargo run -p filer-fat --example manifest -- [--code-page N]
+//! Usage: `cargo run -p filer-fat --example fat-manifest -- [--code-page N]
 //! IMAGE`, where short names are decoded from code page `N` (437 unless
 //! given; others need the `code-pages` feature).
 
@@ -39,20 +39,20 @@ fn main() -> ExitCode {
             .and_then(|number| number.to_str()?.parse().ok())
             .and_then(CodePage::from_number);
         let Some(page) = page else {
-            eprintln!("manifest: unknown or unavailable code page");
+            eprintln!("fat-manifest: unknown or unavailable code page");
             return ExitCode::FAILURE;
         };
         options = options.with_code_page(page);
         args.drain(..2);
     }
     let [image] = &args[..] else {
-        eprintln!("usage: manifest [--code-page N] IMAGE");
+        eprintln!("usage: fat-manifest [--code-page N] IMAGE");
         return ExitCode::FAILURE;
     };
     match block_on(run(Path::new(image), options)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("manifest: {error}");
+            eprintln!("fat-manifest: {error}");
             ExitCode::FAILURE
         },
     }

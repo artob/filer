@@ -11,7 +11,7 @@
 # in a `scratch` directory and with a mount point `mnt` of its own.
 #
 # The script sets `work`, a directory of its own; `manifest`, the driver's
-# `manifest` example, which jobs get back; and `failed`, which any job that
+# manifest example, which jobs get back; and `failed`, which any job that
 # fails sets to 1. A job fails by exiting nonzero, or by setting `failed`.
 
 tab=$(printf '\t')

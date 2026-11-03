@@ -8,7 +8,7 @@
 //! The image is opened as a file of the native driver, and `Ntfs` reads it
 //! through that file: one driver layered over another.
 //!
-//! Usage: `cargo run -p filer-ntfs --example manifest -- [--allow-dirty]
+//! Usage: `cargo run -p filer-ntfs --example ntfs-manifest -- [--allow-dirty]
 //! IMAGE`, where `--allow-dirty` opens a volume marked dirty.
 
 #[path = "../tests/common/manifest.rs"]
@@ -26,13 +26,13 @@ fn main() -> ExitCode {
         args.remove(0);
     }
     let [image] = &args[..] else {
-        eprintln!("usage: manifest [--allow-dirty] IMAGE");
+        eprintln!("usage: ntfs-manifest [--allow-dirty] IMAGE");
         return ExitCode::FAILURE;
     };
     match block_on(run(Path::new(image), options)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("manifest: {error}");
+            eprintln!("ntfs-manifest: {error}");
             ExitCode::FAILURE
         },
     }

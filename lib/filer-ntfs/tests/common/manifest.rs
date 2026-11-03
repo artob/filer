@@ -14,7 +14,7 @@
 //! epoch. Flags are lowercase names, sorted and joined by `,`; extended
 //! attributes are `name=hash` pairs, sorted and joined by `,`. `-` stands
 //! for what does not apply, is unknown, or is empty, and `!error` for
-//! contents that cannot be read. Shared by the `manifest` example, which
+//! contents that cannot be read. Shared by the `ntfs-manifest` example, which
 //! `tests/differential.sh` compares with what the Linux kernel's `ntfs3`
 //! and ntfs-3g report, and by `tests/fixtures.rs`, which compares it with
 //! what Windows reports.

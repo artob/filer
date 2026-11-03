@@ -7,7 +7,7 @@
 # `$FILER_NTFS_EXTERNAL` (by default `target/ntfs-external`), checks them
 # by `tests/external.sha256`, unpacks each disk's NTFS partition as a
 # volume of its own, sparsely, and runs `tests/external.rs`. On Linux, it
-# then compares the `manifest` example with what `ntfs3` and ntfs-3g show
+# then compares the `ntfs-manifest` example with what `ntfs3` and ntfs-3g show
 # of each volume, as `tests/differential.sh` does, each volume a job, as
 # many at once as there are cores (or `FILER_JOBS`).
 #
@@ -120,8 +120,8 @@ fi
 FILER_NTFS_EXTERNAL=$dir cargo test -q --release -p filer-ntfs --test external -- --ignored
 
 [ "$(uname)" = Linux ] || exit 0
-cargo build -q --release -p filer-ntfs --example manifest
-manifest="$repo/target/release/examples/manifest"
+cargo build -q --release -p filer-ntfs --example ntfs-manifest
+manifest="$repo/target/release/examples/ntfs-manifest"
 work=$(mktemp -d -p /var/tmp)
 trap clean_work EXIT
 failed=0

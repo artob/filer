@@ -2,7 +2,7 @@
 #
 # What `tests/differential.sh` and `tests/external.sh` share, sourced by
 # them: printing what the Linux kernel's `ntfs3` and ntfs-3g show of an
-# image in the `manifest` example's format, and comparing them with it.
+# image in the `ntfs-manifest` example's format, and comparing them with it.
 # Jobs of `lib/filer-spec/tests/jobs.sh` call `check`, with their
 # `scratch`, `mnt`, and `manifest`; any difference sets `failed`.
 

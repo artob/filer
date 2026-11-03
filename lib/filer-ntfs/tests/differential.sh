@@ -2,7 +2,7 @@
 # This is free and unencumbered software released into the public domain.
 #
 # Compares `filer-ntfs` with the Linux kernel's `ntfs3` driver: for each
-# image, the `manifest` example's listing must equal what Linux shows with
+# image, the `ntfs-manifest` example's listing must equal what Linux shows with
 # the image loop-mounted read-only: names, kinds, sizes, contents, and
 # modification, creation, and access times. `ntfs3` has no named streams
 # as attributes, so the flags and extended attributes are compared with
@@ -74,8 +74,8 @@ failed=0
 
 # A release build, as a debug one reads each volume some twenty times
 # slower.
-cargo build -q --release -p filer-ntfs --example manifest
-manifest="$PWD/target/release/examples/manifest"
+cargo build -q --release -p filer-ntfs --example ntfs-manifest
+manifest="$PWD/target/release/examples/ntfs-manifest"
 
 # The committed fixtures, and fresh ones, each a job.
 mkdir "$work/fresh"

@@ -2540,7 +2540,7 @@ type), reads fixtures made by `mkfs.fat` and `mtools` (stored sparsely),
 and `tests/differential.sh` compares it with the Linux kernel's FAT driver
 on loop-mounted images, including volumes Linux wrote itself: names
 in directory order, kinds, sizes, contents, and all three times must be
-identical. The `manifest` example prints a volume through `Fat` layered
+identical. The `fat-manifest` example prints a volume through `Fat` layered
 over a native `File`, which is what the comparison reads. `tests/fuzz.rs`,
 a dependency-free, structure-aware fuzzer, mutates the fixtures and
 writer images where their structures are and walks each result, checking

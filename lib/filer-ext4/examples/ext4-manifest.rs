@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-//! Prints the tree of an XFS image, one line per entry, in
+//! Prints the tree of an ext2, ext3, or ext4 image, one line per entry, in
 //! directory order:
 //!
 //! ```text
@@ -13,23 +13,25 @@
 //! Times are seconds since the Unix epoch, with nine digits of
 //! nanoseconds. Flags are lowercase names, sorted and joined by `,`;
 //! extended attributes are `name=hash` pairs, sorted and joined by `,`.
-//! `-` stands for what does not apply, is unknown, or is empty, and for
-//! the hash of a file of more than 1 GiB, which is not read. A name
+//! `-` stands for what does not apply, is unknown, or is empty. A name
 //! that is not UTF-8 is printed with each byte not part of a character as
 //! `\xHH`; paths are UTF-8, so such an entry is only stated, not read.
 //! `tests/differential.sh` compares this with what the Linux kernel
 //! reports for the same image.
 //!
-//! The image is opened as a file of the native driver, and `Xfs` reads it
+//! The image is opened as a file of the native driver, and `Ext4` reads it
 //! through that file: one driver layered over another.
 //!
-//! Usage: `cargo run -p filer-xfs --example manifest -- IMAGE`.
+//! Usage: `cargo run -p filer-ext4 --example ext4-manifest -- [--allow-dirty]
+//! IMAGE`, where `--allow-dirty` reads a volume whose journal needs
+//! recovery as it is on disk, instead of as replaying the journal leaves
+//! it.
 
+use filer_ext4::{Ext4, Options};
 use filer_system::{
-    BufResult, Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op,
-    OpKind, Output, ReadAt, Resolve, Target, Timestamp, XattrEntry, ambient_authority,
+    Dir, Driver, EntryName, ErrorKind, FileAttrs, FileKind, MetaMask, Metadata, Op, OpKind, Output,
+    ReadAt, Resolve, Target, Timestamp, XattrEntry, ambient_authority,
 };
-use filer_xfs::Xfs;
 use std::{
     error::Error,
     future::Future,
@@ -40,27 +42,24 @@ use std::{
 
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
-    let [image] = &args[..] else {
-        eprintln!("usage: manifest IMAGE");
-        return ExitCode::FAILURE;
+    let (options, image) = match &args[..] {
+        [image] => (Options::new(), image),
+        [flag, image] if flag == "--allow-dirty" => (Options::new().allow_dirty(true), image),
+        _ => {
+            eprintln!("usage: ext4-manifest [--allow-dirty] IMAGE");
+            return ExitCode::FAILURE;
+        },
     };
-    match block_on(run(Path::new(image))) {
+    match block_on(run(Path::new(image), options)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            // With its causes, such as why a volume is refused.
-            let mut message = error.to_string();
-            let mut source = error.source();
-            while let Some(cause) = source {
-                message = format!("{message}: {cause}");
-                source = cause.source();
-            }
-            eprintln!("manifest: {message}");
+            eprintln!("ext4-manifest: {error}");
             ExitCode::FAILURE
         },
     }
 }
 
-async fn run(image: &Path) -> Result<(), Box<dyn Error>> {
+async fn run(image: &Path, options: Options) -> Result<(), Box<dyn Error>> {
     let parent = image.parent().filter(|p| !p.as_os_str().is_empty());
     let parent = parent.unwrap_or(Path::new("."));
     let name = image
@@ -69,14 +68,14 @@ async fn run(image: &Path) -> Result<(), Box<dyn Error>> {
         .unwrap_or("");
     let dir = filer_system::open_ambient(parent, ambient_authority())?;
     let file = dir.open_file(name).await?;
-    let root = Xfs::open(file).await?;
+    let root = Ext4::open_with(file, options).await?;
     walk(&root, "", &mut std::io::stdout().lock()).await
 }
 
 /// Prints everything below `dir`, recursively, each directory before its
 /// contents.
 async fn walk<S: ReadAt + 'static>(
-    root: &Dir<Xfs<S>>,
+    root: &Dir<Ext4<S>>,
     dir: &str,
     out: &mut StdoutLock<'_>,
 ) -> Result<(), Box<dyn Error>> {
@@ -115,12 +114,9 @@ async fn walk<S: ReadAt + 'static>(
             },
             "f" => {
                 let file = root.open_file(path.as_str()).await?;
+                let contents = file.read_to_end().await?;
                 let xattrs = attributes(&file).await?;
-                let hash = match metadata.len {
-                    Some(len) if len <= MAX_HASHED => format!("{:016x}", hash(&file).await?),
-                    _ => "-".to_owned(),
-                };
-                (hash, xattrs)
+                (format!("{:016x}", fnv1a(&contents)), xattrs)
             },
             _ => ("-".to_owned(), "-".to_owned()),
         };
@@ -142,7 +138,7 @@ async fn walk<S: ReadAt + 'static>(
 
 /// Reads the metadata of the entry `name` of `dir`, which has no path.
 async fn foreign_metadata<S: ReadAt + 'static>(
-    dir: &Dir<Xfs<S>>,
+    dir: &Dir<Ext4<S>>,
     name: EntryName,
 ) -> filer_system::Result<Metadata> {
     let op = Op::Stat {
@@ -185,7 +181,7 @@ trait Attributed {
     fn value(&self, name: XattrEntry) -> impl Future<Output = filer_system::Result<Vec<u8>>>;
 }
 
-impl<S: ReadAt + 'static> Attributed for Dir<Xfs<S>> {
+impl<S: ReadAt + 'static> Attributed for Dir<Ext4<S>> {
     fn names(&self) -> impl Future<Output = filer_system::Result<Vec<XattrEntry>>> {
         self.xattr_names()
     }
@@ -195,7 +191,7 @@ impl<S: ReadAt + 'static> Attributed for Dir<Xfs<S>> {
     }
 }
 
-impl<S: ReadAt + 'static> Attributed for filer_system::File<filer_system::ReadOnly, Xfs<S>> {
+impl<S: ReadAt + 'static> Attributed for filer_system::File<filer_system::ReadOnly, Ext4<S>> {
     fn names(&self) -> impl Future<Output = filer_system::Result<Vec<XattrEntry>>> {
         self.xattr_names()
     }
@@ -260,36 +256,9 @@ fn times(metadata: &Metadata) -> String {
 
 /// The 64-bit FNV-1a hash.
 fn fnv1a(bytes: &[u8]) -> u64 {
-    fnv1a_from(0xcbf2_9ce4_8422_2325, bytes)
-}
-
-/// Continues an FNV-1a hash, `hash` so far, over `bytes`.
-fn fnv1a_from(hash: u64, bytes: &[u8]) -> u64 {
-    bytes.iter().fold(hash, |hash, &byte| {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, &byte| {
         (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3)
     })
-}
-
-/// The largest file whose contents are hashed.
-const MAX_HASHED: u64 = 1 << 30;
-
-/// Returns the FNV-1a hash of the contents of `file`, read a piece at a
-/// time.
-async fn hash<S: ReadAt + 'static>(
-    file: &filer_system::File<filer_system::ReadOnly, Xfs<S>>,
-) -> filer_system::Result<u64> {
-    let mut hash = fnv1a(&[]);
-    let mut at = 0;
-    loop {
-        let BufResult(result, piece) = file.read_at(Vec::with_capacity(1 << 20), at).await;
-        match result? {
-            0 => return Ok(hash),
-            n => {
-                hash = fnv1a_from(hash, &piece);
-                at += n as u64;
-            },
-        }
-    }
 }
 
 /// Polls `future` to completion on this thread: the native driver used
