@@ -28,6 +28,7 @@ std = [
   "filer-api/std",
   "filer-ar?/std",
   "filer-cpio?/std",
+  "filer-pack/std",
   "filer-rar?/std",
   "filer-tar?/std",
   "filer-zip?/std",
@@ -45,6 +46,7 @@ filer-7z = { workspace = true, optional = true }
 filer-api.workspace = true
 filer-ar = { workspace = true, optional = true }
 filer-cpio = { workspace = true, optional = true }
+filer-pack.workspace = true
 filer-rar = { workspace = true, optional = true }
 filer-tar = { workspace = true, optional = true }
 filer-zip = { workspace = true, optional = true }

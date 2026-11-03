@@ -45,7 +45,6 @@ version = "0.0.2"
 dependencies = [
  "bitflags",
  "ref-cast",
- "spin",
 ]
 
 [[package]]
@@ -53,6 +52,7 @@ name = "filer-ar"
 version = "0.0.2"
 dependencies = [
  "filer-api",
+ "filer-pack",
  "filer-spec",
  "filer-tar",
 ]
@@ -65,6 +65,7 @@ dependencies = [
  "filer-api",
  "filer-ar",
  "filer-cpio",
+ "filer-pack",
  "filer-rar",
  "filer-spec",
  "filer-tar",
@@ -99,6 +100,7 @@ name = "filer-cpio"
 version = "0.0.2"
 dependencies = [
  "filer-api",
+ "filer-pack",
  "filer-spec",
 ]
 
@@ -181,6 +183,8 @@ name = "filer-pack"
 version = "0.0.2"
 dependencies = [
  "filer-api",
+ "filer-spec",
+ "spin",
 ]
 
 [[package]]
@@ -239,6 +243,7 @@ version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-heap",
+ "filer-pack",
  "filer-spec",
 ]
 
@@ -321,6 +326,7 @@ version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-heap",
+ "filer-pack",
  "filer-spec",
  "miniz_oxide",
 ]

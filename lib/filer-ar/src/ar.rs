@@ -2,10 +2,8 @@
 
 use crate::index::index;
 use core::future::Future;
-use filer_api::{
-    Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights,
-    archive::{Archive, Limits},
-};
+use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
+use filer_pack::{Archive, Limits};
 
 /// A read-only driver over an ar archive.
 ///
@@ -34,7 +32,7 @@ use filer_api::{
 /// is exceeded ([`LimitExceeded`](filer_api::ErrorKind::LimitExceeded):
 /// the entry count, the name length, or the name table's size, which
 /// [`max_extension_len`](Limits::max_extension_len) bounds). The error's
-/// source is an [`ArchiveError`](filer_api::archive::ArchiveError) naming
+/// source is an [`ArchiveError`](filer_pack::ArchiveError) naming
 /// the offending header's offset. Of members with the same name, which
 /// static libraries may hold, the later wins, as in every archive format
 /// Filer reads.

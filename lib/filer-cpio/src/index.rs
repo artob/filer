@@ -15,9 +15,9 @@ use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 use core::time::Duration;
 use filer_api::{
     BufResult, Error, ErrorKind, FileKind, ReadAt, Timestamp,
-    archive::{ArchiveError, Index, Limits, Member},
     tree::{Ino, Node, Tree},
 };
+use filer_pack::{ArchiveError, Index, Limits, Member};
 
 fn fail(kind: ErrorKind, offset: u64, reason: &'static str) -> Error {
     ArchiveError::new("cpio", offset, reason).into_error(kind)

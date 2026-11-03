@@ -1,16 +1,16 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{
+use crate::{ArchiveError, Member, Stored};
+use alloc::vec::Vec;
+use filer_api::{
     Error, ErrorKind, FileKind,
-    archive::{ArchiveError, Member, Stored},
     tree::{Ino, Node, ROOT, Tree},
 };
-use alloc::vec::Vec;
 
 /// The index of an archive under construction, applying the rules every
 /// archive format shares.
 ///
-/// `C` is the format's [`Codec`](crate::archive::Codec), [`Stored`] for
+/// `C` is the format's [`Codec`](crate::Codec), [`Stored`] for
 /// formats without compression. A format's parser reads its headers in order and records each member
 /// here by its raw name, a `/`-separated byte string. The index then:
 ///
@@ -32,7 +32,8 @@ use alloc::vec::Vec;
 /// # Examples
 ///
 /// ```
-/// use filer_api::{archive::{Index, Member}, tree::{Node, ROOT}};
+/// use filer_api::tree::{Node, ROOT};
+/// use filer_pack::{Index, Member};
 ///
 /// let mut index = Index::new("tar");
 /// index.insert(b"./docs/README", Node::File(Member::new(512, 14)), 0)?;
@@ -156,7 +157,7 @@ impl<C> Index<C> {
         &self.tree
     }
 
-    /// Returns the finished tree, for an [`Archive`](crate::archive::Archive).
+    /// Returns the finished tree, for an [`Archive`](crate::Archive).
     #[must_use]
     pub fn into_tree(self) -> Tree<Member<C>> {
         self.tree

@@ -556,15 +556,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-01: Fill `filer-pack` from `filer_api::archive` (D59).**
-  Move the module whole, `lock.rs` and the `spin` dependency with it,
-  into `lib/filer-pack`, the empty `no_std` crate depending on
-  `filer-api` only, published at 0.0.2 with `filer-api`'s lint block;
-  nothing is re-exported from `filer-api`. `filer-tar`, `filer-zip`,
-  `filer-ar`, `filer-cpio`, and `filer-archive` depend on it and forward
-  `std`. Add it to `AGENTS.md`, update its docs, and update §17.17's
-  mentions of the module. Done when `filer-api` has no `archive` module
-  and no `spin`, and every check in `AGENTS.md` passes.
 - [ ] **PACK-02: Limits inside `Index`.** `Index::new(format, limits)`
   counts recorded members against `max_entries` and checks names and
   link targets against `max_path_len`, with today's reasons; a shared

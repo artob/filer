@@ -2,10 +2,8 @@
 
 use crate::{codec::Sum, index::index};
 use core::future::Future;
-use filer_api::{
-    Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights,
-    archive::{Archive, Limits},
-};
+use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
+use filer_pack::{Archive, Limits};
 
 /// A read-only driver over a cpio archive.
 ///
@@ -37,7 +35,7 @@ use filer_api::{
 /// ([`Corrupt`](filer_api::ErrorKind::Corrupt)); or if a [`Limits`] value
 /// is exceeded ([`LimitExceeded`](filer_api::ErrorKind::LimitExceeded):
 /// the entry count or the name length). The error's source is an
-/// [`ArchiveError`](filer_api::archive::ArchiveError) naming the offending
+/// [`ArchiveError`](filer_pack::ArchiveError) naming the offending
 /// header's offset. Directories implied by member names are created; of
 /// duplicate members, the later wins. Symlinks in the archive resolve
 /// within it, confined like any other path.

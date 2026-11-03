@@ -60,7 +60,7 @@
   in-memory driver; `filer-tar`, `filer-zip`, `filer-ar`, and `filer-cpio`
   are archive drivers (no OS, build everywhere, read from `ReadAt` sources,
   read-only forever: never add archive writing; each is a header parser
-  over the shared `filer_api::archive` module), and
+  over `filer-pack`, where what they share goes), and
   `filer-archive` opens any of them by name (add every new archive crate
   to it as an optional dependency, feature, and re-export);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing

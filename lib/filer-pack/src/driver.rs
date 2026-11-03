@@ -1,25 +1,25 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{
+use crate::{Codec, Decoder, Member, Stored, lock::Lock};
+use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
+use core::future::Future;
+use filer_api::{
     BlockingResolver, BufResult, Completion, DirCookie, Driver, DriverId, DriverKey, Entry,
     EntryName, Error, ErrorKind, FileId, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op,
     OpKind, OpenHow, Output, ReadAt, Resolve, Target,
-    archive::{Codec, Decoder, Member, Stored, lock::Lock},
     path::RelPath,
     tree::{Ino, Node, ROOT, Tree},
 };
-use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
-use core::future::Future;
 
 /// A read-only driver serving an indexed archive.
 ///
 /// An archive format's crate parses the headers into an
-/// [`Index`](crate::archive::Index), then serves the finished tree with an
+/// [`Index`](crate::Index), then serves the finished tree with an
 /// `Archive` over the same [`ReadAt`] source: reading a stored member reads
 /// its bytes directly from the source, never past the member's end. Format
 /// crates usually wrap it in their own type (such as `filer_tar::Tar`) and
-/// hand out its root as a [`Dir`](crate::Dir) restricted to
-/// [`Rights::READ`](crate::Rights::READ).
+/// hand out its root as a [`Dir`](filer_api::Dir) restricted to
+/// [`Rights::READ`](filer_api::Rights::READ).
 ///
 /// Members encoded by the format's [`Codec`] are decoded as streams: a
 /// read continues a stream left part way through the member at or before
@@ -38,7 +38,8 @@ use core::future::Future;
 /// # Examples
 ///
 /// ```
-/// use filer_api::{Dir, Rights, archive::{Archive, Index, Member}, tree::Node};
+/// use filer_api::{Dir, Rights, tree::Node};
+/// use filer_pack::{Archive, Index, Member};
 ///
 /// let bytes: &'static [u8] = b"hello";
 /// let mut index = Index::new("example");
@@ -325,6 +326,7 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
             (Node::Dir(_), HandleKind::File) => Some(ErrorKind::IsADirectory),
             (_, HandleKind::Dir) => Some(ErrorKind::NotADirectory),
             (_, HandleKind::File) => Some(ErrorKind::NotRegularFile),
+            _ => Some(ErrorKind::Unsupported),
         };
         match mismatch {
             None => Ok(Output::Opened(self.key.handle(how.kind, ino))),
@@ -438,8 +440,10 @@ fn id(ino: Ino) -> FileId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Dir, Rights, archive::Index, driver::tests::block_on};
+    use crate::Index;
     use core::sync::atomic::{AtomicUsize, Ordering};
+    use filer_api::{Dir, MetaMask, Rights};
+    use filer_spec::block_on;
 
     /// Decoders started, across every test in this module.
     static STARTED: AtomicUsize = AtomicUsize::new(0);
@@ -532,7 +536,7 @@ mod tests {
         assert_eq!(read_at(&root, 3, 2).unwrap(), b"bc");
         assert_eq!(read_at(&root, 1, 100).unwrap(), b"abbcc");
         assert_eq!(read_at(&root, 6, 1).unwrap(), b"");
-        let metadata = block_on(root.metadata("f", crate::MetaMask::LEN)).unwrap();
+        let metadata = block_on(root.metadata("f", MetaMask::LEN)).unwrap();
         assert_eq!(metadata.len, Some(6));
     }
 

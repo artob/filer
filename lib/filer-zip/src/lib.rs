@@ -64,9 +64,8 @@ mod header;
 
 mod index;
 
-/// Re-exported from [`filer_api::archive`], where all archive drivers share
-/// it.
-pub use filer_api::archive::Limits;
+/// Re-exported from [`filer_pack`], where all archive drivers share it.
+pub use filer_pack::Limits;
 
 mod zip;
 pub use zip::*;

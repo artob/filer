@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{Error, ErrorKind, OpKind};
+use filer_api::{Error, ErrorKind, OpKind};
 
 /// Why an archive could not be opened: its format, the offset of the
 /// header at fault, and the reason. Archive drivers return it as the
@@ -9,7 +9,8 @@ use crate::{Error, ErrorKind, OpKind};
 /// # Examples
 ///
 /// ```
-/// use filer_api::{ErrorKind, archive::ArchiveError};
+/// use filer_api::ErrorKind;
+/// use filer_pack::ArchiveError;
 ///
 /// let error = ArchiveError::new("tar", 1024, "bad checksum").into_error(ErrorKind::Corrupt);
 /// let source = core::error::Error::source(&error).unwrap();

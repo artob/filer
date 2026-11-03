@@ -4,14 +4,14 @@
 ///
 /// Archives are untrusted input; the defaults are strict and suit typical
 /// source and release archives. Exceeding a limit fails the open with
-/// [`LimitExceeded`](crate::ErrorKind::LimitExceeded). The size limits
+/// [`LimitExceeded`](filer_api::ErrorKind::LimitExceeded). The size limits
 /// apply to formats that compress members, such as ZIP, and are checked
 /// against the sizes the archive declares, which also bound decoding.
 ///
 /// # Examples
 ///
 /// ```
-/// use filer_api::archive::Limits;
+/// use filer_pack::Limits;
 ///
 /// let limits = Limits::default().with_max_entries(1_000_000);
 /// assert_eq!(limits.max_entries, 1_000_000);

@@ -13,9 +13,9 @@ use crate::{
 use alloc::{boxed::Box, vec, vec::Vec};
 use filer_api::{
     BufResult, Error, ErrorKind, ReadAt,
-    archive::{ArchiveError, Codec, Index, Limits, Member},
     tree::{Node, Tree},
 };
+use filer_pack::{ArchiveError, Codec, Index, Limits, Member};
 
 /// How much of the central directory to read at once.
 const CHUNK: usize = 64 * 1024;

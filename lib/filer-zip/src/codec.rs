@@ -4,11 +4,8 @@
 //! checked against the member's CRC-32.
 
 use alloc::boxed::Box;
-use filer_api::{
-    Error, ErrorKind, OpKind,
-    archive::{Codec, Decoder},
-    checksum::Crc32,
-};
+use filer_api::{Error, ErrorKind, OpKind, checksum::Crc32};
+use filer_pack::{Codec, Decoder};
 
 /// Compression methods.
 pub(crate) const STORED: u16 = 0;

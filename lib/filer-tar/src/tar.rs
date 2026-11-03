@@ -2,10 +2,8 @@
 
 use crate::index::index;
 use core::future::Future;
-use filer_api::{
-    Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights,
-    archive::{Archive, Limits},
-};
+use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
+use filer_pack::{Archive, Limits};
 
 /// A read-only driver over a TAR archive.
 ///
@@ -28,7 +26,7 @@ use filer_api::{
 /// malformed or truncated ([`Corrupt`](filer_api::ErrorKind::Corrupt)); or
 /// if a [`Limits`] value is exceeded
 /// ([`LimitExceeded`](filer_api::ErrorKind::LimitExceeded)). The error's
-/// source is an [`ArchiveError`](filer_api::archive::ArchiveError) naming
+/// source is an [`ArchiveError`](filer_pack::ArchiveError) naming
 /// the offending header's offset. Directories implied by member names are
 /// created; of duplicate members, the later wins; a hardlink shares its
 /// target's node, and so its file id. Symlinks in the archive resolve

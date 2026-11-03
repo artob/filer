@@ -3,10 +3,8 @@
 use crate::codec::Method;
 use crate::index::index;
 use core::future::Future;
-use filer_api::{
-    Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights,
-    archive::{Archive, Limits},
-};
+use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
+use filer_pack::{Archive, Limits};
 
 /// A read-only driver over a ZIP archive.
 ///
@@ -48,7 +46,7 @@ use filer_api::{
 /// the total of the members' declared sizes and each member's
 /// decompression ratio. Since decoding stops at a member's declared size,
 /// these bound what reading the whole archive can produce. The error's
-/// source is an [`ArchiveError`](filer_api::archive::ArchiveError) naming
+/// source is an [`ArchiveError`](filer_pack::ArchiveError) naming
 /// the offending record's offset. Directories implied by member names are
 /// created; of duplicate members, the later in the central directory
 /// wins. Symlinks in the archive resolve within it, confined like any

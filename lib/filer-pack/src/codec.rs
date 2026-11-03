@@ -1,21 +1,22 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{Error, ErrorKind, OpKind};
 use alloc::boxed::Box;
+use filer_api::{Error, ErrorKind, OpKind};
 
 /// How a format's members are encoded, and how to decode them.
 ///
-/// Each [`Member`](crate::archive::Member) carries a value of its format's
+/// Each [`Member`](crate::Member) carries a value of its format's
 /// codec type: a format without compression uses [`Stored`], while a
 /// format with it records each member's method and whatever its decoder
-/// needs, such as a checksum. [`Archive`](crate::archive::Archive) reads
+/// needs, such as a checksum. [`Archive`](crate::Archive) reads
 /// stored members straight from the source, and decodes the others as a
 /// stream through a [`Decoder`], which it keeps between reads.
 ///
 /// # Examples
 ///
 /// ```
-/// use filer_api::{Error, archive::{Codec, Decoder}};
+/// use filer_api::Error;
+/// use filer_pack::{Codec, Decoder};
 ///
 /// /// A codec whose members are stored as is, or with each byte inverted.
 /// #[derive(Clone, Copy)]
@@ -61,7 +62,7 @@ pub trait Codec: Copy + Send + Sync + 'static {
 
 /// A member's decompressor, part way through the member.
 ///
-/// [`Archive`](crate::archive::Archive) feeds it the member's packed bytes
+/// [`Archive`](crate::Archive) feeds it the member's packed bytes
 /// in order and never asks for more output than the member's declared
 /// size, so a decoder needs no limits of its own against decompression
 /// bombs.

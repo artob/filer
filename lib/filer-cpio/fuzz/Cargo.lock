@@ -38,7 +38,6 @@ version = "0.0.2"
 dependencies = [
  "bitflags",
  "ref-cast",
- "spin",
 ]
 
 [[package]]
@@ -46,6 +45,7 @@ name = "filer-cpio"
 version = "0.0.2"
 dependencies = [
  "filer-api",
+ "filer-pack",
 ]
 
 [[package]]
@@ -56,6 +56,14 @@ dependencies = [
  "filer-cpio",
  "filer-spec",
  "libfuzzer-sys",
+]
+
+[[package]]
+name = "filer-pack"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "spin",
 ]
 
 [[package]]

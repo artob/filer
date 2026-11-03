@@ -10,9 +10,9 @@ use alloc::vec::Vec;
 use core::time::Duration;
 use filer_api::{
     BufResult, Error, ErrorKind, ReadAt, Timestamp,
-    archive::{ArchiveError, Index, Limits, Member},
     tree::{Node, Tree},
 };
+use filer_pack::{ArchiveError, Index, Limits, Member};
 
 fn fail(kind: ErrorKind, offset: u64, reason: &'static str) -> Error {
     ArchiveError::new("ar", offset, reason).into_error(kind)

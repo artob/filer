@@ -6,10 +6,8 @@
 //! symlinks, so theirs are not checked.
 
 use alloc::boxed::Box;
-use filer_api::{
-    Error, ErrorKind, OpKind,
-    archive::{Codec, Decoder},
-};
+use filer_api::{Error, ErrorKind, OpKind};
+use filer_pack::{Codec, Decoder};
 
 /// How a member is stored: as is, or with the sum of its bytes to check.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

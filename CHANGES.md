@@ -16,9 +16,10 @@ so any release may break compatibility.
   the drivers reading them: `nt`, `wtf8`, and `reparse`, moved from
   `filer-fs`, and `dos`, FAT's local dates and times from `filer-fat`,
   with `UtcOffset`, which `filer-fat` re-exports.
-- `filer-pack`: New crate, with no items yet, published at 0.0.2: it is
-  to hold the archive drivers' shared machinery.
+- `filer-pack`: New crate: the archive drivers' shared machinery,
+  `filer_api::archive` moved whole to its root, with `spin`.
 ### Removed
+- `filer-api`: `archive`, now `filer-pack`'s, and the `spin` dependency.
 - `filer-fs`: `nt`, `reparse`, and `wtf8`, now `filer-msft`'s.
 
 ## 0.0.2 - 2026-11-03

@@ -5,8 +5,8 @@ use alloc::boxed::Box;
 use core::future::Future;
 use filer_api::{
     Completion, Dir, Driver, DriverId, DynDriver, Error, ErrorKind, Op, OpKind, ReadAt,
-    archive::Limits,
 };
+use filer_pack::Limits;
 
 /// A read-only driver over an archive of any supported [`Format`].
 ///

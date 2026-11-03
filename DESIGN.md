@@ -394,12 +394,11 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
-`filer-msft`, `known-codepages`, the read-only `filer-tar`, `filer-zip`,
-`filer-ar`, `filer-cpio`, and `filer-archive` over them, `filer-ext4`,
-`filer-fat`, `filer-ntfs`, `filer-xfs`, and `filer-volume` over them, and
-as empty
-skeletons `filer-wasi`, `filer-whatwg`, and `filer-cli` (D30, D38, D41),
-and `filer-pack`, published empty in `lib/` as PACK-01 comes next.
+`filer-msft`, `known-codepages`, `filer-pack`, the read-only
+`filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
+over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
+`filer-volume` over them, and as empty skeletons `filer-wasi`,
+`filer-whatwg`, and `filer-cli` (D30, D38, D41).
 Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
 and the file systems `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
 `filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,
@@ -2282,15 +2281,15 @@ replaced inode, `make_dir`), and a `BlockingResolver` impl. Drivers apply their
 own policies (`Heap` panics on duplicates; archives let the later entry win)
 and keep their tree private.
 
-**Shared machinery (D44).** Everything but header parsing lives in
+**Shared machinery (D44).** Everything but header parsing lived in
 `filer_api::archive`: `Index` (the shared rules: safe names, implied
 directories, later duplicates win, hardlinks share a node), `Archive<S>`
 (the read-only driver serving a `Tree<Member>` from a `ReadAt` source),
 `Member`, `Limits`, and `ArchiveError` (format, offset, reason). Each
 format crate is then a parser feeding an `Index` and a thin wrapper type
-delegating to `Archive`, as `filer_tar::Tar` is. This bends the placement
+delegating to `Archive`, as `filer_tar::Tar` is. This bent the placement
 rule (D20: state and semantics get their own crate) for convenience while
-the formats settle; with four formats built, it moves to `filer-pack`
+the formats settled; with four formats built, it moved to `filer-pack`
 (D59, below).
 
 **Compressed members** (as built, 2026-11-01). `Member<C>`, `Index<C>`,
@@ -2329,10 +2328,11 @@ streaming visitor (TAR-03). The name was free on crates.io that day.
 What moves in, in this order (TODO PACK-01 to PACK-10):
 
 - all of `filer_api::archive`, as one mechanical change, `spin` with
-  it: `filer-api` then holds no archive state and no lock, which mends
-  D44's bend of the placement rule (D20), and the stream cache can be
-  shared without `filer-api` depending on `filer-pack`; nothing is
-  re-exported from `filer-api`, as 0.0.x may break (D29);
+  it (done, 2026-11-03): `filer-api` then holds no archive state and no
+  lock, which mends D44's bend of the placement rule (D20), and the
+  stream cache can be shared without `filer-api` depending on
+  `filer-pack`; nothing is re-exported from `filer-api`, as 0.0.x may
+  break (D29);
 - the limit checks, into `Index`, which then counts recorded members
   rather than headers, and the read helper the parsers copy;
 - one checksum-verifying decoder over a digest trait, in place of
@@ -3213,7 +3213,7 @@ That moves here, step by step, each driver keeping only its format:
 - POSIX ACLs in the form Linux's `getxattr` returns (ext4, XFS);
 - reading a file through a map of runs (all four);
 - the driver shell: a trait a format implements, and one `Driver` over
-  it, as `filer_api::archive` serves archives (§17.7, D44), but leaving
+  it, as `filer-pack` serves archives (§17.7, D59), but leaving
   room for writing, which FAT plans (§17.13);
 - partitioned disk images: MBR tables, extended partitions included, and
   GPTs, at 512- and 4096-byte sectors, by their backup header if need be;
@@ -3240,11 +3240,11 @@ sparse fixtures, and `tests/jobs.sh`, which runs a differential test's
 comparisons at once) goes to `filer-spec`. Each format keeps its own error
 enum, `Options`, and on-disk parsing.
 
-Unlike `filer_api::archive` (D44, until `filer-pack`, D59), this is a
-crate of its own, per the placement rule (D20): it has semantics of its
-own, and only file system drivers need it, with `filer-windows` for its
-field readers alone, since `filer-msft` took the on-disk forms it shares
-with NTFS (D60).
+Like `filer-pack` (D59), which took over from `filer_api::archive`
+(D44), this is a crate of its own, per the placement rule (D20): it has
+semantics of its own, and only file system drivers need it, with
+`filer-windows` for its field readers alone, since `filer-msft` took the
+on-disk forms it shares with NTFS (D60).
 
 **`filer-msft`** (D60, 2026-11-03) takes Microsoft's on-disk conventions
 out of this crate and `filer-fat`: NT times and the attribute flags
@@ -3681,7 +3681,7 @@ only when the first item needs it.
 | `compio-driver` | 0.12 | `filer-uring` | evaluate in a spike |
 | `bitflags` | 2.13 | `filer-api` | `no_std`; optional `serde` |
 | `ref-cast` | 1.0 | `filer-api` | path DSTs (D4) |
-| `spin` | 0.12 | `filer-api`, `filer-heap` | `no_std` lock |
+| `spin` | 0.12 | `filer-pack`, `filer-heap` | `no_std` lock |
 | `miniz_oxide` | 0.9 | `filer-zip` | Deflate; `no_std`; no `unsafe` |
 | `async-lock` | 3.4 | `filer-tx`, `filer-quota` | MSRV 1.85; `no_std` |
 | `serde` | 1.0 | several | optional |

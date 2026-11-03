@@ -1,17 +1,18 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{Timestamp, archive::Stored};
+use crate::Stored;
+use filer_api::Timestamp;
 
 /// Where a regular member's bytes lie in an archive and how they are
 /// encoded, with its modification time if the format records one.
 ///
-/// `C` is the format's [`Codec`](crate::archive::Codec); formats without
+/// `C` is the format's [`Codec`](crate::Codec); formats without
 /// compression use the default, [`Stored`].
 ///
 /// # Examples
 ///
 /// ```
-/// use filer_api::archive::Member;
+/// use filer_pack::Member;
 ///
 /// let member = Member::new(512, 14);
 /// assert_eq!((member.offset, member.size, member.packed), (512, 14, 14));
