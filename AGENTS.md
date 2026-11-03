@@ -101,7 +101,7 @@ cargo test --workspace
 cargo test --workspace --all-features
 cargo check --workspace --no-default-features
 cargo check --workspace --no-default-features --features all
-cargo doc --workspace --all-features --no-deps
+cargo doc --workspace --all-features
 ```
 
 - Also check affected crates individually with defaults disabled: workspace
@@ -110,4 +110,7 @@ cargo doc --workspace --all-features --no-deps
 - `.github/workflows/ci.yaml` builds, builds examples, and tests on Ubuntu,
   macOS, and Windows; it also checks minimal features and a bare-metal
   `no_std` target.
+- Build local docs without `--no-deps`: with it, cargo documents a crate
+  while rewriting its dependencies' docs, so links into them silently
+  render as plain text.
 - Stable rustfmt warns about the nightly-only `imports_granularity` setting.
