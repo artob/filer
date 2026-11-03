@@ -219,7 +219,7 @@ pub(crate) fn id(file: &File) -> Result<(u64, u128), u32> {
 
 /// Returns the reparse point `file` is open on (with
 /// `FILE_OPEN_REPARSE_POINT`): its tag, data length, and data, as
-/// [`filer_fs::reparse::Reparse::parse`] reads them.
+/// [`filer_msft::reparse::Reparse::parse`] reads them.
 pub(crate) fn reparse_point(file: &File) -> Result<Vec<u8>, u32> {
     // Words, for the alignment the structure has.
     let size =

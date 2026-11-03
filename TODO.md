@@ -546,23 +546,6 @@ Created with `publish = false` (D16).
   sequential, random 4 KiB, versus `Posix`. Done when results and machine
   details are recorded in §17.3.
 
-## `filer-msft`
-
-Microsoft's on-disk conventions, shared by file system, archive, and
-Windows drivers (§17.17, D60).
-
-- [ ] **MSFT-01: Fill `filer-msft` from `filer-fs` and `filer-fat`.**
-  Move `nt`, `wtf8`, and `reparse` from `filer-fs`, and FAT's local date
-  and time from `filer-fat` (`fat_time.rs`, with its offset and
-  granularity parameters, as a `dos` module), into `lib/filer-msft`, the
-  empty `no_std` crate depending on `filer-api` only, published at 0.0.2
-  with `filer-api`'s lint block and docs saying it holds the conventions
-  of Microsoft's formats and nothing of Microsoft's. `filer-fat`,
-  `filer-ntfs`, and `filer-windows` depend on it; `filer-windows` keeps
-  `filer-fs` for `le` alone. Add it to `AGENTS.md`; update its docs. Done
-  when `filer-fs` exports none of the three modules, `filer-fat` decodes
-  no times itself, and every check in `AGENTS.md` passes.
-
 ## Virtual drivers
 
 - [ ] **VFS-01: `filer-vfs` mount table.** Done when `filer-spec`
@@ -628,7 +611,7 @@ Windows drivers (§17.17, D60).
   `filer-ar`'s and `filer-cpio`'s copies of the adapter. Done when the
   three fuzz tests and the `cargo-fuzz` targets build on the shared
   walk.
-- [ ] **PACK-09: `filer-msft` in archives (after MSFT-01, CORE-07).**
+- [ ] **PACK-09: `filer-msft` in archives (after CORE-07).**
   Replace `filer-zip`'s NT and DOS time decoding with `filer-msft`'s,
   and its and `filer-cpio`'s mode matches with CORE-07's constructor;
   `filer-zip`'s field cursor stays. Done when `filer-zip`'s `header.rs`
@@ -727,8 +710,8 @@ From §17.12 (D40). Create each crate when its item starts.
 - [ ] **NET-04: `filer-nfs`.** Done when the read-only subset passes
   against a local NFS server.
 - [ ] **FMT-01: `filer-exfat`.** exFAT, its own crate (D46), over
-  `filer-fs`; FAT's local times (`fat_time.rs`, `UtcOffset`) move there
-  for it to share (§17.17). Done when it reads an exFAT image. Never
+  `filer-fs`, with FAT's local times from `filer-msft`'s `dos` and its
+  names from `wtf8` (§17.17). Done when it reads an exFAT image. Never
   published or released before its last patent expires, expected
   mid-2028 (`LEGAL.md`): verify the date first.
 - [ ] **FMT-02: Other on-disk formats (low priority).** Such as littlefs.

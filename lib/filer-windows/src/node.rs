@@ -2,7 +2,7 @@
 
 use crate::dir_info::Class;
 use filer_api::{Entry, FileKind};
-use filer_fs::reparse;
+use filer_msft::reparse;
 use std::{
     collections::VecDeque,
     fs::File,

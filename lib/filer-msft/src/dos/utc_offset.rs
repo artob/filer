@@ -1,9 +1,8 @@
 // This is free and unencumbered software released into the public domain.
 
-/// A fixed offset from UTC, east positive, in which a volume's times are
-/// read.
+/// A fixed offset from UTC, east positive, in which local times are read.
 ///
-/// FAT stores local times with no time zone, so the offset of the clock
+/// DOS times are local, with no time zone, so the offset of the clock
 /// that wrote them has to be supplied; the default is
 /// [`UTC`](Self::UTC). It is fixed: like Linux's `time_offset` mount
 /// option, it cannot follow daylight saving time, which would need the
@@ -12,7 +11,7 @@
 /// # Examples
 ///
 /// ```
-/// use filer_fat::UtcOffset;
+/// use filer_msft::dos::UtcOffset;
 ///
 /// let helsinki = UtcOffset::from_minutes(120).unwrap();
 /// assert_eq!(helsinki.seconds(), 7200);

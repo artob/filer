@@ -23,7 +23,7 @@
 //! tables, which translate cluster numbers; clusters of 4 or 64 KiB;
 //! checksums on metadata (CRC-32C or CRC-64), and on data in integrity
 //! streams; and named streams and reparse points, as in `filer-ntfs`,
-//! sharing its names and times through `filer-fs`.
+//! sharing its names, times, and reparse points through `filer-msft`.
 //!
 //! **Development.** The Linux kernel has no ReFS driver, so fixtures are
 //! volumes Windows itself formats and fills (a Dev Drive, or

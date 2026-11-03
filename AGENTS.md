@@ -68,14 +68,17 @@
   system drivers; `filer-volume` opens any of
   them, detected by content (add every new file system crate to it as an
   optional dependency, feature, and re-export); `filer-fs` holds what they
-  share (each depends on it, `filer-windows` for `wtf8`, `nt`, and
-  `reparse`; shared code goes there, not into one driver): a format
+  share (each depends on it, `filer-windows` for `le`; shared code goes
+  there, not into one driver): a format
   implements `filer_fs::FileSystem`, its public type wraps
   `filer_fs::Mounted`, and its tests use `filer-spec`'s `Sparse`,
   `Overlay`, `exercise`, and `fuzz`, and its `tests/differential.sh` runs
   a release `<driver>-manifest` example (unique: a workspace build links
   every example into one directory) in parallel jobs through
   `lib/filer-spec/tests/jobs.sh`;
+  `filer-msft` holds Microsoft's on-disk conventions (NT times and
+  attributes, UTF-16 names as WTF-8, reparse points, DOS times) for every
+  driver reading them, file system, archive, or `filer-windows`;
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `filer-system` re-exports `filer-api` plus `System`, the target's native

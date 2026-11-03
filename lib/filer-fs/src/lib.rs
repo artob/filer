@@ -12,14 +12,13 @@
 //! else (`DESIGN.md` §17.17, D54).
 //!
 //! So far: [`le`] and [`be`] read little- and big-endian fields, and
-//! [`read_exact`] reads them from a source; [`wtf8`] encodes UTF-16
-//! names; [`unix`] decodes Unix file types, and [`posix_acl`] encodes
-//! POSIX ACLs as Linux returns them; [`map`] reads files through maps of
-//! their blocks; [`nt`] converts Windows NT times and attributes, and
-//! [`reparse`] parses reparse points, which the Windows driver reads too. A format implements [`FileSystem`], and
-//! [`Mounted`] serves it as a driver. [`partition`] reads partitioned disk
-//! images, and [`recover`] reads volumes as replaying their journals would
-//! leave them.
+//! [`read_exact`] reads them from a source; [`unix`] decodes Unix file
+//! types, and [`posix_acl`] encodes POSIX ACLs as Linux returns them;
+//! [`map`] reads files through maps of their blocks. A format implements
+//! [`FileSystem`], and [`Mounted`] serves it as a driver. [`partition`]
+//! reads partitioned disk images, and [`recover`] reads volumes as
+//! replaying their journals would leave them. Microsoft's conventions,
+//! such as NT times and UTF-16 names, are `filer-msft`'s.
 //!
 //! Like the drivers, it treats volumes as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
@@ -66,7 +65,6 @@ mod read;
 pub use read::*;
 
 pub mod map;
-pub mod nt;
 
 pub mod partition;
 
@@ -74,6 +72,4 @@ mod mount;
 pub use mount::*;
 pub mod posix_acl;
 pub mod recover;
-pub mod reparse;
 pub mod unix;
-pub mod wtf8;

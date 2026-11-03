@@ -25,11 +25,12 @@ default-target = "x86_64-pc-windows-msvc"
 [features]
 default = ["all", "std"]
 all = []
-std = ["filer-api/std", "filer-fs/std", "dep:windows-sys"]
+std = ["filer-api/std", "filer-fs/std", "filer-msft/std", "dep:windows-sys"]
 
 [dependencies]
 filer-api.workspace = true
 filer-fs.workspace = true
+filer-msft.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, optional = true, features = [

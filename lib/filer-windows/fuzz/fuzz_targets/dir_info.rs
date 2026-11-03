@@ -10,7 +10,7 @@
 mod dir_info;
 
 use dir_info::{Class, parse};
-use filer_fs::wtf8;
+use filer_msft::wtf8;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

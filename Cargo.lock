@@ -127,6 +127,7 @@ dependencies = [
  "filer-api",
  "filer-fs",
  "filer-heap",
+ "filer-msft",
  "filer-spec",
  "filer-system",
  "known-codepages",
@@ -161,6 +162,7 @@ name = "filer-msft"
 version = "0.0.2"
 dependencies = [
  "filer-api",
+ "filer-spec",
 ]
 
 [[package]]
@@ -169,6 +171,7 @@ version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
+ "filer-msft",
  "filer-spec",
  "filer-system",
 ]
@@ -289,6 +292,7 @@ version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
+ "filer-msft",
  "filer-spec",
  "windows-sys",
 ]

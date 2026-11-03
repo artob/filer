@@ -24,11 +24,12 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std"]
 all = []
 code-pages = ["known-codepages/all"]
-std = ["filer-api/std", "filer-fs/std", "known-codepages/std"]
+std = ["filer-api/std", "filer-fs/std", "filer-msft/std", "known-codepages/std"]
 
 [dependencies]
 filer-api.workspace = true
 filer-fs.workspace = true
+filer-msft.workspace = true
 known-codepages.workspace = true
 
 [dev-dependencies]

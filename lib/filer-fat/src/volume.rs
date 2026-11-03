@@ -7,7 +7,6 @@ use crate::{
     CodePage, FatError, Options,
     chain::{Chain, FatReader, Length, OnVolume},
     dir_entry::{Assembler, Body, DirEntry, Item, MAX_LONG_NAME, SLOT, Step},
-    fat_time::{ONE_DAY, TEN_MILLIS, TWO_SECONDS},
     geometry::{Cluster, Geometry, Root},
 };
 use alloc::{sync::Arc, vec::Vec};
@@ -17,6 +16,7 @@ use filer_api::{
     MetaMask, Metadata, OpKind, ReadAt,
 };
 use filer_fs::{FileSystem, Opened, map, read_exact};
+use filer_msft::dos::{ONE_DAY, TEN_MILLIS, TWO_SECONDS};
 
 /// The most slots a directory may have, per the specification.
 const MAX_DIR_SLOTS: u64 = 65_536;

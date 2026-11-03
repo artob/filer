@@ -2,15 +2,15 @@
 
 //! Names as UTF-16 units and as WTF-8 bytes: UTF-8, with unpaired
 //! surrogates encoded as if they were scalar values, so that every name a
-//! UTF-16 file system can hold (FAT's long names, NTFS's, and later
-//! exFAT's and UDF's) has a byte form, and back. Names that are not UTF-8
+//! UTF-16 format can hold (FAT's long names and NTFS's, and later exFAT's,
+//! Joliet's, and 7z's) has a byte form, and back. Names that are not UTF-8
 //! become [`ForeignName`](filer_api::ForeignName)s, as Windows drivers
 //! make them (`DESIGN.md` §5).
 //!
 //! # Examples
 //!
 //! ```
-//! use filer_fs::wtf8;
+//! use filer_msft::wtf8;
 //!
 //! // An unpaired surrogate, which no UTF-8 string holds.
 //! let units = [0x61, 0xD800];

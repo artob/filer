@@ -1,35 +1,59 @@
 // This is free and unencumbered software released into the public domain.
 
-//! Dates and times in directory entries.
+//! DOS dates and times: local times with no zone, as FAT's directory
+//! entries hold them, and after FAT exFAT's, ZIP's, and RAR 4's headers.
 //!
-//! FAT stores local times with no zone: a date (years from 1980, month,
-//! day), a time of day in 2-second steps, and for creation a count of 10
-//! milliseconds up to 1.99 seconds. Access times are dates alone. Volumes
-//! written before Windows 95 left the creation and access fields zero, or
-//! reserved and arbitrary, so a field may be unset or invalid without the
-//! volume being corrupt; [`Stamp`] keeps all three cases apart.
+//! A date packs the years since 1980, the month, and the day into 16
+//! bits, and a time packs the hour, the minute, and the second, in
+//! 2-second steps, into 16 more. FAT adds hundredths of a second, up to
+//! 1.99 seconds, to creation times, and keeps access times as dates alone.
+//! As no zone is recorded, a reader supplies the [`UtcOffset`] of the
+//! clock that wrote them, and the granularity of the field it read, which
+//! [`Timestamp`]s keep.
+//!
+//! A field may be unset or invalid without the volume or archive holding
+//! it being corrupt: FAT volumes written before Windows 95 left creation
+//! and access times zero, or reserved and arbitrary. [`Stamp`] keeps the
+//! three cases apart.
+//!
+//! # Examples
+//!
+//! ```
+//! use filer_msft::dos::{Stamp, TWO_SECONDS, UtcOffset};
+//!
+//! let date = (44 << 9) | (2 << 5) | 29; // 2024-02-29
+//! let time = (12 << 11) | (34 << 5) | 28; // 12:34:56
+//! let stamp = Stamp::decode(date, time, 0);
+//! let utc = stamp.to_timestamp(UtcOffset::UTC, TWO_SECONDS).unwrap();
+//! assert_eq!(utc.secs(), 1_709_210_096);
+//! assert_eq!(Stamp::decode(0, 0, 0), Stamp::Unset);
+//! ```
 
-use crate::UtcOffset;
+mod utc_offset;
+pub use utc_offset::*;
+
 use core::time::Duration;
 use filer_api::Timestamp;
 
-/// The granularity of modification times.
-pub(crate) const TWO_SECONDS: Duration = Duration::from_secs(2);
+/// The granularity of a time: 2 seconds.
+pub const TWO_SECONDS: Duration = Duration::from_secs(2);
 
-/// The granularity of creation times.
-pub(crate) const TEN_MILLIS: Duration = Duration::from_millis(10);
+/// The granularity of a time with hundredths of a second, such as FAT's
+/// creation times: 10 milliseconds.
+pub const TEN_MILLIS: Duration = Duration::from_millis(10);
 
-/// The granularity of access times, which are dates.
-pub(crate) const ONE_DAY: Duration = Duration::from_secs(SECS_PER_DAY);
+/// The granularity of a date alone, such as FAT's access times: a day.
+pub const ONE_DAY: Duration = Duration::from_secs(SECS_PER_DAY);
 
 const SECS_PER_DAY: u64 = 86_400;
 
-/// Days from 1970-01-01 to 1980-01-01, the FAT epoch.
+/// Days from 1970-01-01 to 1980-01-01, the DOS epoch.
 const DAYS_TO_1980: i64 = 3652;
 
-/// A valid local date and time, from 1980-01-01 to 2107-12-31.
+/// A valid local date and time, from 1980-01-01 to 2107-12-31, to
+/// hundredths of a second.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct DateTime {
+pub struct DateTime {
     year: u16,
     month: u8,
     day: u8,
@@ -72,12 +96,9 @@ impl DateTime {
     }
 
     /// Returns this local time, at `offset` from UTC, as a [`Timestamp`]
-    /// with `granularity`.
-    pub(crate) fn to_timestamp(
-        self,
-        offset: UtcOffset,
-        granularity: Duration,
-    ) -> Option<Timestamp> {
+    /// with `granularity`, or returns `None` if it is out of range.
+    #[must_use]
+    pub fn to_timestamp(self, offset: UtcOffset, granularity: Duration) -> Option<Timestamp> {
         let mut days = DAYS_TO_1980;
         for year in 1980..self.year {
             days = days.checked_add(if is_leap(year) { 366 } else { 365 })?;
@@ -111,9 +132,9 @@ const fn days_in_month(year: u16, month: u8) -> u8 {
     }
 }
 
-/// A date and time field as stored in a directory entry.
+/// A date and time field, as stored: unset, valid, or invalid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum Stamp {
+pub enum Stamp {
     /// All zero: the time was never recorded.
     Unset,
 
@@ -122,13 +143,21 @@ pub(crate) enum Stamp {
 
     /// Out of range: a month or day of zero, an hour past 23, and so on.
     /// The raw fields are kept, as written.
-    Invalid { date: u16, time: u16, centis: u8 },
+    Invalid {
+        /// The date, as written.
+        date: u16,
+        /// The time of day, as written.
+        time: u16,
+        /// The hundredths of a second past the time, as written.
+        centis: u8,
+    },
 }
 
 impl Stamp {
     /// Decodes a date, a time (zero for a date alone), and hundredths of a
-    /// second past the time (zero where the entry has none).
-    pub(crate) fn decode(date: u16, time: u16, centis: u8) -> Self {
+    /// second past the time (zero where the field has none).
+    #[must_use]
+    pub fn decode(date: u16, time: u16, centis: u8) -> Self {
         if date == 0 && time == 0 && centis == 0 {
             return Self::Unset;
         }
@@ -138,11 +167,8 @@ impl Stamp {
 
     /// Returns the time as a [`Timestamp`], if it is valid; see
     /// [`DateTime::to_timestamp`].
-    pub(crate) fn to_timestamp(
-        self,
-        offset: UtcOffset,
-        granularity: Duration,
-    ) -> Option<Timestamp> {
+    #[must_use]
+    pub fn to_timestamp(self, offset: UtcOffset, granularity: Duration) -> Option<Timestamp> {
         match self {
             Self::Valid(time) => time.to_timestamp(offset, granularity),
             Self::Unset | Self::Invalid { .. } => None,

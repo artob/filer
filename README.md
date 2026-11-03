@@ -73,7 +73,7 @@ Foundations:
 | `filer-heap` | In-memory driver |
 | `filer-fs` | Shared machinery of file system drivers |
 | `filer-pack` | Shared machinery of archive drivers (planned) |
-| `filer-msft` | Microsoft's on-disk conventions (planned) |
+| `filer-msft` | Microsoft's on-disk conventions |
 | `filer-spec` | Executable driver specification, for tests |
 | `known-codepages` | DOS code pages, for FAT names |
 | `filer-cli` | `filer` command-line interface (planned) |

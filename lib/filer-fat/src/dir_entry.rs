@@ -12,12 +12,11 @@
 
 use crate::{
     CodePage, FatError, FatType,
-    fat_time::Stamp,
     geometry::{Cluster, Geometry},
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
 use core::num::NonZeroU32;
-use filer_fs::wtf8;
+use filer_msft::{dos::Stamp, wtf8};
 
 /// The size of a directory slot, in bytes.
 pub(crate) const SLOT: usize = 32;
@@ -832,7 +831,7 @@ pub(crate) mod tests {
         let entry = &entries(&[slot])[0];
         let created = entry
             .created()
-            .to_timestamp(crate::UtcOffset::UTC, crate::fat_time::TEN_MILLIS)
+            .to_timestamp(crate::UtcOffset::UTC, filer_msft::dos::TEN_MILLIS)
             .unwrap();
         assert_eq!(
             (created.secs(), created.nanos()),

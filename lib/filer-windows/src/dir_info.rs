@@ -174,8 +174,8 @@ pub(crate) mod tests {
                 buf.truncate(below(buf.len() + 1));
             }
             for entry in parse(&buf, *class).unwrap_or_default() {
-                let bytes = filer_fs::wtf8::encode(&entry.name);
-                assert_eq!(filer_fs::wtf8::decode(&bytes), Some(entry.name));
+                let bytes = filer_msft::wtf8::encode(&entry.name);
+                assert_eq!(filer_msft::wtf8::decode(&bytes), Some(entry.name));
             }
         }
     }

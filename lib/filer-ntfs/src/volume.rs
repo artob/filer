@@ -20,8 +20,9 @@ use filer_api::{
     DirCookie, DriverKey, Entry, EntryName, Error, ErrorKind, FileId, FileKind, LinkTarget,
     MetaMask, Metadata, OpKind, ReadAt, XattrEntry, XattrNs,
 };
-use filer_fs::{
-    FileSystem, Opened, le, nt,
+use filer_fs::{FileSystem, Opened, le};
+use filer_msft::{
+    nt,
     reparse::{self, Reparse},
     wtf8,
 };

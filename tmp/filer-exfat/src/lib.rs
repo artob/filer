@@ -27,7 +27,7 @@
 //! **Development.** Fixtures are made with `mkfs.exfat`, in the `exfatprogs`
 //! package on Debian and Ubuntu; the differential test compares with the
 //! Linux kernel's `exfat` driver. It shares little on disk with `filer-fat`
-//! (D46), but FAT's local times move into `filer-fs` for both. See
+//! (D46), but both read FAT's local times from `filer-msft`. See
 //! `DESIGN.md` §17.12.
 //!
 //! Volumes are untrusted input: like `filer-fat`, the driver will yield

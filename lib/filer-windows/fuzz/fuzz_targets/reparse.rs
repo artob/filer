@@ -5,7 +5,7 @@
 
 #![no_main]
 
-use filer_fs::reparse::Reparse;
+use filer_msft::reparse::Reparse;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

@@ -12,7 +12,7 @@
 //! # Examples
 //!
 //! ```
-//! use filer_fs::reparse::{self, Reparse};
+//! use filer_msft::reparse::{self, Reparse};
 //!
 //! // A cloud placeholder, whose data is not a link.
 //! let mut value = 0x9000_001Au32.to_le_bytes().to_vec();
@@ -23,7 +23,7 @@
 //!
 //! [MS-FSCC]: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/
 
-use crate::{le, wtf8};
+use crate::wtf8;
 use alloc::{boxed::Box, vec::Vec};
 
 /// A symbolic link.
@@ -62,17 +62,17 @@ impl Reparse {
     /// fit, or a link's target is empty or holds NUL.
     #[must_use]
     pub fn parse(value: &[u8]) -> Option<Self> {
-        let tag = le::u32_at(value, 0)?;
-        let len = usize::from(le::u16_at(value, 4)?);
+        let tag = u32_at(value, 0)?;
+        let len = usize::from(u16_at(value, 4)?);
         let data = value.get(8..)?.get(..len)?;
         let target = match tag {
             SYMLINK => {
-                let flags = le::u32_at(data, 8)?;
+                let flags = u32_at(data, 8)?;
                 windows_target(data, 12, flags & SYMLINK_FLAG_RELATIVE != 0)?
             },
             MOUNT_POINT => windows_target(data, 8, false)?,
             LX_SYMLINK => {
-                let version = le::u32_at(data, 0)?;
+                let version = u32_at(data, 0)?;
                 (version == 2).then_some(())?;
                 data.get(4..)?.to_vec()
             },
@@ -88,7 +88,7 @@ impl Reparse {
 /// Reads the substitute name of a symbolic link or junction, whose path
 /// buffer starts at `buffer` in `data`, and makes it a Filer target.
 fn windows_target(data: &[u8], buffer: usize, relative: bool) -> Option<Vec<u8>> {
-    let field = |at: usize| le::u16_at(data, at).map(usize::from);
+    let field = |at: usize| u16_at(data, at).map(usize::from);
     let (offset, len) = (field(0)?, field(2)?);
     let bytes = data.get(buffer..)?.get(offset..)?.get(..len)?;
     let (units, rest) = bytes.as_chunks::<2>();
@@ -116,6 +116,22 @@ fn windows_target(data: &[u8], buffer: usize, relative: bool) -> Option<Vec<u8>>
         target = absolute;
     }
     Some(target)
+}
+
+/// Returns the little-endian `u16` at byte `at` of `bytes`, if it fits.
+fn u16_at(bytes: &[u8], at: usize) -> Option<u16> {
+    bytes
+        .get(at..)?
+        .first_chunk()
+        .map(|b| u16::from_le_bytes(*b))
+}
+
+/// Returns the little-endian `u32` at byte `at` of `bytes`, if it fits.
+fn u32_at(bytes: &[u8], at: usize) -> Option<u32> {
+    bytes
+        .get(at..)?
+        .first_chunk()
+        .map(|b| u32::from_le_bytes(*b))
 }
 
 #[cfg(test)]

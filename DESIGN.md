@@ -394,12 +394,12 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
-`known-codepages`, the read-only `filer-tar`, `filer-zip`, `filer-ar`,
-`filer-cpio`, and `filer-archive` over them, `filer-ext4`, `filer-fat`,
-`filer-ntfs`, `filer-xfs`, and `filer-volume` over them, and as empty
+`filer-msft`, `known-codepages`, the read-only `filer-tar`, `filer-zip`,
+`filer-ar`, `filer-cpio`, and `filer-archive` over them, `filer-ext4`,
+`filer-fat`, `filer-ntfs`, `filer-xfs`, and `filer-volume` over them, and
+as empty
 skeletons `filer-wasi`, `filer-whatwg`, and `filer-cli` (D30, D38, D41),
-and `filer-pack` and `filer-msft`, published empty in `lib/` as their
-first items (PACK-01, MSFT-01) come next.
+and `filer-pack`, published empty in `lib/` as PACK-01 comes next.
 Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
 and the file systems `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
 `filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,
@@ -2001,7 +2001,7 @@ at the end, are reopened from that handle with an empty relative name
 (`ReOpenFile` refuses directories), without `FILE_OPEN_REPARSE_POINT`, so
 a filter's files read through the filter; nothing is opened by name
 twice, except a link read for its target. Targets come from
-`FSCTL_GET_REPARSE_POINT` through `filer_fs::reparse`, as `filer-ntfs`
+`FSCTL_GET_REPARSE_POINT` through `filer_msft::reparse`, as `filer-ntfs`
 reads them, so a junction's `\??\C:\path` is `/path`, absolute: an
 escape under `Beneath`, from the root under `InRoot`. Names holding `\`
 or `:` (another component, or a stream) are `InvalidNameForTarget`,
@@ -2012,7 +2012,7 @@ standard library's `seek_read`, `ERROR_HANDLE_EOF` reading nothing.
 `FileStandardInfo`, and `FileIdInfo` from the handle, or from the
 resolved entry's lookup handle: the kind, as above; the length, or for
 a link its target's, as on POSIX; the four times through
-`filer_fs::nt`, a zero time absent; the id, the volume's serial number
+`filer_msft::nt`, a zero time absent; the id, the volume's serial number
 and the 128-bit file id; and the attributes that are flags. A file that
 the Windows Overlay Filter compresses hides its reparse point and reads
 through the filter. `Op::ReadDir` reopens the directory for each listing
@@ -3207,8 +3207,8 @@ That moves here, step by step, each driver keeping only its format:
 
 - field readers for little- and big-endian structures, and exact reads
   from a source;
-- WTF-8 for UTF-16 names (FAT and NTFS, later exFAT and UDF), moving to
-  `filer-msft` (D60);
+- WTF-8 for UTF-16 names (FAT and NTFS, later exFAT and Joliet), moved
+  to `filer-msft` (D60);
 - Unix file types from modes and directory entries (ext4, XFS);
 - POSIX ACLs in the form Linux's `getxattr` returns (ext4, XFS);
 - reading a file through a map of runs (all four);
@@ -3223,14 +3223,14 @@ That moves here, step by step, each driver keeping only its format:
   log or journal puts, and `Recovered`, a source read through it (XFS,
   and ext4's journal);
 - Windows NT times and the file attributes that are flags (NTFS, and
-  `filer-windows`, which reads both from Windows), moving to
+  `filer-windows`, which reads both from Windows), moved to
   `filer-msft` (D60);
 - reparse points, and Filer's reading of links' targets (NTFS, and
   `filer-windows`, which reads the same values through
-  `FSCTL_GET_REPARSE_POINT`, so both report a link alike), moving to
+  `FSCTL_GET_REPARSE_POINT`, so both report a link alike), moved to
   `filer-msft` (D60);
-- later, when a second driver needs them: FAT's local times (for exFAT):
-  `filer-zip` was that driver, and they go to `filer-msft` (D60).
+- FAT's local times, once a second driver needed them: `filer-zip` was
+  that driver, and they went to `filer-msft` instead (D60).
 
 What stays elsewhere: helpers every driver needs, not only file systems
 (copying a slice into an `IoBufMut`, naming an entry in an error, the
@@ -3242,10 +3242,9 @@ enum, `Options`, and on-disk parsing.
 
 Unlike `filer_api::archive` (D44, until `filer-pack`, D59), this is a
 crate of its own, per the placement rule (D20): it has semantics of its
-own, and only file system drivers need it, with `filer-windows` for the
-on-disk forms it shares with NTFS (WTF-8 names, NT times and attributes,
-and reparse points) until `filer-msft` takes those (D60), and for its
-field readers.
+own, and only file system drivers need it, with `filer-windows` for its
+field readers alone, since `filer-msft` took the on-disk forms it shares
+with NTFS (D60).
 
 **`filer-msft`** (D60, 2026-11-03) takes Microsoft's on-disk conventions
 out of this crate and `filer-fat`: NT times and the attribute flags
@@ -3274,6 +3273,13 @@ short names, and because the ticker is how others name the company
 rather than how it names itself; the crate docs say it holds the
 conventions of Microsoft's formats and nothing of Microsoft's. Free on
 crates.io that day. Tasked as MSFT-01, CORE-07, and PACK-09.
+
+As built (MSFT-01, 2026-11-03): `nt`, `wtf8`, and `reparse` moved
+whole; `reparse` reads its two little-endian fields itself, as
+`filer-msft` depends on `filer-api` alone. FAT's times became `dos`,
+public now: `Stamp` (unset, valid, or invalid as written), `DateTime`,
+the three granularities, and `UtcOffset`, which `filer-fat` re-exports
+for its `Options`.
 
 **The driver shell** (as built, 2026-11-02). A format implements
 `FileSystem`: its `DriverKey`, its root, a node's kind, lookup, a

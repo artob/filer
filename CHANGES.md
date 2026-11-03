@@ -12,9 +12,14 @@ so any release may break compatibility.
   `filer-minix`, `filer-refs`, `filer-squashfs`, `filer-ufs`, and
   `filer-zfs`: New crates, with no items yet, published at 0.0.2 to
   reserve their names.
-- `filer-msft` and `filer-pack`: New crates, with no items yet,
-  published at 0.0.2: they are to hold Microsoft's on-disk conventions
-  and the archive drivers' shared machinery.
+- `filer-msft`: New crate: Microsoft's on-disk conventions, shared by
+  the drivers reading them: `nt`, `wtf8`, and `reparse`, moved from
+  `filer-fs`, and `dos`, FAT's local dates and times from `filer-fat`,
+  with `UtcOffset`, which `filer-fat` re-exports.
+- `filer-pack`: New crate, with no items yet, published at 0.0.2: it is
+  to hold the archive drivers' shared machinery.
+### Removed
+- `filer-fs`: `nt`, `reparse`, and `wtf8`, now `filer-msft`'s.
 
 ## 0.0.2 - 2026-11-03
 Read-only file systems (ext2/3/4, FAT, NTFS, XFS) and more archive

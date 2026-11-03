@@ -47,6 +47,7 @@ version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-fs",
+ "filer-msft",
  "known-codepages",
 ]
 
@@ -62,6 +63,13 @@ dependencies = [
 
 [[package]]
 name = "filer-fs"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
+name = "filer-msft"
 version = "0.0.2"
 dependencies = [
  "filer-api",

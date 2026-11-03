@@ -13,7 +13,7 @@
 
 use alloc::boxed::Box;
 use filer_api::FileKind;
-use filer_fs::wtf8;
+use filer_msft::wtf8;
 
 /// The longest file that may be a special file, a symlink of a long
 /// target; longer ones are regular files, and never read to find out.

@@ -49,10 +49,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-msft"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-windows-fuzz"
 version = "0.0.0"
 dependencies = [
  "filer-fs",
+ "filer-msft",
  "libfuzzer-sys",
 ]
 

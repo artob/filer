@@ -12,7 +12,7 @@ use filer_api::{
     Entry, EntryName, Error, ErrorKind, FileId, FileKind, Handle, HandleKind, IoBufMut, LinkTarget,
     Metadata, Op, OpKind, OpenHow, Output, Spawner, Target, path::RelPath, run_on,
 };
-use filer_fs::{nt, reparse::Reparse, wtf8};
+use filer_msft::{nt, reparse::Reparse, wtf8};
 use std::{
     fs::{File, OpenOptions},
     os::windows::fs::{FileExt, OpenOptionsExt},
@@ -64,7 +64,7 @@ pub(crate) const SHARE_ALL: u32 = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHAR
 /// followed, and names match without regard to case, as in Win32.
 /// Symbolic links, junctions, and WSL symlinks are read and followed by
 /// the resolver under the policy, their targets read as `filer-ntfs`
-/// reads them ([`filer_fs::reparse`]): `/`-separated, with an absolute
+/// reads them ([`filer_msft::reparse`]): `/`-separated, with an absolute
 /// path on a drive taken from the root. Directories and files are then
 /// reopened from the entry's handle, never by name again, so resolution
 /// stays beneath the handle even if entries are renamed concurrently.

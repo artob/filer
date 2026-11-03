@@ -8,7 +8,7 @@
 //!
 //! ```
 //! use filer_api::FileAttrs;
-//! use filer_fs::nt;
+//! use filer_msft::nt;
 //!
 //! let epoch = nt::timestamp(116_444_736_000_000_000).unwrap();
 //! assert_eq!((epoch.secs(), epoch.nanos()), (0, 0));

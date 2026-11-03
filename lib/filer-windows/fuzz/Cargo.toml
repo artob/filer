@@ -16,6 +16,7 @@ cargo-fuzz = true
 
 [dependencies]
 filer-fs = { path = "../../filer-fs" }
+filer-msft = { path = "../../filer-msft" }
 libfuzzer-sys = "0.4"
 
 # Its own workspace, apart from the repository's.
