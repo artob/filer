@@ -372,6 +372,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-tar`, `filer-zip` | read-only archive drivers | no |
 | `filer-ar`, `-cpio`, `-rar`, `-7z` | read-only archive drivers | no |
 | `filer-archive` | any archive format, by name, over those drivers | no |
+| `filer-pack` | shared machinery of archive drivers (§17.7, D59) | no |
 | `filer-volume` | any file system, by content, over their drivers (§17.18) | no |
 | `filer-tracing` | tracing middleware | no |
 | `filer-faults` | fault-injection middleware | no |
@@ -421,7 +422,9 @@ filer-api <--+-- filer-posix <---- filer-uring
              +-- filer-wasi
              +-- filer-windows
              +-- filer-heap
-             +-- filer-vfs, filer-overlay, filer-tar, filer-zip
+             +-- filer-vfs, filer-overlay
+             +-- filer-pack <-- filer-tar, filer-zip, filer-ar, filer-cpio,
+             |                  and filer-archive over them (D59)
              +-- filer-fs <---- filer-fat, filer-ext4, filer-ntfs, filer-xfs,
              |                  and the stubs in tmp/ (D58)
              +-- filer-tracing, filer-faults, filer-quota, filer-replay
@@ -2281,7 +2284,8 @@ directories, later duplicates win, hardlinks share a node), `Archive<S>`
 format crate is then a parser feeding an `Index` and a thin wrapper type
 delegating to `Archive`, as `filer_tar::Tar` is. This bends the placement
 rule (D20: state and semantics get their own crate) for convenience while
-the formats settle; it may move to its own crate later.
+the formats settle; with four formats built, it moves to `filer-pack`
+(D59, below).
 
 **Compressed members** (as built, 2026-11-01). `Member<C>`, `Index<C>`,
 and `Archive<S, C>` are generic over the format's `Codec`, defaulting to
@@ -2295,6 +2299,56 @@ sequential pass costs one decode and seeking backwards restarts. Output
 never passes the declared size, which bounds decompression bombs by what
 the index accepted; `Decoder::finish` checks a member (its CRC) only when
 a read reaches its end.
+
+**`filer-pack`** (D59, 2026-11-03) is where the archive drivers share
+code, as `filer-fs` is for the file system drivers (D54). Read side by
+side, the four drivers turned out to repeat, beyond what
+`filer_api::archive` already shares, the same read helper and limit
+checks in every parser, the same checksum-verifying decoder in two
+codecs, and, in `filer-zip`, NT times, DOS times, and Unix modes that
+`filer-fs` and `filer-fat` already decode. And the codecs to come
+(TAR-02, ZIP-02, CPIO-02, 7Z-01) had no shared home: compression comes
+in three shapes, members each a stream (ZIP), the whole archive one
+stream (compressed tarballs and initramfs images), and solid blocks of
+many members (7z, RAR), and the codec traits and `Archive`'s stream
+cache serve only the first. The name: `filer-archive` is the umbrella
+(D56), so the shared crate needed another word for the thing itself. A
+ZIP, a tarball, or a 7z is a pack of members, `Member` already calls its
+compressed length `packed`, and the decoders unpack. `filer-codec` was
+the runner-up, right for decoders alone but not for the index and the
+driver; `filer-archive-core` broke the workspace's two-word names;
+`filer-compress` implied writing (D43); `filer-stream` is kept for the
+streaming visitor (TAR-03). The name was free on crates.io that day.
+
+What moves in, in this order (TODO PACK-01 to PACK-10):
+
+- all of `filer_api::archive`, as one mechanical change, `spin` with
+  it: `filer-api` then holds no archive state and no lock, which mends
+  D44's bend of the placement rule (D20), and the stream cache can be
+  shared without `filer-api` depending on `filer-pack`; nothing is
+  re-exported from `filer-api`, as 0.0.x may break (D29);
+- the limit checks, into `Index`, which then counts recorded members
+  rather than headers, and the read helper the parsers copy;
+- one checksum-verifying decoder over a digest trait, in place of
+  `filer-zip`'s CRC wrapper and `filer-cpio`'s byte sum, ready for the
+  sums gzip, xz, zstd, and 7z stamp;
+- the stream cache, out of `Archive` and keyed by an opaque stream id,
+  and over it a `ReadAt` source over one decoded stream, for compressed
+  tarballs and initramfs images, and for solid blocks;
+- the decoders, one per algorithm behind one feature each, Deflate
+  first, from `filer-zip`; each format crate forwards the features it
+  uses, as `filer-archive` forwards `deflate`; each decoder crate is
+  assessed in `LEGAL.md` before it is adopted (D45: pure Rust, and
+  `no_std`);
+- the archive fuzz walk, into `filer-spec`, where shared test tooling
+  goes (D54): `filer-zip`'s predates it.
+
+What stays: each format's parser, codec value, wrapper type, and
+hand-written test writer. The wrapper types repeat as `filer-fat`'s
+does over `Mounted`, by design, and a macro would cost the docs that
+make up most of their lines. Whether archive crates may depend on
+`filer-fs` for its NT and DOS times, Unix modes, and field readers, or
+those move down to `filer-api`, is ASK-02.
 
 **Read-only, permanently (D43).** Archive drivers read archives as
 directories and will never create or modify them: writing archives is out
@@ -3175,10 +3229,11 @@ sparse fixtures, and `tests/jobs.sh`, which runs a differential test's
 comparisons at once) goes to `filer-spec`. Each format keeps its own error
 enum, `Options`, and on-disk parsing.
 
-Unlike `filer_api::archive` (D44), this is a crate of its own, per the
-placement rule (D20): it has semantics of its own, and only file system
-drivers need it, with `filer-windows` for the on-disk forms it shares
-with NTFS (WTF-8 names, NT times and attributes, and reparse points).
+Unlike `filer_api::archive` (D44, until `filer-pack`, D59), this is a
+crate of its own, per the placement rule (D20): it has semantics of its
+own, and only file system drivers need it, with `filer-windows` for the
+on-disk forms it shares with NTFS (WTF-8 names, NT times and attributes,
+and reparse points).
 
 **The driver shell** (as built, 2026-11-02). A format implements
 `FileSystem`: its `DriverKey`, its root, a node's kind, lookup, a
@@ -3513,7 +3568,7 @@ filer/
     filer-cli/     src/ { main.rs }
     filer-uring/   src/ { lib.rs, ring.rs, sys/ }
     filer-heap/  src/ { lib.rs, inode.rs, crash.rs, harness.rs, ... }
-    filer-vfs/  filer-overlay/  filer-tar/  filer-zip/
+    filer-vfs/  filer-overlay/  filer-pack/  filer-tar/  filer-zip/
     filer-tracing/  filer-faults/  filer-quota/  filer-replay/
     filer-tx/  filer-tokio/  filer-spec/  filer-fuse/
     <umbrella>/
@@ -3785,7 +3840,7 @@ Record changes here with a date and one line of rationale.
 | D41 | Archives are `filer-tar` and `filer-zip`, one per format | Accepted |
 | D42 | Byte sources are `ReadAt`: positional reads, length | Accepted |
 | D43 | Archive drivers are read-only, permanently | Accepted |
-| D44 | Shared archive code lives in `filer_api::archive`, for now | Accepted |
+| D44 | Shared archive code lives in `filer_api::archive`, until D59 | Accepted |
 | D45 | 100% Rust: no dependency may compile or bundle C code | Accepted |
 | D46 | `filer-fat` is a lazy driver; exFAT is `filer-exfat` | Accepted |
 | D47 | Async first, no panics, illegal states unrepresentable | Accepted |
@@ -3800,6 +3855,7 @@ Record changes here with a date and one line of rationale.
 | D56 | `filer-archive` opens any archive format, by its name for now | Accepted |
 | D57 | `filer-volume` opens any file system, detected by its content | Accepted |
 | D58 | Stubs reserving names live in `tmp/` until they read something | Accepted |
+| D59 | Archive drivers share code in `filer-pack`, where `filer_api::archive` moves | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

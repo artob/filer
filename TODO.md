@@ -33,6 +33,16 @@ later sections assume earlier ones are done.
 
 ## Questions for the maintainer
 
+- [ ] **ASK-02: May archive crates depend on `filer-fs`?** `filer-zip`
+  re-implements NT times (`filer_fs::nt`), DOS times (`filer-fat`'s,
+  which §17.17 planned to move to `filer-fs` for a second user), and
+  Unix modes (`filer_fs::unix`), and reads little-endian fields as
+  `filer_fs::le` does; `filer-cpio` repeats the modes, and 7z and RAR
+  headers will want all four. `filer-fs` depends on `filer-api` alone
+  and builds `no_std`, but §17.17 scopes it to file systems. Either
+  archive crates depend on it and its scope widens to on-disk formats
+  (recommended), or those helpers move down to `filer-api`. Decides
+  PACK-09.
 - [ ] **ASK-01: Umbrella crate name (Q11).**
   `filer` on crates.io is an unrelated 0.0.0 placeholder. Ask whether to
   request a transfer or pick another name. Blocks the umbrella section.
@@ -551,18 +561,85 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
+- [ ] **PACK-01: Create `filer-pack` from `filer_api::archive` (D59).**
+  Move the module whole, `lock.rs` and the `spin` dependency with it,
+  into `lib/filer-pack`, a `no_std` crate depending on `filer-api` only,
+  with `filer-api`'s lint block; nothing is re-exported from `filer-api`.
+  `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
+  depend on it and forward `std`. Add it to the README crate table and
+  `AGENTS.md`, and update §17.17's mentions of the module. Done when
+  `filer-api` has no `archive` module and no `spin`, and every check in
+  `AGENTS.md` passes.
+- [ ] **PACK-02: Limits inside `Index`.** `Index::new(format, limits)`
+  counts recorded members against `max_entries` and checks names and
+  link targets against `max_path_len`, with today's reasons; a shared
+  read helper naming the format and offset replaces the `read` and
+  `fail` functions each parser copies. Hidden ar members and cpio
+  trailers no longer count, so lower `filer-cpio`'s limits test to two.
+  Done when no driver's index module counts members or measures names
+  itself.
+- [ ] **PACK-03: One verified decoder.** A `Digest` trait (`update`,
+  `finish`) implemented by `Crc32` and by cpio's byte sum, and a
+  `Verified<D, H>` decoder checking the sum at `finish`, replace
+  `filer-zip`'s `Checked` and `filer-cpio`'s `Summing`. Done when both
+  codec modules hold only their method and sum, and both crates' tests
+  pass unchanged.
+- [ ] **PACK-04: The stream cache as a type.** Extract `Archive`'s kept
+  streams (take the furthest not past an offset, keep up to four, lock
+  inside) into a public `Streams` keyed by an opaque stream id, with
+  `Archive` its first consumer. Done when `driver.rs` holds no stream
+  bookkeeping and its tests pass unchanged.
+- [ ] **PACK-05: A `ReadAt` source over a decoded stream.** `Unpacked<S>`
+  (name open) wraps a source, a decoder factory, and a declared length,
+  and serves any offset by continuing or restarting a stream through
+  PACK-04's cache: the base of TAR-02 and CPIO-02, and of solid blocks
+  (7Z-01). Tested with the driver tests' toy codec. Done when reads at
+  random offsets match a decoded copy and a sequential read decodes
+  once.
+- [ ] **PACK-06: Decoders behind features.** Move `filer-zip`'s Deflate
+  adaptor over `miniz_oxide` to `filer-pack` behind `deflate`, the first
+  of one feature per algorithm; `filer-zip` forwards it and drops its
+  own dependency; update §22.3's table. Done when `filer-zip` builds
+  with and without `deflate` and `filer-archive`'s `deflate` still
+  reaches it.
+- [ ] **PACK-07: Assess decoder crates in `LEGAL.md`.** For each of gzip
+  (Deflate with a header and trailer), zstd, xz and LZMA, and bzip2: a
+  pure-Rust, `no_std` decoder crate with an acceptable license, or
+  "reimplement from the specification" (D45, D52). Done when
+  `LEGAL.md` names the choice for each; TAR-02, ZIP-02, CPIO-02, and
+  7Z-01 wait on it.
+- [ ] **PACK-08: Share the archive fuzz walk.** Add `files` to
+  `filer_spec::Outcome` and an allowance in `Checks` for the error kinds
+  a hostile archive may raise at open (`InvalidName`, `LimitExceeded`),
+  then port `filer-zip`'s `tests/fuzz.rs` and `tests/common/exercise.rs`
+  to `filer_spec::fuzz` and `exercise`, keeping its bomb bound, and drop
+  `filer-ar`'s and `filer-cpio`'s copies of the adapter. Done when the
+  three fuzz tests and the `cargo-fuzz` targets build on the shared
+  walk.
+- [ ] **PACK-09: `filer-fs` helpers in archives (after ASK-02).** Replace
+  `filer-zip`'s NT time, DOS time, Unix mode, and little-endian field
+  code, and `filer-cpio`'s mode match, with `filer_fs::nt`, FAT's local
+  times moved to `filer-fs` (as §17.17 planned for exFAT),
+  `filer_fs::unix::mode_kind`, and `filer_fs::le`, or with their moves
+  to `filer-api`, as ASK-02 decides. Done when `filer-zip`'s `header.rs`
+  decodes no times itself.
+- [ ] **PACK-10: Chunked header reads (optional).** `filer-tar`,
+  `filer-ar`, and `filer-cpio` issue one source read per header; share
+  `filer-zip`'s forward `Reader` through `filer-pack` if a `File` source
+  with many small members shows it matters. Done when a measurement
+  decides it, either way.
 - [ ] **TAR-01: Fuzzing `filer-tar`.** The driver passes `filer-spec` and
   hostile-archive tests. Still missing: a fuzz target over `header.rs` and
-  indexing. Done when it builds in CI.
-- [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz behind features, indexed on
-  open with checkpoints or cached members. Done when `.tar.gz` passes the
-  same subset.
+  indexing, on PACK-08's shared walk. Done when it builds in CI.
+- [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz from `filer-pack`
+  (PACK-05, PACK-07) behind features, indexed on open with checkpoints or
+  cached members. Done when `.tar.gz` passes the same subset.
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA behind features, as
-  pure-Rust decoders only (D45). Done when
-  each decodes a test archive.
+- [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA from `filer-pack`
+  (PACK-06, PACK-07) behind features. Done when each decodes a test
+  archive.
 - [ ] **ZIP-03: Legacy names.** Decode names without the UTF-8 flag with
   `known-codepages`, CP437 by default and any `CodePage` by option, as
   `filer-fat` does; also Info-ZIP's Unicode path extra field (0x7075).
@@ -572,8 +649,9 @@ Created with `publish = false` (D16).
 - [ ] **CPIO-02: Compressed initramfs images.** Distributions follow an
   uncompressed early archive with a compressed one (zstd on Ubuntu),
   which `filer-cpio` refuses as `Unsupported`. Decode it behind features,
-  sharing TAR-02's pure-Rust decoders. Done when a distribution's image
-  reads as GNU cpio extracts it once decompressed.
+  through `filer-pack`'s decoded source (PACK-05) and decoders (PACK-07).
+  Done when a distribution's image reads as GNU cpio extracts it once
+  decompressed.
 - [ ] **ARC-01: Detect archive formats by content.** `filer-archive`
   picks a format from the file name's extension only. Also read the
   first bytes (`ustar` at offset 257, `PK\x03\x04` or an end record,
@@ -581,9 +659,10 @@ Created with `publish = false` (D16).
   format, such as `initrd.img`, or misname it. Done when
   each fixture of each format opens without a name.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
-  SDK documents (§17.7), with pure-Rust LZMA and LZMA2 decoders, shared
-  with TAR-02's `xz` where they can be. Done when archives 7-Zip writes,
-  solid and not, read as it extracts them.
+  SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
+  (PACK-07), which TAR-02's `xz` shares, and its stream cache for solid
+  blocks (PACK-04). Done when archives 7-Zip writes, solid and not, read
+  as it extracts them.
 - [ ] **RAR-01: `filer-rar` (on demand).** Only as a clean-room,
   decompression-only reader (§17.7). Done when its licensing approach is
   recorded in `DESIGN.md` before any code.
