@@ -27,8 +27,9 @@
 //! - [`Parser`] reads a format's headers, and its errors carry an
 //!   [`ArchiveError`] naming the format, header offset, and reason.
 //!
-//! More is to move in (D59): pure-Rust decoders, one feature per
-//! algorithm.
+//! Decoders are pure Rust, one feature per algorithm, assessed in
+//! `LEGAL.md` before adoption (D45): so far, [`Deflate`], over
+//! `miniz_oxide`, behind `deflate`.
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will
@@ -37,9 +38,11 @@
 //! Like the drivers, it treats archives as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
 //! root denies by lint. It needs no OS and builds with `#![no_std]`,
-//! locking with a spin lock there; the `std` feature, enabled by default,
-//! forwards to `filer-api` and locks with the standard mutex. `all`
-//! currently enables nothing.
+//! locking with a spin lock there. Features, all enabled by default:
+//!
+//! - `std` forwards to `filer-api`, and locks with the standard mutex;
+//! - `all` enables every decoder below;
+//! - `deflate` enables [`Deflate`].
 //!
 //! [`ReadAt`]: filer_api::ReadAt
 //! [`Driver`]: filer_api::Driver
@@ -110,6 +113,11 @@ pub use streams::{Stream, StreamId, Streams};
 
 mod verified;
 pub use verified::*;
+
+#[cfg(feature = "deflate")]
+mod deflate;
+#[cfg(feature = "deflate")]
+pub use deflate::*;
 
 #[cfg(test)]
 mod toy;

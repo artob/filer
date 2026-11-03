@@ -58,6 +58,7 @@ name = "filer-pack"
 version = "0.0.2"
 dependencies = [
  "filer-api",
+ "miniz_oxide",
  "spin",
 ]
 
@@ -75,7 +76,6 @@ dependencies = [
  "filer-api",
  "filer-msft",
  "filer-pack",
- "miniz_oxide",
 ]
 
 [[package]]

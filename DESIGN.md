@@ -2212,8 +2212,9 @@ symlinks, and special files come from Unix modes (hosts 3 and 19), with
 a trailing `/` or the DOS directory attribute also making directories.
 Times come from the NTFS extra field, then the extended timestamp, then
 the DOS fields, read as UTC. Its codec records each member's method,
-CRC-32, and encryption: Deflate decodes with `miniz_oxide` (feature
-`deflate`), checked against the CRC at the member's end; other methods
+CRC-32, and encryption: Deflate decodes with `filer-pack`'s, over
+`miniz_oxide` (feature `deflate`), checked against the CRC at the
+member's end; other methods
 and encryption fail on read, not open, except for symlinks, whose
 targets are decoded at open. Spanned archives are `Unsupported`.
 Against bombs, `Limits` gained `max_total_size` (16 GiB of declared
@@ -2353,7 +2354,8 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   first, from `filer-zip`; each format crate forwards the features it
   uses, as `filer-archive` forwards `deflate`; each decoder crate is
   assessed in `LEGAL.md` before it is adopted (D45: pure Rust, and
-  `no_std`);
+  `no_std`) (Deflate done, 2026-11-03: `Deflate`, behind `deflate`,
+  which `filer-zip` forwards);
 - the archive fuzz walk, into `filer-spec`, where shared test tooling
   goes (D54): `filer-zip`'s predates it.
 
@@ -3693,7 +3695,7 @@ only when the first item needs it.
 | `bitflags` | 2.13 | `filer-api` | `no_std`; optional `serde` |
 | `ref-cast` | 1.0 | `filer-api` | path DSTs (D4) |
 | `spin` | 0.12 | `filer-pack`, `filer-heap` | `no_std` lock |
-| `miniz_oxide` | 0.9 | `filer-zip` | Deflate; `no_std`; no `unsafe` |
+| `miniz_oxide` | 0.9 | `filer-pack` | Deflate; `no_std`; no `unsafe` |
 | `async-lock` | 3.4 | `filer-tx`, `filer-quota` | MSRV 1.85; `no_std` |
 | `serde` | 1.0 | several | optional |
 | `bytes` | 1.12 | `filer-api` | optional |

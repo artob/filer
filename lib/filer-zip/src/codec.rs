@@ -40,38 +40,7 @@ impl Codec for Method {
 fn decoder(method: u16) -> Option<Box<dyn Decoder>> {
     match method {
         #[cfg(feature = "deflate")]
-        DEFLATE => Some(Box::new(deflate::Deflate::new())),
+        DEFLATE => Some(Box::new(filer_pack::Deflate::new())),
         _ => None,
-    }
-}
-
-#[cfg(feature = "deflate")]
-mod deflate {
-    use alloc::boxed::Box;
-    use filer_api::{Error, ErrorKind, OpKind};
-    use filer_pack::Decoder;
-    use miniz_oxide::{
-        DataFormat, MZError, MZFlush,
-        inflate::stream::{InflateState, inflate},
-    };
-
-    /// A raw Deflate stream (RFC 1951), as ZIP stores it.
-    pub(super) struct Deflate(Box<InflateState>);
-
-    impl Deflate {
-        pub(super) fn new() -> Self {
-            Self(InflateState::new_boxed(DataFormat::Raw))
-        }
-    }
-
-    impl Decoder for Deflate {
-        fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
-            let result = inflate(&mut self.0, input, output, MZFlush::None);
-            match result.status {
-                // No progress: the archive sees the member end early.
-                Ok(_) | Err(MZError::Buf) => Ok((result.bytes_consumed, result.bytes_written)),
-                Err(_) => Err(Error::new(ErrorKind::Corrupt, OpKind::Read)),
-            }
-        }
     }
 }

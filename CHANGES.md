@@ -24,6 +24,8 @@ so any release may break compatibility.
   produced, over another decoder or `Passthrough`. `Streams` keeps
   decoding `Stream`s part way, by `StreamId`, and `Unpacked` reads a
   packed range of a source decoded, as a `ReadAt` source itself.
+  `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
+  own, over `miniz_oxide`.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 ### Changed
 - `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the

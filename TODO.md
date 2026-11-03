@@ -551,12 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-06: Decoders behind features.** Move `filer-zip`'s Deflate
-  adaptor over `miniz_oxide` to `filer-pack` behind `deflate`, the first
-  of one feature per algorithm; `filer-zip` forwards it and drops its
-  own dependency; update §22.3's table. Done when `filer-zip` builds
-  with and without `deflate` and `filer-archive`'s `deflate` still
-  reaches it.
 - [ ] **PACK-07: Assess decoder crates in `LEGAL.md`.** For each of gzip
   (Deflate with a header and trailer), zstd, xz and LZMA, and bzip2: a
   pure-Rust, `no_std` decoder crate with an acceptable license, or
@@ -586,7 +580,7 @@ Created with `publish = false` (D16).
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
 - [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA from `filer-pack`
-  (PACK-06, PACK-07) behind features. Done when each decodes a test
+  (PACK-07) behind features, as `deflate` is. Done when each decodes a test
   archive.
 - [ ] **ZIP-03: Legacy names.** Decode names without the UTF-8 flag with
   `known-codepages`, CP437 by default and any `CodePage` by option, as

@@ -22,11 +22,13 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = []
+all = ["deflate"]
 std = ["filer-api/std"]
+deflate = ["dep:miniz_oxide"]
 
 [dependencies]
 filer-api.workspace = true
+miniz_oxide = { workspace = true, optional = true, features = ["with-alloc"] }
 spin = { workspace = true, features = ["spin_mutex"] }
 
 [dev-dependencies]

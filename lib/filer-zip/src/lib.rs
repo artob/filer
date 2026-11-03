@@ -23,7 +23,8 @@
 //!
 //! - `std` forwards to `filer-api`;
 //! - `all` enables every codec below;
-//! - `deflate` decodes Deflate members, with `miniz_oxide`.
+//! - `deflate` decodes Deflate members, with `filer-pack`'s, over
+//!   `miniz_oxide`.
 
 #![no_std]
 #![forbid(unsafe_code)]
