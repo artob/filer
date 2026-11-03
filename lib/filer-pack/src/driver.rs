@@ -1,12 +1,12 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{Codec, Decoder, Member, Stored, lock::Lock};
-use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
+use crate::{Codec, Member, Stored, Stream, StreamId, Streams, streams::read_exact};
+use alloc::{sync::Arc, vec::Vec};
 use core::future::Future;
 use filer_api::{
-    BlockingResolver, BufResult, Completion, DirCookie, Driver, DriverId, DriverKey, Entry,
-    EntryName, Error, ErrorKind, FileId, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op,
-    OpKind, OpenHow, Output, ReadAt, Resolve, Target,
+    BlockingResolver, Completion, DirCookie, Driver, DriverId, DriverKey, Entry, EntryName, Error,
+    ErrorKind, FileId, Handle, HandleKind, IoBufMut, LinkTarget, Metadata, Op, OpKind, OpenHow,
+    Output, ReadAt, Resolve, Target,
     path::RelPath,
     tree::{Ino, Node, ROOT, Tree},
 };
@@ -53,29 +53,7 @@ pub struct Archive<S, C = Stored> {
     key: Arc<DriverKey>,
     tree: Arc<Tree<Member<C>>>,
     source: Arc<S>,
-    streams: Arc<Lock<Vec<Stream>>>,
-}
-
-/// How many decoding streams an archive keeps between reads.
-const STREAMS: usize = 4;
-
-/// How much packed input a stream reads from the source at once.
-const INPUT_CHUNK: usize = 64 * 1024;
-
-/// How much a stream decodes at once.
-const OUTPUT_CHUNK: usize = 32 * 1024;
-
-/// A member's decoder, part way through the member.
-struct Stream {
-    ino: Ino,
-    /// The decoded bytes produced so far.
-    decoded: u64,
-    /// The packed bytes read from the source so far, including `input`.
-    fetched: u64,
-    /// Packed bytes read but not yet all decoded, from `used` on.
-    input: Vec<u8>,
-    used: usize,
-    decoder: Box<dyn Decoder>,
+    streams: Arc<Streams>,
 }
 
 impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
@@ -86,7 +64,7 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
             key: Arc::new(DriverKey::new()),
             tree: Arc::new(tree),
             source: Arc::new(source),
-            streams: Arc::new(Lock::new(Vec::new())),
+            streams: Arc::new(Streams::new()),
         }
     }
 
@@ -181,14 +159,11 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         off: u64,
         len: usize,
     ) -> Result<Vec<u8>, Error> {
-        let corrupt = || Error::new(ErrorKind::Corrupt, OpKind::Read);
-        let at = member.offset.checked_add(off).ok_or_else(corrupt)?;
-        let BufResult(result, data) = self.source.read_exact_at(Vec::with_capacity(len), at).await;
-        result.map_err(|error| match error.kind() {
-            ErrorKind::UnexpectedEof => corrupt(),
-            _ => error,
-        })?;
-        Ok(data)
+        let at = member
+            .offset
+            .checked_add(off)
+            .ok_or_else(|| Error::new(ErrorKind::Corrupt, OpKind::Read))?;
+        read_exact(&*self.source, at, len).await
     }
 
     /// Decodes `wanted` bytes of `member`, the inode `ino`, from `off` on,
@@ -200,87 +175,20 @@ impl<S: ReadAt + 'static, C: Codec> Archive<S, C> {
         off: u64,
         wanted: usize,
     ) -> Result<Vec<u8>, Error> {
-        let corrupt = |_| Error::new(ErrorKind::Corrupt, OpKind::Read);
-        let end = off.saturating_add(to_u64(wanted)).min(member.size);
-        let mut stream = match self.take_stream(ino, off) {
+        let id = StreamId::new(to_u64(ino));
+        let mut stream = match self.streams.take(id, off) {
             Some(stream) => stream,
-            None => Stream {
-                ino,
-                decoded: 0,
-                fetched: 0,
-                input: Vec::new(),
-                used: 0,
-                decoder: member.codec.decoder()?,
-            },
+            None => Stream::new(member.codec.decoder()?),
         };
-        let mut data = Vec::with_capacity(wanted);
-        let mut output = vec![0; OUTPUT_CHUNK];
-        while stream.decoded < end {
-            if stream.used == stream.input.len() && stream.fetched < member.packed {
-                let len = usize::try_from(member.packed.saturating_sub(stream.fetched))
-                    .map_or(INPUT_CHUNK, |n| n.min(INPUT_CHUNK));
-                stream.input = self.read_packed(member, stream.fetched, len).await?;
-                stream.used = 0;
-                stream.fetched = stream.fetched.saturating_add(to_u64(len));
-            }
-            // Stop at the end of the read, so that the kept stream can
-            // continue from there, and so never pass the declared size.
-            let room = usize::try_from(end.saturating_sub(stream.decoded))
-                .map_or(OUTPUT_CHUNK, |n| n.min(OUTPUT_CHUNK));
-            let input = stream.input.get(stream.used..).unwrap_or_default();
-            let room = output.get_mut(..room).ok_or_else(|| corrupt(()))?;
-            let (consumed, produced) = stream.decoder.decode(input, room)?;
-            if consumed > input.len() || produced > room.len() {
-                // The decoder broke its contract.
-                return Err(corrupt(()));
-            }
-            if consumed == 0 && produced == 0 {
-                // No progress: the member's data ended early.
-                return Err(corrupt(()));
-            }
-            stream.used = stream.used.saturating_add(consumed);
-            let start = stream.decoded;
-            let produced = to_u64(produced);
-            stream.decoded = stream.decoded.saturating_add(produced);
-            // Keep what falls within `off..end`, which is below `produced`.
-            let within = |at: u64| usize::try_from(at.saturating_sub(start).min(produced));
-            let (Ok(from), Ok(to)) = (within(off), within(end)) else {
-                return Err(corrupt(()));
-            };
-            data.extend_from_slice(output.get(from..to).unwrap_or_default());
-            if stream.decoded == member.size {
-                stream.decoder.finish()?;
-            }
-        }
-        if stream.decoded < member.size {
-            self.keep_stream(stream);
+        let packed = member.offset..member.offset.saturating_add(member.packed);
+        let end = off.saturating_add(to_u64(wanted));
+        let data = stream
+            .read(&*self.source, packed, member.size, off..end)
+            .await?;
+        if stream.decoded() < member.size {
+            self.streams.keep(id, stream);
         }
         Ok(data)
-    }
-
-    /// Takes the kept stream of `ino` that is furthest along without
-    /// having passed `off`.
-    fn take_stream(&self, ino: Ino, off: u64) -> Option<Stream> {
-        self.streams.with(|streams| {
-            let best = streams
-                .iter()
-                .enumerate()
-                .filter(|(_, s)| s.ino == ino && s.decoded <= off)
-                .max_by_key(|(_, s)| s.decoded)
-                .map(|(i, _)| i)?;
-            Some(streams.remove(best))
-        })
-    }
-
-    /// Keeps `stream` for later reads, dropping the least recently kept
-    /// stream if there are too many.
-    fn keep_stream(&self, stream: Stream) {
-        self.streams.with(|streams| {
-            if streams.len() >= STREAMS {
-                streams.remove(0);
-            }
-            streams.push(stream);
-        });
     }
 
     /// Returns the inode a handle refers to, if this archive minted it.
@@ -440,9 +348,10 @@ fn id(ino: Ino) -> FileId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Index, Limits, Parser};
+    use crate::{Decoder, Index, Limits, Parser, streams::OUTPUT_CHUNK};
+    use alloc::{boxed::Box, vec};
     use core::sync::atomic::{AtomicUsize, Ordering};
-    use filer_api::{Dir, MetaMask, Rights};
+    use filer_api::{BufResult, Dir, MetaMask, Rights};
     use filer_spec::block_on;
 
     /// Decoders started, across every test in this module.

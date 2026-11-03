@@ -551,11 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-04: The stream cache as a type.** Extract `Archive`'s kept
-  streams (take the furthest not past an offset, keep up to four, lock
-  inside) into a public `Streams` keyed by an opaque stream id, with
-  `Archive` its first consumer. Done when `driver.rs` holds no stream
-  bookkeeping and its tests pass unchanged.
 - [ ] **PACK-05: A `ReadAt` source over a decoded stream.** `Unpacked<S>`
   (name open) wraps a source, a decoder factory, and a declared length,
   and serves any offset by continuing or restarting a stream through

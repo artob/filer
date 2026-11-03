@@ -2343,9 +2343,11 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   `filer-zip`'s CRC wrapper and `filer-cpio`'s byte sum, ready for the
   sums gzip, xz, zstd, and 7z stamp (done, 2026-11-03: `Verified`,
   `Digest`, and `Passthrough`);
-- the stream cache, out of `Archive` and keyed by an opaque stream id,
-  and over it a `ReadAt` source over one decoded stream, for compressed
-  tarballs and initramfs images, and for solid blocks;
+- the stream cache, out of `Archive` and keyed by an opaque stream id
+  (done, 2026-11-03: `Streams` of `Stream`s by `StreamId`, a `Stream`
+  holding the decode loop over a packed range), and over it a `ReadAt`
+  source over one decoded stream, for compressed tarballs and initramfs
+  images, and for solid blocks;
 - the decoders, one per algorithm behind one feature each, Deflate
   first, from `filer-zip`; each format crate forwards the features it
   uses, as `filer-archive` forwards `deflate`; each decoder crate is
