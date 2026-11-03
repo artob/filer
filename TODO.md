@@ -569,9 +569,6 @@ Created with `publish = false` (D16).
   The backslash check in `index.rs` must then apply to decoded names, as
   Shift-JIS trail bytes may be 0x5C. Done when CP437 and CP866 archives
   list correctly.
-- [ ] **AR-01: `filer-ar`.** GNU and BSD long names, hidden symbol
-  tables. Done when it reads a `.deb` and passes the read-only
-  `filer-spec` subset its format can express.
 - [ ] **CPIO-01: `filer-cpio`.** `odc`, `newc`, and old binary formats;
   hardlinks by device and inode. Done when it reads an initramfs image and
   passes `filer-spec`.

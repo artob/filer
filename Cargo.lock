@@ -38,6 +38,8 @@ name = "filer-ar"
 version = "0.0.1"
 dependencies = [
  "filer-api",
+ "filer-spec",
+ "filer-tar",
 ]
 
 [[package]]

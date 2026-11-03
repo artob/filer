@@ -385,10 +385,12 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-cli` | the `filer` binary over the native driver | no |
 | umbrella (Q11) | re-exports and feature forwarding | no |
 
-Existing so far (2026-11-01): `filer-api`, `filer-heap`, `filer-posix`,
-and `filer-tar` (read-only), `filer-system`, `filer-spec`, and as empty
-skeletons `filer-wasi`, `filer-whatwg`, `filer-windows`, `filer-zip`,
-`filer-ar`, `filer-cpio`, `filer-rar`, and `filer-cli` (D30, D38, D41).
+Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
+`filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
+`known-codepages`, the read-only `filer-tar`, `filer-zip`, `filer-ar`,
+`filer-ext4`, `filer-fat`, `filer-ntfs`, and `filer-xfs`, and as empty
+skeletons `filer-wasi`, `filer-whatwg`, `filer-udf`, `filer-cpio`,
+`filer-rar`, and `filer-cli` (D30, D38, D41).
 The rest are created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
@@ -2208,6 +2210,23 @@ limits and the overlap check together guarantee), and that generated
 names are refused exactly when unsafe; `fuzz/` has `cargo-fuzz` targets
 for whole archives, Deflate data, and names (D50).
 
+**`filer-ar` as built** (2026-11-03): an own parser of the 60-byte
+headers, reading all three dialects of names: System V's and Debian's
+short names, GNU's `/`-terminated ones and its `//` table of long names
+(which Windows ends with NUL rather than `/\n`), and BSD's `#1/` names
+stored before the data. Symbol tables and other members for the linker
+(`/`, `/SYM64/`, `/<`...`>/`, `__.SYMDEF` and its variants) are hidden; a
+`/` within a name separates directories, as `ar P` writes; GNU thin
+archives are `Unsupported`. The name table's size counts against
+`max_extension_len`. Of members with the same name, which static
+libraries may hold, the later wins, as `Index` decides for every format.
+`filer-spec` passes in every dialect, with a new `Profile::empty_dirs`
+off, since ar holds only files; the fixtures come from GNU `ar`,
+`llvm-ar` (BSD and Windows formats), macOS's `ar`, and `dpkg-deb`, and a
+doc example opens a `.deb`'s `data.tar` with `filer-tar`. `tests/fuzz.rs`
+mutates headers and checks that a walk never reads more than the
+archive's length; `fuzz/` has a `cargo-fuzz` target over the same walk.
+
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
 bytes. As built (2026-11-01), that tree is `filer_api::tree::Tree<F>`,
@@ -2261,7 +2280,8 @@ TARs; an RPM is a header followed by a compressed cpio):
   of decompression only, as libarchive's is; solid archives also make
   reads at an offset costly.
 
-All three exist as published empty crates, to reserve their names.
+`filer-ar` is built (above); `filer-cpio` and `filer-rar` exist as
+published empty crates, to reserve their names.
 
 ### 17.8 `filer-wasi`
 

@@ -1,22 +1,20 @@
 // This is free and unencumbered software released into the public domain.
 
-//! Read-only ar archive driver for the Filer API.
+//! ar archive driver for the Filer API.
 //!
-//! This crate will implement [`filer_api::Driver`] over `ar` archives:
-//! Debian packages (`.deb`, an ar archive holding compressed tarballs, which
-//! `filer-tar` can then open in turn) and static libraries (`.a`). It does
-//! not export any items yet.
+//! [`Ar`] serves the members of an `ar` archive, read-only, as a
+//! [`Dir`](filer_api::Dir): open the archive from any
+//! [`ReadAt`](filer_api::ReadAt) source, such as a `File` from another
+//! driver or bytes in memory, then use it like any other directory. That
+//! covers Debian packages (`.deb`, an ar archive holding tarballs, which
+//! `filer-tar` can then open in turn) and static libraries (`.a`, and
+//! Windows' `.lib`). Paths stay confined to the archive, and a hostile
+//! archive fails to open rather than exposing anything outside it (see
+//! [`Ar`] and [`Limits`]).
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: writing archives is out
 //! of scope for this project. Use a dedicated archiving library for that.
-//!
-//! The plan (see `DESIGN.md` §17.7): ar archives are flat, a sequence of
-//! 60-byte headers each followed by its member's data, so one pass over a
-//! [`filer_api::ReadAt`] source builds the index. Both the GNU and BSD
-//! long-name schemes will be read, symbol tables hidden, and the shared
-//! archive rules applied: names confined to the root, later duplicates
-//! winning, and strict limits.
 //!
 //! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
 //! by default, forwards to `filer-api`. `all` currently enables nothing.
@@ -53,3 +51,16 @@
         clippy::unwrap_used
     )
 )]
+
+extern crate alloc;
+
+mod header;
+
+mod index;
+
+/// Re-exported from [`filer_api::archive`], where all archive drivers share
+/// it.
+pub use filer_api::archive::Limits;
+
+mod ar;
+pub use ar::*;

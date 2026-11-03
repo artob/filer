@@ -31,7 +31,10 @@ so any release may break compatibility.
   junctions. It passes the specification.
 - `filer-posix`, `filer-system`: `thread_pool(spawner)` constructors, which
   run each operation on a `Spawner` instead of inside `poll`.
-- `filer-ar`, `filer-cpio`, and `filer-rar`: New crates, with no items yet.
+- `filer-ar`: New crate: `Ar`, the read-only ar archive driver (Debian
+  packages and static libraries, with System V, GNU, BSD, and Windows
+  names), and `Limits`.
+- `filer-cpio` and `filer-rar`: New crates, with no items yet.
 - `filer-ext4`, `filer-ntfs`, `filer-udf`, and `filer-xfs`: New crates for
   read-only file system drivers, with no items yet but `filer-ext4`'s
   `Ext4` driver (reading ext2, ext3, and ext4 as `mke2fs` makes them,
