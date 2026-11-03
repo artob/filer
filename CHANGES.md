@@ -17,7 +17,14 @@ so any release may break compatibility.
   `filer-fs`, and `dos`, FAT's local dates and times from `filer-fat`,
   with `UtcOffset`, which `filer-fat` re-exports.
 - `filer-pack`: New crate: the archive drivers' shared machinery,
-  `filer_api::archive` moved whole to its root, with `spin`.
+  `filer_api::archive` moved whole to its root, with `spin`. `Index`
+  now applies `Limits` itself, taking them in `Index::new` with a
+  `Parser`, which reads a format's headers and names it in errors.
+- `filer-api`: `Tree::node_mut`.
+### Changed
+- `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the
+  members an archive shows, no longer ar's symbol and name tables or
+  cpio's trailers.
 ### Removed
 - `filer-api`: `archive`, now `filer-pack`'s, and the `spin` dependency.
 - `filer-fs`: `nt`, `reparse`, and `wtf8`, now `filer-msft`'s.

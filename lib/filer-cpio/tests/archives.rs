@@ -270,7 +270,7 @@ fn enforces_limits() {
         .file(b"b", b"")
         .file(b"c", b"")
         .finish();
-    let limits = Limits::default().with_max_entries(3);
+    let limits = Limits::default().with_max_entries(2);
     let error = block_on(Cpio::open_with(three, limits)).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::LimitExceeded);
 

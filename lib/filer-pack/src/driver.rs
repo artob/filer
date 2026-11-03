@@ -39,10 +39,10 @@ use filer_api::{
 ///
 /// ```
 /// use filer_api::{Dir, Rights, tree::Node};
-/// use filer_pack::{Archive, Index, Member};
+/// use filer_pack::{Archive, Index, Limits, Member, Parser};
 ///
 /// let bytes: &'static [u8] = b"hello";
-/// let mut index = Index::new("example");
+/// let mut index = Index::new(Parser::new("example"), Limits::default());
 /// index.insert(b"greeting", Node::File(Member::new(0, 5)), 0)?;
 /// let archive = Archive::new(index.into_tree(), bytes);
 /// let root = archive.root();
@@ -440,7 +440,7 @@ fn id(ino: Ino) -> FileId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Index;
+    use crate::{Index, Limits, Parser};
     use core::sync::atomic::{AtomicUsize, Ordering};
     use filer_api::{Dir, MetaMask, Rights};
     use filer_spec::block_on;
@@ -509,7 +509,7 @@ mod tests {
 
     /// Returns an archive whose file `f` decodes `packed` as `size` bytes.
     fn archive(packed: &'static [u8], size: u64, sum: u64) -> Dir<Archive<&'static [u8], Doubled>> {
-        let mut index = Index::new("toy");
+        let mut index = Index::new(Parser::new("toy"), Limits::default());
         let member = Member::encoded(0, packed.len() as u64, size, Doubled { sum });
         index.insert(b"f", Node::File(member), 0).unwrap();
         let archive = Archive::new(index.into_tree(), packed);

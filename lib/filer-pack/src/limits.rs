@@ -23,8 +23,10 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Limits {
-    /// The most members the index may hold, which bounds its memory.
-    /// Default: 100,000.
+    /// The most members the index may hold, which bounds its memory:
+    /// files, directories, and links, but not the directories that names
+    /// imply, nor what a format hides, such as ar's symbol tables and
+    /// cpio's trailers. Default: 100,000.
     pub max_entries: usize,
 
     /// The longest member name or link target, in bytes. Default: 4,096.

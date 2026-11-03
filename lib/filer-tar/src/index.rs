@@ -6,14 +6,12 @@ use crate::header::{BLOCK, BLOCK_LEN, Header, decimal, pax_records, pax_time, te
 use alloc::{boxed::Box, vec::Vec};
 use core::time::Duration;
 use filer_api::{
-    BufResult, Error, ErrorKind, FileKind, ReadAt, Timestamp,
+    Error, ErrorKind, FileKind, ReadAt, Timestamp,
     tree::{Node, Tree},
 };
-use filer_pack::{ArchiveError, Index, Limits, Member};
+use filer_pack::{Index, Limits, Member, Parser};
 
-fn fail(kind: ErrorKind, offset: u64, reason: &'static str) -> Error {
-    ArchiveError::new("tar", offset, reason).into_error(kind)
-}
+const TAR: Parser = Parser::new("tar");
 
 /// Overrides from a PAX extended header or GNU long-name records, for the
 /// next member only.
@@ -25,24 +23,11 @@ struct Pending {
     mtime: Option<(i64, u32)>,
 }
 
-/// Reads exactly `len` bytes at `offset`.
-async fn read<S: ReadAt>(source: &S, offset: u64, len: usize) -> Result<Vec<u8>, Error> {
-    let BufResult(result, buf) = source.read_exact_at(Vec::with_capacity(len), offset).await;
-    match result {
-        Ok(()) => Ok(buf),
-        Err(error) if error.kind() == ErrorKind::UnexpectedEof => {
-            Err(fail(ErrorKind::Corrupt, offset, "truncated"))
-        },
-        Err(error) => Err(error),
-    }
-}
-
 /// Builds the index of the archive in `source`.
 pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree<Member>, Error> {
     let end = source.size().await?;
-    let mut index = Index::new("tar");
+    let mut index = Index::new(TAR, *limits);
     let mut pending = Pending::default();
-    let mut entries = 0_usize;
     let mut offset = 0_u64;
     loop {
         // The archive should end with zero blocks, but ending at a block
@@ -52,60 +37,56 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
         }
         // The last member's padding may pass the end, leaving no room.
         if end.saturating_sub(offset) < BLOCK_LEN {
-            return Err(fail(ErrorKind::Corrupt, offset, "truncated header"));
+            return Err(TAR.fail(ErrorKind::Corrupt, offset, "truncated header"));
         }
-        let block = read(source, offset, BLOCK).await?;
+        let block = TAR.read(source, offset, BLOCK).await?;
         let block: &[u8; BLOCK] = block
             .as_slice()
             .try_into()
-            .map_err(|_| fail(ErrorKind::Corrupt, offset, "truncated header"))?;
+            .map_err(|_| TAR.fail(ErrorKind::Corrupt, offset, "truncated header"))?;
         let header = Header(block);
         if header.is_zero() {
             break;
         }
         if !header.checksum_ok() {
-            return Err(fail(ErrorKind::Corrupt, offset, "bad checksum"));
+            return Err(TAR.fail(ErrorKind::Corrupt, offset, "bad checksum"));
         }
         let typeflag = header.typeflag();
         let data = offset
             .checked_add(BLOCK_LEN)
-            .ok_or_else(|| fail(ErrorKind::Corrupt, offset, "truncated header"))?;
+            .ok_or_else(|| TAR.fail(ErrorKind::Corrupt, offset, "truncated header"))?;
         let header_size = header
             .size()
-            .ok_or_else(|| fail(ErrorKind::Corrupt, offset, "bad size"))?;
+            .ok_or_else(|| TAR.fail(ErrorKind::Corrupt, offset, "bad size"))?;
         // A PAX size overrides the header's, for regular members.
         let size = match typeflag {
             b'x' | b'g' | b'L' | b'K' => header_size,
             _ => pending.size.take().unwrap_or(header_size),
         };
         if size > end.saturating_sub(data) {
-            return Err(fail(
-                ErrorKind::Corrupt,
-                offset,
-                "member extends past the end",
-            ));
+            return Err(TAR.fail(ErrorKind::Corrupt, offset, "member extends past the end"));
         }
         // Within the archive, but for its padding, as `size` is.
         let next = size
             .div_ceil(BLOCK_LEN)
             .checked_mul(BLOCK_LEN)
             .and_then(|padded| data.checked_add(padded))
-            .ok_or_else(|| fail(ErrorKind::Corrupt, offset, "member extends past the end"))?;
+            .ok_or_else(|| TAR.fail(ErrorKind::Corrupt, offset, "member extends past the end"))?;
         match typeflag {
             b'x' | b'L' | b'K' => {
                 if size > limits.max_extension_len {
                     let reason = "extended header too large";
-                    return Err(fail(ErrorKind::LimitExceeded, offset, reason));
+                    return Err(TAR.fail(ErrorKind::LimitExceeded, offset, reason));
                 }
                 // Within the limit, so it fits.
                 let len = usize::try_from(size).map_err(|_| {
-                    fail(
+                    TAR.fail(
                         ErrorKind::LimitExceeded,
                         offset,
                         "extended header too large",
                     )
                 })?;
-                let record = read(source, data, len).await?;
+                let record = TAR.read(source, data, len).await?;
                 match typeflag {
                     b'x' => apply_pax(&mut pending, &record, offset)?,
                     b'L' => pending.path = Some(text(&record).to_vec()),
@@ -120,23 +101,16 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
                 continue;
             },
             b'S' => {
-                return Err(fail(ErrorKind::Unsupported, offset, "GNU sparse members"));
+                return Err(TAR.fail(ErrorKind::Unsupported, offset, "GNU sparse members"));
             },
             _ => {},
         }
 
-        entries = entries.saturating_add(1);
-        if entries > limits.max_entries {
-            return Err(fail(ErrorKind::LimitExceeded, offset, "too many members"));
-        }
         let name = pending.path.take().unwrap_or_else(|| header.name());
         let link = pending
             .linkpath
             .take()
             .unwrap_or_else(|| header.linkname().to_vec());
-        if name.len() > limits.max_path_len || link.len() > limits.max_path_len {
-            return Err(fail(ErrorKind::LimitExceeded, offset, "name too long"));
-        }
         let modified = match pending.mtime.take() {
             Some((secs, nanos)) => Some(Timestamp::new(secs, nanos)),
             None => header
@@ -164,7 +138,7 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
 }
 
 fn apply_pax(pending: &mut Pending, record: &[u8], offset: u64) -> Result<(), Error> {
-    let corrupt = || fail(ErrorKind::Corrupt, offset, "bad PAX header");
+    let corrupt = || TAR.fail(ErrorKind::Corrupt, offset, "bad PAX header");
     for (key, value) in pax_records(record).ok_or_else(corrupt)? {
         match key {
             b"path" => pending.path = Some(value.to_vec()),

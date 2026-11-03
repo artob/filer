@@ -2334,7 +2334,11 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   `filer-pack`; nothing is re-exported from `filer-api`, as 0.0.x may
   break (D29);
 - the limit checks, into `Index`, which then counts recorded members
-  rather than headers, and the read helper the parsers copy;
+  rather than headers, and the read helper the parsers copy (done,
+  2026-11-03: `Parser` reads and fails for a format, and `Index` takes
+  it and the `Limits`; cpio records in one pass, a hardlinked file's
+  late data replacing its first link's member through
+  `Tree::node_mut`);
 - one checksum-verifying decoder over a digest trait, in place of
   `filer-zip`'s CRC wrapper and `filer-cpio`'s byte sum, ready for the
   sums gzip, xz, zstd, and 7z stamp;

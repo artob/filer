@@ -12,19 +12,20 @@
 //!
 //! - [`Index`] builds the tree under the shared rules: member names are
 //!   checked so that none can escape the archive root, directories implied
-//!   by names are created, the later of duplicate members wins, and
-//!   hardlinks share one node;
+//!   by names are created, the later of duplicate members wins, hardlinks
+//!   share one node, and members, names, and link targets are counted and
+//!   measured against the [`Limits`];
 //! - [`Archive`] serves the finished tree as a read-only [`Driver`];
 //! - [`Codec`] and [`Decoder`] decode compressed members, which
 //!   [`Member`] records with their format's codec;
 //! - [`Limits`] bounds what an untrusted archive may make the index hold;
-//! - [`ArchiveError`] names the format, header offset, and reason of a
-//!   failed open.
+//! - [`Parser`] reads a format's headers, and its errors carry an
+//!   [`ArchiveError`] naming the format, header offset, and reason.
 //!
-//! More is to move in (D59): the limit checks and the read helper each
-//! parser repeats; one checksum-verifying decoder; a cache of decoded
-//! streams, and a [`ReadAt`] source over one, for compressed tarballs and
-//! solid archives; and pure-Rust decoders, one feature per algorithm.
+//! More is to move in (D59): one checksum-verifying decoder; a cache of
+//! decoded streams, and a [`ReadAt`] source over one, for compressed
+//! tarballs and solid archives; and pure-Rust decoders, one feature per
+//! algorithm.
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will
@@ -97,3 +98,6 @@ pub use limits::*;
 
 mod member;
 pub use member::*;
+
+mod parser;
+pub use parser::*;

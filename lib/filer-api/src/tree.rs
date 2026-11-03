@@ -106,6 +106,14 @@ impl<F> Tree<F> {
         self.nodes.get(ino)
     }
 
+    /// Returns the node `ino` to change in place, or `None` if it is not
+    /// one of this tree's. Replacing a directory's node unlinks its
+    /// entries.
+    #[must_use]
+    pub fn node_mut(&mut self, ino: Ino) -> Option<&mut Node<F>> {
+        self.nodes.get_mut(ino)
+    }
+
     /// Returns the entries of directory `dir`, or `None` if it is not one.
     #[must_use]
     pub fn entries(&self, dir: Ino) -> Option<&BTreeMap<Box<[u8]>, Ino>> {

@@ -556,14 +556,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-02: Limits inside `Index`.** `Index::new(format, limits)`
-  counts recorded members against `max_entries` and checks names and
-  link targets against `max_path_len`, with today's reasons; a shared
-  read helper naming the format and offset replaces the `read` and
-  `fail` functions each parser copies. Hidden ar members and cpio
-  trailers no longer count, so lower `filer-cpio`'s limits test to two.
-  Done when no driver's index module counts members or measures names
-  itself.
 - [ ] **PACK-03: One verified decoder.** A `Digest` trait (`update`,
   `finish`) implemented by `Crc32` and by cpio's byte sum, and a
   `Verified<D, H>` decoder checking the sum at `finish`, replace

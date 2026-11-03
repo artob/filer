@@ -1,8 +1,8 @@
 // This is free and unencumbered software released into the public domain.
 
-//! Building the index of an archive: one pass over its headers, then one
-//! over what they said, since a hardlinked file's data may come with its
-//! last link.
+//! Building the index of an archive: one pass over its headers. A
+//! hardlinked file's node is added with its first link, and its data,
+//! which `newc` stores with the last link only, replaces the first's.
 
 use crate::{
     codec::Sum,
@@ -11,51 +11,19 @@ use crate::{
         align, is_compressed, parse,
     },
 };
-use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
+use alloc::collections::BTreeMap;
 use core::time::Duration;
 use filer_api::{
-    BufResult, Error, ErrorKind, FileKind, ReadAt, Timestamp,
+    Error, ErrorKind, FileKind, ReadAt, Timestamp,
     tree::{Ino, Node, Tree},
 };
-use filer_pack::{ArchiveError, Index, Limits, Member};
+use filer_pack::{Index, Limits, Member, Parser};
 
-fn fail(kind: ErrorKind, offset: u64, reason: &'static str) -> Error {
-    ArchiveError::new("cpio", offset, reason).into_error(kind)
-}
-
-/// Reads exactly `len` bytes at `offset`.
-async fn read<S: ReadAt>(source: &S, offset: u64, len: usize) -> Result<Vec<u8>, Error> {
-    let BufResult(result, buf) = source.read_exact_at(Vec::with_capacity(len), offset).await;
-    match result {
-        Ok(()) => Ok(buf),
-        Err(error) if error.kind() == ErrorKind::UnexpectedEof => {
-            Err(fail(ErrorKind::Corrupt, offset, "truncated"))
-        },
-        Err(error) => Err(error),
-    }
-}
+const CPIO: Parser = Parser::new("cpio");
 
 /// Identifies a hardlinked file: its archive's number among those
 /// concatenated, its device, and its inode.
 type LinkKey = (usize, u64, u64);
-
-/// A member, as its header described it.
-struct Entry {
-    /// The header's offset.
-    offset: u64,
-    name: Vec<u8>,
-    item: Item,
-}
-
-enum Item {
-    Dir,
-    File {
-        member: Member<Sum>,
-        link: Option<LinkKey>,
-    },
-    Symlink(Box<[u8]>),
-    Special(FileKind),
-}
 
 /// Builds the index of the archive in `source`: of each of the archives
 /// concatenated there, as in a Linux initramfs image.
@@ -63,67 +31,28 @@ pub(crate) async fn index<S: ReadAt>(
     source: &S,
     limits: &Limits,
 ) -> Result<Tree<Member<Sum>>, Error> {
-    let entries = entries(source, limits).await?;
-    // The member holding each hardlinked file's data: the last with any,
-    // as `newc` stores it only with the last link.
-    let mut data: BTreeMap<LinkKey, Member<Sum>> = BTreeMap::new();
-    for entry in &entries {
-        if let Item::File {
-            member,
-            link: Some(key),
-        } = &entry.item
-            && (member.size > 0 || !data.contains_key(key))
-        {
-            data.insert(*key, *member);
-        }
-    }
-    let mut index = Index::new("cpio");
-    let mut nodes: BTreeMap<LinkKey, Ino> = BTreeMap::new();
-    for Entry { offset, name, item } in entries {
-        match item {
-            Item::Dir => index.dir(&name, offset)?,
-            Item::Symlink(target) => index.insert(&name, Node::Symlink(target), offset)?,
-            Item::Special(kind) => index.insert(&name, Node::Special(kind), offset)?,
-            Item::File { member, link: None } => index.insert(&name, Node::File(member), offset)?,
-            Item::File {
-                member,
-                link: Some(key),
-            } => match nodes.get(&key) {
-                Some(&ino) => index.alias(&name, ino, offset)?,
-                None => {
-                    let member = data.get(&key).copied().unwrap_or(member);
-                    let ino = index.add(&name, Node::File(member), offset)?;
-                    nodes.insert(key, ino);
-                },
-            },
-        }
-    }
-    Ok(index.into_tree())
-}
-
-/// Reads every member's header, in order.
-async fn entries<S: ReadAt>(source: &S, limits: &Limits) -> Result<Vec<Entry>, Error> {
     let end = source.size().await?;
-    let mut entries = Vec::new();
-    let mut members = 0_usize;
+    let mut index = Index::new(CPIO, *limits);
+    // The node of each hardlinked file seen so far.
+    let mut nodes: BTreeMap<LinkKey, Ino> = BTreeMap::new();
     let mut offset = 0_u64;
     // Where the current archive began, which alignment counts from, and
     // its number.
     let mut base = 0_u64;
     let mut archive = 0_usize;
     if end == 0 {
-        return Err(fail(ErrorKind::Corrupt, 0, "not a cpio archive"));
+        return Err(CPIO.fail(ErrorKind::Corrupt, 0, "not a cpio archive"));
     }
     // An archive may end without its trailer.
     while offset < end {
         let available = usize::try_from(end.saturating_sub(offset)).unwrap_or(MAX_HEADER);
-        let bytes = read(source, offset, available.min(MAX_HEADER)).await?;
-        let corrupt = |reason| fail(ErrorKind::Corrupt, offset, reason);
+        let bytes = CPIO.read(source, offset, available.min(MAX_HEADER)).await?;
+        let corrupt = |reason| CPIO.fail(ErrorKind::Corrupt, offset, reason);
         let Some(format) = Format::detect(&bytes) else {
             return Err(if offset != base {
                 corrupt("bad magic number")
             } else if is_compressed(&bytes) {
-                fail(ErrorKind::Unsupported, offset, "compressed archive")
+                CPIO.fail(ErrorKind::Unsupported, offset, "compressed archive")
             } else {
                 corrupt("not a cpio archive")
             });
@@ -132,22 +61,19 @@ async fn entries<S: ReadAt>(source: &S, limits: &Limits) -> Result<Vec<Entry>, E
             .get(..format.len())
             .ok_or_else(|| corrupt("truncated header"))?;
         let header = parse(format, header).ok_or_else(|| corrupt("bad header"))?;
-        members = members.saturating_add(1);
-        if members > limits.max_entries {
-            return Err(fail(ErrorKind::LimitExceeded, offset, "too many members"));
-        }
 
         // The name, with its NUL, within the archive.
         let name_at = offset.saturating_add(u64::try_from(format.len()).unwrap_or(u64::MAX));
-        let too_long = || fail(ErrorKind::LimitExceeded, offset, "name too long");
-        let name_len = usize::try_from(header.name_len).map_err(|_| too_long())?;
-        if name_len > limits.max_path_len.saturating_add(1) {
-            return Err(too_long());
+        if header.name_len == 0 {
+            return Err(corrupt("bad name"));
         }
+        let name_len = index
+            .name_len(header.name_len.saturating_sub(1), offset)?
+            .saturating_add(1);
         if header.name_len > end.saturating_sub(name_at) {
             return Err(corrupt("truncated name"));
         }
-        let name = read(source, name_at, name_len).await?;
+        let name = CPIO.read(source, name_at, name_len).await?;
         let Some((0, name)) = name.split_last() else {
             return Err(corrupt("bad name"));
         };
@@ -169,34 +95,39 @@ async fn entries<S: ReadAt>(source: &S, limits: &Limits) -> Result<Vec<Entry>, E
             continue;
         }
         let crc = matches!(format, Format::Newc { crc: true });
-        let item = match header.mode & TYPE {
-            DIR => Item::Dir,
-            FILE => Item::File {
-                member: member(&header, data, crc),
-                link: (header.nlink > 1).then_some((archive, header.dev, header.ino)),
+        match header.mode & TYPE {
+            DIR => index.dir(name, offset)?,
+            FILE if header.nlink > 1 => {
+                let member = member(&header, data, crc);
+                let key = (archive, header.dev, header.ino);
+                match nodes.get(&key) {
+                    Some(&ino) => {
+                        index.alias(name, ino, offset)?;
+                        if member.size > 0 {
+                            index.set_member(ino, member, offset)?;
+                        }
+                    },
+                    None => {
+                        let ino = index.add(name, Node::File(member), offset)?;
+                        nodes.insert(key, ino);
+                    },
+                }
             },
+            FILE => index.insert(name, Node::File(member(&header, data, crc)), offset)?,
             SYMLINK => {
-                let len = usize::try_from(header.size)
-                    .ok()
-                    .filter(|&len| len <= limits.max_path_len)
-                    .ok_or_else(too_long)?;
-                let target = read(source, data, len).await?;
-                Item::Symlink(target.into_boxed_slice())
+                let len = index.target_len(header.size, offset)?;
+                let target = CPIO.read(source, data, len).await?;
+                index.insert(name, Node::Symlink(target.into_boxed_slice()), offset)?;
             },
-            CHAR => Item::Special(FileKind::CharDevice),
-            BLOCK => Item::Special(FileKind::BlockDevice),
-            FIFO => Item::Special(FileKind::Fifo),
-            SOCKET => Item::Special(FileKind::Socket),
+            CHAR => index.insert(name, Node::Special(FileKind::CharDevice), offset)?,
+            BLOCK => index.insert(name, Node::Special(FileKind::BlockDevice), offset)?,
+            FIFO => index.insert(name, Node::Special(FileKind::Fifo), offset)?,
+            SOCKET => index.insert(name, Node::Special(FileKind::Socket), offset)?,
             _ => return Err(corrupt("unknown file type")),
-        };
-        entries.push(Entry {
-            offset,
-            name: name.to_vec(),
-            item,
-        });
+        }
         offset = next;
     }
-    Ok(entries)
+    Ok(index.into_tree())
 }
 
 /// Returns a regular file's member, at `data` in the archive.
@@ -215,7 +146,9 @@ async fn skip_zeros<S: ReadAt>(source: &S, from: u64, end: u64) -> Result<u64, E
     let mut offset = from;
     while offset < end {
         let len = end.saturating_sub(offset).min(CHUNK);
-        let bytes = read(source, offset, usize::try_from(len).unwrap_or(0)).await?;
+        let bytes = CPIO
+            .read(source, offset, usize::try_from(len).unwrap_or(0))
+            .await?;
         if let Some(at) = bytes.iter().position(|&b| b != 0) {
             return Ok(offset.saturating_add(u64::try_from(at).unwrap_or(0)));
         }

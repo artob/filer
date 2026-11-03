@@ -12,29 +12,15 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use filer_api::{
-    BufResult, Error, ErrorKind, ReadAt,
+    Error, ErrorKind, ReadAt,
     tree::{Node, Tree},
 };
-use filer_pack::{ArchiveError, Codec, Index, Limits, Member};
+use filer_pack::{Codec, Index, Limits, Member, Parser};
 
 /// How much of the central directory to read at once.
 const CHUNK: usize = 64 * 1024;
 
-fn fail(kind: ErrorKind, offset: u64, reason: &'static str) -> Error {
-    ArchiveError::new("zip", offset, reason).into_error(kind)
-}
-
-/// Reads exactly `len` bytes at `offset`.
-async fn read<S: ReadAt>(source: &S, offset: u64, len: usize) -> Result<Vec<u8>, Error> {
-    let BufResult(result, buf) = source.read_exact_at(Vec::with_capacity(len), offset).await;
-    match result {
-        Ok(()) => Ok(buf),
-        Err(error) if error.kind() == ErrorKind::UnexpectedEof => {
-            Err(fail(ErrorKind::Corrupt, offset, "truncated"))
-        },
-        Err(error) => Err(error),
-    }
-}
+const ZIP: Parser = Parser::new("zip");
 
 /// Converts a length that fits in memory to a `u64`.
 fn wide(len: usize) -> u64 {
@@ -73,9 +59,9 @@ impl<'s, S: ReadAt> Reader<'s, S> {
             let wanted = len.saturating_sub(available).max(CHUNK);
             let wanted = usize::try_from(remaining).map_or(wanted, |r| r.min(wanted));
             if available.saturating_add(wanted) < len {
-                return Err(fail(ErrorKind::Corrupt, self.pos, "truncated header"));
+                return Err(ZIP.fail(ErrorKind::Corrupt, self.pos, "truncated header"));
             }
-            let more = read(self.source, buffered, wanted).await?;
+            let more = ZIP.read(self.source, buffered, wanted).await?;
             self.buf.drain(..self.taken);
             self.buf.extend_from_slice(&more);
             self.taken = 0;
@@ -85,7 +71,7 @@ impl<'s, S: ReadAt> Reader<'s, S> {
         let bytes = self
             .buf
             .get(start..stop)
-            .ok_or_else(|| fail(ErrorKind::Corrupt, self.pos, "truncated header"))?;
+            .ok_or_else(|| ZIP.fail(ErrorKind::Corrupt, self.pos, "truncated header"))?;
         self.taken = stop;
         self.pos = self.pos.saturating_add(wide(len));
         Ok(bytes)
@@ -96,7 +82,7 @@ impl<'s, S: ReadAt> Reader<'s, S> {
 /// archive, and returns it with the offset where it must end.
 async fn locate<S: ReadAt>(source: &S, end: u64) -> Result<(Eocd, u64), Error> {
     let not_zip = || {
-        fail(
+        ZIP.fail(
             ErrorKind::Corrupt,
             end,
             "no end of central directory record",
@@ -104,7 +90,9 @@ async fn locate<S: ReadAt>(source: &S, end: u64) -> Result<(Eocd, u64), Error> {
     };
     let tail_len = end.min(wide(EOCD_LEN.saturating_add(MAX_COMMENT)));
     let tail_start = end.saturating_sub(tail_len);
-    let tail = read(source, tail_start, usize::try_from(tail_len).unwrap_or(0)).await?;
+    let tail = ZIP
+        .read(source, tail_start, usize::try_from(tail_len).unwrap_or(0))
+        .await?;
     let pos = find_eocd(&tail).ok_or_else(not_zip)?;
     let eocd_offset = tail_start.saturating_add(wide(pos));
     let (eocd, _) = tail.get(pos..).and_then(Eocd::parse).ok_or_else(not_zip)?;
@@ -118,17 +106,13 @@ async fn locate<S: ReadAt>(source: &S, end: u64) -> Result<(Eocd, u64), Error> {
         Some((offset, disks)) => {
             let locator_offset = eocd_offset.saturating_sub(wide(LOCATOR_LEN));
             if disks > 1 {
-                return Err(fail(
-                    ErrorKind::Unsupported,
-                    locator_offset,
-                    "spanned archives",
-                ));
+                return Err(ZIP.fail(ErrorKind::Unsupported, locator_offset, "spanned archives"));
             }
-            let bad = || fail(ErrorKind::Corrupt, offset, "bad ZIP64 end record");
+            let bad = || ZIP.fail(ErrorKind::Corrupt, offset, "bad ZIP64 end record");
             if offset.saturating_add(wide(EOCD64_LEN)) > locator_offset {
                 return Err(bad());
             }
-            let record = read(source, offset, EOCD64_LEN).await?;
+            let record = ZIP.read(source, offset, EOCD64_LEN).await?;
             let zip64 = Eocd::parse64(&record).ok_or_else(bad)?;
             if !eocd.agrees_with(&zip64) {
                 return Err(bad());
@@ -137,15 +121,11 @@ async fn locate<S: ReadAt>(source: &S, end: u64) -> Result<(Eocd, u64), Error> {
         },
     };
     if eocd.disk != 0 || eocd.cd_disk != 0 || eocd.disk_entries != eocd.entries {
-        return Err(fail(
-            ErrorKind::Unsupported,
-            eocd_offset,
-            "spanned archives",
-        ));
+        return Err(ZIP.fail(ErrorKind::Unsupported, eocd_offset, "spanned archives"));
     }
     if eocd.cd_offset.saturating_add(eocd.cd_size) > cd_end {
         let reason = "central directory past its end record";
-        return Err(fail(ErrorKind::Corrupt, eocd_offset, reason));
+        return Err(ZIP.fail(ErrorKind::Corrupt, eocd_offset, reason));
     }
     Ok((eocd, eocd.cd_offset.saturating_add(eocd.cd_size)))
 }
@@ -157,17 +137,14 @@ pub(crate) async fn index<S: ReadAt>(
 ) -> Result<Tree<Member<Method>>, Error> {
     let end = source.size().await?;
     let (eocd, cd_end) = locate(source, end).await?;
-    if eocd.entries > wide(limits.max_entries) {
-        return Err(fail(ErrorKind::LimitExceeded, cd_end, "too many members"));
-    }
-    let mut index = Index::new("zip");
+    let mut index = Index::new(ZIP, *limits);
     let mut reader = Reader::new(source, eocd.cd_offset, cd_end);
     let mut total = 0_u64;
     // Each member's local header and data, with its central header.
     let mut spans = Vec::new();
     for _ in 0..eocd.entries {
         let offset = reader.pos;
-        let corrupt = |reason| fail(ErrorKind::Corrupt, offset, reason);
+        let corrupt = |reason| ZIP.fail(ErrorKind::Corrupt, offset, reason);
         let fixed = CentralFixed::parse(reader.take(CENTRAL_LEN).await?)
             .ok_or_else(|| corrupt("bad central directory header"))?;
         let central = fixed
@@ -178,18 +155,18 @@ pub(crate) async fn index<S: ReadAt>(
         total = total.saturating_add(central.size);
         if total > limits.max_total_size {
             let reason = "members too large in total";
-            return Err(fail(ErrorKind::LimitExceeded, offset, reason));
+            return Err(ZIP.fail(ErrorKind::LimitExceeded, offset, reason));
         }
         if limits.exceeds_ratio(central.size, central.compressed) {
             let reason = "compression ratio too high";
-            return Err(fail(ErrorKind::LimitExceeded, offset, reason));
+            return Err(ZIP.fail(ErrorKind::LimitExceeded, offset, reason));
         }
-        let span = add(source, &mut index, &central, eocd.cd_offset, offset, limits).await?;
+        let span = add(source, &mut index, &central, eocd.cd_offset, offset).await?;
         spans.push((span, offset));
     }
     if reader.pos != cd_end {
         let reason = "central directory size mismatch";
-        return Err(fail(ErrorKind::Corrupt, reader.pos, reason));
+        return Err(ZIP.fail(ErrorKind::Corrupt, reader.pos, reason));
     }
     // Members sharing bytes are how bombs that need no recursion get
     // their ratio, and no archiver writes them.
@@ -198,7 +175,7 @@ pub(crate) async fn index<S: ReadAt>(
         if let [((_, end), _), ((start, _), offset)] = pair
             && start < end
         {
-            return Err(fail(ErrorKind::Corrupt, *offset, "overlapping members"));
+            return Err(ZIP.fail(ErrorKind::Corrupt, *offset, "overlapping members"));
         }
     }
     Ok(index.into_tree())
@@ -213,19 +190,15 @@ async fn add<S: ReadAt>(
     central: &Central,
     cd_offset: u64,
     offset: u64,
-    limits: &Limits,
 ) -> Result<(u64, u64), Error> {
     let name = central.name.as_slice();
-    if name.len() > limits.max_path_len {
-        return Err(fail(ErrorKind::LimitExceeded, offset, "name too long"));
-    }
     // ZIP names use `/` alone; a backslash or drive letter would mean
     // something else to a Windows extractor.
     if name.contains(&b'\\') || matches!(name, [letter, b':', ..] if letter.is_ascii_alphabetic()) {
-        return Err(fail(ErrorKind::InvalidName, offset, "unsafe name"));
+        return Err(ZIP.fail(ErrorKind::InvalidName, offset, "unsafe name"));
     }
     if central.disk != 0 {
-        return Err(fail(ErrorKind::Unsupported, offset, "spanned archives"));
+        return Err(ZIP.fail(ErrorKind::Unsupported, offset, "spanned archives"));
     }
     let data = check_local(source, central, cd_offset).await?;
 
@@ -237,7 +210,7 @@ async fn add<S: ReadAt>(
     };
     if codec.is_stored() && central.size != central.compressed {
         let reason = "stored member sizes differ";
-        return Err(fail(ErrorKind::Corrupt, offset, reason));
+        return Err(ZIP.fail(ErrorKind::Corrupt, offset, reason));
     }
     match central.kind() {
         Kind::Dir => index.dir(name, offset),
@@ -247,7 +220,8 @@ async fn add<S: ReadAt>(
             index.insert(name, Node::File(member), offset)
         },
         Kind::Symlink => {
-            let target = link_target(source, data, central, codec, offset, limits).await?;
+            let len = index.target_len(central.size, offset)?;
+            let target = link_target(source, data, central, codec, offset, len).await?;
             index.insert(name, Node::Symlink(Box::from(target)), offset)
         },
         Kind::Special(kind) => index.insert(name, Node::Special(kind), offset),
@@ -259,22 +233,18 @@ async fn add<S: ReadAt>(
 }
 
 /// Reads and decodes the target of the symlink `central`, whose data lies
-/// at `data`.
+/// at `data`, and which decodes to `len` bytes.
 async fn link_target<S: ReadAt>(
     source: &S,
     data: u64,
     central: &Central,
     codec: Method,
     offset: u64,
-    limits: &Limits,
+    len: usize,
 ) -> Result<Vec<u8>, Error> {
-    let too_long = || fail(ErrorKind::LimitExceeded, offset, "link target too long");
-    let len = usize::try_from(central.size)
-        .ok()
-        .filter(|&len| len <= limits.max_path_len)
-        .ok_or_else(too_long)?;
+    let too_long = || ZIP.fail(ErrorKind::LimitExceeded, offset, "link target too long");
     if codec.is_stored() {
-        return read(source, data, len).await;
+        return ZIP.read(source, data, len).await;
     }
     // Any method that would pack a short target in much more than its own
     // length is not worth reading.
@@ -282,8 +252,8 @@ async fn link_target<S: ReadAt>(
         .ok()
         .filter(|&packed| packed <= len.saturating_add(64))
         .ok_or_else(too_long)?;
-    let input = read(source, data, packed).await?;
-    let bad = |error: Error| fail(error.kind(), offset, "bad link target");
+    let input = ZIP.read(source, data, packed).await?;
+    let bad = |error: Error| ZIP.fail(error.kind(), offset, "bad link target");
     let mut decoder = codec.decoder().map_err(bad)?;
     let mut target = vec![0; len];
     let (mut used, mut filled) = (0, 0);
@@ -292,7 +262,7 @@ async fn link_target<S: ReadAt>(
         let output = target.get_mut(filled..).unwrap_or_default();
         let (consumed, produced) = decoder.decode(input, output).map_err(bad)?;
         if consumed == 0 && produced == 0 {
-            return Err(fail(ErrorKind::Corrupt, offset, "bad link target"));
+            return Err(ZIP.fail(ErrorKind::Corrupt, offset, "bad link target"));
         }
         used = used.saturating_add(consumed);
         filled = filled.saturating_add(produced);
@@ -310,18 +280,18 @@ async fn check_local<S: ReadAt>(
     cd_offset: u64,
 ) -> Result<u64, Error> {
     let offset = central.local_offset;
-    let corrupt = |reason| fail(ErrorKind::Corrupt, offset, reason);
+    let corrupt = |reason| ZIP.fail(ErrorKind::Corrupt, offset, reason);
     if offset.saturating_add(wide(LOCAL_LEN)) > cd_offset {
         return Err(corrupt("local header past the central directory"));
     }
-    let fixed = LocalFixed::parse(&read(source, offset, LOCAL_LEN).await?)
+    let fixed = LocalFixed::parse(&ZIP.read(source, offset, LOCAL_LEN).await?)
         .ok_or_else(|| corrupt("bad local header"))?;
     let variable_offset = offset.saturating_add(wide(LOCAL_LEN));
     let variable_len = fixed.variable_len();
     if variable_offset.saturating_add(wide(variable_len)) > cd_offset {
         return Err(corrupt("local header past the central directory"));
     }
-    let variable = read(source, variable_offset, variable_len).await?;
+    let variable = ZIP.read(source, variable_offset, variable_len).await?;
     let (local, name) = fixed
         .complete(&variable)
         .ok_or_else(|| corrupt("bad local header"))?;
