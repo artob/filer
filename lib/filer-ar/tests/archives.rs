@@ -10,7 +10,7 @@
 mod common;
 
 use common::{DIALECTS, Dialect, Writer, header, member};
-use filer_api::{Dir, Error, ErrorKind, MetaMask};
+use filer_api::{Dir, EntryName, Error, ErrorKind, MetaMask};
 use filer_ar::{Ar, Limits};
 use filer_spec::block_on;
 use filer_tar::Tar;
@@ -27,13 +27,9 @@ fn read(root: &Root, path: &str) -> Vec<u8> {
 }
 
 /// Lists `path` in `root`, sorted.
-fn list<D: filer_api::Driver>(root: &Dir<D>, path: &str) -> Vec<String> {
+fn list<D: filer_api::Driver>(root: &Dir<D>, path: &str) -> Vec<EntryName> {
     let dir = block_on(root.open_dir(path)).unwrap();
-    let mut entries = dir.entries().unwrap();
-    let mut names = Vec::new();
-    while let Some(entry) = block_on(entries.next()) {
-        names.push(entry.unwrap().name.to_string());
-    }
+    let mut names = block_on(dir.names()).unwrap();
     names.sort();
     names
 }

@@ -40,12 +40,10 @@ async fn walk<S: ReadAt + 'static>(
     out: &mut Vec<String>,
 ) -> Result<(), Box<dyn Error>> {
     let handle = root.open_dir(dir).await?;
-    let mut entries = handle.entries()?;
-    while let Some(entry) = entries.next().await {
-        let entry = entry?;
+    for name in handle.names().await? {
         let path = match dir {
-            "" => entry.name.to_string(),
-            dir => format!("{dir}/{}", entry.name),
+            "" => name.to_string(),
+            dir => format!("{dir}/{}", name),
         };
         let metadata = root
             .symlink_metadata(path.as_str(), MetaMask::all())

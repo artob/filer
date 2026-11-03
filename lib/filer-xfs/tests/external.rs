@@ -141,10 +141,8 @@ fn replays_logs_as_recorded() {
 /// else as `o` and its path.
 fn tree<S: ReadAt + 'static>(root: &Dir<Xfs<S>>, dir: &str, out: &mut Vec<String>) {
     let handle = block_on(root.open_dir(dir.trim_start_matches('/'))).unwrap();
-    let mut entries = handle.entries().unwrap();
-    while let Some(entry) = block_on(entries.next()) {
-        let entry = entry.unwrap();
-        let path = format!("{dir}/{}", entry.name);
+    for name in block_on(handle.names()).unwrap() {
+        let path = format!("{dir}/{name}");
         let relative = path.trim_start_matches('/');
         let metadata = block_on(root.symlink_metadata(relative, MetaMask::all())).unwrap();
         match metadata.kind {

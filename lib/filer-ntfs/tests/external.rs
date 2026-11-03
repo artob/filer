@@ -59,12 +59,8 @@ fn accessed<S: ReadAt + 'static>(root: &Dir<Ntfs<S>>, path: &str) -> i64 {
 /// Returns the names `dir` of `root` lists.
 fn names<S: ReadAt + 'static>(root: &Dir<Ntfs<S>>, dir: &str) -> Vec<String> {
     let handle = block_on(root.open_dir(dir)).unwrap();
-    let mut entries = handle.entries().unwrap();
-    let mut names = Vec::new();
-    while let Some(entry) = block_on(entries.next()) {
-        names.push(entry.unwrap().name.to_string());
-    }
-    names
+    let names = block_on(handle.names()).unwrap();
+    names.iter().map(ToString::to_string).collect()
 }
 
 /// Returns the paths and contents of the files under `dir` of `root`.

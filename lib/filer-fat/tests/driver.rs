@@ -6,7 +6,7 @@
 mod common;
 
 use common::{Image, KINDS, Kind, MTIME, dir, file};
-use filer_api::{Dir, Error, ErrorKind, FileKind, MetaMask};
+use filer_api::{Dir, EntryName, Error, ErrorKind, FileKind, MetaMask};
 use filer_fat::{Fat, FatError};
 use filer_fs::partition::{self, Window};
 use filer_spec::block_on;
@@ -22,14 +22,9 @@ fn read(root: &Root, path: &str) -> Result<Vec<u8>, Error> {
     block_on(file.read_to_end())
 }
 
-fn list(root: &Root, path: &str) -> Vec<String> {
+fn list(root: &Root, path: &str) -> Vec<EntryName> {
     let dir = block_on(root.open_dir(path)).unwrap();
-    let mut entries = dir.entries().unwrap();
-    let mut names = Vec::new();
-    while let Some(entry) = block_on(entries.next()) {
-        names.push(entry.unwrap().name.to_string());
-    }
-    names
+    block_on(dir.names()).unwrap()
 }
 
 fn fat_error(error: &Error) -> FatError {
@@ -264,14 +259,7 @@ fn refuses_corrupt_entries() {
     image.slot("README.TXT")[0] = b'/';
     let root = open(image);
     let dir = block_on(root.open_dir("")).unwrap();
-    let mut entries = dir.entries().unwrap();
-    let error = loop {
-        match block_on(entries.next()) {
-            Some(Ok(_)) => {},
-            Some(Err(error)) => break error,
-            None => panic!("no error"),
-        }
-    };
+    let error = block_on(dir.names()).unwrap_err();
     assert!(matches!(fat_error(&error), FatError::BadName { .. }));
 
     let mut image = sample(Kind::Fat16, false);
@@ -363,14 +351,14 @@ fn decodes_short_names_in_the_given_code_page() {
         read(&open_in(&image, CodePage::Cp850), "RØADME.txt").unwrap(),
         b"Read me."
     );
-    assert!(list(&open_in(&image, CodePage::Cp866), "").contains(&"RЫADME.TXT".to_owned()));
+    let names = list(&open_in(&image, CodePage::Cp866), "");
+    assert!(names.iter().any(|name| name == "RЫADME.TXT"));
 
     // 0xD5 is undefined in code page 857: listing the entry fails.
     image.slot("README.TXT")[1] = 0xD5;
     let root = open_in(&image, CodePage::Cp857);
     let dir = block_on(root.open_dir("")).unwrap();
-    let mut entries = dir.entries().unwrap();
-    let error = block_on(entries.next()).unwrap().unwrap_err();
+    let error = block_on(dir.names()).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Corrupt);
     assert!(matches!(
         fat_error(&error),

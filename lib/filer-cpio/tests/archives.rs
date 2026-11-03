@@ -11,7 +11,7 @@
 mod common;
 
 use common::{FILE, FORMATS, Format, Writer};
-use filer_api::{Dir, Error, ErrorKind, FileKind, MetaMask};
+use filer_api::{Dir, EntryName, Error, ErrorKind, FileKind, MetaMask};
 use filer_cpio::{Cpio, Limits};
 use filer_spec::block_on;
 
@@ -26,13 +26,9 @@ fn read(root: &Root, path: &str) -> Result<Vec<u8>, Error> {
     block_on(file.read_to_end())
 }
 
-fn list(root: &Root, path: &str) -> Vec<String> {
+fn list(root: &Root, path: &str) -> Vec<EntryName> {
     let dir = block_on(root.open_dir(path)).unwrap();
-    let mut entries = dir.entries().unwrap();
-    let mut names = Vec::new();
-    while let Some(entry) = block_on(entries.next()) {
-        names.push(entry.unwrap().name.to_string());
-    }
+    let mut names = block_on(dir.names()).unwrap();
     names.sort();
     names
 }

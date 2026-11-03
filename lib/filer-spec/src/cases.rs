@@ -378,17 +378,15 @@ pub(crate) async fn lists_and_stats_foreign_names<D: Driver>(ctx: &Ctx<D>) -> Ve
         return Verdict::Skip("no foreign names in this profile");
     }
     let dir = ok!(ctx.root.open_dir("foreign").await);
-    let mut entries = ok!(dir.entries());
-    let Some(entry) = entries.next().await else {
+    let Some(listed) = ok!(dir.names().await).into_iter().next() else {
         return Verdict::Fail(String::from("the foreign name was not listed"));
     };
-    let entry = ok!(entry);
-    let EntryName::Foreign(name) = &entry.name else {
-        return Verdict::Fail(format!("{} was listed as UTF-8", entry.name));
+    let EntryName::Foreign(name) = &listed else {
+        return Verdict::Fail(format!("{listed} was listed as UTF-8"));
     };
     check_eq!(name.as_bytes(), FOREIGN_NAME);
     check_eq!(name.origin(), ctx.root.driver().id());
-    check_eq!(entry.name.to_string(), "caf\\xE9");
+    check_eq!(listed.to_string(), "caf\\xE9");
     let stat = |at, name| Op::Stat {
         target: Target::Entry {
             at,
@@ -398,7 +396,7 @@ pub(crate) async fn lists_and_stats_foreign_names<D: Driver>(ctx: &Ctx<D>) -> Ve
         },
         mask: MetaMask::all(),
     };
-    let op = stat(dir.handle().clone(), entry.name.clone());
+    let op = stat(dir.handle().clone(), listed.clone());
     match ctx.root.driver().submit(op).await.result {
         Ok(Output::Metadata(metadata)) => check_eq!(metadata.len, Some(7)),
         Ok(output) => return Verdict::Fail(format!("stat returned {output:?}")),
@@ -406,7 +404,7 @@ pub(crate) async fn lists_and_stats_foreign_names<D: Driver>(ctx: &Ctx<D>) -> Ve
     }
     // The same name minted by another driver instance is refused.
     let other = ok!(ctx.other.open_dir("foreign").await);
-    let op = stat(other.handle().clone(), entry.name);
+    let op = stat(other.handle().clone(), listed);
     let Completion { result, .. } = ctx.other.driver().submit(op).await;
     expect_error!(result, ErrorKind::ForeignNameMismatch);
     Verdict::Pass

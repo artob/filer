@@ -80,16 +80,14 @@ async fn walk<S: ReadAt + 'static>(
     out: &mut StdoutLock<'_>,
 ) -> Result<(), Box<dyn Error>> {
     let handle = root.open_dir(dir).await?;
-    let mut entries = handle.entries()?;
-    while let Some(entry) = entries.next().await {
-        let entry = entry?;
+    for name in handle.names().await? {
         let path = match dir {
-            "" => entry.name.to_string(),
-            dir => format!("{dir}/{}", entry.name),
+            "" => name.to_string(),
+            dir => format!("{dir}/{}", name),
         };
-        if entry.name.is_foreign() {
+        if name.is_foreign() {
             // Paths are UTF-8, so only the entry itself can be reached.
-            let metadata = foreign_metadata(&handle, entry.name.clone()).await?;
+            let metadata = foreign_metadata(&handle, name.clone()).await?;
             writeln!(
                 out,
                 "{path}\t{}\t{}\t{}\t-\t{}\t-",

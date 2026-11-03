@@ -250,11 +250,8 @@ fn replays_journals_needing_recovery() {
         let file = block_on(root.open_file("a/b/c.txt")).unwrap();
         assert_eq!(block_on(file.read_to_end()).unwrap(), b"contents");
         let more = block_on(root.open_dir("more")).unwrap();
-        let mut entries = more.entries().unwrap();
-        let mut names = Vec::new();
-        while let Some(entry) = block_on(entries.next()) {
-            names.push(entry.unwrap().name.to_string());
-        }
+        let names = block_on(more.names()).unwrap();
+        let mut names: Vec<String> = names.iter().map(ToString::to_string).collect();
         names.sort();
         let mut expected: Vec<String> = (2..40).map(|i| format!("m{i:02}")).collect();
         expected.push("renamed".into());
@@ -475,13 +472,9 @@ fn refuses_structures_failing_their_checksums() {
     for node in blocks_of(&htree, 1024, &[0, 0, 0, 0, 0, 4, 0, 0]) {
         let root = block_on(Ext4::open(flipped(&htree, node + 8 + 8))).unwrap();
         let big = block_on(root.open_dir("big")).unwrap();
-        let mut entries = big.entries().unwrap();
-        while let Some(entry) = block_on(entries.next()) {
-            if let Err(error) = entry {
-                assert!(matches!(corrupt(error), Ext4Error::BadDirChecksum { .. }));
-                failed += 1;
-                break;
-            }
+        if let Err(error) = block_on(big.names()) {
+            assert!(matches!(corrupt(error), Ext4Error::BadDirChecksum { .. }));
+            failed += 1;
         }
     }
     assert!(failed > 0);
@@ -491,14 +484,9 @@ fn refuses_structures_failing_their_checksums() {
         .position(|window| window == b"lost+found")
         .unwrap();
     let root = block_on(Ext4::open(flipped(&ext4, at + 9))).unwrap();
-    let error = root.entries().and_then(|mut entries| {
-        while let Some(entry) = block_on(entries.next()) {
-            entry?;
-        }
-        Ok(())
-    });
+    let error = block_on(root.names()).unwrap_err();
     assert_eq!(
-        corrupt(error.unwrap_err()),
+        corrupt(error),
         Ext4Error::BadDirChecksum { dir: 2, block: 0 }
     );
     // An extent tree node below the root: of the blocks of its magic,
@@ -558,11 +546,8 @@ fn reads_inline_data_past_i_block() {
     ))))
     .unwrap();
     let spill = block_on(root.open_dir("spill")).unwrap();
-    let mut entries = spill.entries().unwrap();
-    let mut names = Vec::new();
-    while let Some(entry) = block_on(entries.next()) {
-        names.push(entry.unwrap().name.to_string());
-    }
+    let names = block_on(spill.names()).unwrap();
+    let mut names: Vec<String> = names.iter().map(ToString::to_string).collect();
     names.sort();
     let expected: Vec<String> = (0..6).map(|i| format!("entry{i}")).collect();
     assert_eq!(names, expected);
