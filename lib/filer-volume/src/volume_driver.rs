@@ -2,25 +2,25 @@
 
 use filer_fs::le;
 
-/// A file system format.
+/// A file system driver: the crate that reads volumes of some formats.
 ///
-/// Every format is listed whatever this build's features, so code naming
+/// Every driver is listed whatever this build's features, so code naming
 /// one compiles everywhere; [`is_enabled`](Self::is_enabled) says whether
-/// this build reads it.
+/// this build has it.
 ///
 /// # Examples
 ///
 /// ```
-/// use filer_volume::Format;
+/// use filer_volume::VolumeDriver;
 ///
-/// let mut head = vec![0; Format::DETECT_LEN];
+/// let mut head = vec![0; VolumeDriver::DETECT_LEN];
 /// head[..4].copy_from_slice(b"XFSB");
-/// assert_eq!(Format::detect(&head), Some(Format::Xfs));
-/// assert_eq!(Format::detect(&[0; 512]), None);
+/// assert_eq!(VolumeDriver::detect(&head), Some(VolumeDriver::Xfs));
+/// assert_eq!(VolumeDriver::detect(&[0; 512]), None);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
-pub enum Format {
+pub enum VolumeDriver {
     /// ext2, ext3, and ext4, read by `filer-ext4`.
     Ext4,
     /// FAT12, FAT16, and FAT32, read by `filer-fat`.
@@ -31,8 +31,8 @@ pub enum Format {
     Xfs,
 }
 
-impl Format {
-    /// Every format, in order.
+impl VolumeDriver {
+    /// Every driver, in order.
     pub const ALL: [Self; 4] = [Self::Ext4, Self::Fat, Self::Ntfs, Self::Xfs];
 
     /// How many of a volume's first bytes [`detect`](Self::detect) reads:
@@ -40,11 +40,11 @@ impl Format {
     /// looks at.
     pub const DETECT_LEN: usize = 2048;
 
-    /// Returns the format whose signature `head`, a volume's first bytes,
-    /// holds, if any: XFS's and NTFS's magic numbers, ext's in its
-    /// superblock at offset 1024, or a FAT boot sector as `filer-fat`
-    /// accepts it. A FAT boot sector may be left in a volume formatted
-    /// since, so it is tried last.
+    /// Returns the driver for the format whose signature `head`, a
+    /// volume's first bytes, holds, if any: XFS's and NTFS's magic
+    /// numbers, ext's in its superblock at offset 1024, or a FAT boot
+    /// sector as `filer-fat` accepts it. A FAT boot sector may be left in a
+    /// volume formatted since, so it is tried last.
     ///
     /// [`DETECT_LEN`](Self::DETECT_LEN) bytes suffice; fewer, as of a
     /// smaller volume, may still name one.
@@ -62,8 +62,8 @@ impl Format {
         is_fat(head).then_some(Self::Fat)
     }
 
-    /// Returns whether this build reads the format: whether its feature,
-    /// named as the format is (`ext4`, `fat`, `ntfs`, or `xfs`), is
+    /// Returns whether this build has the driver: whether its feature,
+    /// named as the driver is (`ext4`, `fat`, `ntfs`, or `xfs`), is
     /// enabled.
     #[must_use]
     pub const fn is_enabled(self) -> bool {
@@ -75,7 +75,7 @@ impl Format {
         }
     }
 
-    /// Returns the format's name, in lowercase, as its feature has it.
+    /// Returns the driver's name, in lowercase, as its feature has it.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
@@ -87,7 +87,7 @@ impl Format {
     }
 }
 
-impl core::fmt::Display for Format {
+impl core::fmt::Display for VolumeDriver {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.name())
     }
@@ -134,7 +134,7 @@ mod tests {
 
     /// A FAT12 boot sector, as `mkfs.fat` writes one for a floppy.
     fn fat() -> alloc::vec::Vec<u8> {
-        let mut head = vec![0; Format::DETECT_LEN];
+        let mut head = vec![0; VolumeDriver::DETECT_LEN];
         head[..3].copy_from_slice(&[0xEB, 0x3C, 0x90]);
         head[11..13].copy_from_slice(&512_u16.to_le_bytes());
         head[13] = 1;
@@ -148,7 +148,7 @@ mod tests {
     }
 
     fn ext() -> alloc::vec::Vec<u8> {
-        let mut head = vec![0; Format::DETECT_LEN];
+        let mut head = vec![0; VolumeDriver::DETECT_LEN];
         head[1024 + 56..1024 + 58].copy_from_slice(&0xEF53_u16.to_le_bytes());
         head[1024 + 76] = 1;
         head
@@ -156,42 +156,42 @@ mod tests {
 
     #[test]
     fn detects_each_format() {
-        let mut xfs = vec![0; Format::DETECT_LEN];
+        let mut xfs = vec![0; VolumeDriver::DETECT_LEN];
         xfs[..4].copy_from_slice(b"XFSB");
-        let mut ntfs = vec![0; Format::DETECT_LEN];
+        let mut ntfs = vec![0; VolumeDriver::DETECT_LEN];
         ntfs[3..11].copy_from_slice(b"NTFS    ");
         ntfs[510..512].copy_from_slice(&[0x55, 0xAA]);
-        assert_eq!(Format::detect(&xfs), Some(Format::Xfs));
-        assert_eq!(Format::detect(&ntfs), Some(Format::Ntfs));
-        assert_eq!(Format::detect(&ext()), Some(Format::Ext4));
-        assert_eq!(Format::detect(&fat()), Some(Format::Fat));
+        assert_eq!(VolumeDriver::detect(&xfs), Some(VolumeDriver::Xfs));
+        assert_eq!(VolumeDriver::detect(&ntfs), Some(VolumeDriver::Ntfs));
+        assert_eq!(VolumeDriver::detect(&ext()), Some(VolumeDriver::Ext4));
+        assert_eq!(VolumeDriver::detect(&fat()), Some(VolumeDriver::Fat));
         // A FAT boot sector left in a volume formatted as ext since.
         let mut both = ext();
         both[..512].copy_from_slice(&fat()[..512]);
-        assert_eq!(Format::detect(&both), Some(Format::Ext4));
-        assert_eq!(Format::detect(&ext()[..1100]), None);
-        assert_eq!(Format::Ntfs.to_string(), "ntfs");
+        assert_eq!(VolumeDriver::detect(&both), Some(VolumeDriver::Ext4));
+        assert_eq!(VolumeDriver::detect(&ext()[..1100]), None);
+        assert_eq!(VolumeDriver::Ntfs.to_string(), "ntfs");
     }
 
     #[test]
     fn refuses_what_is_not_a_volume() {
-        assert_eq!(Format::detect(&[]), None);
-        assert_eq!(Format::detect(&[0; Format::DETECT_LEN]), None);
+        assert_eq!(VolumeDriver::detect(&[]), None);
+        assert_eq!(VolumeDriver::detect(&[0; VolumeDriver::DETECT_LEN]), None);
         // An MBR has the boot signature but no BPB.
         let mut mbr = vec![0; 512];
         mbr[446 + 4] = 0x0C;
         mbr[510..512].copy_from_slice(&[0x55, 0xAA]);
-        assert_eq!(Format::detect(&mbr), None);
+        assert_eq!(VolumeDriver::detect(&mbr), None);
         for (at, value) in [(11, 0), (13, 3), (14, 0), (16, 0), (21, 0x12), (22, 0)] {
             let mut bad = fat();
             bad[at] = value;
             if at == 11 || at == 14 || at == 22 {
                 bad[at + 1] = 0;
             }
-            assert_eq!(Format::detect(&bad), None, "byte {at}");
+            assert_eq!(VolumeDriver::detect(&bad), None, "byte {at}");
         }
         let mut bad = ext();
         bad[1024 + 24] = 7;
-        assert_eq!(Format::detect(&bad), None);
+        assert_eq!(VolumeDriver::detect(&bad), None);
     }
 }

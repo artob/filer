@@ -3190,20 +3190,21 @@ writing (§17.13) extends the trait rather than replacing it.
 `filer-archive` is to the archive drivers: one dependency, and one
 driver type, `Volume`, whatever the file system. Unlike an archive's,
 a volume's format comes from its content, as images are rarely named
-for it (`disk.img`): `Format::detect` reads the first 2 KiB for XFS's
+for it (`disk.img`): `VolumeDriver::detect` reads the first 2 KiB for XFS's
 `XFSB` at 0, NTFS's OEM name at 3, an ext superblock at 1024 (magic
 number, block size, and revision), then a FAT boot sector as
 `filer-fat` checks one, last, since one may be left in a volume
 formatted since. `Volume::open` detects and opens; `open_as` takes the
-format from the caller; `open_with` and `open_as_with` take `Options`,
-each enabled format's own, with `allow_dirty` setting every journaled
-one's. A partitioned disk is not a volume: `open` says so
-(`FormatError::Partitioned`), and `open_partition` opens one partition
-through `filer_fs::partition`'s `Window`. As in `filer-archive`, the
-format's driver is held as a `DynDriver`, each format is a feature
-re-exporting its crate as a module, `code-pages` forwards `filer-fat`'s
-(not in `all`, as in `filer-fat`), `udf` enables the empty `filer-udf`,
-and opening a disabled format is `Unsupported` with a `FormatError`.
+driver from the caller; `open_with` and `open_as_with` take
+`VolumeOptions`, each enabled driver's own, with `allow_dirty` setting
+every journaled one's. A partitioned disk is not a volume: `open` says
+so (`VolumeError::Partitioned`), and `open_partition` opens one
+partition through `filer_fs::partition`'s `Window`. As in
+`filer-archive`, the format's driver is held as a `DynDriver`, each
+driver is a feature re-exporting its crate as a module, `code-pages`
+forwards `filer-fat`'s (not in `all`, as in `filer-fat`), `udf` enables
+the empty `filer-udf`, and opening a volume with a disabled driver is
+`Unsupported` with a `VolumeError`.
 Its tests open fixtures of the drivers' own crates, so none is copied,
 and check that each lists as its driver does.
 

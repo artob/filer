@@ -8,15 +8,22 @@
 
 use filer_api::{Dir, Driver, EntryName, ErrorKind, Rights};
 use filer_spec::{Sparse, block_on};
-use filer_volume::{Format, FormatError, Options, Volume};
+use filer_volume::{Volume, VolumeDriver, VolumeError, VolumeOptions};
 
-/// Each format's volume, as the path of a fixture in the workspace.
-const VOLUMES: [(Format, &str); 5] = [
-    (Format::Ext4, "filer-ext4/tests/fixtures/ext2-attrs.sparse"),
-    (Format::Fat, "filer-fat/tests/fixtures/fat12.sparse"),
-    (Format::Fat, "filer-fat/tests/fixtures/fat32.sparse"),
-    (Format::Ntfs, "filer-ntfs/tests/fixtures/ntfs-links.sparse"),
-    (Format::Xfs, "filer-xfs/tests/fixtures/spec.sparse"),
+/// A volume of each format, with its driver and the path of a fixture
+/// in the workspace.
+const VOLUMES: [(VolumeDriver, &str); 5] = [
+    (
+        VolumeDriver::Ext4,
+        "filer-ext4/tests/fixtures/ext2-attrs.sparse",
+    ),
+    (VolumeDriver::Fat, "filer-fat/tests/fixtures/fat12.sparse"),
+    (VolumeDriver::Fat, "filer-fat/tests/fixtures/fat32.sparse"),
+    (
+        VolumeDriver::Ntfs,
+        "filer-ntfs/tests/fixtures/ntfs-links.sparse",
+    ),
+    (VolumeDriver::Xfs, "filer-xfs/tests/fixtures/spec.sparse"),
 ];
 
 fn fixture(path: &str) -> Vec<u8> {
@@ -28,7 +35,7 @@ fn hello() -> Vec<u8> {
     std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/hello.img")).unwrap()
 }
 
-fn format_error(error: &filer_api::Error) -> Option<FormatError> {
+fn volume_error(error: &filer_api::Error) -> Option<VolumeError> {
     core::error::Error::source(error)
         .and_then(|source| source.downcast_ref())
         .copied()
@@ -40,43 +47,43 @@ fn names<D: Driver>(root: &Dir<D>) -> Vec<EntryName> {
     names
 }
 
-/// Returns what the format's own driver lists at the root of `image`.
-fn listed_by_its_driver(format: Format, image: Vec<u8>) -> Vec<EntryName> {
-    match format {
+/// Returns what `driver` itself lists at the root of `image`.
+fn listed_by_its_driver(driver: VolumeDriver, image: Vec<u8>) -> Vec<EntryName> {
+    match driver {
         #[cfg(feature = "ext4")]
-        Format::Ext4 => names(&block_on(filer_volume::ext4::Ext4::open(image)).unwrap()),
+        VolumeDriver::Ext4 => names(&block_on(filer_volume::ext4::Ext4::open(image)).unwrap()),
         #[cfg(feature = "fat")]
-        Format::Fat => names(&block_on(filer_volume::fat::Fat::open(image)).unwrap()),
+        VolumeDriver::Fat => names(&block_on(filer_volume::fat::Fat::open(image)).unwrap()),
         #[cfg(feature = "ntfs")]
-        Format::Ntfs => names(&block_on(filer_volume::ntfs::Ntfs::open(image)).unwrap()),
+        VolumeDriver::Ntfs => names(&block_on(filer_volume::ntfs::Ntfs::open(image)).unwrap()),
         #[cfg(feature = "xfs")]
-        Format::Xfs => names(&block_on(filer_volume::xfs::Xfs::open(image)).unwrap()),
-        _ => unreachable!("{format} is disabled, so {} bytes went unread", image.len()),
+        VolumeDriver::Xfs => names(&block_on(filer_volume::xfs::Xfs::open(image)).unwrap()),
+        _ => unreachable!("{driver} is disabled, so {} bytes went unread", image.len()),
     }
 }
 
 #[test]
 fn detects_and_opens_each_format() {
-    for (format, path) in VOLUMES {
+    for (driver, path) in VOLUMES {
         let image = fixture(path);
-        assert_eq!(Format::detect(&image), Some(format), "{path}");
+        assert_eq!(VolumeDriver::detect(&image), Some(driver), "{path}");
         let opened = block_on(Volume::open(image.clone()));
-        if !format.is_enabled() {
+        if !driver.is_enabled() {
             let error = opened.unwrap_err();
             assert_eq!(error.kind(), ErrorKind::Unsupported, "{path}");
-            assert_eq!(format_error(&error), Some(FormatError::Disabled(format)));
+            assert_eq!(volume_error(&error), Some(VolumeError::Disabled(driver)));
             continue;
         }
         let root = opened.unwrap();
-        assert_eq!(root.driver().format(), format);
+        assert_eq!(root.driver().volume_driver(), driver);
         assert_eq!(root.rights(), Rights::READ);
         assert_eq!(
             names(&root),
-            listed_by_its_driver(format, image.clone()),
+            listed_by_its_driver(driver, image.clone()),
             "{path}"
         );
-        let root = block_on(Volume::open_as(image, format)).unwrap();
-        assert_eq!(root.driver().format(), format);
+        let root = block_on(Volume::open_as(image, driver)).unwrap();
+        assert_eq!(root.driver().volume_driver(), driver);
     }
 }
 
@@ -94,21 +101,25 @@ fn opens_partitions_of_disks() {
 
     let error = block_on(Volume::open(disk.clone())).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Unsupported);
-    assert_eq!(format_error(&error), Some(FormatError::Partitioned));
-    let opened = block_on(Volume::open_partition(disk.clone(), 1, Options::default()));
-    if Format::Fat.is_enabled() {
+    assert_eq!(volume_error(&error), Some(VolumeError::Partitioned));
+    let opened = block_on(Volume::open_partition(
+        disk.clone(),
+        1,
+        VolumeOptions::default(),
+    ));
+    if VolumeDriver::Fat.is_enabled() {
         let root = opened.unwrap();
         let file = block_on(root.open_file("hello/world.txt")).unwrap();
         assert_eq!(block_on(file.read_to_end()).unwrap(), b"Hello, world!\n");
     } else {
         assert_eq!(opened.unwrap_err().kind(), ErrorKind::Unsupported);
     }
-    let error = block_on(Volume::open_partition(disk, 2, Options::default())).unwrap_err();
+    let error = block_on(Volume::open_partition(disk, 2, VolumeOptions::default())).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::NotFound);
-    assert_eq!(format_error(&error), Some(FormatError::NoPartition(2)));
+    assert_eq!(volume_error(&error), Some(VolumeError::NoPartition(2)));
     // A bare volume has no partition table.
-    let error = block_on(Volume::open_partition(image, 1, Options::default())).unwrap_err();
-    assert_eq!(format_error(&error), Some(FormatError::NoPartition(1)));
+    let error = block_on(Volume::open_partition(image, 1, VolumeOptions::default())).unwrap_err();
+    assert_eq!(volume_error(&error), Some(VolumeError::NoPartition(1)));
 }
 
 #[test]
@@ -116,18 +127,18 @@ fn refuses_what_is_no_volume() {
     for bytes in [Vec::new(), vec![0; 4096], b"not a volume".to_vec()] {
         let error = block_on(Volume::open(bytes)).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Unsupported);
-        assert_eq!(format_error(&error), Some(FormatError::Unknown));
+        assert_eq!(volume_error(&error), Some(VolumeError::Unknown));
     }
-    assert_eq!(FormatError::Unknown.to_string(), "no known file system");
+    assert_eq!(VolumeError::Unknown.to_string(), "no known file system");
     assert_eq!(
-        FormatError::Disabled(Format::Xfs).to_string(),
-        "the xfs format is not enabled"
+        VolumeError::Disabled(VolumeDriver::Xfs).to_string(),
+        "the xfs driver is not enabled"
     );
     // A volume opened as another format is that format's to refuse.
-    for format in [Format::Ext4, Format::Ntfs, Format::Xfs] {
-        if format.is_enabled() {
-            let error = block_on(Volume::open_as(hello(), format)).unwrap_err();
-            assert_eq!(error.kind(), ErrorKind::Corrupt, "{format}");
+    for driver in [VolumeDriver::Ext4, VolumeDriver::Ntfs, VolumeDriver::Xfs] {
+        if driver.is_enabled() {
+            let error = block_on(Volume::open_as(hello(), driver)).unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::Corrupt, "{driver}");
         }
     }
 }
@@ -136,12 +147,12 @@ fn refuses_what_is_no_volume() {
 fn passes_options_through() {
     // A volume whose journal needs recovery: replayed by default, read as
     // it is on disk with `allow_dirty`.
-    if !Format::Ext4.is_enabled() {
+    if !VolumeDriver::Ext4.is_enabled() {
         return;
     }
     let image = fixture("filer-ext4/tests/fixtures/ext3-dirty.sparse");
     let replayed = block_on(Volume::open(image.clone())).unwrap();
-    let options = Options::default().allow_dirty(true);
+    let options = VolumeOptions::default().allow_dirty(true);
     let as_is = block_on(Volume::open_with(image, options)).unwrap();
     assert_ne!(names(&replayed), names(&as_is));
 }

@@ -9,22 +9,24 @@
 //! read volumes whatever their file system, as `filer-archive` is for
 //! archives:
 //!
-//! | Format | Detected by | Feature | Driver |
+//! | Formats | Detected by | Feature | Driver |
 //! | --- | --- | --- | --- |
 //! | ext2, ext3, ext4 | superblock magic number, at offset 1080 | `ext4` | `filer-ext4` |
 //! | FAT12, FAT16, FAT32 | boot sector, as `filer-fat` checks it | `fat`, `code-pages` | `filer-fat` |
 //! | NTFS | `NTFS` at offset 3 | `ntfs` | `filer-ntfs` |
 //! | XFS | `XFSB` at offset 0 | `xfs` | `filer-xfs` |
 //!
-//! Each format's feature enables its driver, which is then also
-//! re-exported here as a module (as [`ext4`] for `filer-ext4`), for what
-//! is particular to it, such as its [`Options`]' parts; `code-pages`
+//! Each driver's feature, named as its [`VolumeDriver`] is, enables it,
+//! and re-exports its crate here as a module (as [`ext4`] for
+//! `filer-ext4`), for what is particular to it, such as its part of the
+//! [`VolumeOptions`]; `code-pages`
 //! forwards `filer-fat`'s, making every DOS code page available for FAT's
 //! short names. `udf` enables `filer-udf`, which reads nothing yet, so
-//! [`Format`] has no UDF until it does. `all`, enabled by default,
-//! enables every format, but not `code-pages`, as `filer-fat`'s does not.
-//! Without a format's feature, [`Format`] still names it, and opening it
-//! fails with [`Unsupported`](filer_api::ErrorKind::Unsupported).
+//! [`VolumeDriver`] has no UDF until it does. `all`, enabled by default,
+//! enables every driver, but not `code-pages`, as `filer-fat`'s does not.
+//! Without a driver's feature, [`VolumeDriver`] still names it, and
+//! opening a volume with it fails with
+//! [`Unsupported`](filer_api::ErrorKind::Unsupported).
 //!
 //! A disk image with a partition table (MBR or GPT) is not a volume, but
 //! [`Volume::open_partition`] opens one of its partitions.
@@ -55,7 +57,7 @@
 //!
 //! ```
 //! use filer_api::ErrorKind;
-//! use filer_volume::{FormatError, Options, Volume};
+//! use filer_volume::{VolumeError, VolumeOptions, Volume};
 //!
 //! # #[cfg(feature = "fat")]
 //! # filer_spec::block_on(async {
@@ -74,8 +76,8 @@
 //! assert_eq!(error.kind(), ErrorKind::Unsupported);
 //! let source = core::error::Error::source(&error);
 //! let reason = source.and_then(|source| source.downcast_ref());
-//! assert_eq!(reason, Some(&FormatError::Partitioned));
-//! let root = Volume::open_partition(disk, 1, Options::default()).await?;
+//! assert_eq!(reason, Some(&VolumeError::Partitioned));
+//! let root = Volume::open_partition(disk, 1, VolumeOptions::default()).await?;
 //! let file = root.open_file("hello/world.txt").await?;
 //! assert_eq!(file.read_to_end().await?, b"Hello, world!\n");
 //! # Ok::<(), filer_api::Error>(())
@@ -119,8 +121,8 @@
 
 extern crate alloc;
 
-mod format;
-pub use format::*;
+mod volume_driver;
+pub use volume_driver::*;
 
 mod volume;
 pub use volume::*;
