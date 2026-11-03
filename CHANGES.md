@@ -9,8 +9,8 @@ so any release may break compatibility.
 ## Unreleased
 ### Added
 - `filer-archive`: New crate: `Archive`, a driver opening an archive of
-  any supported format (ar, cpio, TAR, ZIP; each a feature, as is the
-  empty `filer-rar`) by its file name's extension, or as a given
+  any supported format (ar, cpio, TAR, ZIP; each a feature, as are the
+  empty `filer-rar` and `filer-7z`) by its file name's extension, or as a given
   `Format`, and `FormatError`.
 - `filer-api`: `Dir::names`, listing a directory's names at once, and
   comparisons of `EntryName` with strings.
@@ -45,7 +45,7 @@ so any release may break compatibility.
 - `filer-cpio`: New crate: `Cpio`, the read-only cpio archive driver
   (`newc` with or without checksums, `odc`, and old binary; hardlinks by
   inode; concatenated archives, as in initramfs images), and `Limits`.
-- `filer-rar`: New crate, with no items yet.
+- `filer-7z` and `filer-rar`: New crates, with no items yet.
 - `filer-ext4`, `filer-ntfs`, `filer-udf`, and `filer-xfs`: New crates for
   read-only file system drivers, with no items yet but `filer-ext4`'s
   `Ext4` driver (reading ext2, ext3, and ext4 as `mke2fs` makes them,

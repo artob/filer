@@ -22,8 +22,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = ["ar", "cpio", "deflate", "rar", "tar", "zip"]
+all = ["7z", "ar", "cpio", "deflate", "rar", "tar", "zip"]
 std = [
+  "filer-7z?/std",
   "filer-api/std",
   "filer-ar?/std",
   "filer-cpio?/std",
@@ -31,6 +32,7 @@ std = [
   "filer-tar?/std",
   "filer-zip?/std",
 ]
+7z = ["dep:filer-7z"]
 ar = ["dep:filer-ar"]
 cpio = ["dep:filer-cpio"]
 deflate = ["zip", "filer-zip/deflate"]
@@ -39,6 +41,7 @@ tar = ["dep:filer-tar"]
 zip = ["dep:filer-zip"]
 
 [dependencies]
+filer-7z = { workspace = true, optional = true }
 filer-api.workspace = true
 filer-ar = { workspace = true, optional = true }
 filer-cpio = { workspace = true, optional = true }

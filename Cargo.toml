@@ -31,6 +31,7 @@ must_use_candidate = "warn"
 undocumented_unsafe_blocks = "deny"
 
 [workspace.dependencies]
+filer-7z = { version = "0.0.1", path = "lib/filer-7z", default-features = false }
 filer-api = { version = "0.0.1", path = "lib/filer-api", default-features = false }
 filer-ar = { version = "0.0.1", path = "lib/filer-ar", default-features = false }
 filer-archive = { version = "0.0.1", path = "lib/filer-archive", default-features = false }
@@ -60,6 +61,7 @@ spin = { version = "0.12", default-features = false }
 windows-sys = { version = "0.61", default-features = false }
 
 [patch.crates-io]
+filer-7z = { path = "lib/filer-7z" }
 filer-api = { path = "lib/filer-api" }
 filer-ar = { path = "lib/filer-ar" }
 filer-archive = { path = "lib/filer-archive" }

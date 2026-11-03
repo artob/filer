@@ -580,6 +580,10 @@ Created with `publish = false` (D16).
   `!<arch>\n`, cpio's magic numbers), for names that say nothing of the
   format, such as `initrd.img`, or misname it. Done when
   each fixture of each format opens without a name.
+- [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
+  SDK documents (§17.7), with pure-Rust LZMA and LZMA2 decoders, shared
+  with TAR-02's `xz` where they can be. Done when archives 7-Zip writes,
+  solid and not, read as it extracts them.
 - [ ] **RAR-01: `filer-rar` (on demand).** Only as a clean-room,
   decompression-only reader (§17.7). Done when its licensing approach is
   recorded in `DESIGN.md` before any code.

@@ -48,11 +48,12 @@
   platform-independent API; backends implement it for Unix (`filer-posix`),
   WASI (`filer-wasi`), Windows (`filer-windows`), and browsers
   (`filer-whatwg`, the WHATWG File System API); `filer-heap` is the
-  in-memory driver; `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and
-  `filer-rar` are archive drivers (no OS, build everywhere, read from
+  in-memory driver; `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`,
+  `filer-rar`, and `filer-7z` are archive drivers (no OS, build everywhere, read from
   `ReadAt` sources, read-only forever: never add archive writing; each is
   a header parser over the shared `filer_api::archive` module), and
-  `filer-archive` opens any of them by name (each a feature);
+  `filer-archive` opens any of them by name (add every new archive crate
+  to it as an optional dependency, feature, and re-export);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
   planned); `filer-ext4`, `filer-ntfs`, and `filer-xfs` are read-only file
   system drivers, and `filer-udf` a stub; `filer-fs` holds what they

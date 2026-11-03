@@ -367,7 +367,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-vfs` | mount-table routing driver | no |
 | `filer-overlay` | overlay routing driver | no |
 | `filer-tar`, `filer-zip` | read-only archive drivers | no |
-| `filer-ar`, `-cpio`, `-rar` | read-only archive drivers | no |
+| `filer-ar`, `-cpio`, `-rar`, `-7z` | read-only archive drivers | no |
 | `filer-archive` | any archive format, by name, over those drivers | no |
 | `filer-tracing` | tracing middleware | no |
 | `filer-faults` | fault-injection middleware | no |
@@ -391,7 +391,7 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `known-codepages`, the read-only `filer-tar`, `filer-zip`, `filer-ar`,
 `filer-cpio`, `filer-archive` over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, and `filer-xfs`,
 and as empty skeletons `filer-wasi`, `filer-whatwg`, `filer-udf`,
-`filer-rar`, and `filer-cli` (D30, D38, D41).
+`filer-rar`, `filer-7z`, and `filer-cli` (D30, D38, D41).
 The rest are created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
@@ -2307,10 +2307,19 @@ TARs; an RPM is a header followed by a compressed cpio):
   proprietary and the official `unrar` license forbids using its source to
   recreate the algorithm, so a reader must be a clean-room implementation
   of decompression only, as libarchive's is; solid archives also make
-  reads at an offset costly.
+  reads at an offset costly;
+- `filer-7z`: 7-Zip's archives, reserved for now (2026-11-03). The
+  format is open, documented in the LZMA SDK, which its author placed in
+  the public domain; the work is in pure-Rust decoders for its codecs
+  (LZMA and LZMA2 above all, then PPMd, BZip2, Deflate, and the BCJ and
+  BCJ2 filters; AES encryption would be `Unsupported`). Its index lies at
+  the end, usually compressed itself, so even opening an archive takes
+  a decoder, and solid archives make reads at an offset costly, as RAR's
+  do.
 
-`filer-ar` and `filer-cpio` are built (above); `filer-rar` exists as a
-published empty crate, to reserve its name.
+`filer-ar` and `filer-cpio` are built (above); `filer-rar` is a
+published empty crate, reserving its name, and `filer-7z` an empty one,
+to be published likewise.
 
 **`filer-archive`** (D56, 2026-11-03) is to the archive drivers what
 `filer-system` is to the native ones: one dependency, and one driver
@@ -2323,8 +2332,10 @@ format's own driver then opens the archive; `Archive` holds it as a
 `DynDriver`, for one type at the cost of one boxed future per operation,
 and labels the root with the name. Each format is a feature of the same
 name, re-exporting its crate as a module (`filer_archive::zip`), and
-`deflate` forwards `filer-zip`'s; `rar` enables the empty `filer-rar`,
-which `Format` will name once it reads RAR. `Format` names every format
+`deflate` forwards `filer-zip`'s; `rar` and `7z` enable the empty
+`filer-rar` and `filer-7z` (the latter as the module `sevenz`), which
+`Format` will name once they read anything. Every archive crate is
+added to it so. `Format` names every format
 whatever the features, and opening a disabled one, or a name of none, is
 `Unsupported` with a `FormatError` as the source. Detecting the format
 from an archive's first bytes, for names that say nothing of it, such as

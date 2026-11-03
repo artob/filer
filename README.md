@@ -17,6 +17,7 @@
 
 | Crate | Platforms | Summary |
 | --- | --- | --- |
+| `filer-7z` | All | Read-only 7z archive driver |
 | `filer-api` | All | Platform-independent API |
 | `filer-ar` | All | Read-only ar archive driver |
 | `filer-archive` | All | Read-only archives of any supported format |

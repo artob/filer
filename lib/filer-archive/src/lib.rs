@@ -18,9 +18,10 @@
 //! Each format's feature enables its driver, which is then also
 //! re-exported here as a module (as [`zip`] for `filer-zip`), for what is
 //! particular to it; `deflate` lets `filer-zip` decode Deflate, the method
-//! most ZIP archives use. `rar` enables `filer-rar`, which reads nothing
-//! yet, so [`Format`] has no RAR until it does. `all`, enabled by default,
-//! enables every one.
+//! most ZIP archives use. `rar` and `7z` enable `filer-rar` and
+//! `filer-7z` (as `sevenz`, since a module's name cannot begin with a
+//! digit), which read nothing yet, so [`Format`] names neither until they
+//! do. `all`, enabled by default, enables every one.
 //! Without a format's feature, [`Format`] still names it, and opening it
 //! fails with [`Unsupported`](filer_api::ErrorKind::Unsupported).
 //!
@@ -102,6 +103,10 @@ pub use format::*;
 /// Re-exported from [`filer_api::archive`], where all archive drivers share
 /// it.
 pub use filer_api::archive::Limits;
+
+#[cfg(feature = "7z")]
+#[doc(no_inline)]
+pub use filer_7z as sevenz;
 
 #[cfg(feature = "ar")]
 #[doc(no_inline)]

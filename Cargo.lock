@@ -25,6 +25,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-7z"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
+]
+
+[[package]]
 name = "filer-api"
 version = "0.0.1"
 dependencies = [
@@ -46,6 +53,7 @@ dependencies = [
 name = "filer-archive"
 version = "0.0.1"
 dependencies = [
+ "filer-7z",
  "filer-api",
  "filer-ar",
  "filer-cpio",
