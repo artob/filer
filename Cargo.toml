@@ -47,6 +47,7 @@ filer-spec = { version = "0.0.1", path = "lib/filer-spec", default-features = fa
 filer-system = { version = "0.0.1", path = "lib/filer-system", default-features = false }
 filer-tar = { version = "0.0.1", path = "lib/filer-tar", default-features = false }
 filer-udf = { version = "0.0.1", path = "lib/filer-udf", default-features = false }
+filer-volume = { version = "0.0.1", path = "lib/filer-volume", default-features = false }
 filer-wasi = { version = "0.0.1", path = "lib/filer-wasi", default-features = false }
 filer-whatwg = { version = "0.0.1", path = "lib/filer-whatwg", default-features = false }
 filer-windows = { version = "0.0.1", path = "lib/filer-windows", default-features = false }
@@ -77,6 +78,7 @@ filer-spec = { path = "lib/filer-spec" }
 filer-system = { path = "lib/filer-system" }
 filer-tar = { path = "lib/filer-tar" }
 filer-udf = { path = "lib/filer-udf" }
+filer-volume = { path = "lib/filer-volume" }
 filer-wasi = { path = "lib/filer-wasi" }
 filer-whatwg = { path = "lib/filer-whatwg" }
 filer-windows = { path = "lib/filer-windows" }

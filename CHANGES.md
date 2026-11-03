@@ -8,6 +8,11 @@ so any release may break compatibility.
 
 ## Unreleased
 ### Added
+- `filer-volume`: New crate: `Volume`, a driver opening a volume of any
+  supported file system (ext2/3/4, FAT, NTFS, XFS; each a feature, as is
+  the empty `filer-udf`), detected by its first bytes, or as a given
+  `Format`, or as a partition of a disk image; `Options` and
+  `FormatError`.
 - `filer-archive`: New crate: `Archive`, a driver opening an archive of
   any supported format (ar, cpio, TAR, ZIP; each a feature, as are the
   empty `filer-rar` and `filer-7z`) by its file name's extension, or as a given

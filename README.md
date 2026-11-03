@@ -33,6 +33,7 @@
 | `filer-system` | All | Native backend for the target, plus the API |
 | `filer-tar` | All | Read-only TAR archive driver |
 | `filer-udf` | All | Read-only UDF file system driver |
+| `filer-volume` | All | Read-only volumes of any supported file system |
 | `filer-wasi` | WASI | WASI backend |
 | `filer-whatwg` | Browsers | WHATWG File System (OPFS) backend |
 | `filer-windows` | Windows | Windows backend |

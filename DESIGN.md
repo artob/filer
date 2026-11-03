@@ -369,6 +369,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-tar`, `filer-zip` | read-only archive drivers | no |
 | `filer-ar`, `-cpio`, `-rar`, `-7z` | read-only archive drivers | no |
 | `filer-archive` | any archive format, by name, over those drivers | no |
+| `filer-volume` | any file system, by content, over their drivers (§17.18) | no |
 | `filer-tracing` | tracing middleware | no |
 | `filer-faults` | fault-injection middleware | no |
 | `filer-quota` | quota middleware | no |
@@ -389,8 +390,9 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
 `known-codepages`, the read-only `filer-tar`, `filer-zip`, `filer-ar`,
-`filer-cpio`, `filer-archive` over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, and `filer-xfs`,
-and as empty skeletons `filer-wasi`, `filer-whatwg`, `filer-udf`,
+`filer-cpio`, and `filer-archive` over them, `filer-ext4`, `filer-fat`,
+`filer-ntfs`, `filer-xfs`, and `filer-volume` over them, and as empty
+skeletons `filer-wasi`, `filer-whatwg`, `filer-udf`,
 `filer-rar`, `filer-7z`, and `filer-cli` (D30, D38, D41).
 The rest are created when their first `TODO.md` item starts.
 
@@ -3182,7 +3184,30 @@ delegates `Driver`. Writing will add operations to `FileSystem`, each
 `Unsupported` by default, and their dispatch to `Mounted`, so FAT's
 writing (§17.13) extends the trait rather than replacing it.
 
-### 17.18 Later
+### 17.18 `filer-volume`
+
+`filer-volume` (D57, 2026-11-03) is to the file system drivers what
+`filer-archive` is to the archive drivers: one dependency, and one
+driver type, `Volume`, whatever the file system. Unlike an archive's,
+a volume's format comes from its content, as images are rarely named
+for it (`disk.img`): `Format::detect` reads the first 2 KiB for XFS's
+`XFSB` at 0, NTFS's OEM name at 3, an ext superblock at 1024 (magic
+number, block size, and revision), then a FAT boot sector as
+`filer-fat` checks one, last, since one may be left in a volume
+formatted since. `Volume::open` detects and opens; `open_as` takes the
+format from the caller; `open_with` and `open_as_with` take `Options`,
+each enabled format's own, with `allow_dirty` setting every journaled
+one's. A partitioned disk is not a volume: `open` says so
+(`FormatError::Partitioned`), and `open_partition` opens one partition
+through `filer_fs::partition`'s `Window`. As in `filer-archive`, the
+format's driver is held as a `DynDriver`, each format is a feature
+re-exporting its crate as a module, `code-pages` forwards `filer-fat`'s
+(not in `all`, as in `filer-fat`), `udf` enables the empty `filer-udf`,
+and opening a disabled format is `Unsupported` with a `FormatError`.
+Its tests open fixtures of the drivers' own crates, so none is copied,
+and check that each lists as its driver does.
+
+### 17.19 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
@@ -3749,6 +3774,7 @@ Record changes here with a date and one line of rationale.
 | D54 | File system drivers share code in `filer-fs` | Accepted |
 | D55 | `Dir::names` collects a listing's names; `entries` streams | Accepted |
 | D56 | `filer-archive` opens any archive format, by its name for now | Accepted |
+| D57 | `filer-volume` opens any file system, detected by its content | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

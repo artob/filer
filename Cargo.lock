@@ -178,6 +178,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-volume"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
+ "filer-ext4",
+ "filer-fat",
+ "filer-fs",
+ "filer-ntfs",
+ "filer-spec",
+ "filer-udf",
+ "filer-xfs",
+]
+
+[[package]]
 name = "filer-wasi"
 version = "0.0.1"
 dependencies = [

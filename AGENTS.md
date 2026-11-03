@@ -56,7 +56,9 @@
   to it as an optional dependency, feature, and re-export);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
   planned); `filer-ext4`, `filer-ntfs`, and `filer-xfs` are read-only file
-  system drivers, and `filer-udf` a stub; `filer-fs` holds what they
+  system drivers, and `filer-udf` a stub; `filer-volume` opens any of
+  them, detected by content (add every new file system crate to it as an
+  optional dependency, feature, and re-export); `filer-fs` holds what they
   share (each depends on it, `filer-windows` for `wtf8`, `nt`, and
   `reparse`; shared code goes there, not into one driver): a format
   implements `filer_fs::FileSystem`, its public type wraps
