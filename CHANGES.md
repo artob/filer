@@ -20,6 +20,8 @@ so any release may break compatibility.
   `filer_api::archive` moved whole to its root, with `spin`. `Index`
   now applies `Limits` itself, taking them in `Index::new` with a
   `Parser`, which reads a format's headers and names it in errors.
+  `Verified` checks a `Digest`, such as `Crc32`, of what a `Decoder`
+  produced, over another decoder or `Passthrough`.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 ### Changed
 - `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the

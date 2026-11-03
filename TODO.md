@@ -551,12 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-03: One verified decoder.** A `Digest` trait (`update`,
-  `finish`) implemented by `Crc32` and by cpio's byte sum, and a
-  `Verified<D, H>` decoder checking the sum at `finish`, replace
-  `filer-zip`'s `Checked` and `filer-cpio`'s `Summing`. Done when both
-  codec modules hold only their method and sum, and both crates' tests
-  pass unchanged.
 - [ ] **PACK-04: The stream cache as a type.** Extract `Archive`'s kept
   streams (take the furthest not past an offset, keep up to four, lock
   inside) into a public `Streams` keyed by an opaque stream id, with

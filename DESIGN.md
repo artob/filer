@@ -2341,7 +2341,8 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   `Tree::node_mut`);
 - one checksum-verifying decoder over a digest trait, in place of
   `filer-zip`'s CRC wrapper and `filer-cpio`'s byte sum, ready for the
-  sums gzip, xz, zstd, and 7z stamp;
+  sums gzip, xz, zstd, and 7z stamp (done, 2026-11-03: `Verified`,
+  `Digest`, and `Passthrough`);
 - the stream cache, out of `Archive` and keyed by an opaque stream id,
   and over it a `ReadAt` source over one decoded stream, for compressed
   tarballs and initramfs images, and for solid blocks;

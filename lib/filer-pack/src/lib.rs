@@ -17,13 +17,13 @@
 //!   measured against the [`Limits`];
 //! - [`Archive`] serves the finished tree as a read-only [`Driver`];
 //! - [`Codec`] and [`Decoder`] decode compressed members, which
-//!   [`Member`] records with their format's codec;
+//!   [`Member`] records with their format's codec, and [`Verified`]
+//!   checks a [`Digest`] of what a decoder produced, such as a CRC-32;
 //! - [`Limits`] bounds what an untrusted archive may make the index hold;
 //! - [`Parser`] reads a format's headers, and its errors carry an
 //!   [`ArchiveError`] naming the format, header offset, and reason.
 //!
-//! More is to move in (D59): one checksum-verifying decoder; a cache of
-//! decoded streams, and a [`ReadAt`] source over one, for compressed
+//! More is to move in (D59): a cache of decoded streams, and a [`ReadAt`] source over one, for compressed
 //! tarballs and solid archives; and pure-Rust decoders, one feature per
 //! algorithm.
 //!
@@ -101,3 +101,6 @@ pub use member::*;
 
 mod parser;
 pub use parser::*;
+
+mod verified;
+pub use verified::*;

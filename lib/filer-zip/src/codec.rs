@@ -5,7 +5,7 @@
 
 use alloc::boxed::Box;
 use filer_api::{Error, ErrorKind, OpKind, checksum::Crc32};
-use filer_pack::{Codec, Decoder};
+use filer_pack::{Codec, Decoder, Verified};
 
 /// Compression methods.
 pub(crate) const STORED: u16 = 0;
@@ -31,17 +31,13 @@ impl Codec for Method {
         if self.encrypted {
             return Err(unsupported);
         }
-        let inner = inner(self.method).ok_or(unsupported)?;
-        Ok(Box::new(Checked {
-            inner,
-            crc: Crc32::new(),
-            expected: self.crc,
-        }))
+        let decoder = decoder(self.method).ok_or(unsupported)?;
+        Ok(Box::new(Verified::new(decoder, Crc32::new(), self.crc)))
     }
 }
 
 /// Returns a decoder for `method`, if this build supports it.
-fn inner(method: u16) -> Option<Box<dyn Inner>> {
+fn decoder(method: u16) -> Option<Box<dyn Decoder>> {
     match method {
         #[cfg(feature = "deflate")]
         DEFLATE => Some(Box::new(deflate::Deflate::new())),
@@ -49,39 +45,11 @@ fn inner(method: u16) -> Option<Box<dyn Inner>> {
     }
 }
 
-/// A method's decoder, before the CRC check.
-trait Inner: Send {
-    fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error>;
-}
-
-/// A decoder checking the CRC-32 of what it produced once the member ends.
-struct Checked {
-    inner: Box<dyn Inner>,
-    crc: Crc32,
-    expected: u32,
-}
-
-impl Decoder for Checked {
-    fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
-        let (consumed, produced) = self.inner.decode(input, output)?;
-        self.crc = self.crc.update(output.get(..produced).unwrap_or_default());
-        Ok((consumed, produced))
-    }
-
-    fn finish(&mut self) -> Result<(), Error> {
-        if self.crc.finish() == self.expected {
-            Ok(())
-        } else {
-            Err(Error::new(ErrorKind::Corrupt, OpKind::Read))
-        }
-    }
-}
-
 #[cfg(feature = "deflate")]
 mod deflate {
-    use super::Inner;
     use alloc::boxed::Box;
     use filer_api::{Error, ErrorKind, OpKind};
+    use filer_pack::Decoder;
     use miniz_oxide::{
         DataFormat, MZError, MZFlush,
         inflate::stream::{InflateState, inflate},
@@ -96,7 +64,7 @@ mod deflate {
         }
     }
 
-    impl Inner for Deflate {
+    impl Decoder for Deflate {
         fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
             let result = inflate(&mut self.0, input, output, MZFlush::None);
             match result.status {

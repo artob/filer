@@ -89,6 +89,16 @@ pub trait Decoder: Send {
     }
 }
 
+impl<D: Decoder + ?Sized> Decoder for Box<D> {
+    fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
+        (**self).decode(input, output)
+    }
+
+    fn finish(&mut self) -> Result<(), Error> {
+        (**self).finish()
+    }
+}
+
 /// The codec of formats without compression, such as TAR: every member is
 /// stored as is.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
