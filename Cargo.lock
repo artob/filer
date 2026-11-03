@@ -43,6 +43,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-archive"
+version = "0.0.1"
+dependencies = [
+ "filer-api",
+ "filer-ar",
+ "filer-cpio",
+ "filer-rar",
+ "filer-spec",
+ "filer-tar",
+ "filer-zip",
+]
+
+[[package]]
 name = "filer-cli"
 version = "0.0.1"
 dependencies = [

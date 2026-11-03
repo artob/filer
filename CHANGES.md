@@ -8,6 +8,10 @@ so any release may break compatibility.
 
 ## Unreleased
 ### Added
+- `filer-archive`: New crate: `Archive`, a driver opening an archive of
+  any supported format (ar, cpio, TAR, ZIP; each a feature, as is the
+  empty `filer-rar`) by its file name's extension, or as a given
+  `Format`, and `FormatError`.
 - `filer-api`: `Dir::names`, listing a directory's names at once, and
   comparisons of `EntryName` with strings.
 - `filer-api`: `archive::Index::add` and `Index::alias`, for hardlinks that

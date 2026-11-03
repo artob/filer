@@ -33,6 +33,7 @@ undocumented_unsafe_blocks = "deny"
 [workspace.dependencies]
 filer-api = { version = "0.0.1", path = "lib/filer-api", default-features = false }
 filer-ar = { version = "0.0.1", path = "lib/filer-ar", default-features = false }
+filer-archive = { version = "0.0.1", path = "lib/filer-archive", default-features = false }
 filer-cpio = { version = "0.0.1", path = "lib/filer-cpio", default-features = false }
 filer-ext4 = { version = "0.0.1", path = "lib/filer-ext4", default-features = false }
 filer-fat = { version = "0.0.1", path = "lib/filer-fat", default-features = false }
@@ -61,6 +62,7 @@ windows-sys = { version = "0.61", default-features = false }
 [patch.crates-io]
 filer-api = { path = "lib/filer-api" }
 filer-ar = { path = "lib/filer-ar" }
+filer-archive = { path = "lib/filer-archive" }
 filer-cpio = { path = "lib/filer-cpio" }
 filer-ext4 = { path = "lib/filer-ext4" }
 filer-fat = { path = "lib/filer-fat" }

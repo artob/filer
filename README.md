@@ -19,6 +19,7 @@
 | --- | --- | --- |
 | `filer-api` | All | Platform-independent API |
 | `filer-ar` | All | Read-only ar archive driver |
+| `filer-archive` | All | Read-only archives of any supported format |
 | `filer-cpio` | All | Read-only cpio archive driver |
 | `filer-ext4` | All | Read-only ext2/3/4 file system driver |
 | `filer-fat` | All | FAT12/16/32 file system driver |

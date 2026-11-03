@@ -368,6 +368,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-overlay` | overlay routing driver | no |
 | `filer-tar`, `filer-zip` | read-only archive drivers | no |
 | `filer-ar`, `-cpio`, `-rar` | read-only archive drivers | no |
+| `filer-archive` | any archive format, by name, over those drivers | no |
 | `filer-tracing` | tracing middleware | no |
 | `filer-faults` | fault-injection middleware | no |
 | `filer-quota` | quota middleware | no |
@@ -388,7 +389,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
 `known-codepages`, the read-only `filer-tar`, `filer-zip`, `filer-ar`,
-`filer-cpio`, `filer-ext4`, `filer-fat`, `filer-ntfs`, and `filer-xfs`,
+`filer-cpio`, `filer-archive` over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, and `filer-xfs`,
 and as empty skeletons `filer-wasi`, `filer-whatwg`, `filer-udf`,
 `filer-rar`, and `filer-cli` (D30, D38, D41).
 The rest are created when their first `TODO.md` item starts.
@@ -2311,6 +2312,24 @@ TARs; an RPM is a header followed by a compressed cpio):
 `filer-ar` and `filer-cpio` are built (above); `filer-rar` exists as a
 published empty crate, to reserve its name.
 
+**`filer-archive`** (D56, 2026-11-03) is to the archive drivers what
+`filer-system` is to the native ones: one dependency, and one driver
+type, `Archive`, whatever the format. `Archive::open(source, name)` picks
+the format from the name's last extension (`Format::from_name`, ignoring
+ASCII case: `.a`, `.deb`, `.lib`; `.cpio`; `.tar`; `.zip` and the
+formats built on it, such as `.jar`, `.whl`, and `.docx`), and
+`open_as` and `open_with` take it, and `Limits`, from the caller. The
+format's own driver then opens the archive; `Archive` holds it as a
+`DynDriver`, for one type at the cost of one boxed future per operation,
+and labels the root with the name. Each format is a feature of the same
+name, re-exporting its crate as a module (`filer_archive::zip`), and
+`deflate` forwards `filer-zip`'s; `rar` enables the empty `filer-rar`,
+which `Format` will name once it reads RAR. `Format` names every format
+whatever the features, and opening a disabled one, or a name of none, is
+`Unsupported` with a `FormatError` as the source. Detecting the format
+from an archive's first bytes, for names that say nothing of it, such as
+`initrd.img`, is ARC-01.
+
 ### 17.8 `filer-wasi`
 
 The WASI driver, gated on `cfg(target_os = "wasi")` (D30); it exists as an
@@ -3718,6 +3737,7 @@ Record changes here with a date and one line of rationale.
 | D53 | Checksums drivers share live in `filer_api::checksum` | Accepted |
 | D54 | File system drivers share code in `filer-fs` | Accepted |
 | D55 | `Dir::names` collects a listing's names; `entries` streams | Accepted |
+| D56 | `filer-archive` opens any archive format, by its name for now | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

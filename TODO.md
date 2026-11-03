@@ -574,6 +574,12 @@ Created with `publish = false` (D16).
   which `filer-cpio` refuses as `Unsupported`. Decode it behind features,
   sharing TAR-02's pure-Rust decoders. Done when a distribution's image
   reads as GNU cpio extracts it once decompressed.
+- [ ] **ARC-01: Detect archive formats by content.** `filer-archive`
+  picks a format from the file name's extension only. Also read the
+  first bytes (`ustar` at offset 257, `PK\x03\x04` or an end record,
+  `!<arch>\n`, cpio's magic numbers), for names that say nothing of the
+  format, such as `initrd.img`, or misname it. Done when
+  each fixture of each format opens without a name.
 - [ ] **RAR-01: `filer-rar` (on demand).** Only as a clean-room,
   decompression-only reader (§17.7). Done when its licensing approach is
   recorded in `DESIGN.md` before any code.
