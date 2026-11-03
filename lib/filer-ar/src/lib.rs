@@ -18,6 +18,27 @@
 //!
 //! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
 //! by default, forwards to `filer-api`. `all` currently enables nothing.
+//!
+//! # Examples
+//!
+//! A Debian package is an ar archive, whose `data.tar` member
+//! [`filer-tar`](https://docs.rs/filer-tar) opens in turn:
+//!
+//! ```
+//! use filer_ar::Ar;
+//! use filer_tar::Tar;
+//!
+//! # filer_spec::block_on(async {
+//! let package: &'static [u8] = include_bytes!("../tests/data/hello.deb");
+//! let root = Ar::open(package).await?;
+//! let version = root.open_file("debian-binary").await?;
+//! assert_eq!(version.read_to_end().await?, b"2.0\n");
+//! let data = Tar::open(root.open_file("data.tar").await?).await?;
+//! let readme = data.open_file("usr/share/doc/hello/README").await?;
+//! assert_eq!(readme.read_to_end().await?, b"Hello, world!\n");
+//! # Ok::<(), filer_api::Error>(())
+//! # }).unwrap();
+//! ```
 
 #![no_std]
 #![forbid(unsafe_code)]

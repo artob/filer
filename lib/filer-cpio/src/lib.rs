@@ -17,6 +17,38 @@
 //!
 //! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
 //! by default, forwards to `filer-api`. `all` currently enables nothing.
+//!
+//! # Examples
+//!
+//! An initramfs image, as the Linux kernel unpacks it: an early archive of
+//! microcode, then the main one, which read as one tree. Its hardlinks are
+//! one file, and its symlinks resolve within it:
+//!
+//! ```
+//! use filer_api::MetaMask;
+//! use filer_cpio::Cpio;
+//!
+//! # filer_spec::block_on(async {
+//! let image: &'static [u8] = include_bytes!("../tests/data/initramfs.img");
+//! let root = Cpio::open(image).await?;
+//! let mut names = Vec::new();
+//! let mut entries = root.entries()?;
+//! while let Some(entry) = entries.next().await {
+//!     names.push(entry?.name.to_string());
+//! }
+//! names.sort();
+//! assert_eq!(names, ["dir", "empty", "fifo", "hard1", "kernel", "link"]);
+//!
+//! let microcode = root.open_file("kernel/x86/microcode/GenuineIntel.bin").await?;
+//! assert_eq!(microcode.read_to_end().await?, b"not really microcode\n");
+//! let hard1 = root.metadata("hard1", MetaMask::ID).await?;
+//! let hard2 = root.metadata("dir/hard2", MetaMask::ID).await?;
+//! assert_eq!(hard1.id, hard2.id);
+//! let link = root.open_file("link").await?;
+//! assert_eq!(link.read_to_end().await?, b"Hello, world!\n");
+//! # Ok::<(), filer_api::Error>(())
+//! # }).unwrap();
+//! ```
 
 #![no_std]
 #![forbid(unsafe_code)]
