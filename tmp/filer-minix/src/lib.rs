@@ -17,7 +17,8 @@
 //! cleanly unmounted unless asked. The smallest format here, it makes a
 //! fair first driver.
 //!
-//! `LEGAL.md` has not assessed Minix yet; it must before any work starts.
+//! `LEGAL.md` finds the format clear: a 1987 design with no patents, whose
+//! sources (the textbook, MINIX 3, Linux) are read for facts, never copied.
 //!
 //! **Development.** Fixtures are made with `mkfs.minix`, in `util-linux`;
 //! the differential test compares with the Linux kernel's `minix` driver.

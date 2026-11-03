@@ -2443,7 +2443,7 @@ Recorded 2026-11-01 (D40); none exists yet:
   `filer-exfat`. `LEGAL.md` governs them all: exFAT is not to be
   released before its patents expire (mid-2028); ReFS and APFS are
   read-only for good, ReFS best effort; LZO is never decoded from GPL
-  code; and UFS and Minix await its assessment. Each would follow
+  code; UFS and Minix are clear (assessed 2026-11-03). Each would follow
   `filer-fat`'s model: a lazy driver over any `ReadAt` source, the async
   `Resolver`, panic-free by lint, fixtures from the real tools, and a
   differential test against the Linux kernel's driver. Writing them is out of scope for now: their
@@ -2628,10 +2628,13 @@ test against the Linux kernel's `ntfs3` driver. Writing is out of scope.
 mature implementations (ntfs-3g, the Linux kernel's `ntfs3` and `ntfs`)
 are GPL, which this public-domain project cannot take code from. The
 driver is written from public descriptions of the format only, and no
-GPL source is consulted while writing it: Microsoft's open
+GPL source code is consulted while writing it: Microsoft's open
 specifications [MS-FSCC] (attribute, file-attribute, and reparse-point
 layouts) and [MS-XCA] (LZNT1), and the Linux-NTFS project's *NTFS
-Documentation* (a description of the on-disk format, not code).
+Documentation* (a description of the on-disk format, not code; its
+GFDL, like the GPL-2.0 on the kernel's own documents, binds the prose,
+not the facts read from it: see `LEGAL.md`, *Documentation and the
+clean room*).
 
 **On-disk facts the parser relies on:**
 
@@ -2776,9 +2779,9 @@ only: the kernel's prose documentation (*ext4 Data Structures and
 Algorithms*, `Documentation/filesystems/ext4/`, which also describes
 JBD2) and Dave Poirier's *The Second Extended File System*; and from what
 `mke2fs`, `debugfs`, and `dumpe2fs` show of real volumes. No
-implementation's source is consulted. The directory hashes, which only
-code defines exactly, are built from RFC 1320 (MD4) and the published
-TEA cipher, and checked against `debugfs`'s `dx_hash`.
+implementation's source code is consulted. The directory hashes, which
+only code defines exactly, are built from RFC 1320 (MD4) and the
+published TEA cipher, and checked against `debugfs`'s `dx_hash`.
 
 **On-disk facts the parser relies on:**
 
@@ -2952,10 +2955,10 @@ are refused.
 are GPL. The driver is written from descriptions of the format only: the
 *XFS Algorithms & Data Structures* book (the `xfs-documentation`
 repository) and what `mkfs.xfs`, `xfs_db`, `xfs_info`, and `xfs_logprint`
-show of real volumes. No implementation's source is consulted. Where the
-book names a flag but not its value, the value is found by setting the bit
-with `xfs_db -x` and reading back the name `xfs_db` prints (done
-2026-11-01 for the superblock's feature sets).
+show of real volumes. No implementation's source code is consulted.
+Where the book names a flag but not its value, the value is found by
+setting the bit with `xfs_db -x` and reading back the name `xfs_db`
+prints (done 2026-11-01 for the superblock's feature sets).
 
 **On-disk facts the parser relies on:**
 

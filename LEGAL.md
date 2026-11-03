@@ -1,12 +1,13 @@
-# Legal status of the file-system formats implemented in this code base
+# Legal status of the on-disk formats implemented in this code base
 
-This project reimplements several on-disk file-system formats from scratch and
-dedicates the result to the public domain (Unlicense / CC0). This document
-records what is known about the intellectual-property status of each format,
-which sources contributors may use, and which they may not.
+This project reimplements several on-disk file-system and archive formats
+from scratch and dedicates the result to the public domain (Unlicense /
+CC0). This document records what is known about the intellectual-property
+status of each format, which sources contributors may use, and which they
+may not.
 
 **This is not legal advice.** It is a research summary, US-centric, last
-reviewed 2026-11-02. Patent expiry dates below should be re-verified on
+reviewed 2026-11-03. Patent expiry dates below should be re-verified on
 Google Patents before relying on them. Software patents are considerably weaker
 outside the United States.
 
@@ -49,12 +50,13 @@ the Linux `fs/exfat` driver (Samsung/Microsoft, GPL).
 
 Microsoft has never published the NTFS on-disk format. Everything public comes
 from decades of reverse engineering: the Linux-NTFS project's *NTFS
-Documentation* (Russon & Fledel) and Brian Carrier's *File System Forensic
-Analysis* are the primary references. NTFS dates to 1993 and the current on-disk
-version (3.1) to 2001, so core patents are long expired. Later additions
-(Transactional NTFS from 2006, Windows 10-era WOF "system compression") are
-more recent; this project targets NTFS 3.1 semantics plus reparse points and
-does not implement those later features.
+Documentation* (Russon & Fledel; GFDL 1.3) and Brian Carrier's *File
+System Forensic Analysis* are the primary references. NTFS dates to 1993
+and the current on-disk version (3.1) to 2001, so core patents are long
+expired. Later additions (Transactional NTFS from 2006, Windows 10-era
+WOF "system compression") are more recent; this project targets NTFS 3.1
+semantics plus reparse points and does not implement those later
+features.
 
 Microsoft joined OIN in 2018, and Paragon's GPL `ntfs3` driver was merged into
 Linux 5.15 (2021) without legal objection. Microsoft has not asserted patents
@@ -85,8 +87,8 @@ only, and carries acknowledged patent exposure.
 
 Designed 1993–94 and released under the GPL by SGI in 2000; any SGI patents
 expired years ago. The format is fully documented in *XFS Algorithms & Data
-Structures* (check its Creative Commons terms before quoting). No known patent
-concerns.
+Structures* (CC-BY-SA 3.0 or later: share-alike, so facts only, no
+quoting). No known patent concerns.
 
 Safe inputs: the XFS documentation (facts). Do not copy `xfsprogs` or the
 kernel driver (GPL).
@@ -99,6 +101,62 @@ rich in prior art.
 
 Safe inputs: kernel documentation (facts). Do not copy `e2fsprogs` (GPL/LGPL)
 or the kernel driver.
+
+### Minix — clear
+
+Andrew Tanenbaum designed the Minix file system in 1987 for MINIX 1.0,
+modeled on Seventh Edition Unix's: a superblock, inode and zone bitmaps,
+an inode table, and fixed-size directory entries. Version 2 (32-bit zone
+numbers) existed by 1996, when Linux gained it, and version 3 (60-byte
+names, larger blocks) came with MINIX 3 in 2005; Linux has read all three
+since 2.6.21 (2007), and the 30-byte-name variants of versions 1 and 2
+are Linux's own. No patent is known on any of it, and none from the
+1980s could still be in force.
+
+MINIX was proprietary, source-available software until April 2000, when
+Prentice Hall let Tanenbaum relicense every version under a BSD license;
+MINIX 3 carries a BSD-3-Clause variant with a fourth clause requiring
+written permission for any deviation. So the MINIX 3 `mfs` server is a
+permissively licensed reference, rare on this list, but copying from it
+would still mean carrying its notice, which a public-domain file cannot.
+
+Safe inputs: Tanenbaum and Woodhull's *Operating Systems: Design and
+Implementation* (facts only: the prose and the code it prints are
+copyrighted), the MINIX 3, Linux and `util-linux` headers for facts (magic
+numbers, layouts), and images made with `mkfs.minix`. Do not copy the
+Linux `fs/minix` driver or `util-linux`'s `mkfs.minix` and `fsck.minix`
+(GPL), or MINIX 3's `mfs` (BSD, notice required).
+
+### UFS (BSD FFS) — clear
+
+The Berkeley Fast File System shipped in 4.2BSD (1983) and was described
+by McKusick, Joy, Leffler and Fabry in 1984; the UFS1 layout read today
+is 4.4BSD's (1993). UFS2 (64-bit block pointers, 256-byte inodes,
+extended attributes) shipped in FreeBSD 5.0 (2003) and is described in
+McKusick's BSDCon 2003 paper. Soft updates (1994) are an in-memory
+technique, and soft updates journaling (SU+J, 2010) adds only a journal
+file, so neither changes what a reader must parse. No patent is known on
+any of it. The one patent family on UFS, Sun's UFS logging (US 5,870,757
+and its division 6,021,414, priority 1995-09-11), covered the Solaris
+variant's journal, which a reader may ignore, and expired on 2015-09-11.
+
+The BSD code is permissively licensed: the Regents dropped the
+advertising clause in 1999, so FreeBSD's, NetBSD's and OpenBSD's `sys/ufs`
+headers are BSD-3-Clause (the Regents, 1982–93). The Solaris variant
+lives in illumos under the CDDL; Apple's, of NeXTSTEP descent, was
+dropped in OS X 10.7 and is under the APSL; Linux's `fs/ufs` is GPL and
+reads every variant its `ufstype` option names (`44bsd`, `ufs2`, `sun`,
+`sunx86`, `hp`, `nextstep`, `openstep`, `old`). "UFS" also names JEDEC's
+Universal Flash Storage, an unrelated interface standard; the collision
+affects only how the crate describes itself.
+
+Safe inputs: the 1984 and 2003 papers, *The Design and Implementation of
+the FreeBSD Operating System*, Carrier's *File System Forensic Analysis*
+(its UFS1 and UFS2 chapters), the Linux `ufs` admin guide, and the BSD
+headers for facts (the magic numbers 0x011954 and 0x19540119, superblock
+offsets, layouts). Do not copy any BSD `ufs` code (notice required),
+illumos (CDDL), Darwin's `xnu` (APSL), Linux `fs/ufs` (GPL) or The Sleuth
+Kit (IBM Public License / CPL).
 
 ### ZFS — medium risk, declining
 
@@ -181,6 +239,77 @@ is the exception: the reference implementation is GPL, so the decoder must be
 written from the algorithm description or by studying lzokay (MIT), never from
 minilzo.
 
+## Per-archive assessment
+
+The archive drivers already built (tar, ZIP, ar, cpio) are not assessed
+here yet; the two reserved ones are.
+
+### 7z — clear
+
+7z is 7-Zip's native archive format (Igor Pavlov, 1999 onward). Its
+description (`7zFormat.txt`), its method table (`Methods.txt`) and a C
+decoder for it (`7zDec.c` and company) ship in the LZMA SDK, which Pavlov
+placed in the public domain in 2008: the one reference implementation on
+this list that could be copied outright, though this project ports rather
+than copies (100% Rust). The dedication covers the LZMA, LZMA2 and xz
+decoders, the BCJ, BCJ2, Delta and branch filters, PPMd var. H (Dmitry
+Shkarin's own public-domain code) and SHA-256 (Wei Dai's); for
+jurisdictions that do not recognize a dedication, the SDK's text also
+grants everyone permission to copy, modify, sell and distribute it. 7-Zip
+itself is LGPL-2.1-or-later, its RAR decoder under the unRAR restriction
+and its zstd and LZFSE decoders BSD-3-Clause, and must not be copied. No
+patent on LZMA is known; the xz project's FAQ says the same, with the
+usual caveat about unknown third-party patents.
+
+Other methods a 7z archive may use: Deflate (PKWARE's patent US 5,051,745
+expired in 2008; RFC 1951), Deflate64 (a PKWARE trademark, undocumented
+by PKWARE but reimplemented by 7-Zip and Info-ZIP; no patent known),
+BZip2 (Burrows–Wheeler, unpatented; bzip2's BSD-style license), zstd
+(BSD) and 7zAES (AES-256 with a SHA-256 key schedule, unencumbered, and
+`Unsupported` for now anyway).
+
+Safe inputs: the LZMA SDK's documents and code, RFC 1951, PKWARE's
+APPNOTE for Deflate (facts), and bzip2's source (facts). Do not copy 7-Zip
+or p7zip (LGPL).
+
+### RAR — no patents known; decompression only, written clean room
+
+RAR is Eugene Roshal's proprietary format (1993), with three compression
+generations still in use: RAR 2 (1996), RAR 3 (2002: LZSS with Huffman
+tables, a filter VM for executables and audio, and PPMd var. H for text)
+and RAR5 (2013: a new container and LZSS, no PPMd), revised again in
+RAR 7.0 (2024). Copyright in RAR and `unrar` is held by Alexander Roshal,
+with win.rar GmbH as publisher; the names RAR and WinRAR are theirs, and
+this project uses them only to name the format. No patent on the format
+or its algorithms is known.
+
+The encumbrance is copyright, not patent. The only complete description
+of the decompression algorithms is the `unrar` source, whose license
+allows its use in any software that handles RAR archives but forbids
+re-creating the RAR compression algorithm or developing a RAR-compatible
+archiver, and requires modified copies to carry that restriction. That
+makes anything derived from it non-free (Debian and Fedora both say so)
+and incompatible with a public-domain dedication. RARLAB's *RAR 5.0
+archive format* technote documents the container (headers, records,
+flags) and states no terms, but refers to `unrar` for the algorithms; an
+older `technote.txt`, once shipped with WinRAR, did the same for RAR 3's
+container.
+
+Policy: a reader only, as for every archive, and one written without
+`unrar`: the decoder is implemented from a written description of the
+algorithms, never from the `unrar` source. Where no such description
+exists, writing one from libarchive's readers (RAR 2/3 by Andres Mejia,
+2011; RAR5 by Grzegorz Antoniak, 2018; both BSD-2-Clause and carrying no
+`unrar` notice) and then coding from it is the procedure to record in
+`DESIGN.md` before any code (TODO RAR-01). PPMd var. H is the
+public-domain code in the LZMA SDK. AES-encrypted archives stay
+`Unsupported`.
+
+Safe inputs: RARLAB's technotes and libarchive (facts). Do not copy
+`unrar` (its own license), 7-Zip's RAR decoder (the same restriction),
+The Unarchiver or unarr (LGPL), or libarchive (BSD, notice required);
+newer Rust decoders of unstated provenance are off limits too.
+
 ## Summary
 
 | Format    | Patents                          | Format documentation      | Verdict                  |
@@ -191,6 +320,8 @@ minilzo.
 | ReFS      | live into the 2030s              | none; reverse-engineered  | avoid; read-only at most |
 | XFS       | expired                          | official                  | clear                    |
 | ext4      | none known                       | official                  | clear                    |
+| Minix     | none known                       | textbook; BSD source      | clear                    |
+| UFS       | expired (Sun logging, 2015)      | papers; BSD headers       | clear                    |
 | ZFS       | mostly expired, some residual    | 2006 spec + docs          | medium-low               |
 | Btrfs     | none known                       | wiki                      | low                      |
 | bcachefs  | none known                       | Principles of Operation   | low (format churn)       |
@@ -198,6 +329,8 @@ minilzo.
 | UDF       | expired                          | ECMA-167 / OSTA           | clear                    |
 | ISO 9660  | none                             | ECMA-119                  | clear                    |
 | SquashFS  | none                             | unofficial                | clear                    |
+| 7z        | none known                       | public-domain SDK         | clear                    |
+| RAR       | none known                       | container only; code      | reader only, clean room  |
 
 ## Rules for contributors: acceptable and unacceptable inputs
 
@@ -207,7 +340,18 @@ minilzo.
 - Vendor-published specifications (Microsoft exFAT, Apple APFS, Sun ZFS
   on-disk spec, Microsoft [MS-FSCC]/[MS-FSA]), read for facts and identifiers.
 - Peer-reviewed forensic and systems papers.
-- Kernel and tool documentation, used as a factual source only.
+- The Linux kernel's own documentation, `Documentation/filesystems/` in
+  its tree and rendered at
+  <https://www.kernel.org/doc/html/latest/filesystems/>: **allowed, as a
+  factual source only.** It is part of the kernel and under the kernel's
+  GPL-2.0 (its file-system documents carry that SPDX tag; the few without
+  one fall under the tree's `COPYING`), so its prose, tables and examples
+  may no more be copied or closely paraphrased than the drivers it
+  describes, while the facts it states (layouts, field names, constants,
+  semantics) are free to use. The same holds for the kernel's admin guide
+  (`ufs`, `vfat`) and for tool documentation (`e2fsprogs`, `xfsprogs`,
+  `util-linux`), under their own licenses. Why this keeps the clean room
+  is explained below.
 - Your own black-box observation of real images produced by the reference
   implementation.
 - Field names, magic numbers, offsets, constants and struct layouts: these are
@@ -216,14 +360,59 @@ minilzo.
 **Unacceptable:**
 
 - Copying, translating or closely paraphrasing code from any existing driver or
-  tool. Every existing implementation of these formats is GPL, LGPL or CDDL;
-  copyleft contamination would void the public-domain dedication.
+  tool. Nearly every existing implementation of these formats is GPL, LGPL
+  or CDDL, and copyleft contamination would void the public-domain
+  dedication. The permissive exceptions (the BSD `ufs` code, MINIX 3's
+  `mfs`, libarchive) still require their notices to travel with copied
+  code, which a public-domain file cannot carry, so they too are sources
+  of facts only. The LZMA SDK, itself public domain, is the one source
+  whose code could be taken; this project ports it rather than copies it.
 - Copying prose from specification documents into comments, docs or this file.
 - Decompiling or disassembling proprietary drivers (`refs.sys`, `ntfs.sys`,
   `exfat.sys`, Apple's `apfs.kext`). Use the published reverse-engineering
   literature instead.
 - Submitting code generated by a tool that has reproduced any of the above.
 
+### Documentation and the clean room
+
+The clean-room drivers (`DESIGN.md`, D52) are written from documentation
+that is itself copyleft: the kernel's ext4, SquashFS and other documents
+(GPL-2.0), the *XFS Algorithms & Data Structures* book (CC-BY-SA 3.0 or
+later) and the Linux-NTFS *NTFS Documentation* (GFDL 1.3). Reading them
+for facts is compatible with the clean room, for three reasons.
+
+- A clean room separates the implementers from the *code's* expression,
+  not from descriptions of the format. Its classic form is a written
+  specification, prepared by people who saw the original and implemented
+  by people who did not. These documents are that specification, written
+  by third parties: reading them is the method, not a breach of it.
+- A document's license governs its expression only: the prose, tables and
+  diagrams as written. It cannot reach the facts they state. Layouts,
+  offsets, constants and how an algorithm works are unprotected facts
+  (*Feist*); names are short phrases, unprotected too; and elements
+  dictated by compatibility are filtered out of any infringement
+  comparison (*Altai*). An implementation that uses the facts is not a
+  derivative work of the document, so no copyleft attaches.
+- Interoperability case law reaches further than this needs: *Sega v.
+  Accolade* and *Sony v. Connectix* held that even reading the original
+  code to learn a format was fair use. Reading a document written to
+  describe the format is well inside that line.
+
+Where the room leaks, and the rules that close it:
+
+- Code excerpts and pseudo-code inside a document are the code. Where a
+  document reproduces a function, or points at one as the only exact
+  definition (as the ext4 document does for its directory hashes), skip
+  it and build from a published algorithm instead, as `filer-ext4` does
+  from RFC 1320 and TEA.
+- Paraphrase in comments and rustdoc is the real exposure: a document's
+  sentence, or a table's description column, drifting into ours. The rule
+  against copying or closely paraphrasing prose is what keeps the output
+  clean, not the choice of document.
+- Layout tables are facts; their descriptive text is not. Transcribe
+  offsets, types and field names, and rewrite every explanation in your
+  own words.
+
 No choice of input can cure a live patent. That is why exFAT and ReFS are the
-genuine problems in this list; everything else is primarily a matter of
-copyright hygiene.
+genuine problems in this list; everything else, RAR included, is primarily
+a matter of copyright hygiene.

@@ -650,9 +650,6 @@ From §17.12 (D40). Create each crate when its item starts.
   Ridge. Done when `xorriso` images of each read.
 - [ ] **FMT-08: `filer-squashfs`.** Done when `mksquashfs` images of each
   compressor read.
-- [ ] **FMT-00: Assess UFS and Minix in `LEGAL.md`.** Patents, format
-  documentation, and allowed sources, as for the others. Done before
-  FMT-09 or FMT-11 starts.
 - [ ] **FMT-09: `filer-minix`.** Done when `mkfs.minix` images of versions
   1, 2, and 3 read.
 - [ ] **FMT-10: `filer-btrfs`.** Done when a single-device

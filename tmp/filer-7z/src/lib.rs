@@ -18,7 +18,7 @@
 //! the archive's end, usually compressed itself, so opening one already
 //! takes a decoder. Archives are also usually "solid" (members compressed
 //! as one stream), which makes reading a member at an offset costly. See
-//! `DESIGN.md` §17.7.
+//! `DESIGN.md` §17.7 and `LEGAL.md`.
 //!
 //! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
 //! by default, forwards to `filer-api`. `all` currently enables nothing.

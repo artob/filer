@@ -15,7 +15,7 @@
 //! this public-domain project. A reader would have to be a clean-room
 //! implementation of decompression only, as libarchive's is. RAR archives
 //! are also often "solid" (members compressed as one stream), which makes
-//! reading a member at an offset costly. See `DESIGN.md` §17.7.
+//! reading a member at an offset costly. See `DESIGN.md` §17.7 and `LEGAL.md`.
 //!
 //! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
 //! by default, forwards to `filer-api`. `all` currently enables nothing.

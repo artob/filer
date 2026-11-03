@@ -19,7 +19,8 @@
 //! as the Linux kernel's `ufstype` mount option lists; FreeBSD's UFS2
 //! first.
 //!
-//! `LEGAL.md` has not assessed UFS yet; it must before any work starts.
+//! `LEGAL.md` finds the format clear: Sun's UFS logging patents, the only
+//! ones, expired in 2015, and the BSD code is read for facts, never copied.
 //!
 //! **Development.** Fixtures are made with `mkfs.ufs`, in the `ufsutils`
 //! package on Debian and Ubuntu, or on FreeBSD itself; the differential
