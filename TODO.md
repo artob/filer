@@ -639,11 +639,29 @@ From §17.12 (D40). Create each crate when its item starts.
   against a local NFS server.
 - [ ] **FMT-01: `filer-exfat`.** exFAT, its own crate (D46), over
   `filer-fs`; FAT's local times (`fat_time.rs`, `UtcOffset`) move there
-  for it to share (§17.17). Done when it reads an exFAT image.
+  for it to share (§17.17). Done when it reads an exFAT image. Never
+  published or released before its last patent expires, expected
+  mid-2028 (`LEGAL.md`): verify the date first.
 - [ ] **FMT-02: Other on-disk formats (low priority).** Such as littlefs.
   Done when each reads an image.
 - [ ] **FMT-06: `filer-udf`.** Read-only UDF. Done when `mkudffs` images
   of revisions 1.02, 2.01, and 2.50 read.
+- [ ] **FMT-07: `filer-cdfs`.** Read-only ISO 9660, with Joliet and Rock
+  Ridge. Done when `xorriso` images of each read.
+- [ ] **FMT-08: `filer-squashfs`.** Done when `mksquashfs` images of each
+  compressor read.
+- [ ] **FMT-00: Assess UFS and Minix in `LEGAL.md`.** Patents, format
+  documentation, and allowed sources, as for the others. Done before
+  FMT-09 or FMT-11 starts.
+- [ ] **FMT-09: `filer-minix`.** Done when `mkfs.minix` images of versions
+  1, 2, and 3 read.
+- [ ] **FMT-10: `filer-btrfs`.** Done when a single-device
+  `mkfs.btrfs --rootdir` image reads, with subvolumes.
+- [ ] **FMT-11: `filer-ufs`.** Done when UFS1 and UFS2 images read.
+- [ ] **FMT-12: `filer-apfs`.** Done when an `hdiutil` image reads.
+- [ ] **FMT-13: `filer-zfs`.** Done when a single-device pool reads.
+- [ ] **FMT-14: `filer-refs`.** Read-only and best effort, with patent
+  exposure (`LEGAL.md`). Done when a Dev Drive Windows filled reads.
 
 ## `filer-ext4`
 

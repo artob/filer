@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog], and this project adheres to
 so any release may break compatibility.
 
 ## Unreleased
+### Added
+- `filer-apfs`, `filer-btrfs`, `filer-cdfs` (ISO 9660), `filer-exfat`,
+  `filer-minix`, `filer-refs`, `filer-squashfs`, `filer-ufs`, and
+  `filer-zfs`: New crates, with no items yet, published at 0.0.2 to
+  reserve their names.
 
 ## 0.0.2 - 2026-11-03
 Read-only file systems (ext2/3/4, FAT, NTFS, XFS) and more archive

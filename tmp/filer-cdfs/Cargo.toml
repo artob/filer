@@ -1,0 +1,30 @@
+[package]
+name = "filer-cdfs"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Read-only ISO 9660 (CD-ROM) file system driver for the Filer API."
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["iso9660", "iso", "cdrom", "filesystem", "no-std"]
+categories.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["all", "std"]
+all = []
+std = ["filer-api/std", "filer-fs/std"]
+
+[dependencies]
+filer-api.workspace = true
+filer-fs.workspace = true

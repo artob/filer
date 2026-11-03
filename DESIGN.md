@@ -395,8 +395,11 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `known-codepages`, the read-only `filer-tar`, `filer-zip`, `filer-ar`,
 `filer-cpio`, and `filer-archive` over them, `filer-ext4`, `filer-fat`,
 `filer-ntfs`, `filer-xfs`, and `filer-volume` over them, and as empty
-skeletons `filer-wasi`, `filer-whatwg`, `filer-udf`,
-`filer-rar`, `filer-7z`, and `filer-cli` (D30, D38, D41).
+skeletons `filer-wasi`, `filer-whatwg`, and `filer-cli` (D30, D38, D41).
+Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
+and the file systems `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
+`filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,
+`filer-udf`, `filer-ufs`, and `filer-zfs`.
 The rest are created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
@@ -419,8 +422,8 @@ filer-api <--+-- filer-posix <---- filer-uring
              +-- filer-windows
              +-- filer-heap
              +-- filer-vfs, filer-overlay, filer-tar, filer-zip
-             +-- filer-fs <---- filer-fat, filer-ext4, filer-ntfs, filer-udf,
-             |                  filer-xfs
+             +-- filer-fs <---- filer-fat, filer-ext4, filer-ntfs, filer-xfs,
+             |                  and the stubs in tmp/ (D58)
              +-- filer-tracing, filer-faults, filer-quota, filer-replay
              +-- filer-tx, filer-tokio, filer-fuse
              +-- filer-spec          (dev-dependency of every driver)
@@ -2322,9 +2325,9 @@ TARs; an RPM is a header followed by a compressed cpio):
   a decoder, and solid archives make reads at an offset costly, as RAR's
   do.
 
-`filer-ar` and `filer-cpio` are built (above); `filer-rar` is a
-published empty crate, reserving its name, and `filer-7z` an empty one,
-to be published likewise.
+`filer-ar` and `filer-cpio` are built (above); `filer-rar` and
+`filer-7z` are published empty crates in `tmp/`, reserving their names
+(D58).
 
 **`filer-archive`** (D56, 2026-11-03) is to the archive drivers what
 `filer-system` is to the native ones: one dependency, and one driver
@@ -2432,12 +2435,18 @@ Recorded 2026-11-01 (D40); none exists yet:
   D46), and, at low priority, other file systems such as littlefs, over a
   block device, for embedded and `no_std` use and for reading disk images.
 - **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4;
-  §17.15, in progress), `filer-ntfs` (§17.14, in progress), `filer-udf`,
-  and `filer-xfs` (§17.16, in progress), published as stubs to reserve
-  their names. Each would follow `filer-fat`'s model: a lazy
-  driver over any `ReadAt` source, the async `Resolver`, panic-free by
-  lint, fixtures from the real tools, and a differential test against the
-  Linux kernel's driver. Writing them is out of scope for now: their
+  §17.15), `filer-ntfs` (§17.14), and `filer-xfs` (§17.16), first
+  published as stubs to reserve their names; and as stubs still, in
+  `tmp/` (D58, 2026-11-03), `filer-apfs`, `filer-btrfs`, `filer-cdfs`
+  (ISO 9660), `filer-minix`, `filer-refs`, `filer-squashfs` (read-only by
+  design), `filer-udf`, `filer-ufs` (BSD's FFS), and `filer-zfs`, with
+  `filer-exfat`. `LEGAL.md` governs them all: exFAT is not to be
+  released before its patents expire (mid-2028); ReFS and APFS are
+  read-only for good, ReFS best effort; LZO is never decoded from GPL
+  code; and UFS and Minix await its assessment. Each would follow
+  `filer-fat`'s model: a lazy driver over any `ReadAt` source, the async
+  `Resolver`, panic-free by lint, fixtures from the real tools, and a
+  differential test against the Linux kernel's driver. Writing them is out of scope for now: their
   journals, B+ trees, and checksums make safe writing far harder than
   FAT's. Each must refuse a volume with unknown incompatible features, and
   a dirty journal or log is either refused or replayed in memory, never
@@ -3122,9 +3131,9 @@ directory blocks, B+ tree blocks, and attribute forks (D50).
 ### 17.17 `filer-fs`
 
 The shared machinery of the on-disk file system drivers (D54), recorded
-2026-11-02. `filer-fat`, `filer-ext4`, `filer-ntfs`, `filer-udf`, and
-`filer-xfs` depend on it, as will every file system driver to come
-(`filer-exfat` and the rest of §17.12). Read side by side, the four
+2026-11-02. `filer-fat`, `filer-ext4`, `filer-ntfs`, and `filer-xfs`
+depend on it, as does every file system stub in `tmp/` (§17.12) and
+every file system driver to come. Read side by side, the four
 working drivers turned out to be largely one program over four formats:
 the same driver shell (handle payloads, the `Op` dispatch, the open
 matrix, the `Resolver` walker), the same block-mapped read loop, and the
@@ -3505,6 +3514,8 @@ filer/
     filer-tracing/  filer-faults/  filer-quota/  filer-replay/
     filer-tx/  filer-tokio/  filer-spec/  filer-fuse/
     <umbrella>/
+  tmp/                  stubs reserving names, until they read (D58)
+    filer-rar/  filer-7z/  filer-udf/  filer-exfat/  ...
 ```
 
 ### 22.2 Features
@@ -3785,6 +3796,7 @@ Record changes here with a date and one line of rationale.
 | D55 | `Dir::names` collects a listing's names; `entries` streams | Accepted |
 | D56 | `filer-archive` opens any archive format, by its name for now | Accepted |
 | D57 | `filer-volume` opens any file system, detected by its content | Accepted |
+| D58 | Stubs reserving names live in `tmp/` until they read something | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

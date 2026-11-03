@@ -1,8 +1,8 @@
 # See: https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["lib/*"]
-default-members = ["lib/*"]
+members = ["lib/*", "tmp/*"]
+default-members = ["lib/*", "tmp/*"]
 resolver = "3"
 
 [workspace.package]
@@ -31,27 +31,36 @@ must_use_candidate = "warn"
 undocumented_unsafe_blocks = "deny"
 
 [workspace.dependencies]
-filer-7z = { version = "0.0.2", path = "lib/filer-7z", default-features = false }
+filer-7z = { version = "0.0.2", path = "tmp/filer-7z", default-features = false }
+filer-apfs = { version = "0.0.2", path = "tmp/filer-apfs", default-features = false }
 filer-api = { version = "0.0.2", path = "lib/filer-api", default-features = false }
 filer-ar = { version = "0.0.2", path = "lib/filer-ar", default-features = false }
 filer-archive = { version = "0.0.2", path = "lib/filer-archive", default-features = false }
+filer-btrfs = { version = "0.0.2", path = "tmp/filer-btrfs", default-features = false }
+filer-cdfs = { version = "0.0.2", path = "tmp/filer-cdfs", default-features = false }
 filer-cpio = { version = "0.0.2", path = "lib/filer-cpio", default-features = false }
+filer-exfat = { version = "0.0.2", path = "tmp/filer-exfat", default-features = false }
 filer-ext4 = { version = "0.0.2", path = "lib/filer-ext4", default-features = false }
 filer-fat = { version = "0.0.2", path = "lib/filer-fat", default-features = false }
 filer-fs = { version = "0.0.2", path = "lib/filer-fs", default-features = false }
 filer-heap = { version = "0.0.2", path = "lib/filer-heap", default-features = false }
+filer-minix = { version = "0.0.2", path = "tmp/filer-minix", default-features = false }
 filer-ntfs = { version = "0.0.2", path = "lib/filer-ntfs", default-features = false }
 filer-posix = { version = "0.0.2", path = "lib/filer-posix", default-features = false }
-filer-rar = { version = "0.0.2", path = "lib/filer-rar", default-features = false }
+filer-rar = { version = "0.0.2", path = "tmp/filer-rar", default-features = false }
+filer-refs = { version = "0.0.2", path = "tmp/filer-refs", default-features = false }
 filer-spec = { version = "0.0.2", path = "lib/filer-spec", default-features = false }
+filer-squashfs = { version = "0.0.2", path = "tmp/filer-squashfs", default-features = false }
 filer-system = { version = "0.0.2", path = "lib/filer-system", default-features = false }
 filer-tar = { version = "0.0.2", path = "lib/filer-tar", default-features = false }
-filer-udf = { version = "0.0.2", path = "lib/filer-udf", default-features = false }
+filer-udf = { version = "0.0.2", path = "tmp/filer-udf", default-features = false }
+filer-ufs = { version = "0.0.2", path = "tmp/filer-ufs", default-features = false }
 filer-volume = { version = "0.0.2", path = "lib/filer-volume", default-features = false }
 filer-wasi = { version = "0.0.2", path = "lib/filer-wasi", default-features = false }
 filer-whatwg = { version = "0.0.2", path = "lib/filer-whatwg", default-features = false }
 filer-windows = { version = "0.0.2", path = "lib/filer-windows", default-features = false }
 filer-xfs = { version = "0.0.2", path = "lib/filer-xfs", default-features = false }
+filer-zfs = { version = "0.0.2", path = "tmp/filer-zfs", default-features = false }
 filer-zip = { version = "0.0.2", path = "lib/filer-zip", default-features = false }
 known-codepages = { version = "0.0.2", path = "lib/known-codepages", default-features = false }
 bitflags = { version = "2.13", default-features = false }
@@ -62,26 +71,35 @@ spin = { version = "0.12", default-features = false }
 windows-sys = { version = "0.61", default-features = false }
 
 [patch.crates-io]
-filer-7z = { path = "lib/filer-7z" }
+filer-7z = { path = "tmp/filer-7z" }
+filer-apfs = { path = "tmp/filer-apfs" }
 filer-api = { path = "lib/filer-api" }
 filer-ar = { path = "lib/filer-ar" }
 filer-archive = { path = "lib/filer-archive" }
+filer-btrfs = { path = "tmp/filer-btrfs" }
+filer-cdfs = { path = "tmp/filer-cdfs" }
 filer-cpio = { path = "lib/filer-cpio" }
+filer-exfat = { path = "tmp/filer-exfat" }
 filer-ext4 = { path = "lib/filer-ext4" }
 filer-fat = { path = "lib/filer-fat" }
 filer-fs = { path = "lib/filer-fs" }
 filer-heap = { path = "lib/filer-heap" }
+filer-minix = { path = "tmp/filer-minix" }
 filer-ntfs = { path = "lib/filer-ntfs" }
 filer-posix = { path = "lib/filer-posix" }
-filer-rar = { path = "lib/filer-rar" }
+filer-rar = { path = "tmp/filer-rar" }
+filer-refs = { path = "tmp/filer-refs" }
 filer-spec = { path = "lib/filer-spec" }
+filer-squashfs = { path = "tmp/filer-squashfs" }
 filer-system = { path = "lib/filer-system" }
 filer-tar = { path = "lib/filer-tar" }
-filer-udf = { path = "lib/filer-udf" }
+filer-udf = { path = "tmp/filer-udf" }
+filer-ufs = { path = "tmp/filer-ufs" }
 filer-volume = { path = "lib/filer-volume" }
 filer-wasi = { path = "lib/filer-wasi" }
 filer-whatwg = { path = "lib/filer-whatwg" }
 filer-windows = { path = "lib/filer-windows" }
 filer-xfs = { path = "lib/filer-xfs" }
+filer-zfs = { path = "tmp/filer-zfs" }
 filer-zip = { path = "lib/filer-zip" }
 known-codepages = { path = "lib/known-codepages" }

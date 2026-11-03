@@ -32,6 +32,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-apfs"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
+]
+
+[[package]]
 name = "filer-api"
 version = "0.0.2"
 dependencies = [
@@ -64,6 +72,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-btrfs"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
+]
+
+[[package]]
+name = "filer-cdfs"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
+]
+
+[[package]]
 name = "filer-cli"
 version = "0.0.2"
 dependencies = [
@@ -76,6 +100,14 @@ version = "0.0.2"
 dependencies = [
  "filer-api",
  "filer-spec",
+]
+
+[[package]]
+name = "filer-exfat"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
 ]
 
 [[package]]
@@ -117,6 +149,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-minix"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
+]
+
+[[package]]
 name = "filer-ntfs"
 version = "0.0.2"
 dependencies = [
@@ -143,10 +183,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-refs"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
+]
+
+[[package]]
 name = "filer-spec"
 version = "0.0.2"
 dependencies = [
  "filer-api",
+]
+
+[[package]]
+name = "filer-squashfs"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
 ]
 
 [[package]]
@@ -171,6 +227,14 @@ dependencies = [
 
 [[package]]
 name = "filer-udf"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
+]
+
+[[package]]
+name = "filer-ufs"
 version = "0.0.2"
 dependencies = [
  "filer-api",
@@ -223,6 +287,14 @@ dependencies = [
  "filer-fs",
  "filer-spec",
  "filer-system",
+]
+
+[[package]]
+name = "filer-zfs"
+version = "0.0.2"
+dependencies = [
+ "filer-api",
+ "filer-fs",
 ]
 
 [[package]]

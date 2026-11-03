@@ -48,7 +48,16 @@ File systems and archives, all read-only and on every platform:
 | `filer-fat` | FAT12, FAT16, and FAT32 |
 | `filer-ntfs` | NTFS |
 | `filer-xfs` | XFS |
+| `filer-apfs` | APFS (planned) |
+| `filer-btrfs` | btrfs (planned) |
+| `filer-cdfs` | ISO 9660 (planned) |
+| `filer-exfat` | exFAT (planned) |
+| `filer-minix` | Minix (planned) |
+| `filer-refs` | ReFS (planned) |
+| `filer-squashfs` | SquashFS (planned) |
 | `filer-udf` | UDF (planned) |
+| `filer-ufs` | UFS, BSD's FFS (planned) |
+| `filer-zfs` | ZFS (planned) |
 | `filer-tar` | TAR |
 | `filer-zip` | ZIP |
 | `filer-ar` | ar: Debian packages, static libraries |

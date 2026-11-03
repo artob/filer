@@ -1,5 +1,9 @@
 # Project files
 - Don't ask to examine parent directories, stick to the project directory.
+- Read [LEGAL.md](LEGAL.md) before planning or touching any on-disk
+  format: its sources allowed and forbidden, and its per-format policy
+  (exFAT unreleased until its patents expire, mid-2028; never a ReFS or
+  APFS writer). A format it does not assess gets assessed there first.
 - Read [TODO.md](TODO.md) for remaining enhancements. Make one narrowly scoped,
   atomic change per request; remove completed items after verification.
 - When updating `AGENTS.md`, keep in mind that the file is meant to especially
@@ -53,15 +57,15 @@
   platform-independent API; backends implement it for Unix (`filer-posix`),
   WASI (`filer-wasi`), Windows (`filer-windows`), and browsers
   (`filer-whatwg`, the WHATWG File System API); `filer-heap` is the
-  in-memory driver; `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`,
-  `filer-rar`, and `filer-7z` are archive drivers (no OS, build everywhere, read from
-  `ReadAt` sources, read-only forever: never add archive writing; each is
-  a header parser over the shared `filer_api::archive` module), and
+  in-memory driver; `filer-tar`, `filer-zip`, `filer-ar`, and `filer-cpio`
+  are archive drivers (no OS, build everywhere, read from `ReadAt` sources,
+  read-only forever: never add archive writing; each is a header parser
+  over the shared `filer_api::archive` module), and
   `filer-archive` opens any of them by name (add every new archive crate
   to it as an optional dependency, feature, and re-export);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
   planned); `filer-ext4`, `filer-ntfs`, and `filer-xfs` are read-only file
-  system drivers, and `filer-udf` a stub; `filer-volume` opens any of
+  system drivers; `filer-volume` opens any of
   them, detected by content (add every new file system crate to it as an
   optional dependency, feature, and re-export); `filer-fs` holds what they
   share (each depends on it, `filer-windows` for `wtf8`, `nt`, and
@@ -77,6 +81,12 @@
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.
+- Stubs that reserve a crate name but read nothing yet live in
+  `tmp/<crate>/` (archives: `filer-rar`, `filer-7z`; file systems, each
+  depending on `filer-fs`: `filer-udf`, `filer-exfat`, `filer-btrfs`,
+  `filer-zfs`, ...). A stub's crate docs list what its format needs. It
+  moves to `lib/` with its first implementation, and joins its umbrella
+  then (`filer-rar`, `filer-7z`, and `filer-udf` already have).
 - New crates must also be added to the README crate table. CI derives its
   package lists from `cargo metadata` and builds every `lib/*/fuzz/`.
 - `filer-cli` is binary-only: its `[[bin]]` has `required-features = ["std"]`,
