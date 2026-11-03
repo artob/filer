@@ -9,7 +9,7 @@ use filer_api::{
     Error, ErrorKind, FileKind, ReadAt, Timestamp,
     tree::{Node, Tree},
 };
-use filer_pack::{Index, Limits, Member, Parser};
+use filer_pack::{Index, Limits, Member, Parser, Reader};
 
 const TAR: Parser = Parser::new("tar");
 
@@ -26,6 +26,7 @@ struct Pending {
 /// Builds the index of the archive in `source`.
 pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree<Member>, Error> {
     let end = source.size().await?;
+    let mut reader = Reader::new(source, TAR, end);
     let mut index = Index::new(TAR, *limits);
     let mut pending = Pending::default();
     let mut offset = 0_u64;
@@ -39,12 +40,12 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
         if end.saturating_sub(offset) < BLOCK_LEN {
             return Err(TAR.fail(ErrorKind::Corrupt, offset, "truncated header"));
         }
-        let block = TAR.read(source, offset, BLOCK).await?;
-        let block: &[u8; BLOCK] = block
-            .as_slice()
+        let block: [u8; BLOCK] = reader
+            .read(offset, BLOCK)
+            .await?
             .try_into()
             .map_err(|_| TAR.fail(ErrorKind::Corrupt, offset, "truncated header"))?;
-        let header = Header(block);
+        let header = Header(&block);
         if header.is_zero() {
             break;
         }
@@ -86,11 +87,11 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
                         "extended header too large",
                     )
                 })?;
-                let record = TAR.read(source, data, len).await?;
+                let record = reader.read(data, len).await?;
                 match typeflag {
-                    b'x' => apply_pax(&mut pending, &record, offset)?,
-                    b'L' => pending.path = Some(text(&record).to_vec()),
-                    _ => pending.linkpath = Some(text(&record).to_vec()),
+                    b'x' => apply_pax(&mut pending, record, offset)?,
+                    b'L' => pending.path = Some(text(record).to_vec()),
+                    _ => pending.linkpath = Some(text(record).to_vec()),
                 }
                 offset = next;
                 continue;

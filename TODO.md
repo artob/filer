@@ -551,13 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-11: A shared forward reader (§17.7, measured in PACK-10).**
-  Move `filer-zip`'s `Reader` into `filer-pack`, reading ahead in 64 KiB
-  chunks and jumping past what a skip leaves behind, and read
-  `filer-tar`'s, `filer-ar`'s, and `filer-cpio`'s headers, names, and
-  tables through it. Done when a test with a counting source opens an
-  archive of 1,000 one-byte members of each format in under 100 reads,
-  and every driver's tests pass.
 - [ ] **TAR-01: Fuzzing `filer-tar`.** The driver passes `filer-spec` and
   hostile-archive tests. Still missing: a fuzz target over `header.rs`
   and indexing, on `filer_spec::fuzz` and `exercise`, as ar's and cpio's

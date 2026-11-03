@@ -14,7 +14,7 @@ use filer_api::{
     Error, ErrorKind, FileKind, ReadAt, Timestamp,
     tree::{Ino, Node, Tree},
 };
-use filer_pack::{Index, Limits, Member, Parser};
+use filer_pack::{Index, Limits, Member, Parser, Reader};
 
 const CPIO: Parser = Parser::new("cpio");
 
@@ -29,6 +29,7 @@ pub(crate) async fn index<S: ReadAt>(
     limits: &Limits,
 ) -> Result<Tree<Member<Sum>>, Error> {
     let end = source.size().await?;
+    let mut reader = Reader::new(source, CPIO, end);
     let mut index = Index::new(CPIO, *limits);
     // The node of each hardlinked file seen so far.
     let mut nodes: BTreeMap<LinkKey, Ino> = BTreeMap::new();
@@ -43,12 +44,12 @@ pub(crate) async fn index<S: ReadAt>(
     // An archive may end without its trailer.
     while offset < end {
         let available = usize::try_from(end.saturating_sub(offset)).unwrap_or(MAX_HEADER);
-        let bytes = CPIO.read(source, offset, available.min(MAX_HEADER)).await?;
+        let bytes = reader.read(offset, available.min(MAX_HEADER)).await?;
         let corrupt = |reason| CPIO.fail(ErrorKind::Corrupt, offset, reason);
-        let Some(format) = Format::detect(&bytes) else {
+        let Some(format) = Format::detect(bytes) else {
             return Err(if offset != base {
                 corrupt("bad magic number")
-            } else if is_compressed(&bytes) {
+            } else if is_compressed(bytes) {
                 CPIO.fail(ErrorKind::Unsupported, offset, "compressed archive")
             } else {
                 corrupt("not a cpio archive")
@@ -70,7 +71,7 @@ pub(crate) async fn index<S: ReadAt>(
         if header.name_len > end.saturating_sub(name_at) {
             return Err(corrupt("truncated name"));
         }
-        let name = CPIO.read(source, name_at, name_len).await?;
+        let name = reader.read(name_at, name_len).await?.to_vec();
         let Some((0, name)) = name.split_last() else {
             return Err(corrupt("bad name"));
         };
@@ -86,7 +87,7 @@ pub(crate) async fn index<S: ReadAt>(
 
         if name == TRAILER {
             // Padding, perhaps another archive, or the end.
-            offset = skip_zeros(source, next.min(end), end).await?;
+            offset = skip_zeros(&mut reader, next.min(end), end).await?;
             base = offset;
             archive = archive.saturating_add(1);
             continue;
@@ -117,8 +118,8 @@ pub(crate) async fn index<S: ReadAt>(
             FileKind::File => index.insert(name, Node::File(member(&header, data, crc)), offset)?,
             FileKind::Symlink => {
                 let len = index.target_len(header.size, offset)?;
-                let target = CPIO.read(source, data, len).await?;
-                index.insert(name, Node::Symlink(target.into_boxed_slice()), offset)?;
+                let target = reader.read(data, len).await?;
+                index.insert(name, Node::Symlink(target.into()), offset)?;
             },
             // Devices, FIFOs, and sockets.
             kind => index.insert(name, Node::Special(kind), offset)?,
@@ -139,13 +140,17 @@ fn member(header: &Header, data: u64, crc: bool) -> Member<Sum> {
 
 /// Returns the offset of the first byte from `from` that is not zero, or
 /// `end`.
-async fn skip_zeros<S: ReadAt>(source: &S, from: u64, end: u64) -> Result<u64, Error> {
+async fn skip_zeros<S: ReadAt>(
+    reader: &mut Reader<'_, S>,
+    from: u64,
+    end: u64,
+) -> Result<u64, Error> {
     const CHUNK: u64 = 512;
     let mut offset = from;
     while offset < end {
         let len = end.saturating_sub(offset).min(CHUNK);
-        let bytes = CPIO
-            .read(source, offset, usize::try_from(len).unwrap_or(0))
+        let bytes = reader
+            .read(offset, usize::try_from(len).unwrap_or(0))
             .await?;
         if let Some(at) = bytes.iter().position(|&b| b != 0) {
             return Ok(offset.saturating_add(u64::try_from(at).unwrap_or(0)));

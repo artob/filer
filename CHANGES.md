@@ -25,9 +25,12 @@ so any release may break compatibility.
   decoding `Stream`s part way, by `StreamId`, and `Unpacked` reads a
   packed range of a source decoded, as a `ReadAt` source itself.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
-  own, over `miniz_oxide`.
+  own, over `miniz_oxide`. `Reader` reads headers ahead, adaptively, so
+  that the tar, ar, cpio, and ZIP parsers open archives of many small
+  members in a few reads rather than one or two per member.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
-- `filer-spec`: `Outcome::files`; `Checks::refusals` and
+- `filer-spec`: `Counted`, a source counting its reads; `Outcome::files`;
+  `Checks::refusals` and
   `Checks::read_cap`, for archive drivers; `Mutations::aligned` and
   `Mutations::most`.
 ### Changed

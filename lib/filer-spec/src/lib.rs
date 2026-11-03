@@ -47,6 +47,9 @@ pub use block_on::*;
 
 mod cases;
 
+mod counted;
+pub use counted::*;
+
 mod exercise;
 pub use exercise::*;
 

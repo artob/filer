@@ -12,22 +12,20 @@ use filer_api::{
     Error, ErrorKind, ReadAt, Timestamp,
     tree::{Node, Tree},
 };
-use filer_pack::{Index, Limits, Member, Parser};
+use filer_pack::{Index, Limits, Member, Parser, Reader};
 
 const AR: Parser = Parser::new("ar");
 
 /// Builds the index of the archive in `source`.
 pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree<Member>, Error> {
     let end = source.size().await?;
+    let mut reader = Reader::new(source, AR, end);
     let not_ar = || AR.fail(ErrorKind::Corrupt, 0, "not an ar archive");
-    let magic = AR
-        .read(source, 0, MAGIC.len())
-        .await
-        .map_err(|_| not_ar())?;
-    if magic.as_slice() == THIN_MAGIC {
+    let magic = reader.read(0, MAGIC.len()).await.map_err(|_| not_ar())?;
+    if magic == THIN_MAGIC {
         return Err(AR.fail(ErrorKind::Unsupported, 0, "thin archives"));
     }
-    if magic.as_slice() != MAGIC {
+    if magic != MAGIC {
         return Err(not_ar());
     }
     let mut index = Index::new(AR, *limits);
@@ -39,12 +37,12 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
         if end.saturating_sub(offset) < HEADER_LEN {
             return Err(AR.fail(ErrorKind::Corrupt, offset, "truncated header"));
         }
-        let block = AR.read(source, offset, HEADER).await?;
-        let block: &[u8; HEADER] = block
-            .as_slice()
+        let block: [u8; HEADER] = reader
+            .read(offset, HEADER)
+            .await?
             .try_into()
             .map_err(|_| AR.fail(ErrorKind::Corrupt, offset, "truncated header"))?;
-        let header = Header(block);
+        let header = Header(&block);
         if !header.is_valid() {
             return Err(AR.fail(ErrorKind::Corrupt, offset, "bad header"));
         }
@@ -77,8 +75,8 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
                 if len > size {
                     return Err(corrupt("bad long name"));
                 }
-                let name = AR.read(source, data, index.name_len(len, offset)?).await?;
-                let name = bsd_name(&name);
+                let name = reader.read(data, index.name_len(len, offset)?).await?;
+                let name = bsd_name(name);
                 if !is_bsd_symbol_table(name) {
                     // Both within the member, as `len <= size`.
                     let file = member(data.saturating_add(len), size.saturating_sub(len));
@@ -95,7 +93,7 @@ pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Tree
                     .ok()
                     .filter(|_| size <= limits.max_extension_len)
                     .ok_or_else(too_large)?;
-                table = Some(AR.read(source, data, len).await?);
+                table = Some(reader.read(data, len).await?.to_vec());
             },
             Name::Special => {},
             Name::Bad => return Err(corrupt("bad name")),

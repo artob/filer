@@ -25,7 +25,8 @@
 //!   in turn: a compressed tarball, or a solid block;
 //! - [`Limits`] bounds what an untrusted archive may make the index hold;
 //! - [`Parser`] reads a format's headers, and its errors carry an
-//!   [`ArchiveError`] naming the format, header offset, and reason.
+//!   [`ArchiveError`] naming the format, header offset, and reason, while
+//!   a [`Reader`] reads them ahead, so that close headers share reads.
 //!
 //! Decoders are pure Rust, one feature per algorithm, assessed in
 //! `LEGAL.md` before adoption (D45): so far, [`Deflate`], over
@@ -107,6 +108,9 @@ pub use member::*;
 
 mod parser;
 pub use parser::*;
+
+mod reader;
+pub use reader::*;
 
 mod streams;
 pub use streams::{Stream, StreamId, Streams};

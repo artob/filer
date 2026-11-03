@@ -266,3 +266,18 @@ fn reads_members_in_pieces_without_overrunning_them() {
     let filer_api::BufResult(n, _) = block_on(file.read_at(Vec::with_capacity(100), 10));
     assert_eq!(n.unwrap(), 0);
 }
+
+#[test]
+fn reads_the_headers_of_small_members_together() {
+    let mut writer = Writer::new(Dialect::SysV);
+    for i in 0..1000 {
+        writer.file(format!("m{i:04}").as_bytes(), b"x");
+    }
+    let source = filer_spec::Counted::new(writer.finish());
+    let reads = source.reads();
+    let root = block_on(Ar::open(source)).unwrap();
+    let reads = reads.load(std::sync::atomic::Ordering::Relaxed);
+    assert!(reads < 100, "{reads} reads to open 1,000 members");
+    let file = block_on(root.open_file("m0999")).unwrap();
+    assert_eq!(block_on(file.read_to_end()).unwrap(), b"x");
+}
