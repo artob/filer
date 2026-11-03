@@ -34,7 +34,7 @@
 //!         opened: true,
 //!         entries: 1,
 //!         bytes: 1 + input.length(),
-//!         errors: 0,
+//!         ..Outcome::default()
 //!     },
 //! );
 //! ```
@@ -96,13 +96,14 @@ pub enum Order {
     Big,
 }
 
-/// The mutations to make: each input takes 1 to 6, each in a region, and
-/// each of these, by chance:
+/// The mutations to make: each input takes 1 to 6 (or as many as
+/// [`most`](Self::most) says), each in a region, and each of these, by
+/// chance:
 ///
 /// - flipping a bit;
 /// - writing one of the boundary `bytes`;
 /// - writing one of the boundary `words`, as 16 or 32 bits in the format's
-///   byte order, aligned;
+///   byte order, aligned unless the format's fields are not;
 /// - copying an aligned chunk from elsewhere in the region over another;
 /// - writing a chunk of random bytes;
 /// - or, now and then, cutting the image short.
@@ -112,11 +113,13 @@ pub struct Mutations {
     words: &'static [u32],
     order: Order,
     chunk: u64,
+    aligned: bool,
+    most: u64,
 }
 
 impl Mutations {
     /// Returns the mutations writing `bytes` and `words`, which must not be
-    /// empty, little-endian, in chunks of 8 bytes.
+    /// empty, little-endian and aligned, in chunks of 8 bytes.
     #[must_use]
     pub const fn new(bytes: &'static [u8], words: &'static [u32]) -> Self {
         Self {
@@ -124,7 +127,26 @@ impl Mutations {
             words,
             order: Order::Little,
             chunk: 8,
+            aligned: true,
+            most: 6,
         }
+    }
+
+    /// Makes 1 to `most` mutations per input, which must be at least 1:
+    /// fewer than the default 6 for a format whose records check one
+    /// another, as ZIP's do, so that more inputs get past opening.
+    #[must_use]
+    pub const fn most(mut self, most: u64) -> Self {
+        self.most = most;
+        self
+    }
+
+    /// Writes words aligned to their size, if `aligned`, or anywhere: for
+    /// a format whose fields are packed without alignment, as ZIP's are.
+    #[must_use]
+    pub const fn aligned(mut self, aligned: bool) -> Self {
+        self.aligned = aligned;
+        self
     }
 
     /// Writes words in `order`.
@@ -173,7 +195,8 @@ impl Mutations {
             }
         };
         let chunk = self.chunk;
-        for _ in 0..1 + rng.below(6) {
+        let align = |at: u64, size: u64| if self.aligned { at & !(size - 1) } else { at };
+        for _ in 0..1 + rng.below(self.most) {
             let region = &regions[rng.below(regions.len() as u64) as usize];
             let range = region.range();
             let at = range.start + rng.below(range.end - range.start);
@@ -183,8 +206,8 @@ impl Mutations {
                     input.patch(at, &[byte]);
                 },
                 4..=6 => input.patch(at, &[rng.pick(self.bytes)]),
-                7..=8 => input.patch(at & !1, &word(rng.pick(self.words), 2)),
-                9..=10 => input.patch(at & !3, &word(rng.pick(self.words), 4)),
+                7..=8 => input.patch(align(at, 2), &word(rng.pick(self.words), 2)),
+                9..=10 => input.patch(align(at, 4), &word(rng.pick(self.words), 4)),
                 11..=12 => {
                     // Copy a chunk from elsewhere in the region.
                     let from = range.start + (rng.below(range.end - range.start) & !(chunk - 1));

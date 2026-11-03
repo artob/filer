@@ -2,8 +2,8 @@
 
 //! A dependency-free, structure-aware fuzzer: it mutates archives where
 //! their records are, with values chosen to hit boundaries, and walks each
-//! result with `common::exercise`, which checks every answer and that the
-//! zip bomb limits hold. A second test writes archives from hostile name
+//! result with `filer_spec::exercise`, through `common::exercise`, which
+//! also checks that the zip bomb limits hold. A second test writes archives from hostile name
 //! fragments and checks that exactly the unsafe ones are refused.
 //!
 //! Each `cargo test` runs a few hundred inputs. For longer runs, set
@@ -13,37 +13,19 @@
 
 mod common;
 
-use common::{Entry, FILE, Writer, exercise::exercise};
+use common::{Entry, FILE, Writer, exercise};
 use filer_api::ErrorKind;
-use filer_spec::block_on;
+use filer_spec::{
+    Image, block_on,
+    fuzz::{Fuzz, Mutations},
+};
 use filer_zip::Zip;
-use std::{ops::Range, panic};
-
-/// SplitMix64: small, fast, and good enough to drive mutations.
-struct Rng(u64);
-
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
-    fn below(&mut self, n: u64) -> u64 {
-        self.next() % n.max(1)
-    }
-
-    fn pick<T: Copy>(&mut self, items: &[T]) -> T {
-        items[self.below(items.len() as u64) as usize]
-    }
-}
+use std::{ops::Range, sync::Arc};
 
 /// An archive to mutate, and where its records are.
 struct Seed {
-    archive: Vec<u8>,
-    regions: Vec<Range<usize>>,
+    archive: Arc<Vec<u8>>,
+    regions: Vec<Range<u64>>,
 }
 
 impl Seed {
@@ -59,15 +41,19 @@ impl Seed {
                 b"PK\x06\x07" => 20,
                 _ => continue,
             };
-            regions.push(at..(at + len).min(archive.len()));
+            regions.push(at as u64..(at + len).min(archive.len()) as u64);
         }
-        // And anywhere, now and then.
-        regions.push(0..archive.len());
-        Self { archive, regions }
+        // And anywhere, member data included, now and then.
+        regions.push(0..archive.len() as u64);
+        Self {
+            archive: Arc::new(archive),
+            regions,
+        }
     }
 }
 
-/// Values at the edges of what ZIP records hold.
+/// Values at the edges of what ZIP records hold, whose fields are packed
+/// without alignment; records cross-check, so few mutations at once.
 const BYTES: [u8; 10] = [0, 1, 8, 0x2F, 0x5C, 0x7F, 0x80, 0xA1, 0xFE, 0xFF];
 const WORDS: [u32; 12] = [
     0,
@@ -84,47 +70,7 @@ const WORDS: [u32; 12] = [
     0xFFFF_FFFF,
 ];
 
-fn mutate(seed: &Seed, rng: &mut Rng) -> Vec<u8> {
-    let mut input = seed.archive.clone();
-    for _ in 0..1 + rng.below(2) {
-        if input.is_empty() {
-            break;
-        }
-        let region = seed.regions[rng.below(seed.regions.len() as u64) as usize].clone();
-        let end = region.end.min(input.len());
-        let start = region.start.min(end);
-        let at = start + rng.below((end - start) as u64) as usize;
-        let mut patch = |at: usize, bytes: &[u8]| {
-            for (i, &byte) in bytes.iter().enumerate() {
-                if let Some(slot) = input.get_mut(at + i) {
-                    *slot = byte;
-                }
-            }
-        };
-        match rng.below(15) {
-            0..=3 => {
-                let bit = 1 << rng.below(8);
-                patch(at, &[seed.archive.get(at).copied().unwrap_or(0) ^ bit]);
-            },
-            4..=5 => patch(at, &[rng.pick(&BYTES)]),
-            6..=8 => patch(at, &(rng.pick(&WORDS) as u16).to_le_bytes()),
-            9..=11 => patch(at, &rng.pick(&WORDS).to_le_bytes()),
-            12 => {
-                let bytes: Vec<u8> = (0..8).map(|_| rng.next() as u8).collect();
-                patch(at, &bytes);
-            },
-            13 => input.truncate(rng.below(input.len() as u64) as usize),
-            // Leave the headers be, and only corrupt member data.
-            _ => {
-                let at = rng.below(input.len() as u64) as usize;
-                if !seed.regions.iter().any(|r| r.contains(&at) && r.len() < 64) {
-                    input[at] ^= 1 << rng.below(8);
-                }
-            },
-        }
-    }
-    input
-}
+const MUTATIONS: Mutations = Mutations::new(&BYTES, &WORDS).aligned(false).most(2);
 
 /// Archives of every kind the driver reads.
 fn corpus() -> Vec<Seed> {
@@ -156,43 +102,20 @@ fn corpus() -> Vec<Seed> {
     seeds.into_iter().map(Seed::new).collect()
 }
 
-fn env(name: &str, default: u64) -> u64 {
-    std::env::var(name).map_or(default, |value| value.parse().expect(name))
-}
-
 #[test]
 fn survives_mutated_archives() {
-    let iterations = env("FILER_ZIP_FUZZ_ITERATIONS", 300);
-    let seed = env("FILER_ZIP_FUZZ_SEED", 0x21B_5EED);
     let corpus = corpus();
-    let (mut opened, mut entries, mut bytes, mut errors) = (0, 0, 0, 0);
-    for iteration in 0..iterations {
-        // Each input has its own generator, so that one reproduces alone.
-        let mut rng = Rng(seed ^ iteration.wrapping_mul(0x2545_F491_4F6C_DD1D));
-        let source = rng.below(corpus.len() as u64) as usize;
-        let input = mutate(&corpus[source], &mut rng);
-        match panic::catch_unwind(|| exercise(input)) {
-            Ok(outcome) => {
-                opened += usize::from(outcome.opened);
-                entries += outcome.entries;
-                bytes += outcome.bytes;
-                errors += outcome.errors;
-            },
-            Err(panic) => {
-                eprintln!(
-                    "failed: FILER_ZIP_FUZZ_SEED={seed} at iteration {iteration} \
-                     (corpus archive {source})"
-                );
-                panic::resume_unwind(panic);
-            },
-        }
-    }
-    // Shown with `--nocapture`: how deep the inputs got.
-    println!(
-        "{iterations} inputs: {opened} opened, {entries} entries listed, \
-         {bytes} bytes read, {errors} errors"
+    Fuzz::new("FILER_ZIP_FUZZ", 0x21B_5EED).iterations(300).run(
+        corpus.len(),
+        |source, rng| {
+            let seed = &corpus[source];
+            let input = MUTATIONS.mutate(&seed.archive, &seed.regions, rng);
+            let mut bytes = vec![0; input.length() as usize];
+            input.copy(0, &mut bytes);
+            bytes
+        },
+        exercise,
     );
-    assert!(opened > 0 && entries > 0 && bytes > 0, "inputs too shallow");
 }
 
 /// Fragments that make up hostile names, and whether each alone makes a
@@ -227,36 +150,36 @@ fn unsafe_name(name: &[u8], dir: bool) -> bool {
 
 #[test]
 fn refuses_exactly_the_unsafe_names() {
-    let iterations = env("FILER_ZIP_FUZZ_ITERATIONS", 300);
-    let seed = env("FILER_ZIP_FUZZ_SEED", 0x21B_5EED);
-    for iteration in 0..iterations {
-        let mut rng = Rng(seed ^ iteration.wrapping_mul(0x2545_F491_4F6C_DD1D));
-        let mut name = Vec::new();
-        for _ in 0..1 + rng.below(6) {
-            let (fragment, _) = rng.pick(&FRAGMENTS);
-            name.extend_from_slice(fragment);
-        }
-        let mut writer = Writer::default();
-        let dir = match rng.below(3) {
-            0 => writer.file(&name, b"x").last().name.ends_with(b"/"),
-            1 => writer.symlink(&name, b"../x").last().name.ends_with(b"/"),
-            _ => {
-                writer.dir(&name);
-                true
-            },
-        };
-        let archive = writer.finish();
-        // A trailing `/` makes any member a directory.
-        let refuse = unsafe_name(&name, dir);
-        let result = block_on(Zip::open(archive.clone()));
-        let what = format!("{name:?} (FILER_ZIP_FUZZ_SEED={seed}, iteration {iteration})");
-        match result {
-            Ok(_) => assert!(!refuse, "opened {what}"),
-            Err(error) => {
-                assert!(refuse, "refused {what}: {error:?}");
-                assert_eq!(error.kind(), ErrorKind::InvalidName, "{what}");
-            },
-        }
-        exercise(archive);
-    }
+    Fuzz::new("FILER_ZIP_FUZZ", 0x21B_5EED).iterations(300).run(
+        1,
+        |_, rng| {
+            let mut name = Vec::new();
+            for _ in 0..1 + rng.below(6) {
+                let (fragment, _) = rng.pick(&FRAGMENTS);
+                name.extend_from_slice(fragment);
+            }
+            let mut writer = Writer::default();
+            let dir = match rng.below(3) {
+                0 => writer.file(&name, b"x").last().name.ends_with(b"/"),
+                1 => writer.symlink(&name, b"../x").last().name.ends_with(b"/"),
+                _ => {
+                    writer.dir(&name);
+                    true
+                },
+            };
+            (name, dir, writer.finish())
+        },
+        |(name, dir, archive)| {
+            // A trailing `/` makes any member a directory.
+            let refuse = unsafe_name(&name, dir);
+            match block_on(Zip::open(archive.clone())) {
+                Ok(_) => assert!(!refuse, "opened {name:?}"),
+                Err(error) => {
+                    assert!(refuse, "refused {name:?}: {error:?}");
+                    assert_eq!(error.kind(), ErrorKind::InvalidName, "{name:?}");
+                },
+            }
+            exercise(archive)
+        },
+    );
 }

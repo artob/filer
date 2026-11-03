@@ -26,8 +26,8 @@ const MAX_ENTRIES: usize = 4096;
 /// How much of each extended attribute the walk reads.
 const XATTR_BUF: usize = 4096;
 
-/// How much of each file the walk reads, as a corrupt size may make a
-/// sparse file of terabytes, and in what pieces.
+/// How much of each file the walk reads by default, as a corrupt size may
+/// make a sparse file of terabytes, and in what pieces.
 const READ_CAP: u64 = 256 * 1024;
 const READ_PIECE: usize = 64 * 1024;
 
@@ -44,24 +44,31 @@ const READ_PIECE: usize = 64 * 1024;
 /// let xfs = Checks::new().lookups(false);
 /// // FAT: both come from the same entry, and there are no attributes.
 /// let fat = Checks::new().kinds(true).xattrs(false);
+/// // ZIP: an archive may be refused, and its limits bound what it decodes.
+/// let zip = Checks::new().kinds(true).xattrs(false).refusals(true).read_cap(u64::MAX);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Checks {
     kinds: bool,
     lookups: bool,
     xattrs: bool,
+    refusals: bool,
+    read_cap: u64,
 }
 
 impl Checks {
     /// Returns the default checks: what is listed must be found, listed
-    /// kinds are not compared with stats, and extended attributes are
-    /// read.
+    /// kinds are not compared with stats, extended attributes are read, an
+    /// open may fail only as for a corrupt volume, and up to 256 KiB of
+    /// each file is read.
     #[must_use]
     pub const fn new() -> Self {
         Self {
             kinds: false,
             lookups: true,
             xattrs: true,
+            refusals: false,
+            read_cap: READ_CAP,
         }
     }
 
@@ -90,6 +97,27 @@ impl Checks {
         self.xattrs = read;
         self
     }
+
+    /// Allows, if `allow`, an open to fail with
+    /// [`InvalidName`](ErrorKind::InvalidName) or
+    /// [`LimitExceeded`](ErrorKind::LimitExceeded) too: for an archive
+    /// driver, which refuses archives with hostile names or past its
+    /// limits.
+    #[must_use]
+    pub const fn refusals(mut self, allow: bool) -> Self {
+        self.refusals = allow;
+        self
+    }
+
+    /// Reads at most `cap` bytes of each file: 256 KiB by default, as a
+    /// corrupt size may make a sparse file of terabytes. An archive driver
+    /// whose limits bound what its members decode to may be read whole, so
+    /// that a test can check that bound.
+    #[must_use]
+    pub const fn read_cap(mut self, cap: u64) -> Self {
+        self.read_cap = cap;
+        self
+    }
 }
 
 impl Default for Checks {
@@ -105,6 +133,8 @@ pub struct Outcome {
     pub opened: bool,
     /// The entries listed.
     pub entries: usize,
+    /// The regular files opened to read.
+    pub files: u64,
     /// The bytes read from files and extended attributes.
     pub bytes: u64,
     /// The errors met, all of them allowed.
@@ -114,10 +144,10 @@ pub struct Outcome {
 /// Walks the volume whose opening returned `opened`, panicking if any
 /// answer is wrong: an error other than
 /// [`Corrupt`](ErrorKind::Corrupt) or
-/// [`Unsupported`](ErrorKind::Unsupported), a listed entry whose id
-/// differs from its stat's, a read that does not return exactly the
-/// file's length (up to a cap), a special file that opens, or what
-/// `checks` adds.
+/// [`Unsupported`](ErrorKind::Unsupported) (or a refusal `checks`
+/// allows), a listed entry whose id differs from its stat's, a read that
+/// does not return exactly the file's length (up to a cap), a special
+/// file that opens, or what `checks` adds.
 ///
 /// The walk is bounded in depth, entries, and bytes read, so that each
 /// input takes little time whatever its sizes say.
@@ -138,6 +168,15 @@ pub fn exercise<D: Driver>(opened: Result<Dir<D>, Error>, checks: Checks) -> Out
         Ok(root) => {
             outcome.opened = true;
             walk(&root, "", 0, checks, &mut outcome);
+        },
+        Err(error)
+            if checks.refusals
+                && matches!(
+                    error.kind(),
+                    ErrorKind::InvalidName | ErrorKind::LimitExceeded
+                ) =>
+        {
+            outcome.errors += 1;
         },
         Err(error) => allowed(&error, "open", &mut outcome),
     }
@@ -233,10 +272,11 @@ fn walk<D: Driver>(root: &Dir<D>, dir: &str, depth: usize, checks: Checks, outco
                             outcome,
                         );
                     }
+                    outcome.files += 1;
                     let len = metadata.len.unwrap_or(0);
-                    match read(&file, len) {
+                    match read(&file, len, checks.read_cap) {
                         Ok(read) => {
-                            assert_eq!(read, len.min(READ_CAP), "{path}: len");
+                            assert_eq!(read, len.min(checks.read_cap), "{path}: len");
                             outcome.bytes += read;
                         },
                         Err(error) => allowed(&error, &path, outcome),
@@ -256,12 +296,12 @@ fn walk<D: Driver>(root: &Dir<D>, dir: &str, depth: usize, checks: Checks, outco
     }
 }
 
-/// Reads `file`, of `len` bytes by its stat, up to the cap, returning how
+/// Reads `file`, of `len` bytes by its stat, up to `cap`, returning how
 /// many bytes it read. Pieces are no larger than what is left, but for a
 /// byte past the end, which must not be read.
-fn read<D: Driver>(file: &File<ReadOnly, D>, len: u64) -> filer_api::Result<u64> {
+fn read<D: Driver>(file: &File<ReadOnly, D>, len: u64, cap: u64) -> filer_api::Result<u64> {
     let mut at = 0;
-    while at < READ_CAP {
+    while at < cap {
         let piece = len.saturating_sub(at).clamp(1, READ_PIECE as u64) as usize;
         let BufResult(result, _) = block_on(file.read_at(Vec::with_capacity(piece), at));
         match result? {
@@ -269,7 +309,7 @@ fn read<D: Driver>(file: &File<ReadOnly, D>, len: u64) -> filer_api::Result<u64>
             n => at += n as u64,
         }
     }
-    Ok(at.min(READ_CAP))
+    Ok(at.min(cap))
 }
 
 /// Reads the start of each extended attribute `names` lists with `get`,

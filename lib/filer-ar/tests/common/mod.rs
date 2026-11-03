@@ -106,32 +106,3 @@ pub fn header(name: &[u8], size: u64) -> [u8; 60] {
     header[58..].copy_from_slice(b"`\n");
     header
 }
-
-/// Opens `bytes` as an archive and walks it with `filer_spec::exercise`,
-/// for fuzzers: an archive may also be refused for a hostile name or an
-/// exceeded limit, and nothing it holds is read more than once, so the
-/// walk reads no more than the archive's length.
-pub fn exercise(bytes: Vec<u8>) -> filer_spec::Outcome {
-    use filer_api::ErrorKind;
-    let len = bytes.len() as u64;
-    let outcome = match filer_spec::block_on(filer_ar::Ar::open(bytes)) {
-        Err(error)
-            if matches!(
-                error.kind(),
-                ErrorKind::InvalidName | ErrorKind::LimitExceeded
-            ) =>
-        {
-            filer_spec::Outcome {
-                errors: 1,
-                ..Default::default()
-            }
-        },
-        opened => filer_spec::exercise(opened, filer_spec::Checks::new().kinds(true).xattrs(false)),
-    };
-    assert!(
-        outcome.bytes <= len,
-        "read {} of {len} bytes",
-        outcome.bytes
-    );
-    outcome
-}

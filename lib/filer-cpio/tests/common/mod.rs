@@ -185,24 +185,3 @@ impl Writer {
         std::mem::take(&mut self.bytes)
     }
 }
-
-/// Opens `bytes` as an archive and walks it with `filer_spec::exercise`,
-/// for fuzzers: an archive may also be refused for a hostile name or an
-/// exceeded limit.
-pub fn exercise(bytes: Vec<u8>) -> filer_spec::Outcome {
-    use filer_api::ErrorKind;
-    match filer_spec::block_on(filer_cpio::Cpio::open(bytes)) {
-        Err(error)
-            if matches!(
-                error.kind(),
-                ErrorKind::InvalidName | ErrorKind::LimitExceeded
-            ) =>
-        {
-            filer_spec::Outcome {
-                errors: 1,
-                ..Default::default()
-            }
-        },
-        opened => filer_spec::exercise(opened, filer_spec::Checks::new().kinds(true).xattrs(false)),
-    }
-}

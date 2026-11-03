@@ -2,7 +2,7 @@
 
 //! A dependency-free, structure-aware fuzzer: it mutates archives where
 //! their headers and name tables are, with values chosen to hit
-//! boundaries, and walks each result with `common::exercise`.
+//! boundaries, and walks each result with `filer_spec::exercise`.
 //!
 //! Each `cargo test` runs a few hundred inputs. For longer runs, set
 //! `FILER_AR_FUZZ_ITERATIONS`; `FILER_AR_FUZZ_SEED` picks another
@@ -12,9 +12,10 @@
 
 mod common;
 
-use common::{DIALECTS, Writer, exercise};
+use common::{DIALECTS, Writer};
+use filer_ar::Ar;
 use filer_spec::{
-    Image,
+    Checks, Image, block_on, exercise,
     fuzz::{Fuzz, Mutations},
 };
 use std::{ops::Range, sync::Arc};
@@ -90,6 +91,18 @@ fn survives_mutated_archives() {
             input.copy(0, &mut bytes);
             bytes
         },
-        exercise,
+        |bytes| {
+            // Nothing an archive holds is read twice, so the walk reads
+            // no more than its length.
+            let len = bytes.len() as u64;
+            let checks = Checks::new().kinds(true).xattrs(false).refusals(true);
+            let outcome = exercise(block_on(Ar::open(bytes)), checks);
+            assert!(
+                outcome.bytes <= len,
+                "read {} of {len} bytes",
+                outcome.bytes
+            );
+            outcome
+        },
     );
 }

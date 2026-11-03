@@ -2,7 +2,7 @@
 
 //! A dependency-free, structure-aware fuzzer: it mutates archives where
 //! their headers and names are, with values chosen to hit boundaries, and
-//! walks each result with `common::exercise`.
+//! walks each result with `filer_spec::exercise`.
 //!
 //! Each `cargo test` runs a few hundred inputs. For longer runs, set
 //! `FILER_CPIO_FUZZ_ITERATIONS`; `FILER_CPIO_FUZZ_SEED` picks another
@@ -12,9 +12,10 @@
 
 mod common;
 
-use common::{FORMATS, Writer, exercise};
+use common::{FORMATS, Writer};
+use filer_cpio::Cpio;
 use filer_spec::{
-    Image,
+    Checks, Image, block_on, exercise,
     fuzz::{Fuzz, Mutations},
 };
 use std::{ops::Range, sync::Arc};
@@ -106,6 +107,9 @@ fn survives_mutated_archives() {
                 input.copy(0, &mut bytes);
                 bytes
             },
-            exercise,
+            |bytes| {
+                let checks = Checks::new().kinds(true).xattrs(false).refusals(true);
+                exercise(block_on(Cpio::open(bytes)), checks)
+            },
         );
 }

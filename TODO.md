@@ -557,22 +557,15 @@ Created with `publish = false` (D16).
   "reimplement from the specification" (D45, D52). Done when
   `LEGAL.md` names the choice for each; TAR-02, ZIP-02, CPIO-02, and
   7Z-01 wait on it.
-- [ ] **PACK-08: Share the archive fuzz walk.** Add `files` to
-  `filer_spec::Outcome` and an allowance in `Checks` for the error kinds
-  a hostile archive may raise at open (`InvalidName`, `LimitExceeded`),
-  then port `filer-zip`'s `tests/fuzz.rs` and `tests/common/exercise.rs`
-  to `filer_spec::fuzz` and `exercise`, keeping its bomb bound, and drop
-  `filer-ar`'s and `filer-cpio`'s copies of the adapter. Done when the
-  three fuzz tests and the `cargo-fuzz` targets build on the shared
-  walk.
 - [ ] **PACK-10: Chunked header reads (optional).** `filer-tar`,
   `filer-ar`, and `filer-cpio` issue one source read per header; share
   `filer-zip`'s forward `Reader` through `filer-pack` if a `File` source
   with many small members shows it matters. Done when a measurement
   decides it, either way.
 - [ ] **TAR-01: Fuzzing `filer-tar`.** The driver passes `filer-spec` and
-  hostile-archive tests. Still missing: a fuzz target over `header.rs` and
-  indexing, on PACK-08's shared walk. Done when it builds in CI.
+  hostile-archive tests. Still missing: a fuzz target over `header.rs`
+  and indexing, on `filer_spec::fuzz` and `exercise`, as ar's and cpio's
+  are. Done when it builds in CI.
 - [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz from `filer-pack`
   (`Unpacked`, PACK-07) behind features, indexed on open with checkpoints
   or cached members. Done when `.tar.gz` passes the same subset.

@@ -2357,7 +2357,10 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   `no_std`) (Deflate done, 2026-11-03: `Deflate`, behind `deflate`,
   which `filer-zip` forwards);
 - the archive fuzz walk, into `filer-spec`, where shared test tooling
-  goes (D54): `filer-zip`'s predates it.
+  goes (D54): `filer-zip`'s predates it (done, 2026-11-03: `Checks`
+  allows refusals at open and reads files whole for zip's bomb bound,
+  `Outcome` counts files, and `Mutations` writes unaligned words and
+  fewer mutations at once, as ZIP needs).
 
 What stays: each format's parser, codec value, wrapper type, and
 hand-written test writer. The wrapper types repeat as `filer-fat`'s

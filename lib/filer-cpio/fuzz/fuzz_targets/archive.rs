@@ -5,11 +5,11 @@
 
 #![no_main]
 
-#[path = "../../tests/common/mod.rs"]
-mod common;
-
+use filer_cpio::Cpio;
+use filer_spec::{Checks, block_on, exercise};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
-    common::exercise(data.to_vec());
+    let checks = Checks::new().kinds(true).xattrs(false).refusals(true);
+    exercise(block_on(Cpio::open(data.to_vec())), checks);
 });

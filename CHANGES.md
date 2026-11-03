@@ -27,6 +27,9 @@ so any release may break compatibility.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `miniz_oxide`.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
+- `filer-spec`: `Outcome::files`; `Checks::refusals` and
+  `Checks::read_cap`, for archive drivers; `Mutations::aligned` and
+  `Mutations::most`.
 ### Changed
 - `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the
   members an archive shows, no longer ar's symbol and name tables or

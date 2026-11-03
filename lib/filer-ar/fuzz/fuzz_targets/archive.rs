@@ -5,11 +5,13 @@
 
 #![no_main]
 
-#[path = "../../tests/common/mod.rs"]
-mod common;
-
+use filer_ar::Ar;
+use filer_spec::{Checks, block_on, exercise};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
-    common::exercise(data.to_vec());
+    let checks = Checks::new().kinds(true).xattrs(false).refusals(true);
+    let outcome = exercise(block_on(Ar::open(data.to_vec())), checks);
+    // Nothing an archive holds is read twice.
+    assert!(outcome.bytes <= data.len() as u64);
 });

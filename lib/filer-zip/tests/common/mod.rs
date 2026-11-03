@@ -6,7 +6,26 @@
 // Each test binary compiles this module and uses only part of it.
 #![allow(dead_code)]
 
-pub mod exercise;
+use filer_zip::{Limits, Zip};
+
+/// Opens the archive `bytes` and walks all of it with
+/// `filer_spec::exercise`, reading each file whole, and checks that the
+/// zip bomb limits hold: members do not overlap, so their packed sizes sum
+/// to at most the archive's length, and each decodes to at most the
+/// exempt size or `max_ratio` times its packed size. Shared by
+/// `tests/fuzz.rs` and the `cargo-fuzz` targets in `fuzz/`.
+pub fn exercise(bytes: Vec<u8>) -> filer_spec::Outcome {
+    let len = bytes.len() as u64;
+    let checks = filer_spec::Checks::new()
+        .kinds(true)
+        .xattrs(false)
+        .refusals(true)
+        .read_cap(u64::MAX);
+    let outcome = filer_spec::exercise(filer_spec::block_on(Zip::open(bytes)), checks);
+    let bound = outcome.files * Limits::RATIO_EXEMPT + len * Limits::default().max_ratio;
+    assert!(outcome.bytes <= bound, "{} bytes from {len}", outcome.bytes);
+    outcome
+}
 
 /// Unix file modes, as Info-ZIP stores them in external attributes.
 pub const FILE: u32 = 0o100_644;
