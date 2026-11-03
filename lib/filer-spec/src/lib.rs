@@ -51,7 +51,6 @@ mod exercise;
 pub use exercise::*;
 
 #[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod fuzz;
 
 mod image;

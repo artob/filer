@@ -298,7 +298,6 @@ impl VolumeOptions {
 
     /// Sets the options of ext2, ext3, and ext4 volumes.
     #[cfg(feature = "ext4")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "ext4")))]
     #[must_use]
     pub const fn with_ext4(mut self, options: filer_ext4::Options) -> Self {
         self.ext4 = options;
@@ -307,7 +306,6 @@ impl VolumeOptions {
 
     /// Sets the options of FAT volumes, such as their code page.
     #[cfg(feature = "fat")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "fat")))]
     #[must_use]
     pub const fn with_fat(mut self, options: filer_fat::Options) -> Self {
         self.fat = options;
@@ -316,7 +314,6 @@ impl VolumeOptions {
 
     /// Sets the options of NTFS volumes.
     #[cfg(feature = "ntfs")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "ntfs")))]
     #[must_use]
     pub const fn with_ntfs(mut self, options: filer_ntfs::Options) -> Self {
         self.ntfs = options;
@@ -325,7 +322,6 @@ impl VolumeOptions {
 
     /// Sets the options of XFS volumes.
     #[cfg(feature = "xfs")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "xfs")))]
     #[must_use]
     pub const fn with_xfs(mut self, options: filer_xfs::Options) -> Self {
         self.xfs = options;

@@ -258,7 +258,10 @@ because workspace feature unification can hide missing gates.
 ### 3.6 Continuous integration
 
 Carried over from Dogma.rs: formatting; Clippy with all features; docs with
-`-D warnings`, plus a nightly docs.rs-settings build; packaged doctests
+`-D warnings`, plus a nightly docs.rs-settings build (which is also how
+docs are read locally: from each `#[cfg]`, rustdoc infers a badge naming
+the feature or platform an item needs, so `doc(cfg)` is never written by
+hand); packaged doctests
 (`cargo package --workspace`, then each package's doctests with sibling
 packages patched in, under default, all, none, and `all`-only features);
 feature checks (no defaults, `all`, every feature alone, `all` on

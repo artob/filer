@@ -27,7 +27,12 @@
 - All references to `std`, `alloc`, and `core` types should always use
   qualified names or explicit, least-power imports. For example, prefer
   `core::error::Error` and `alloc::string::String` over `std` analogs.
-- After making changes to a crate, as a last step run `cargo doc` on it.
+- After making changes to a crate, as a last step build its docs as
+  docs.rs does, which shows which feature gates each item:
+  `RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --workspace
+  --all-features`. Rustdoc infers those badges from `#[cfg]`, so never
+  write `doc(cfg(...))`; every library crate root keeps
+  `#![cfg_attr(docsrs, feature(doc_cfg))]`.
 - Robustness (D47): async first; no panics on any input (no `unwrap`,
   `expect`, `panic!`, unchecked indexing or arithmetic in library code);
   make illegal states unrepresentable; never ignore an error. Every
