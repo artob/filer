@@ -386,6 +386,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-9p`, `-smb`, `-nfs`, `-sftp` | remote drivers (planned) | no |
 | `filer-fat` | FAT12/16/32 driver (§17.13) | no |
 | `filer-fs` | shared machinery of file system drivers (§17.17) | no |
+| `filer-msft` | Microsoft's on-disk conventions (§17.17, D60) | no |
 | `filer-exfat` and others | on-disk formats (planned) | no |
 | `filer-system` | the native driver for the target, plus the API | no |
 | `filer-cli` | the `filer` binary over the native driver | no |
@@ -427,6 +428,9 @@ filer-api <--+-- filer-posix <---- filer-uring
              |                  and filer-archive over them (D59)
              +-- filer-fs <---- filer-fat, filer-ext4, filer-ntfs, filer-xfs,
              |                  and the stubs in tmp/ (D58)
+             +-- filer-msft <-- filer-fat, filer-ntfs, filer-windows,
+             |                  filer-zip, filer-7z, filer-rar, and the
+             |                  stubs needing them (D60)
              +-- filer-tracing, filer-faults, filer-quota, filer-replay
              +-- filer-tx, filer-tokio, filer-fuse
              +-- filer-spec          (dev-dependency of every driver)
@@ -2346,9 +2350,10 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
 What stays: each format's parser, codec value, wrapper type, and
 hand-written test writer. The wrapper types repeat as `filer-fat`'s
 does over `Mounted`, by design, and a macro would cost the docs that
-make up most of their lines. Whether archive crates may depend on
-`filer-fs` for its NT and DOS times, Unix modes, and field readers, or
-those move down to `filer-api`, is ASK-02.
+make up most of their lines. The NT and DOS times the archives share
+with Microsoft's file systems come from `filer-msft` (D60, §17.17),
+Unix modes from a `FileKind` constructor in `filer-api`, and the field
+readers stay per crate for now.
 
 **Read-only, permanently (D43).** Archive drivers read archives as
 directories and will never create or modify them: writing archives is out
@@ -3200,7 +3205,8 @@ That moves here, step by step, each driver keeping only its format:
 
 - field readers for little- and big-endian structures, and exact reads
   from a source;
-- WTF-8 for UTF-16 names (FAT and NTFS, later exFAT and UDF);
+- WTF-8 for UTF-16 names (FAT and NTFS, later exFAT and UDF), moving to
+  `filer-msft` (D60);
 - Unix file types from modes and directory entries (ext4, XFS);
 - POSIX ACLs in the form Linux's `getxattr` returns (ext4, XFS);
 - reading a file through a map of runs (all four);
@@ -3215,11 +3221,14 @@ That moves here, step by step, each driver keeping only its format:
   log or journal puts, and `Recovered`, a source read through it (XFS,
   and ext4's journal);
 - Windows NT times and the file attributes that are flags (NTFS, and
-  `filer-windows`, which reads both from Windows);
+  `filer-windows`, which reads both from Windows), moving to
+  `filer-msft` (D60);
 - reparse points, and Filer's reading of links' targets (NTFS, and
   `filer-windows`, which reads the same values through
-  `FSCTL_GET_REPARSE_POINT`, so both report a link alike);
-- later, when a second driver needs them: FAT's local times (for exFAT).
+  `FSCTL_GET_REPARSE_POINT`, so both report a link alike), moving to
+  `filer-msft` (D60);
+- later, when a second driver needs them: FAT's local times (for exFAT):
+  `filer-zip` was that driver, and they go to `filer-msft` (D60).
 
 What stays elsewhere: helpers every driver needs, not only file systems
 (copying a slice into an `IoBufMut`, naming an entry in an error, the
@@ -3233,7 +3242,36 @@ Unlike `filer_api::archive` (D44, until `filer-pack`, D59), this is a
 crate of its own, per the placement rule (D20): it has semantics of its
 own, and only file system drivers need it, with `filer-windows` for the
 on-disk forms it shares with NTFS (WTF-8 names, NT times and attributes,
-and reparse points).
+and reparse points) until `filer-msft` takes those (D60), and for its
+field readers.
+
+**`filer-msft`** (D60, 2026-11-03) takes Microsoft's on-disk conventions
+out of this crate and `filer-fat`: NT times and the attribute flags
+(`nt`), UTF-16 names as WTF-8 (`wtf8`), reparse points (`reparse`), and
+FAT's local date and time, with their offset and granularity. ASK-02
+found `filer-zip` re-implementing NT times, DOS times, and Unix modes,
+and asked whether archive crates may depend on this crate for them. They
+are a family's conventions rather than file systems': `filer-windows`,
+an OS driver, already depended on this crate for them alone, and
+`filer-7z` (NT times, UTF-16 names), `filer-rar` (DOS and NT times),
+`filer-cdfs` (Joliet's UTF-16 names), `filer-exfat` (FAT-style times
+and attributes), and `filer-refs` (NT times, reparse points) would have
+too. Every reader of the names module, built or planned, reads names a
+Microsoft format wrote, so UTF-16 goes with the family; UDF has its own
+character set. Unix modes are the other family's, read by ext4, XFS,
+and `filer-posix` today and by cpio, ZIP, 7z, RAR, and most planned
+file systems: near enough to every driver (D54's rule) that a
+`FileKind` constructor in `filer-api` takes the one function the
+archives need, and `unix` here keeps the entry type bytes, with the
+POSIX ACLs. The field readers stay: generic, with seven users including
+`filer-windows` and `filer-volume`, they are a later question, and the
+archive crates' own cursors cost nothing meanwhile. Afterwards this
+crate is read by file system drivers alone, but for `filer-windows`'s
+use of `le`. The name: "msft" over "microsoft" for the workspace's
+short names, and because the ticker is how others name the company
+rather than how it names itself; the crate docs say it holds the
+conventions of Microsoft's formats and nothing of Microsoft's. Free on
+crates.io that day. Tasked as MSFT-01, CORE-07, and PACK-09.
 
 **The driver shell** (as built, 2026-11-02). A format implements
 `FileSystem`: its `DriverKey`, its root, a node's kind, lookup, a
@@ -3568,7 +3606,7 @@ filer/
     filer-cli/     src/ { main.rs }
     filer-uring/   src/ { lib.rs, ring.rs, sys/ }
     filer-heap/  src/ { lib.rs, inode.rs, crash.rs, harness.rs, ... }
-    filer-vfs/  filer-overlay/  filer-pack/  filer-tar/  filer-zip/
+    filer-vfs/  filer-overlay/  filer-pack/  filer-msft/  filer-tar/  filer-zip/
     filer-tracing/  filer-faults/  filer-quota/  filer-replay/
     filer-tx/  filer-tokio/  filer-spec/  filer-fuse/
     <umbrella>/
@@ -3856,6 +3894,7 @@ Record changes here with a date and one line of rationale.
 | D57 | `filer-volume` opens any file system, detected by its content | Accepted |
 | D58 | Stubs reserving names live in `tmp/` until they read something | Accepted |
 | D59 | Archive drivers share code in `filer-pack`, where `filer_api::archive` moves | Accepted |
+| D60 | Microsoft's on-disk conventions live in `filer-msft`, out of `filer-fs` | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

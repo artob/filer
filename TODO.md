@@ -33,16 +33,6 @@ later sections assume earlier ones are done.
 
 ## Questions for the maintainer
 
-- [ ] **ASK-02: May archive crates depend on `filer-fs`?** `filer-zip`
-  re-implements NT times (`filer_fs::nt`), DOS times (`filer-fat`'s,
-  which §17.17 planned to move to `filer-fs` for a second user), and
-  Unix modes (`filer_fs::unix`), and reads little-endian fields as
-  `filer_fs::le` does; `filer-cpio` repeats the modes, and 7z and RAR
-  headers will want all four. `filer-fs` depends on `filer-api` alone
-  and builds `no_std`, but §17.17 scopes it to file systems. Either
-  archive crates depend on it and its scope widens to on-disk formats
-  (recommended), or those helpers move down to `filer-api`. Decides
-  PACK-09.
 - [ ] **ASK-01: Umbrella crate name (Q11).**
   `filer` on crates.io is an unrelated 0.0.0 placeholder. Ask whether to
   request a transfer or pick another name. Blocks the umbrella section.
@@ -154,6 +144,11 @@ No OS access; everything builds without `std` (§7.6).
   normalization-insensitive rules (normalization via a small table or an
   optional dependency, decided in the item).
 
+- [ ] **CORE-07: `FileKind` from Unix mode bits.** A constructor on
+  `FileKind` (name open) takes the type bits of a mode, as
+  `filer_fs::unix::mode_kind` does; ext4, XFS, and `filer-posix` call it
+  and `unix` keeps `entry_kind`. Done when `filer-fs` has no `mode_kind`
+  and the three drivers' tests pass.
 - [ ] **CORE-06: Remaining buffers.**
   `IoBuf` (`Vec<u8>`, `Box<[u8]>`), `IoBufMut` (`Vec<u8>`), and `BufResult`
   exist. Still missing (§7.1): `IoBuf` for `String` and `&'static [u8]`,
@@ -551,6 +546,23 @@ Created with `publish = false` (D16).
   sequential, random 4 KiB, versus `Posix`. Done when results and machine
   details are recorded in §17.3.
 
+## `filer-msft`
+
+Microsoft's on-disk conventions, shared by file system, archive, and
+Windows drivers (§17.17, D60).
+
+- [ ] **MSFT-01: Create `filer-msft` out of `filer-fs` and `filer-fat`.**
+  Move `nt`, `wtf8`, and `reparse` from `filer-fs`, and FAT's local date
+  and time from `filer-fat` (`fat_time.rs`, with its offset and
+  granularity parameters, as a `dos` module), into `lib/filer-msft`, a
+  `no_std` crate depending on `filer-api` only, with `filer-api`'s lint
+  block and docs saying it holds the conventions of Microsoft's formats
+  and nothing of Microsoft's. `filer-fat`, `filer-ntfs`, and
+  `filer-windows` depend on it; `filer-windows` keeps `filer-fs` for
+  `le` alone. Add it to the README crate table and `AGENTS.md`. Done
+  when `filer-fs` exports none of the three modules, `filer-fat` decodes
+  no times itself, and every check in `AGENTS.md` passes.
+
 ## Virtual drivers
 
 - [ ] **VFS-01: `filer-vfs` mount table.** Done when `filer-spec`
@@ -616,13 +628,11 @@ Created with `publish = false` (D16).
   `filer-ar`'s and `filer-cpio`'s copies of the adapter. Done when the
   three fuzz tests and the `cargo-fuzz` targets build on the shared
   walk.
-- [ ] **PACK-09: `filer-fs` helpers in archives (after ASK-02).** Replace
-  `filer-zip`'s NT time, DOS time, Unix mode, and little-endian field
-  code, and `filer-cpio`'s mode match, with `filer_fs::nt`, FAT's local
-  times moved to `filer-fs` (as §17.17 planned for exFAT),
-  `filer_fs::unix::mode_kind`, and `filer_fs::le`, or with their moves
-  to `filer-api`, as ASK-02 decides. Done when `filer-zip`'s `header.rs`
-  decodes no times itself.
+- [ ] **PACK-09: `filer-msft` in archives (after MSFT-01, CORE-07).**
+  Replace `filer-zip`'s NT and DOS time decoding with `filer-msft`'s,
+  and its and `filer-cpio`'s mode matches with CORE-07's constructor;
+  `filer-zip`'s field cursor stays. Done when `filer-zip`'s `header.rs`
+  decodes no times itself and neither index matches mode bits.
 - [ ] **PACK-10: Chunked header reads (optional).** `filer-tar`,
   `filer-ar`, and `filer-cpio` issue one source read per header; share
   `filer-zip`'s forward `Reader` through `filer-pack` if a `File` source
