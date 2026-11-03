@@ -20,6 +20,10 @@ pub struct Profile {
     /// Symlinks can be created.
     pub symlinks: bool,
 
+    /// Empty directories can be created: not in a format that records only
+    /// files, whose directories are implied by their names.
+    pub empty_dirs: bool,
+
     /// Names that are not valid UTF-8 can be created.
     pub foreign_names: bool,
 
@@ -35,6 +39,7 @@ impl Default for Profile {
     fn default() -> Self {
         Self {
             symlinks: true,
+            empty_dirs: true,
             foreign_names: true,
             fifos: true,
             xattrs: true,
@@ -47,6 +52,13 @@ impl Profile {
     #[must_use]
     pub const fn with_symlinks(mut self, symlinks: bool) -> Self {
         self.symlinks = symlinks;
+        self
+    }
+
+    /// Sets whether empty directories can be created.
+    #[must_use]
+    pub const fn with_empty_dirs(mut self, empty_dirs: bool) -> Self {
+        self.empty_dirs = empty_dirs;
         self
     }
 

@@ -8,6 +8,8 @@ so any release may break compatibility.
 
 ## Unreleased
 ### Added
+- `filer-spec`: `Profile::empty_dirs`, off for formats whose directories
+  are only implied by their files' names.
 - `filer-api`: `IoBufMut::fill_from`, appending as much of a slice as
   fits.
 - `filer-api`: `Error::with_entry_name`, naming an entry in an error.

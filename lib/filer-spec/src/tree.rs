@@ -62,7 +62,7 @@ impl Tree {
     ///   user.comment     "a comment" (if xattrs)
     ///   user.empty       ""          (if xattrs)
     /// a/z.txt            ""
-    /// a/empty/
+    /// a/empty/          (if empty directories)
     /// a/                 user.tag "dir" (if xattrs)
     /// a/link -> b/c.txt  a/up -> ../a/b/c.txt  a/abs -> /a/b/c.txt
     /// a/escape -> ../../c.txt  a/loop -> loop  a/dangling -> nope
@@ -78,8 +78,10 @@ impl Tree {
             TreeEntry::Dir(path("a/b")),
             TreeEntry::File(path("a/b/c.txt"), b"contents".to_vec()),
             TreeEntry::File(path("a/z.txt"), Vec::new()),
-            TreeEntry::Dir(path("a/empty")),
         ];
+        if profile.empty_dirs {
+            entries.push(TreeEntry::Dir(path("a/empty")));
+        }
         if profile.xattrs {
             let name = |s: &str| XattrName::try_from(s).expect("valid attribute name");
             for (at, xattr, value) in [

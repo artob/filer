@@ -284,11 +284,10 @@ pub(crate) async fn reads_links<D: Driver>(ctx: &Ctx<D>) -> Verdict {
 
 pub(crate) async fn lists_directories<D: Driver>(ctx: &Ctx<D>) -> Verdict {
     let a = ok!(ctx.root.open_dir("a").await);
-    let mut expected = alloc::vec![
-        ("b", Some(FileKind::Dir)),
-        ("empty", Some(FileKind::Dir)),
-        ("z.txt", Some(FileKind::File)),
-    ];
+    let mut expected = alloc::vec![("b", Some(FileKind::Dir)), ("z.txt", Some(FileKind::File))];
+    if ctx.profile.empty_dirs {
+        expected.push(("empty", Some(FileKind::Dir)));
+    }
     if ctx.profile.symlinks {
         for name in ["abs", "dangling", "escape", "link", "loop", "up"] {
             expected.push((name, Some(FileKind::Symlink)));
@@ -306,11 +305,13 @@ pub(crate) async fn lists_directories<D: Driver>(ctx: &Ctx<D>) -> Verdict {
             "{name} listed as {kind:?}"
         );
     }
-    let empty = ok!(a.open_dir("empty").await);
-    check!(
-        ok!(list(&empty).await).is_empty(),
-        "empty directory lists entries"
-    );
+    if ctx.profile.empty_dirs {
+        let empty = ok!(a.open_dir("empty").await);
+        check!(
+            ok!(list(&empty).await).is_empty(),
+            "empty directory lists entries"
+        );
+    }
     Verdict::Pass
 }
 
