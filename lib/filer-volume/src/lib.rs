@@ -49,6 +49,38 @@
 //! # Ok::<(), filer_api::Error>(())
 //! # }).unwrap();
 //! ```
+//!
+//! The same volume as the first partition of a disk image, whose MBR
+//! places it at sector 2048:
+//!
+//! ```
+//! use filer_api::ErrorKind;
+//! use filer_volume::{FormatError, Options, Volume};
+//!
+//! # #[cfg(feature = "fat")]
+//! # filer_spec::block_on(async {
+//! let volume = include_bytes!("../tests/data/hello.img");
+//! // An MBR naming one FAT12 partition (type 0x01) of 128 sectors, from
+//! // sector 2048, where the volume follows.
+//! let mut disk = vec![0; 2048 * 512];
+//! disk[446 + 4] = 0x01;
+//! disk[446 + 8..446 + 12].copy_from_slice(&2048_u32.to_le_bytes());
+//! disk[446 + 12..446 + 16].copy_from_slice(&128_u32.to_le_bytes());
+//! disk[510..512].copy_from_slice(&[0x55, 0xAA]);
+//! disk.extend_from_slice(volume);
+//!
+//! // A disk is not a volume, but each of its partitions is.
+//! let error = Volume::open(disk.clone()).await.unwrap_err();
+//! assert_eq!(error.kind(), ErrorKind::Unsupported);
+//! let source = core::error::Error::source(&error);
+//! let reason = source.and_then(|source| source.downcast_ref());
+//! assert_eq!(reason, Some(&FormatError::Partitioned));
+//! let root = Volume::open_partition(disk, 1, Options::default()).await?;
+//! let file = root.open_file("hello/world.txt").await?;
+//! assert_eq!(file.read_to_end().await?, b"Hello, world!\n");
+//! # Ok::<(), filer_api::Error>(())
+//! # }).unwrap();
+//! ```
 
 #![no_std]
 #![forbid(unsafe_code)]
