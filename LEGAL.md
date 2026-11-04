@@ -349,9 +349,8 @@ its replacement.
   reserved blocks, rather than waited on upstream (D61). Its `hash`
   feature checks frame checksums with `twox-hash`, pure Rust. zstd's own
   code (BSD-3-Clause or GPL-2.0) is not copied. Our own decoder, written
-  from RFC 8878, is replacing it (D61): so far frames, blocks without
-  sequences, their literals Huffman-coded among them, and XXH64, which
-  no patent is known to cover. zstd 1.0 came with an
+  from RFC 8878, is replacing it (D61): it decodes all that `ruzstd`
+  does, and XXH64, which no patent is known to cover. zstd 1.0 came with an
   explicit patent grant, dropped in 1.3.1 (2017) when the license became
   BSD and GPLv2; no patent is known to be asserted against
   implementations.

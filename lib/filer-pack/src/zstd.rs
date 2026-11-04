@@ -18,6 +18,7 @@ mod frames;
 mod fse;
 mod huffman;
 mod literals;
+mod sequences;
 mod xxh64;
 
 /// A frame's magic number, and the range of skippable frames' (RFC 8878

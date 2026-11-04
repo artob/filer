@@ -2478,7 +2478,15 @@ zstd's own output, in every size format, decodes as `ruzstd` decodes
 it. zstd refuses, and so does it, a block that decodes to more than its
 frame allows, and a sequences section that does not end the block;
 `ruzstd` lets the former pass, which the differential test checks
-block by block.
+block by block. Sequences done, 2026-11-04 (PACK-23): tables of each
+mode, the predefined ones checked state by state against RFC 8878's
+Appendix A, and repeat offsets as its prose has them (its Table 18
+errs in its last two rows), run over the window with overlapping
+copies doubling. zstd's output of synthetic text, LZ77-shaped data,
+and records, at levels from 1 to 22 and windows from 1 KiB, decodes as
+`ruzstd` decodes it, as do Ubuntu's initrd and a corpus of binaries,
+libraries, and documentation at every level, strategy, and window,
+and mutations of them, run on comet, find no difference.
 
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and

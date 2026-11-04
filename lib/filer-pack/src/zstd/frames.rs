@@ -2,9 +2,7 @@
 
 //! zstd frames, decoded here, from RFC 8878 alone (`LEGAL.md`): the
 //! decoder of our own that is to replace `ruzstd` behind [`Zstd`] (D61,
-//! TODO PACK-21 to 24). So far it decodes raw and RLE blocks, and
-//! compressed ones without sequences, and finds those with sequences
-//! [`Unsupported`](filer_api::ErrorKind::Unsupported).
+//! TODO PACK-21 to 24).
 //!
 //! [`Zstd`]: super::Zstd
 
@@ -355,9 +353,9 @@ impl Frames {
                 window.bytes.resize(start.saturating_add(size), byte);
             },
             _ => {
-                let max = frame.header.max_block();
+                let (reach, max) = (frame.header.window, frame.header.max_block());
                 let (tables, scratch) = (&mut frame.tables, &mut self.literals);
-                block::decode(content, tables, scratch, &mut window.bytes, max)?;
+                block::decode(content, tables, scratch, &mut window.bytes, reach, max)?;
             },
         }
         let block = window.bytes.get(start..).unwrap_or_default();
@@ -532,6 +530,102 @@ mod tests {
     fn decodes_literals_as_zstd_writes_them() {
         let stream = include_bytes!("../../tests/data/literals.zst");
         assert_eq!(decode(stream).unwrap().len(), 28_200);
+    }
+
+    /// `sequences.zst` is by zstd 1.5.7: text at levels 1, 19, and 22 with
+    /// a 1 KiB window; data shaped as LZ77 makes it, its offsets often
+    /// repeated, at 3, and at 19 with a 64 KiB window, which it outgrows;
+    /// records alike but for a counter; and a short pattern, repeated. They
+    /// take tables of each mode, and repeated offsets of each kind.
+    #[test]
+    fn decodes_sequences_as_zstd_writes_them() {
+        let stream = include_bytes!("../../tests/data/sequences.zst");
+        assert_eq!(decode(stream).unwrap().len(), 471_800);
+        let numbers = include_bytes!("../../tests/data/numbers.zst");
+        assert_eq!(decode(numbers).unwrap(), crate::common::numbers());
+    }
+
+    /// Decodes each `.zst` file in the directory `FILER_PACK_ZSTD_CORPUS`
+    /// names, as `ruzstd` does: `zstd` output of a varied corpus, at many
+    /// levels and windows, checks more than the fixtures can. It times
+    /// both, in a release build.
+    #[test]
+    #[ignore = "needs a corpus of zstd streams"]
+    fn decodes_a_corpus_as_ruzstd_does() {
+        use std::time::{Duration, Instant};
+
+        /// Decodes `stream` whole, however large, and times it.
+        fn whole(mut decoder: impl Decoder, stream: &[u8]) -> (Result<Vec<u8>, Error>, Duration) {
+            let start = Instant::now();
+            let (mut output, mut at) = (Vec::new(), 0);
+            let mut buf = vec![0; 1 << 20];
+            let decoded = loop {
+                match decoder.decode(&stream[at..], &mut buf) {
+                    Ok((0, 0)) => break decoder.finish().map(|()| output),
+                    Ok((consumed, produced)) => {
+                        at += consumed;
+                        output.extend_from_slice(&buf[..produced]);
+                    },
+                    Err(error) => break Err(error),
+                }
+            };
+            (decoded, start.elapsed())
+        }
+
+        let corpus = std::env::var("FILER_PACK_ZSTD_CORPUS").unwrap();
+        let mut paths: Vec<_> = std::fs::read_dir(corpus)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.extension().is_some_and(|extension| extension == "zst"))
+            .collect();
+        paths.sort();
+        let (mut bytes, mut times) = (0, [Duration::ZERO; 2]);
+        for path in &paths {
+            let stream = std::fs::read(path).unwrap();
+            let (ours, time) = whole(Frames::new(), &stream);
+            times[0] += time;
+            let (theirs, time) = whole(Zstd::new(), &stream);
+            times[1] += time;
+            match (&ours, &theirs) {
+                (Ok(ours), Ok(theirs)) => assert!(ours == theirs, "{}", path.display()),
+                (Err(_), Err(_)) => {},
+                (Err(_), Ok(_)) if lax(&stream) => {},
+                _ => panic!(
+                    "{}: ours {:?}; ruzstd's {:?}",
+                    path.display(),
+                    ours.as_ref().map(Vec::len),
+                    theirs.as_ref().map(Vec::len)
+                ),
+            }
+            bytes += ours.map_or(0, |data| data.len());
+        }
+        let [ours, theirs] = times;
+        std::println!(
+            "{} streams, {bytes} bytes: ours in {ours:?}, ruzstd's in {theirs:?}",
+            paths.len()
+        );
+    }
+
+    #[test]
+    fn trims_the_window_once_it_doubles() {
+        let mut window = Window {
+            bytes: vec![1; 300 * 1024],
+            produced: 300 * 1024,
+            size: 64 * 1024,
+        };
+        window.trim();
+        assert_eq!(
+            (window.bytes.len(), window.produced),
+            (64 * 1024, 64 * 1024)
+        );
+        // Not until it holds the most a block holds past the window, and
+        // never what is yet to be produced.
+        window.bytes.resize(191 * 1024, 2);
+        window.trim();
+        assert_eq!(window.bytes.len(), 191 * 1024);
+        window.bytes.resize(250 * 1024, 2);
+        window.trim();
+        assert_eq!((window.bytes.len(), window.produced), (186 * 1024, 0));
     }
 
     #[test]
@@ -759,9 +853,9 @@ mod tests {
         false
     }
 
-    /// Mutates frames of blocks without sequences, and checks that ours
-    /// decodes each as `ruzstd` does, but for those it finds unsupported,
-    /// as it does blocks with sequences so far.
+    /// Mutates zstd's own streams, and checks that ours decodes each as
+    /// `ruzstd` does, or refuses what zstd refuses and `ruzstd` does not.
+    /// Their errors' kinds may differ.
     #[test]
     fn decodes_mutations_as_ruzstd_does() {
         const BYTES: [u8; 12] = [0, 1, 2, 4, 6, 0x08, 0x20, 0x28, 0x50, 0xC0, 0xFD, 0xFF];
@@ -771,6 +865,9 @@ mod tests {
             include_bytes!("../../tests/data/raw.zst").to_vec(),
             include_bytes!("../../tests/data/literals.zst").to_vec(),
             unchecked(include_bytes!("../../tests/data/literals.zst")),
+            include_bytes!("../../tests/data/sequences.zst").to_vec(),
+            unchecked(include_bytes!("../../tests/data/sequences.zst")),
+            unchecked(include_bytes!("../../tests/data/numbers.zst")),
             checked(&[Block::Rle(b'a', 3000), Block::Raw(b"bc")], false),
             [skippable(b"x"), checked(&[Block::Raw(b"yz")], true)].concat(),
         ]
@@ -789,10 +886,11 @@ mod tests {
                 let ours = agree(Frames::new, &stream, piece);
                 let theirs = agree(Zstd::new, &stream, piece);
                 match (&ours, &theirs) {
-                    (Err(ours), _) if ours.kind() == ErrorKind::Unsupported => {},
                     (Err(_), Ok(_)) if lax(&stream) => {},
                     (Ok(ours), Ok(theirs)) => assert!(ours == theirs, "decoded otherwise"),
-                    (Err(ours), Err(theirs)) => assert_eq!(ours.kind(), theirs.kind()),
+                    // `ruzstd` finds some windows too large corrupt, which
+                    // zstd and ours find unsupported.
+                    (Err(_), Err(_)) => {},
                     _ => panic!(
                         "ours: {:?}; ruzstd's: {:?}; head {:02x?} of {}",
                         ours.as_ref().map(Vec::len),

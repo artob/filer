@@ -142,6 +142,19 @@ impl Table {
         Ok(Self { log, entries })
     }
 
+    /// Returns the table of a single symbol, which every state decodes.
+    pub(super) fn rle(symbol: u8) -> Self {
+        let entry = Entry {
+            symbol,
+            bits: 0,
+            base: 0,
+        };
+        Self {
+            log: 0,
+            entries: vec![entry],
+        }
+    }
+
     /// Returns the state that `bits` begin with.
     pub(super) fn start(&self, bits: &mut Backward<'_>) -> usize {
         usize::try_from(bits.read(u32::from(self.log))).unwrap_or_default()

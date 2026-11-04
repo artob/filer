@@ -574,12 +574,6 @@ Created with `publish = false` (D16).
   until our own LZMA2 replaces it. Done when reading near the end of an
   `.xz` of several blocks decodes at most an interval and a block, as
   `.bz2` does.
-- [ ] **PACK-23: Our own zstd, sequences.** The sequences section:
-  predefined, RLE, FSE-coded, and repeated tables for literal lengths,
-  match lengths, and offsets; repeat offsets; and executing sequences
-  over the window. Done when every zstd fixture and fuzzer input decodes
-  as `ruzstd` decodes it, and differential fuzzing against it, on comet,
-  finds nothing.
 - [ ] **PACK-24: Our own zstd in place of `ruzstd`.** `Zstd` decodes with
   our own decoder, `ruzstd` leaves the dependencies, and `LEGAL.md`
   records it (D61). Done when every test, fixture, and fuzzer passes
