@@ -72,14 +72,19 @@ pub trait Decoder: Send {
     /// produced. `input` is empty once the packed bytes are exhausted;
     /// returning no progress then means the member's data ended early.
     ///
+    /// Once the declared size is decoded, `output` is empty, and `input`
+    /// the packed bytes after, which a format may end with a trailer, such
+    /// as a checksum: the decoder consumes what it reads, and no more once
+    /// it returns no progress.
+    ///
     /// # Errors
     ///
     /// [`Corrupt`](ErrorKind::Corrupt) for malformed data.
     fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error>;
 
     /// Checks the whole member once its declared size has been decoded,
-    /// for example against a checksum. Members that are never read to
-    /// their end are never checked.
+    /// and the packed bytes after it read, for example against a checksum.
+    /// Members that are never read to their end are never checked.
     ///
     /// # Errors
     ///

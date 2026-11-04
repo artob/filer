@@ -324,9 +324,8 @@ when adopting it.
   `miniz_oxide` 0.9 (MIT, Zlib or Apache-2.0; `no_std` with `alloc`; no
   `unsafe`) already decodes ZIP's raw Deflate, behind `deflate`. gzip
   wraps Deflate in a header and a trailer holding a CRC-32 and the
-  length, which the container code checks through `Verified`: written
-  from RFC 1952, not from zlib or `flate2`. Deflate's patent (US
-  5,051,745) expired in 2008.
+  length, which `Gzip` checks: written from RFC 1952, not from zlib or
+  `flate2`. Deflate's patent (US 5,051,745) expired in 2008.
 - **zstd: `ruzstd`.** `ruzstd` 0.9 (MIT; `no_std` with `alloc`;
   maintained, and the most used pure-Rust decoder) reads the format RFC
   8878 documents, through a sans-I/O call, `FrameDecoder::decode_from_to`,

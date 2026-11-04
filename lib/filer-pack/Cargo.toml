@@ -22,9 +22,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = ["deflate"]
+all = ["deflate", "gzip"]
 std = ["filer-api/std"]
 deflate = ["dep:miniz_oxide"]
+gzip = ["deflate"]
 
 [dependencies]
 filer-api.workspace = true

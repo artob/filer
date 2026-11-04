@@ -2360,7 +2360,13 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   uses, as `filer-archive` forwards `deflate`; each decoder crate is
   assessed in `LEGAL.md` before it is adopted (D45: pure Rust, and
   `no_std`) (Deflate done, 2026-11-03: `Deflate`, behind `deflate`,
-  which `filer-zip` forwards);
+  which `filer-zip` forwards; gzip done, 2026-11-03: `Gzip`, behind
+  `gzip`, over `Deflate`, reading concatenated members and ignoring
+  trailing garbage after the first, as zlib does; a `Stream` now gives
+  its decoder the packed bytes after the declared size, with no room for
+  output, so that it checks a trailer before it finishes; `tests/fuzz.rs`
+  and `fuzz/` check that each decoder decodes the same in pieces as
+  whole);
 - the archive fuzz walk, into `filer-spec`, where shared test tooling
   goes (D54): `filer-zip`'s predates it (done, 2026-11-03: `Checks`
   allows refusals at open and reads files whole for zip's bomb bound,

@@ -551,13 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-12: gzip.** A `Gzip` decoder in `filer-pack` behind a
-  `gzip` feature, over `Deflate`: the RFC 1952 header with each optional
-  field, the CRC-32 and length in the trailer through `Verified`, and
-  concatenated members, as `gunzip` reads them. Start `filer-pack`'s
-  fuzzers with it: a pure-Rust `tests/fuzz.rs` and a `cargo-fuzz` target
-  per decoder (D50). Done when `gzip` output decodes, with and without a
-  name and header CRC, and a bad trailer is `Corrupt`.
 - [ ] **PACK-13: zstd.** A `Zstd` decoder behind a `zstd` feature, over
   `ruzstd`, buffering input to whole blocks, as `LEGAL.md` found it needs;
   frame checksums checked; its window bounded. Done when `zstd` output at
@@ -584,7 +577,8 @@ Created with `publish = false` (D16).
 - [ ] **TAR-04: Checkpoints in compressed TAR.** Save the decoder's state
   every few MiB while indexing, as zlib's `zran` does, so that reading a
   member out of order resumes from the nearest checkpoint, not the start.
-  Needs a decoder whose state can be saved (check `miniz_oxide`'s first).
+  Needs a decoder whose state can be saved: `miniz_oxide`'s
+  `InflateState` is `Clone`, with its 32 KiB window.
   Done when reading the first member after the last of a 100 MiB
   `.tar.gz` decodes at most one interval.
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor

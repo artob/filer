@@ -181,9 +181,12 @@ impl Stream {
 
     /// Decodes on to the end of `wanted`, from the packed bytes at `packed`
     /// in `source`, and returns the decoded bytes within `wanted`. `size`
-    /// is the declared size of the whole, which decoding never passes, and
-    /// on reaching which the decoder [`finish`](Decoder::finish)es. The
-    /// stream must not have decoded past `wanted`'s start.
+    /// is the declared size of the whole, which decoding never passes. On
+    /// reaching it, the decoder is given the rest of the packed bytes with
+    /// no room for output, so that it reads what follows the data, such as
+    /// a trailer with a checksum, until it takes no more; then it
+    /// [`finish`](Decoder::finish)es. The stream must not have decoded
+    /// past `wanted`'s start.
     ///
     /// # Errors
     ///
@@ -202,19 +205,11 @@ impl Stream {
         if self.decoded > off {
             return Err(corrupt());
         }
-        let packed_len = packed.end.saturating_sub(packed.start);
         let capacity = usize::try_from(end.saturating_sub(off)).unwrap_or(0);
         let mut data = Vec::with_capacity(capacity);
         let mut output = vec![0; OUTPUT_CHUNK];
         while self.decoded < end {
-            if self.used == self.input.len() && self.fetched < packed_len {
-                let len = usize::try_from(packed_len.saturating_sub(self.fetched))
-                    .map_or(INPUT_CHUNK, |n| n.min(INPUT_CHUNK));
-                let at = packed.start.checked_add(self.fetched).ok_or_else(corrupt)?;
-                self.input = read_exact(source, at, len).await?;
-                self.used = 0;
-                self.fetched = self.fetched.saturating_add(to_u64(len));
-            }
+            self.fetch(source, &packed).await?;
             // Stop at the end of the read, so that a kept stream can
             // continue from there, and so never pass the declared size.
             let room = usize::try_from(end.saturating_sub(self.decoded))
@@ -241,10 +236,47 @@ impl Stream {
             };
             data.extend_from_slice(output.get(from..to).unwrap_or_default());
             if self.decoded == size {
+                self.drain(source, &packed).await?;
                 self.decoder.finish()?;
             }
         }
         Ok(data)
+    }
+
+    /// Reads the next packed bytes from `source` if all those read are
+    /// used and any are left.
+    async fn fetch<S: ReadAt>(&mut self, source: &S, packed: &Range<u64>) -> Result<(), Error> {
+        let packed_len = packed.end.saturating_sub(packed.start);
+        if self.used == self.input.len() && self.fetched < packed_len {
+            let len = usize::try_from(packed_len.saturating_sub(self.fetched))
+                .map_or(INPUT_CHUNK, |n| n.min(INPUT_CHUNK));
+            let at = packed
+                .start
+                .checked_add(self.fetched)
+                .ok_or_else(|| Error::new(ErrorKind::Corrupt, OpKind::Read))?;
+            self.input = read_exact(source, at, len).await?;
+            self.used = 0;
+            self.fetched = self.fetched.saturating_add(to_u64(len));
+        }
+        Ok(())
+    }
+
+    /// Gives the decoder the rest of the packed bytes with no room for
+    /// output, until it takes no more: past the data, as a trailer.
+    async fn drain<S: ReadAt>(&mut self, source: &S, packed: &Range<u64>) -> Result<(), Error> {
+        loop {
+            self.fetch(source, packed).await?;
+            let input = self.input.get(self.used..).unwrap_or_default();
+            let (consumed, produced) = self.decoder.decode(input, &mut [])?;
+            if consumed > input.len() || produced > 0 {
+                // The decoder broke its contract.
+                return Err(Error::new(ErrorKind::Corrupt, OpKind::Read));
+            }
+            if consumed == 0 {
+                return Ok(());
+            }
+            self.used = self.used.saturating_add(consumed);
+        }
     }
 }
 

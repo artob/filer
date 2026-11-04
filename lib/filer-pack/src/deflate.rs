@@ -4,7 +4,7 @@ use crate::Decoder;
 use alloc::boxed::Box;
 use filer_api::{Error, ErrorKind, OpKind};
 use miniz_oxide::{
-    DataFormat, MZError, MZFlush,
+    DataFormat, MZError, MZFlush, MZStatus,
     inflate::stream::{InflateState, inflate},
 };
 
@@ -23,13 +23,35 @@ use miniz_oxide::{
 /// assert_eq!(&output, b"hello");
 /// # Ok::<(), filer_api::Error>(())
 /// ```
-pub struct Deflate(Box<InflateState>);
+pub struct Deflate {
+    state: Box<InflateState>,
+    /// Whether the last block is decoded and all of it produced.
+    ended: bool,
+}
 
 impl Deflate {
     /// Returns a decoder at the start of a stream.
     #[must_use]
     pub fn new() -> Self {
-        Self(InflateState::new_boxed(DataFormat::Raw))
+        Self {
+            state: InflateState::new_boxed(DataFormat::Raw),
+            ended: false,
+        }
+    }
+
+    /// Returns whether the stream has ended: its last block decoded, and
+    /// all of it produced. A container reads on from there, past the
+    /// bytes consumed.
+    #[cfg(feature = "gzip")]
+    pub(crate) const fn ended(&self) -> bool {
+        self.ended
+    }
+
+    /// Starts over, at the start of a new stream.
+    #[cfg(feature = "gzip")]
+    pub(crate) fn reset(&mut self) {
+        self.state.reset(DataFormat::Raw);
+        self.ended = false;
     }
 }
 
@@ -47,7 +69,9 @@ impl core::fmt::Debug for Deflate {
 
 impl Decoder for Deflate {
     fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
-        let result = inflate(&mut self.0, input, output, MZFlush::None);
+        let result = inflate(&mut self.state, input, output, MZFlush::None);
+        // At its end, the stream consumes no bytes past it.
+        self.ended |= result.status == Ok(MZStatus::StreamEnd);
         match result.status {
             // No progress: the archive sees the member end early.
             Ok(_) | Err(MZError::Buf) => Ok((result.bytes_consumed, result.bytes_written)),
