@@ -92,8 +92,15 @@
 
 extern crate alloc;
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", test))]
 extern crate std;
+
+// The crate's own tests share its integration tests' helpers.
+#[cfg(test)]
+extern crate self as filer_pack;
+#[cfg(test)]
+#[path = "../tests/common/mod.rs"]
+mod common;
 
 mod archive_error;
 pub use archive_error::*;

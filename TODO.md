@@ -574,13 +574,6 @@ Created with `publish = false` (D16).
   until our own LZMA2 replaces it. Done when reading near the end of an
   `.xz` of several blocks decodes at most an interval and a block, as
   `.bz2` does.
-- [ ] **PACK-21: Our own zstd, frames and stored blocks.** The first
-  part of a zstd decoder of our own (D61), clean room from RFC 8878,
-  developed beside `Zstd`'s use of `ruzstd` until it replaces it
-  (PACK-24): frame headers and skippable frames, window sizes bounded at
-  128 MiB, raw and RLE blocks, and the XXH64 content checksum, written
-  here too. Done when frames of raw and RLE blocks decode as `ruzstd`
-  decodes them, checksums checked.
 - [ ] **PACK-22: Our own zstd, literals.** The literals section: raw,
   RLE, and Huffman-coded, in one stream or four, with tables described
   directly or by FSE-coded weights, and a previous block's table reused.

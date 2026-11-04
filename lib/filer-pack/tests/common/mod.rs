@@ -9,6 +9,8 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 use filer_api::{BufResult, Error, ReadAt, checksum::crc32};
 use filer_pack::{Codec, Decoder, Unpacked};
+// Named, for `filer-pack`'s own tests, which are `no_std`.
+use std::{boxed::Box, format, vec, vec::Vec};
 
 /// The most a check decodes of any input.
 pub const CAP: usize = 1024 * 1024;

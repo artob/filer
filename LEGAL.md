@@ -324,8 +324,10 @@ The crates are interim (`DESIGN.md` D61): the aim is a clean-room,
 public-domain decoder of each format, written here, which replaces a
 crate once the crate becomes an inconvenience or a blocker, rather than
 waiting on changes upstream. The sources stay those assessed below: RFC
-1951 and 1952 for Deflate and gzip; RFC 8878 for zstd, never zstd's own
-code; the LZMA SDK and the `.xz` file format specification, both public
+1951 and 1952 for Deflate and gzip; RFC 8878 for zstd, and for its
+XXH64 checksum the xxHash specification (Yann Collet, whose notice lets
+anyone copy and distribute it), never zstd's or xxHash's own code; the
+LZMA SDK and the `.xz` file format specification, both public
 domain, for LZMA, LZMA2, and xz; and Joe Tsai's description for bzip2,
 as `Bzip2` already is. A crate's code is never read as the source of
 its replacement.
@@ -346,7 +348,9 @@ its replacement.
   too, and any panic found is avoided here, as `Zstd` avoids the one on
   reserved blocks, rather than waited on upstream (D61). Its `hash`
   feature checks frame checksums with `twox-hash`, pure Rust. zstd's own
-  code (BSD-3-Clause or GPL-2.0) is not copied. zstd 1.0 came with an
+  code (BSD-3-Clause or GPL-2.0) is not copied. Our own decoder, written
+  from RFC 8878, is replacing it (D61): so far frames, raw and RLE
+  blocks, and XXH64, which no patent is known to cover. zstd 1.0 came with an
   explicit patent grant, dropped in 1.3.1 (2017) when the license became
   BSD and GPLv2; no patent is known to be asserted against
   implementations.

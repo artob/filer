@@ -2460,6 +2460,18 @@ a zstd frame need a copy of `ruzstd`'s decoder, which it cannot make
 `lzma-rust2` does not expose (PACK-19). Upstream requests for them are
 recorded (UP-05, UP-06), at low priority.
 
+**Our own zstd (PACK-21 to 24).** Written from RFC 8878 beside `Zstd`,
+and checked against it, which is to say against `ruzstd`, until it
+replaces it. Frames done, 2026-11-04 (PACK-21): headers, skippable
+frames, raw and RLE blocks, and XXH64, from the xxHash specification.
+Each frame header and block is gathered whole, or decoded straight from
+the input when it holds it whole, onto a window that keeps the frame's
+window size of the latest bytes and drops what is produced past them
+once it is as much again, so that each byte moves once at most. It
+refuses what zstd refuses and `ruzstd` lets pass: a frame whose content
+size disagrees with what it decodes to, which its differential test
+checks frame by frame.
+
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and
 cpio its name with another, where `filer-zip` reads its central

@@ -6,6 +6,13 @@ use core::ops::RangeInclusive;
 use filer_api::{Error, ErrorKind, OpKind};
 use ruzstd::decoding::{FrameDecoder, errors::FrameDecoderError};
 
+#[cfg_attr(
+    not(test),
+    allow(dead_code, reason = "`Zstd` decodes with it from PACK-24")
+)]
+mod frames;
+mod xxh64;
+
 /// A frame's magic number, and the range of skippable frames' (RFC 8878
 /// §3.1).
 const MAGIC: u32 = 0xFD2F_B528;
