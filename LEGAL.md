@@ -345,8 +345,8 @@ when adopting it.
   BCJ and Delta filters: one crate for compressed tarballs and for 7z.
   Without its `optimization` feature, which stays off, it forbids
   `unsafe` code. Its `xz` feature checks SHA-256 with RustCrypto's
-  `sha2`, pure Rust while its `asm` feature stays off (CI's check for C
-  would catch it). Also considered: `xz4rust` 0.2 (MIT; `no_std` without
+  `sha2` 0.11, pure Rust (it has no `asm` feature, whose C CI's check
+  would catch). Also considered: `xz4rust` 0.2 (MIT; `no_std` without
   `alloc`), xz only, without the LZMA1 that 7z mostly uses; and `lzma-rs`
   0.3 (MIT), std readers only, last released in 2023. Porting the LZMA SDK
   (public domain, see 7z) remains the fallback. No patent is known.

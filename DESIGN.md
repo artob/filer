@@ -2369,7 +2369,12 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   whole; zstd done, 2026-11-03: `Zstd`, behind `zstd`, over `ruzstd`,
   which decodes only the whole blocks that `Zstd` gathers, parsing frame
   and block headers itself, and refusing what `ruzstd` would not: the
-  frame header's reserved bit, and reserved blocks, on which it panics);
+  frame header's reserved bit, and reserved blocks, on which it panics;
+  LZMA done, 2026-11-03: `Lzma` and `Lzma2`, behind `lzma`, for raw
+  streams with the properties their container gives, and `Xz`, behind
+  `xz`, over `lzma-rust2`'s sans-I/O streams, each told that the input
+  is exhausted by an empty slice; dictionaries over 128 MiB, as zstd's
+  windows, are `Unsupported`);
 - the archive fuzz walk, into `filer-spec`, where shared test tooling
   goes (D54): `filer-zip`'s predates it (done, 2026-11-03: `Checks`
   allows refusals at open and reads files whole for zip's bomb bound,

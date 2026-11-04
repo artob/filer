@@ -12,7 +12,7 @@
 //! reproduce it. `fuzz/` has a coverage-guided `cargo-fuzz` target per
 //! decoder over the same check.
 
-#![cfg(any(feature = "gzip", feature = "zstd"))]
+#![cfg(any(feature = "gzip", feature = "xz", feature = "zstd"))]
 
 mod common;
 
@@ -217,5 +217,60 @@ mod zstd {
         let corpus = [seed(numbers), seed(built)];
         let kinds = [ErrorKind::Corrupt, ErrorKind::Unsupported];
         run(0x2575_5EED, &corpus, MUTATIONS, Zstd::new, &kinds);
+    }
+}
+
+#[cfg(feature = "xz")]
+mod xz {
+    use super::*;
+    use filer_pack::{Lzma, Lzma2, Xz};
+
+    /// Values at the edges of what xz headers, indexes, and LZMA2 chunks
+    /// hold: the magic numbers' bytes, check types, filter ids, and chunk
+    /// controls.
+    const BYTES: [u8; 14] = [
+        0, 1, 2, 4, 0x0A, 0x21, 0x37, 0x59, 0x5A, 0x7A, 0x80, 0xC0, 0xE0, 0xFF,
+    ];
+    const WORDS: [u32; 7] = [0, 1, 0xFFFF, 0x0101, 0x7FFF_FFFF, 0xFFFF_FFFE, u32::MAX];
+
+    /// Fields are packed; the checks catch most mutations, so few at once.
+    const MUTATIONS: Mutations = Mutations::new(&BYTES, &WORDS).aligned(false).most(2);
+
+    /// Returns `stream`, with where its stream headers and footers are, as
+    /// far as the first and last 64 bytes go, and where it holds `text`.
+    fn seed(stream: &[u8], text: &[u8]) -> Seed {
+        let len = stream.len() as u64;
+        let mut regions = vec![0..len.min(64), len.saturating_sub(64)..len];
+        let found = stream
+            .windows(text.len().max(1))
+            .position(|bytes| bytes == text);
+        if let Some(at) = found.filter(|_| !text.is_empty()) {
+            regions.push(at as u64..(at + text.len()) as u64);
+        }
+        Seed::new(stream.to_vec(), regions)
+    }
+
+    #[test]
+    fn survives_mutated_xz_streams() {
+        // Stored text, which may change and still decode where no check
+        // covers it, as in the stream with none.
+        let corpus = [
+            seed(include_bytes!("data/numbers.xz"), b"end"),
+            seed(include_bytes!("data/checks.xz"), b"none\n"),
+        ];
+        let kinds = [ErrorKind::Corrupt, ErrorKind::Unsupported];
+        run(0x0C5_5EED, &corpus, MUTATIONS, Xz::new, &kinds);
+    }
+
+    #[test]
+    fn survives_mutated_raw_streams() {
+        let lzma = include_bytes!("data/numbers.lzma");
+        let corpus = [seed(&lzma[13..], b"")];
+        // As `numbers.lzma`'s header has it: `-6`, with 8 MiB.
+        let new = || Lzma::new([0x5D, 0, 0, 0x80, 0], None).unwrap();
+        run(0x1A3A_5EED, &corpus, MUTATIONS, new, &[ErrorKind::Corrupt]);
+        let corpus = [seed(include_bytes!("data/numbers.lzma2"), b"")];
+        let new = || Lzma2::new(22).unwrap();
+        run(0x1A3B_5EED, &corpus, MUTATIONS, new, &[ErrorKind::Corrupt]);
     }
 }

@@ -551,12 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-14: LZMA, LZMA2, and xz.** Decoders over `lzma-rust2`,
-  without its `optimization` feature: raw LZMA and LZMA2 from the
-  properties a container gives, as ZIP and 7z do, behind `lzma`, and the
-  xz container with its CRC-32, CRC-64, and SHA-256 checks, behind `xz`.
-  Done when `xz` output with each check decodes, as do raw streams, and
-  fuzzers cover them.
 - [ ] **PACK-15: bzip2.** A `Bzip2` decoder behind a `bzip2` feature,
   written here from Joe Tsai's description (`LEGAL.md`): Huffman tables,
   move-to-front, the inverse Burrows–Wheeler transform, and the block and

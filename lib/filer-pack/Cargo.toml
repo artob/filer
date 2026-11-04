@@ -22,14 +22,17 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = ["deflate", "gzip", "zstd"]
+all = ["deflate", "gzip", "lzma", "xz", "zstd"]
 std = ["filer-api/std"]
 deflate = ["dep:miniz_oxide"]
 gzip = ["deflate"]
+lzma = ["dep:lzma-rust2"]
+xz = ["lzma", "lzma-rust2/xz"]
 zstd = ["dep:ruzstd"]
 
 [dependencies]
 filer-api.workspace = true
+lzma-rust2 = { workspace = true, optional = true }
 miniz_oxide = { workspace = true, optional = true, features = ["with-alloc"] }
 ruzstd = { workspace = true, optional = true, features = ["hash"] }
 spin = { workspace = true, features = ["spin_mutex"] }

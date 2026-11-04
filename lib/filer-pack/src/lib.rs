@@ -30,8 +30,9 @@
 //!
 //! Decoders are pure Rust, one feature per algorithm, assessed in
 //! `LEGAL.md` before adoption (D45): so far, [`Deflate`], over
-//! `miniz_oxide`, behind `deflate`; [`Gzip`] over it, behind `gzip`; and
-//! [`Zstd`], over `ruzstd`, behind `zstd`.
+//! `miniz_oxide`, behind `deflate`; [`Gzip`] over it, behind `gzip`;
+//! [`Zstd`], over `ruzstd`, behind `zstd`; and [`Lzma`], [`Lzma2`], and
+//! [`Xz`], over `lzma-rust2`, behind `lzma` and `xz`.
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will
@@ -46,6 +47,8 @@
 //! - `all` enables every decoder below;
 //! - `deflate` enables [`Deflate`];
 //! - `gzip` enables [`Gzip`], and `deflate`;
+//! - `lzma` enables [`Lzma`] and [`Lzma2`];
+//! - `xz` enables [`Xz`], and `lzma`;
 //! - `zstd` enables [`Zstd`].
 //!
 //! [`ReadAt`]: filer_api::ReadAt
@@ -130,6 +133,11 @@ pub use deflate::*;
 mod gzip;
 #[cfg(feature = "gzip")]
 pub use gzip::*;
+
+#[cfg(feature = "lzma")]
+mod lzma;
+#[cfg(feature = "lzma")]
+pub use lzma::*;
 
 #[cfg(feature = "zstd")]
 mod zstd;
