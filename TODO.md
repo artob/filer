@@ -551,15 +551,47 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz from `filer-pack`
-  (`Unpacked`; `miniz_oxide`, `ruzstd`, and `lzma-rust2`, as `LEGAL.md`
-  chose) behind features, indexed on open with checkpoints or cached
-  members. Done when `.tar.gz` passes the same subset.
+- [ ] **PACK-12: gzip.** A `Gzip` decoder in `filer-pack` behind a
+  `gzip` feature, over `Deflate`: the RFC 1952 header with each optional
+  field, the CRC-32 and length in the trailer through `Verified`, and
+  concatenated members, as `gunzip` reads them. Start `filer-pack`'s
+  fuzzers with it: a pure-Rust `tests/fuzz.rs` and a `cargo-fuzz` target
+  per decoder (D50). Done when `gzip` output decodes, with and without a
+  name and header CRC, and a bad trailer is `Corrupt`.
+- [ ] **PACK-13: zstd.** A `Zstd` decoder behind a `zstd` feature, over
+  `ruzstd`, buffering input to whole blocks, as `LEGAL.md` found it needs;
+  frame checksums checked; its window bounded. Done when `zstd` output at
+  several levels, in one frame and several, decodes, and fuzzers cover
+  it.
+- [ ] **PACK-14: LZMA, LZMA2, and xz.** Decoders over `lzma-rust2`,
+  without its `optimization` feature: raw LZMA and LZMA2 from the
+  properties a container gives, as ZIP and 7z do, behind `lzma`, and the
+  xz container with its CRC-32, CRC-64, and SHA-256 checks, behind `xz`.
+  Done when `xz` output with each check decodes, as do raw streams, and
+  fuzzers cover them.
+- [ ] **PACK-15: bzip2.** A `Bzip2` decoder behind a `bzip2` feature,
+  written here from Joe Tsai's description (`LEGAL.md`): Huffman tables,
+  move-to-front, the inverse Burrows–Wheeler transform, and the block and
+  stream CRCs. Done when `bzip2` output at levels 1 and 9, and
+  concatenated streams, decode, a bad CRC is `Corrupt`, and fuzzers cover
+  it.
+- [ ] **TAR-02: Compressed TAR.** gzip, zstd, and xz (PACK-12 to 14)
+  behind features that `filer-archive` forwards, told apart by magic
+  number and read through `Unpacked`: opening decodes the archive once to
+  index it, and reading behind the last decoded offset decodes again from
+  the start. Done when `.tar.gz`, `.tar.zst`, and `.tar.xz` pass the same
+  subset.
+- [ ] **TAR-04: Checkpoints in compressed TAR.** Save the decoder's state
+  every few MiB while indexing, as zlib's `zran` does, so that reading a
+  member out of order resumes from the nearest checkpoint, not the start.
+  Needs a decoder whose state can be saved (check `miniz_oxide`'s first).
+  Done when reading the first member after the last of a 100 MiB
+  `.tar.gz` decodes at most one interval.
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **ZIP-02: More codecs.** zstd, bzip2, LZMA from `filer-pack`
-  (`ruzstd`, `lzma-rust2`, and bzip2 written there, as `LEGAL.md` chose)
+- [ ] **ZIP-02: More codecs.** zstd (method 93), bzip2 (12), and LZMA
+  (14, with its own small header) from `filer-pack` (PACK-13 to 15)
   behind features, as `deflate` is. Done when each decodes a test
   archive.
 - [ ] **ZIP-03: Legacy names.** Decode names without the UTF-8 flag with
@@ -571,7 +603,7 @@ Created with `publish = false` (D16).
 - [ ] **CPIO-02: Compressed initramfs images.** Distributions follow an
   uncompressed early archive with a compressed one (zstd on Ubuntu),
   which `filer-cpio` refuses as `Unsupported`. Decode it behind features,
-  through `filer-pack`'s `Unpacked` and decoders (`LEGAL.md`).
+  through `filer-pack`'s `Unpacked` and decoders (PACK-12 to 14).
   Done when a distribution's image reads as GNU cpio extracts it once
   decompressed.
 - [ ] **ARC-01: Detect archive formats by content.** `filer-archive`
@@ -582,7 +614,7 @@ Created with `publish = false` (D16).
   each fixture of each format opens without a name.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
-  (`lzma-rust2`, as `LEGAL.md` chose), which TAR-02's `xz` shares, and
+  (PACK-14), which TAR-02's `xz` shares, and
   its `Streams` or `Unpacked` for solid blocks. Done when archives
   7-Zip writes, solid and not, read as it extracts them.
 - [ ] **RAR-01: `filer-rar` (on demand).** Only as a clean-room,
