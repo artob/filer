@@ -12,6 +12,7 @@
 /// use filer_archive::Format;
 ///
 /// assert_eq!(Format::from_name("release.zip"), Some(Format::Zip));
+/// assert_eq!(Format::from_name("release.tar.gz"), Some(Format::Tar));
 /// assert_eq!(Format::from_name("hello_1.0_all.deb"), Some(Format::Ar));
 /// assert_eq!(Format::from_name("LIBFOO.A"), Some(Format::Ar));
 /// assert_eq!(Format::from_name("notes.txt"), None);
@@ -23,7 +24,7 @@ pub enum Format {
     Ar,
     /// cpio: initramfs images and RPM payloads, read by `filer-cpio`.
     Cpio,
-    /// TAR, uncompressed, read by `filer-tar`.
+    /// TAR, plain or compressed, read by `filer-tar`.
     Tar,
     /// ZIP and the formats built on it, read by `filer-zip`.
     Zip,
@@ -36,18 +37,17 @@ impl Format {
     /// Returns the format a file name's extension, compared without regard
     /// to ASCII case, says the file is in, if any.
     ///
-    /// Only the last extension counts, so a compressed tarball, such as
-    /// `release.tar.gz`, has none yet. Names that say nothing of the
-    /// format, as an initramfs image's often do (`initrd.img`), need
+    /// An extension may have two parts, as a compressed tarball's does
+    /// (`release.tar.gz`). Names that say nothing of the format, as an
+    /// initramfs image's often do (`initrd.img`), need
     /// [`Archive::open_as`](crate::Archive::open_as).
     #[must_use]
     pub fn from_name(name: &str) -> Option<Self> {
-        let (_, extension) = name.rsplit_once('.')?;
         Self::ALL.into_iter().find(|format| {
             format
                 .extensions()
                 .iter()
-                .any(|known| known.eq_ignore_ascii_case(extension))
+                .any(|extension| has_extension(name, extension))
         })
     }
 
@@ -58,7 +58,11 @@ impl Format {
             // Windows' static and import libraries are ar archives too.
             Self::Ar => &["a", "ar", "deb", "lib", "udeb"],
             Self::Cpio => &["cpio"],
-            Self::Tar => &["tar"],
+            // Plain, and compressed as `filer-tar` reads.
+            Self::Tar => &[
+                "tar", "tar.gz", "tgz", "tar.zst", "tzst", "tar.xz", "txz", "tar.bz2", "tbz2",
+                "tbz",
+            ],
             // Java, Android, Python, .NET, and browser packages, e-books,
             // and office documents.
             Self::Zip => &[
@@ -92,6 +96,19 @@ impl Format {
     }
 }
 
+/// Returns whether `name` ends in `.` and `extension`, without regard to
+/// ASCII case.
+fn has_extension(name: &str, extension: &str) -> bool {
+    let (name, extension) = (name.as_bytes(), extension.as_bytes());
+    let Some(dot) = name.len().checked_sub(extension.len().saturating_add(1)) else {
+        return false;
+    };
+    name.get(dot) == Some(&b'.')
+        && name
+            .get(dot.saturating_add(1)..)
+            .is_some_and(|tail| tail.eq_ignore_ascii_case(extension))
+}
+
 impl core::fmt::Display for Format {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.name())
@@ -117,7 +134,8 @@ mod tests {
             "",
             "zip",
             "archive",
-            "release.tar.gz",
+            "release.gz",
+            "release.tar.lz",
             "initrd.img",
             "a.zip/b",
         ] {

@@ -66,6 +66,27 @@ fn opens_each_format_by_name() {
 }
 
 #[test]
+fn opens_compressed_tarballs_by_name() {
+    let compressed = [
+        ("hello.tar.gz", cfg!(feature = "gzip")),
+        ("hello.tar.zst", cfg!(feature = "zstd")),
+        ("hello.tar.xz", cfg!(feature = "xz")),
+        ("hello.tar.bz2", cfg!(feature = "bzip2")),
+    ];
+    for (name, enabled) in compressed {
+        assert_eq!(Format::from_name(name), Some(Format::Tar));
+        let opened = block_on(Archive::open(fixture(name), name));
+        if !(enabled && Format::Tar.is_enabled()) {
+            assert_eq!(opened.unwrap_err().kind(), ErrorKind::Unsupported);
+            continue;
+        }
+        let root = opened.unwrap();
+        let file = block_on(root.open_file("hello/world.txt")).unwrap();
+        assert_eq!(block_on(file.read_to_end()).unwrap(), b"Hello, world!\n");
+    }
+}
+
+#[test]
 fn opens_archives_whose_names_say_nothing() {
     for (format, name, path, contents) in ARCHIVES {
         if !format.is_enabled() {
@@ -85,7 +106,7 @@ fn opens_archives_whose_names_say_nothing() {
 
 #[test]
 fn refuses_names_of_no_format() {
-    for name in ["hello.txt", "release.tar.gz", "initrd.img", "archive"] {
+    for name in ["hello.txt", "release.gz", "initrd.img", "archive"] {
         let error = block_on(Archive::open(fixture("hello.tar"), name)).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Unsupported, "{name}");
         assert_eq!(

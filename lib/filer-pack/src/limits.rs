@@ -37,7 +37,8 @@ pub struct Limits {
     pub max_extension_len: u64,
 
     /// The largest total of the members' decoded sizes, which bounds what
-    /// extracting the archive can write. Default: 16 GiB.
+    /// extracting the archive can write; for a compressed archive, such as
+    /// a tarball, the largest it may decode to. Default: 16 GiB.
     pub max_total_size: u64,
 
     /// The largest ratio of a member's decoded size to its packed size,

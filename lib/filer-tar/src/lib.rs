@@ -13,12 +13,17 @@
 //! never creates or modifies them, and never will: writing archives is out
 //! of scope for this project. Use a dedicated archiving library for that.
 //!
-//! So far it reads uncompressed archives with random access. Compressed
-//! archives (gzip, zstd, xz) and forward-only sources are planned (see
-//! `DESIGN.md` §17.7).
+//! It reads archives plain or compressed, with random access; forward-only
+//! sources are planned (see `DESIGN.md` §17.7). A compressed archive, told
+//! by its first bytes, is decoded through `filer-pack` as it is read (see
+//! [`Compression`]).
 //!
-//! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
-//! by default, forwards to `filer-api`. `all` currently enables nothing.
+//! It needs no OS and builds with `#![no_std]`. Features, all enabled by
+//! default:
+//!
+//! - `std` forwards to `filer-api`;
+//! - `all` enables every compression below;
+//! - `bzip2`, `gzip`, `xz`, and `zstd` each read archives so compressed.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -61,6 +66,9 @@ mod index;
 
 /// Re-exported from [`filer_pack`], where all archive drivers share it.
 pub use filer_pack::Limits;
+
+mod source;
+pub use source::Compression;
 
 mod tar;
 pub use tar::*;

@@ -2200,7 +2200,15 @@ a test reads an archive stored as a `File` in `filer-heap`. Since
 GNU extended headers, mostly resealing a mutated header's checksum so
 that the mutation reaches what parses it; `fuzz/` has a `cargo-fuzz`
 target over the same walk, which reseals each header with the `ustar`
-magic.
+magic. Also since 2026-11-03, it reads archives compressed with gzip,
+zstd, xz, or bzip2 (TAR-02), told by their streams' magic numbers unless
+the first block is a valid header, through `filer-pack`'s decoders and an
+`Unpacked` source: opening decodes the stream once to learn its size,
+bounded by `Limits::max_total_size` against bombs, and again as it
+indexes; reading on from the last read decodes no more, while reading
+back decodes again from the start, which checkpoints are to spare
+(TAR-04). The full `filer-spec` passes over gzip-compressed archives too.
+`filer-archive` names compressed tarballs by their two-part extensions.
 
 **`filer-zip` as built** (2026-11-01, stored members): an own parser
 too (answering Q7 for ZIP), reading the end of central directory record,

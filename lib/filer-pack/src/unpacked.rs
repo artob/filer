@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    Codec, StreamId, Streams,
+    Codec, Stream, StreamId, Streams,
     streams::{read_exact, to_u64},
 };
 use core::ops::Range;
@@ -75,10 +75,38 @@ impl<S: ReadAt, C: Codec> Unpacked<S, C> {
         }
     }
 
+    /// Returns the bytes that `packed`, a range of `source`, decodes to with
+    /// `codec`, however many they are, up to `max`: decoding them once to
+    /// learn how many, checked as the codec checks them, as a compressed
+    /// tarball needs, whose stream records no size.
+    ///
+    /// # Errors
+    ///
+    /// [`LimitExceeded`](ErrorKind::LimitExceeded) if they pass `max`, as
+    /// a decompression bomb would; [`Corrupt`](ErrorKind::Corrupt) if they
+    /// fail the codec's check; the codec's, the decoder's, and the
+    /// source's.
+    pub async fn measured(
+        source: S,
+        packed: Range<u64>,
+        codec: C,
+        max: u64,
+    ) -> Result<Self, Error> {
+        let mut stream = Stream::new(codec.decoder()?);
+        let size = stream.measure(&source, packed.clone(), max).await?;
+        Ok(Self::new(source, packed, size, codec))
+    }
+
     /// Returns the source of the packed bytes.
     #[must_use]
     pub const fn source(&self) -> &S {
         &self.source
+    }
+
+    /// Returns the codec that decodes them.
+    #[must_use]
+    pub const fn codec(&self) -> C {
+        self.codec
     }
 
     /// Reads at `off` into the spare capacity of `buf`, never past the
@@ -189,6 +217,24 @@ mod tests {
             Doubled { sum: 0 },
         );
         let error = read_at(&wrong, 0, decoded.len()).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Corrupt);
+    }
+
+    #[test]
+    fn measures_what_it_decodes_to() {
+        let (source, decoded) = packed(100);
+        let range = 100..source.len() as u64;
+        let len = decoded.len() as u64;
+        let codec = Doubled { sum: sum(&decoded) };
+        let measured = block_on(Unpacked::measured(source, range.clone(), codec, len)).unwrap();
+        assert_eq!(block_on(measured.size()).unwrap(), len);
+        assert_eq!(read_at(&measured, 0, decoded.len()).unwrap(), decoded);
+        // Past the most it may decode, or failing the codec's check.
+        let error =
+            block_on(Unpacked::measured(source, range.clone(), codec, len - 1)).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::LimitExceeded);
+        let error =
+            block_on(Unpacked::measured(source, range, Doubled { sum: 0 }, len)).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Corrupt);
     }
 

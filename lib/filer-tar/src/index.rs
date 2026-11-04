@@ -11,7 +11,7 @@ use filer_api::{
 };
 use filer_pack::{Index, Limits, Member, Parser, Reader};
 
-const TAR: Parser = Parser::new("tar");
+pub(crate) const TAR: Parser = Parser::new("tar");
 
 /// Overrides from a PAX extended header or GNU long-name records, for the
 /// next member only.

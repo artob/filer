@@ -298,6 +298,7 @@ dependencies = [
  "filer-heap",
  "filer-pack",
  "filer-spec",
+ "miniz_oxide",
 ]
 
 [[package]]

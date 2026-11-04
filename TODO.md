@@ -551,12 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **TAR-02: Compressed TAR.** gzip, zstd, and xz (PACK-12 to 14)
-  behind features that `filer-archive` forwards, told apart by magic
-  number and read through `Unpacked`: opening decodes the archive once to
-  index it, and reading behind the last decoded offset decodes again from
-  the start. Done when `.tar.gz`, `.tar.zst`, and `.tar.xz` pass the same
-  subset.
 - [ ] **TAR-04: Checkpoints in compressed TAR.** Save the decoder's state
   every few MiB while indexing, as zlib's `zran` does, so that reading a
   member out of order resumes from the nearest checkpoint, not the start.

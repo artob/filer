@@ -82,3 +82,13 @@ pub fn seal(header: &mut [u8; 512]) {
     let sum: u32 = header.iter().map(|&b| u32::from(b)).sum();
     header[148..156].copy_from_slice(format!("{sum:06o}\0 ").as_bytes());
 }
+
+/// Returns `bytes` compressed as one gzip member.
+pub fn gzip(bytes: &[u8]) -> Vec<u8> {
+    // No flags, time, or hints; an unknown OS.
+    let mut member = vec![0x1F, 0x8B, 8, 0, 0, 0, 0, 0, 0, 0xFF];
+    member.extend(miniz_oxide::deflate::compress_to_vec(bytes, 6));
+    member.extend(filer_api::checksum::crc32(bytes).to_le_bytes());
+    member.extend((bytes.len() as u32).to_le_bytes());
+    member
+}

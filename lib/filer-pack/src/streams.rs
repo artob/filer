@@ -243,6 +243,45 @@ impl Stream {
         Ok(data)
     }
 
+    /// Decodes on to the end of what the decoder decodes, from the packed
+    /// bytes at `packed` in `source`, and returns how many bytes it has
+    /// decoded in all, which must not pass `max`; then the decoder
+    /// [`finish`](Decoder::finish)es. Its end is where it makes no progress,
+    /// at the end of the packed bytes or before what it declines to read,
+    /// such as what follows the last of gzip's members.
+    ///
+    /// # Errors
+    ///
+    /// [`LimitExceeded`](ErrorKind::LimitExceeded) if it would decode more
+    /// than `max` bytes; the decoder's and the source's.
+    pub async fn measure<S: ReadAt>(
+        &mut self,
+        source: &S,
+        packed: Range<u64>,
+        max: u64,
+    ) -> Result<u64, Error> {
+        let mut output = vec![0; OUTPUT_CHUNK];
+        loop {
+            self.fetch(source, &packed).await?;
+            let input = self.input.get(self.used..).unwrap_or_default();
+            let (consumed, produced) = self.decoder.decode(input, &mut output)?;
+            if consumed > input.len() || produced > output.len() {
+                // The decoder broke its contract.
+                return Err(Error::new(ErrorKind::Corrupt, OpKind::Read));
+            }
+            if consumed == 0 && produced == 0 {
+                break;
+            }
+            self.used = self.used.saturating_add(consumed);
+            self.decoded = self.decoded.saturating_add(to_u64(produced));
+            if self.decoded > max {
+                return Err(Error::new(ErrorKind::LimitExceeded, OpKind::Read));
+            }
+        }
+        self.decoder.finish()?;
+        Ok(self.decoded)
+    }
+
     /// Reads the next packed bytes from `source` if all those read are
     /// used and any are left.
     async fn fetch<S: ReadAt>(&mut self, source: &S, packed: &Range<u64>) -> Result<(), Error> {

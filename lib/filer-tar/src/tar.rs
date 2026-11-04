@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::index::index;
+use crate::{Compression, index::index, source::Source};
 use core::future::Future;
 use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
 use filer_pack::{Archive, Limits};
@@ -13,6 +13,14 @@ use filer_pack::{Archive, Limits};
 /// contiguously. The archive's root directory comes back as a [`Dir`]
 /// with only [`Rights::READ`]. The serving itself is the shared
 /// [`Archive`] driver.
+///
+/// An archive compressed with gzip, zstd, xz, or bzip2, as its first bytes
+/// say, is read decoded, with the [`Compression`]'s feature: opening it
+/// decodes it once, to learn its size, which must not pass
+/// [`Limits::max_total_size`], and again as it indexes; reading members in
+/// order decodes on from the last read, while reading back decodes again
+/// from the start. Without its feature, it is
+/// [`Unsupported`](filer_api::ErrorKind::Unsupported).
 ///
 /// It reads POSIX ustar headers (including the name prefix), PAX extended
 /// headers (`path`, `linkpath`, `size`, `mtime`), and GNU long names and
@@ -35,17 +43,29 @@ use filer_pack::{Archive, Limits};
 /// # Examples
 ///
 /// ```
-/// use filer_tar::Tar;
+/// use filer_tar::{Compression, Tar};
 ///
 /// # filer_spec::block_on(async {
 /// let archive: &'static [u8] = include_bytes!("../tests/data/hello.tar");
 /// let root = Tar::open(archive).await?;
 /// let file = root.open_file("hello/world.txt").await?;
 /// assert_eq!(file.read_to_end().await?, b"Hello, world!\n");
+///
+/// # #[cfg(feature = "gzip")] {
+/// // Compressed, read the same way.
+/// let archive: &'static [u8] = include_bytes!("../tests/data/hello.tar.gz");
+/// let root = Tar::open(archive).await?;
+/// assert_eq!(root.driver().compression(), Some(Compression::Gzip));
+/// let file = root.open_file("hello/world.txt").await?;
+/// assert_eq!(file.read_to_end().await?, b"Hello, world!\n");
+/// # }
 /// # Ok::<(), filer_api::Error>(())
 /// # }).unwrap();
 /// ```
-pub struct Tar<S>(Archive<S>);
+pub struct Tar<S> {
+    archive: Archive<Source<S>>,
+    compression: Option<Compression>,
+}
 
 impl<S: ReadAt + 'static> Tar<S> {
     /// Indexes the archive in `source` with the default [`Limits`] and
@@ -65,31 +85,51 @@ impl<S: ReadAt + 'static> Tar<S> {
     ///
     /// See the [type docs](Self); also any error reading `source`.
     pub async fn open_with(source: S, limits: Limits) -> Result<Dir<Self>, Error> {
+        let source = Source::open(source, &limits).await?;
+        let compression = source.compression();
         let tree = index(&source, &limits).await?;
         let archive = Archive::new(tree, source);
         let root = archive.root();
-        Ok(Dir::new(Self(archive), root)?.restrict(Rights::READ))
+        let tar = Self {
+            archive,
+            compression,
+        };
+        Ok(Dir::new(tar, root)?.restrict(Rights::READ))
+    }
+}
+
+impl<S> Tar<S> {
+    /// Returns what the archive is compressed with, if anything.
+    #[must_use]
+    pub const fn compression(&self) -> Option<Compression> {
+        self.compression
     }
 }
 
 impl<S: ReadAt + 'static> Driver for Tar<S> {
     fn id(&self) -> DriverId {
-        self.0.id()
+        self.archive.id()
     }
 
     fn submit(&self, op: Op) -> impl Future<Output = Completion> + Send + use<S> {
-        self.0.submit(op)
+        self.archive.submit(op)
     }
 }
 
 impl<S> Clone for Tar<S> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self {
+            archive: self.archive.clone(),
+            compression: self.compression,
+        }
     }
 }
 
 impl<S> core::fmt::Debug for Tar<S> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("Tar").field(&self.0).finish()
+        f.debug_struct("Tar")
+            .field("archive", &self.archive)
+            .field("compression", &self.compression)
+            .finish()
     }
 }

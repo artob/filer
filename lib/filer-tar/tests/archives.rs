@@ -7,7 +7,7 @@ mod common;
 use common::{Writer, header, seal};
 use filer_api::{Dir, Error, ErrorKind, MetaMask};
 use filer_spec::block_on;
-use filer_tar::{Limits, Tar};
+use filer_tar::{Compression, Limits, Tar};
 
 type Root = Dir<Tar<Vec<u8>>>;
 
@@ -221,4 +221,69 @@ fn reads_the_headers_of_small_members_together() {
     assert!(reads < 100, "{reads} reads to open 1,000 members");
     let file = block_on(root.open_file("m0999")).unwrap();
     assert_eq!(block_on(file.read_to_end()).unwrap(), b"x");
+}
+
+/// `hello.tar`, compressed by gzip 479 (Apple's), zstd 1.5.7, xz 5.8.4,
+/// and bzip2 1.0.8.
+const COMPRESSED: [(&str, Compression); 4] = [
+    ("hello.tar.gz", Compression::Gzip),
+    ("hello.tar.zst", Compression::Zstd),
+    ("hello.tar.xz", Compression::Xz),
+    ("hello.tar.bz2", Compression::Bzip2),
+];
+
+fn fixture(name: &str) -> Vec<u8> {
+    std::fs::read(format!("{}/tests/data/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()
+}
+
+#[test]
+fn reads_compressed_archives() {
+    for (name, compression) in COMPRESSED {
+        let opened = open(fixture(name));
+        if !compression.is_enabled() {
+            assert_eq!(kind(opened), ErrorKind::Unsupported, "{name}");
+            continue;
+        }
+        let root = opened.unwrap();
+        assert_eq!(root.driver().compression(), Some(compression), "{name}");
+        assert_eq!(read(&root, "hello/world.txt"), b"Hello, world!\n");
+        // Reading back, before what was read last, decodes again.
+        assert_eq!(read(&root, "hello/world.txt"), b"Hello, world!\n");
+    }
+    assert_eq!(
+        open(fixture("hello.tar")).unwrap().driver().compression(),
+        None
+    );
+}
+
+#[test]
+fn refuses_compressed_archives_that_fail_their_checks() {
+    for (name, compression) in COMPRESSED.iter().filter(|(_, c)| c.is_enabled()) {
+        // A bit of the next to last byte, which each format checks: gzip's
+        // length, zstd's checksum, xz's footer, and bzip2's CRC.
+        let mut archive = fixture(name);
+        let at = archive.len() - 2;
+        archive[at] ^= 1;
+        let error = open(archive).unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::Corrupt, "{name}");
+        let source = core::error::Error::source(&error).unwrap().to_string();
+        assert_eq!(source, "tar header at offset 0: bad compressed stream");
+        // Decoded, it passes the total size the limits allow.
+        let limits = Limits::default().with_max_total_size(2559);
+        let error = block_on(Tar::open_with(fixture(name), limits)).unwrap_err();
+        assert_eq!(
+            error.kind(),
+            ErrorKind::LimitExceeded,
+            "{name} ({compression:?})"
+        );
+    }
+}
+
+#[test]
+fn reads_plain_archives_whose_names_begin_as_compressed_streams() {
+    for name in [&b"BZh91AY&SY"[..], b"\x1F\x8B\x08name"] {
+        let archive = Writer::default().file(name, b"plain").finish();
+        let root = open(archive).unwrap();
+        assert_eq!(root.driver().compression(), None);
+    }
 }

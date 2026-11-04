@@ -12,13 +12,14 @@
 //! | --- | --- | --- | --- |
 //! | ar | `.a`, `.ar`, `.deb`, `.lib`, `.udeb` | `ar` | `filer-ar` |
 //! | cpio | `.cpio` | `cpio` | `filer-cpio` |
-//! | TAR | `.tar` | `tar` | `filer-tar` |
+//! | TAR | `.tar`, `.tar.gz`, `.tgz`, `.tar.zst`, `.tar.xz`, `.tar.bz2`, ... | `tar`, `gzip`, `zstd`, `xz`, `bzip2` | `filer-tar` |
 //! | ZIP | `.zip`, `.jar`, `.apk`, `.whl`, `.epub`, `.docx`, ... | `zip`, `deflate` | `filer-zip` |
 //!
 //! Each format's feature enables its driver, which is then also
 //! re-exported here as a module (as [`zip`] for `filer-zip`), for what is
 //! particular to it; `deflate` lets `filer-zip` decode Deflate, the method
-//! most ZIP archives use. `rar` and `7z` enable `filer-rar` and
+//! most ZIP archives use, and `gzip`, `zstd`, `xz`, and `bzip2` let
+//! `filer-tar` read tarballs so compressed. `rar` and `7z` enable `filer-rar` and
 //! `filer-7z` (as `sevenz`, since a module's name cannot begin with a
 //! digit), which read nothing yet, so [`Format`] names neither until they
 //! do. `all`, enabled by default, enables every one.
@@ -26,8 +27,8 @@
 //! fails with [`Unsupported`](filer_api::ErrorKind::Unsupported).
 //!
 //! The format comes from the name's extension for now; detecting it from
-//! the archive's first bytes is planned. Compressed tarballs (`.tar.gz`
-//! and the like) are not read yet.
+//! the archive's first bytes is planned. A tarball's compression, though,
+//! `filer-tar` tells by its first bytes.
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: writing archives is out

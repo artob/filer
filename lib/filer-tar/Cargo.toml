@@ -22,8 +22,12 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = []
+all = ["bzip2", "gzip", "xz", "zstd"]
 std = ["filer-api/std", "filer-pack/std"]
+bzip2 = ["filer-pack/bzip2"]
+gzip = ["filer-pack/gzip"]
+xz = ["filer-pack/xz"]
+zstd = ["filer-pack/zstd"]
 
 [dependencies]
 filer-api.workspace = true
@@ -32,3 +36,5 @@ filer-pack.workspace = true
 [dev-dependencies]
 filer-heap = { workspace = true, features = ["std"] }
 filer-spec = { workspace = true, features = ["std"] }
+# Writes the tests' gzip members.
+miniz_oxide = { workspace = true, features = ["with-alloc"] }

@@ -23,7 +23,8 @@ so any release may break compatibility.
   `Verified` checks a `Digest`, such as `Crc32`, of what a `Decoder`
   produced, over another decoder or `Passthrough`. `Streams` keeps
   decoding `Stream`s part way, by `StreamId`, and `Unpacked` reads a
-  packed range of a source decoded, as a `ReadAt` source itself.
+  packed range of a source decoded, as a `ReadAt` source itself, of a
+  size declared or, with `Unpacked::measured`, learned by decoding it.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `miniz_oxide`; `Gzip`, with `gzip`, decodes gzip streams over
   it; `Zstd`, with `zstd`, zstd streams over `ruzstd`; `Lzma` and
@@ -35,10 +36,16 @@ so any release may break compatibility.
   parsers open archives of many small members in a few reads rather than
   one or two per member.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
+- `filer-archive`: Compressed tarballs, by their extensions (`.tar.gz`,
+  `.tgz`, `.tar.zst`, `.tar.xz`, `.tar.bz2`, and the like); the `bzip2`,
+  `gzip`, `xz`, and `zstd` features, which `filer-tar` reads with.
 - `filer-spec`: `Counted`, a source counting its reads; `Outcome::files`;
   `Checks::refusals` and
   `Checks::read_cap`, for archive drivers; `Mutations::aligned` and
   `Mutations::most`.
+- `filer-tar`: Archives compressed with gzip, zstd, xz, or bzip2, told by
+  their first bytes, behind features named as they are; `Compression`,
+  and `Tar::compression`.
 ### Changed
 - `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the
   members an archive shows, no longer ar's symbol and name tables or
