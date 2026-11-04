@@ -23,13 +23,15 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = []
+all = ["deflate64"]
 std = []
+deflate64 = []
 
 [dev-dependencies]
 # Mutates streams for `tests/fuzz.rs`. A path alone, without a version, so
 # that publishing strips it; the fuzzer stays out of the package with it.
 filer-spec = { path = "../filer-spec", default-features = false, features = ["std"] }
 # Other decoders, which the tests check this one against.
+deflate64.workspace = true
 miniz_oxide = { workspace = true, features = ["with-alloc"] }
 zlib-rs = { workspace = true, features = ["std"] }

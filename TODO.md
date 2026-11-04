@@ -555,15 +555,10 @@ Our own clean-room, public-domain decoders, each a crate of its own
 crate's name until its first code, which moves it to `lib/`.
 
 - [ ] **DEC-02: `decode-deflate` in place of `miniz_oxide`.** It
-  decodes Deflate as zlib does, and copies for checkpoints. What remains:
-  decoding at least as fast as `miniz_oxide` (as fast on Apple M4, 11%
-  slower on a Zen 1 VM, and on both two thirds as fast as `zlib-rs`);
-  Deflate64 (ZIP's method 9, 7z), behind
-  an additive `deflate64` feature, as a variant chosen per stream that
-  never changes what plain Deflate decodes (a 64 KiB window, length code
-  285 as 3 plus 16 extra bits, and distance codes 30 and 31); and
-  `filer-pack`'s `Deflate` over it. Done when `miniz_oxide` leaves
-  `filer-pack`'s dependencies, ZIP members and gzip streams read as
+  decodes Deflate as zlib does, and Deflate64, and copies for
+  checkpoints. What remains: `filer-pack`'s `Deflate` over it, and ZIP's
+  method 9 through `Decoder::deflate64`. Done when `miniz_oxide` leaves
+  `filer-pack`'s dependencies, and ZIP members and gzip streams read as
   before, no slower.
 - [ ] **DEC-03: `decode-gzip`.** gzip (RFC 1952): `filer-pack`'s `Gzip`
   framing, over `decode-deflate`. Done when `filer-pack` decodes gzip

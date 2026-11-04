@@ -2531,7 +2531,15 @@ zlib's own output at each level and strategy, and mutations of it, as
 zlib does, through `zlib-rs`, a port of it used to test, and consumes as
 much of each stream as zlib does. It reads bits ahead for speed only
 within a call's input, and gives back the whole bytes it does not use
-when it returns, so that it never consumes past a stream's end.
+when it returns, so that it never consumes past a stream's end. While the
+input holds two words past what is taken, a fast loop decodes codes
+without checking for too few bits, as every refill leaves enough for a
+code, its extra bits, and a distance; with matches copied in chunks of
+16 or 8 bytes into a buffer with room past its end, it decodes as fast
+as `miniz_oxide`, and two thirds as fast as `zlib-rs`. Deflate64 is a
+variant chosen per decoder (`Decoder::deflate64`), checked against
+7-Zip's output and the `deflate64` crate, which decodes matches from
+before a stream's start, as zeros, that zlib and this crate refuse.
 
 **Benchmarking the decoders (D63, 2026-11-04).** Each `decode-*` crate
 keeps a `BENCH.md`: its decoder's figures alone, and against the

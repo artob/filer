@@ -19,7 +19,12 @@ pub type Decoded = Result<(Vec<u8>, usize), Error>;
 /// room for as many of output at a time, up to `CAP` in all, and then
 /// [`finish`](Decoder::finish)es it.
 pub fn decode(input: &[u8], piece: usize) -> Decoded {
-    let mut decoder = Decoder::new();
+    decode_with(Decoder::new, input, piece)
+}
+
+/// Decodes `input` as [`decode`] does, with a decoder from `new`.
+pub fn decode_with(new: fn() -> Decoder, input: &[u8], piece: usize) -> Decoded {
+    let mut decoder = new();
     let mut output = Vec::new();
     let mut buf = vec![0; piece];
     let mut at = 0;
@@ -48,8 +53,13 @@ pub fn decode(input: &[u8], piece: usize) -> Decoded {
 ///
 /// If they do not agree.
 pub fn agree(input: &[u8], piece: usize) -> Decoded {
-    let whole = decode(input, input.len().max(64 * 1024));
-    let pieces = decode(input, piece);
+    agree_with(Decoder::new, input, piece)
+}
+
+/// Checks `input` as [`agree`] does, with decoders from `new`.
+pub fn agree_with(new: fn() -> Decoder, input: &[u8], piece: usize) -> Decoded {
+    let whole = decode_with(new, input, input.len().max(64 * 1024));
+    let pieces = decode_with(new, input, piece);
     match (&whole, &pieces) {
         (Ok(whole), Ok(pieces)) => {
             assert!(whole == pieces, "decoded otherwise in pieces of {piece}")
@@ -73,6 +83,19 @@ pub fn zlib(input: &[u8]) -> Option<(Vec<u8>, usize)> {
         },
         _ => None,
     }
+}
+
+/// Decodes Deflate64 `input` through the `deflate64` crate: what it
+/// decodes to, or `None` if it refuses it.
+pub fn deflate64(input: &[u8]) -> Option<Vec<u8>> {
+    let mut inflater = deflate64::InflaterManaged::new();
+    let mut output = vec![0; CAP];
+    let result = inflater.inflate(input, &mut output);
+    if result.data_error || !inflater.finished() {
+        return None;
+    }
+    output.truncate(result.bytes_written);
+    Some(output)
 }
 
 /// The CRC-32 that zlib computes.

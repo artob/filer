@@ -68,6 +68,7 @@ filer-zfs = { version = "0.0.2", path = "tmp/filer-zfs", default-features = fals
 filer-zip = { version = "0.0.2", path = "lib/filer-zip", default-features = false }
 known-codepages = { version = "0.0.2", path = "lib/known-codepages", default-features = false }
 bitflags = { version = "2.13", default-features = false }
+deflate64 = "0.1"
 lzma-rust2 = { version = "0.25", default-features = false }
 miniz_oxide = { version = "0.9", default-features = false }
 ref-cast = { version = "1.0.27", default-features = false }

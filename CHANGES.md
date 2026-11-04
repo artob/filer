@@ -48,7 +48,8 @@ so any release may break compatibility.
 - `decode-deflate`: New crate: a Deflate decoder, written clean room from
   RFC 1951 and dedicated to the public domain, without dependencies, for
   `no_std` with an allocator. It refuses what zlib refuses, consumes a
-  stream to its end and no further, and offers checkpoints anywhere.
+  stream to its end and no further, and offers checkpoints anywhere;
+  `Decoder::deflate64`, with `deflate64`, decodes Deflate64.
 - `decode-bzip2`: New crate: a bzip2 decoder, written clean room from Joe
   Tsai's description of the format and dedicated to the public domain,
   without dependencies, for `no_std` with an allocator. Its `Decoder` is

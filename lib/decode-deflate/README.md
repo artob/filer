@@ -44,8 +44,9 @@ fn main() -> Result<(), Error> {
 }
 ```
 
-Deflate64, PKWARE's variant for ZIP's method 9 and 7z, with a 64 KiB window,
-a longer last length, and two more distances, is to come behind an additive
-`deflate64` feature, chosen per stream.
+`Decoder::deflate64` decodes Deflate64, PKWARE's variant for ZIP's method 9
+and 7z, with a 64 KiB window, a longer last length, and two more distances,
+behind the additive `deflate64` feature, enabled by default: a stream is one
+or the other, as its container says.
 
 This is free and unencumbered software released into the public domain.

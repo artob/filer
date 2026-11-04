@@ -341,7 +341,11 @@ its replacement.
   `flate2`. `decode-deflate` (D62), written from RFC 1951 alone, is to
   replace `miniz_oxide` (DEC-02); `zlib-rs`, a port of zlib (Zlib
   license), is its tests' reference for zlib's behavior, run, never
-  read. Deflate's patent (US 5,051,745) expired in 2008.
+  read. Deflate64, which PKWARE names but does not document, is decoded
+  from how it is known to differ from Deflate (a 64 KiB window, length
+  code 285, and distance codes 30 and 31), checked against 7-Zip's
+  output and the `deflate64` crate (MIT), run as a black box; no patent
+  on it is known. Deflate's patent (US 5,051,745) expired in 2008.
 - **zstd: written here.** `decode-zstd`, which `filer-pack`'s `Zstd`
   adapts, is written from RFC 8878 alone, and its XXH64 checksum from
   the xxHash specification (D61, D62, 2026-11-04);

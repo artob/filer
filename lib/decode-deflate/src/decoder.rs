@@ -9,19 +9,80 @@ use alloc::{boxed::Box, vec::Vec};
 /// The most a call decodes before it produces what it decoded.
 const CHUNK: usize = 32 * 1024;
 
-/// How far back a match may copy from.
-const WINDOW: usize = 32 * 1024;
-
 /// How far past its end a match may write, as it copies in chunks of up
 /// to 16.
 const SLACK: usize = 16;
 
-/// What a window's buffer holds at most: the window, and room to decode
-/// three chunks before it must move the window back to its start.
-const BUFFER: usize = WINDOW + 3 * CHUNK + 258 + SLACK;
+/// What a decoder decodes: Deflate, or Deflate64, PKWARE's variant of it,
+/// with a 64 KiB window, length code 285 as 3 and 16 extra bits, and
+/// distance codes 30 and 31.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum Format {
+    #[default]
+    Deflate,
+    #[cfg(feature = "deflate64")]
+    Deflate64,
+}
+
+impl Format {
+    /// How far back a match may copy from.
+    const fn window(self) -> usize {
+        match self {
+            Self::Deflate => 32 * 1024,
+            #[cfg(feature = "deflate64")]
+            Self::Deflate64 => 64 * 1024,
+        }
+    }
+
+    /// The longest a match may be.
+    const fn longest(self) -> usize {
+        match self {
+            Self::Deflate => 258,
+            #[cfg(feature = "deflate64")]
+            Self::Deflate64 => 0xFFFF_usize.saturating_add(3),
+        }
+    }
+
+    /// How many distance codes may occur, and a dynamic block describe.
+    const fn distances(self) -> usize {
+        match self {
+            Self::Deflate => 30,
+            #[cfg(feature = "deflate64")]
+            Self::Deflate64 => 32,
+        }
+    }
+
+    /// What a window's buffer holds at most: the window, and room to
+    /// decode three chunks before it must move the window to its start.
+    const fn buffer(self) -> usize {
+        self.window()
+            .saturating_add(CHUNK.saturating_mul(3))
+            .saturating_add(self.longest())
+            .saturating_add(SLACK)
+    }
+
+    /// Returns length code `symbol`'s base and extra bits, if it is one.
+    fn length(self, symbol: u32) -> Option<(u32, u32)> {
+        let code = usize::try_from(symbol.checked_sub(257)?).ok()?;
+        match (self, code) {
+            #[cfg(feature = "deflate64")]
+            (Self::Deflate64, 28) => Some((3, 16)),
+            _ => LENGTHS.get(code).copied(),
+        }
+    }
+
+    /// Returns distance code `symbol`'s base and extra bits, if it is one.
+    fn distance(self, symbol: u32) -> Option<(u32, u32)> {
+        let code = usize::try_from(symbol)
+            .ok()
+            .filter(|&code| code < self.distances())?;
+        DISTANCES.get(code).copied()
+    }
+}
 
 /// Each length code's base and extra bits, from code 257 (RFC 1951
-/// §3.2.5); codes 286 and 287 never occur.
+/// §3.2.5), but for 285, which the format gives; codes 286 and 287 never
+/// occur.
 const LENGTHS: [(u32, u32); 29] = [
     (3, 0),
     (4, 0),
@@ -54,9 +115,9 @@ const LENGTHS: [(u32, u32); 29] = [
     (258, 0),
 ];
 
-/// Each distance code's base and extra bits (§3.2.5); codes 30 and 31
-/// never occur.
-const DISTANCES: [(u32, u32); 30] = [
+/// Each distance code's base and extra bits (§3.2.5); codes 30 and 31,
+/// Deflate64's, never occur in Deflate.
+const DISTANCES: [(u32, u32); 32] = [
     (1, 0),
     (2, 0),
     (3, 0),
@@ -87,6 +148,8 @@ const DISTANCES: [(u32, u32); 30] = [
     (12289, 12),
     (16385, 13),
     (24577, 13),
+    (32769, 14),
+    (49153, 14),
 ];
 
 /// The order in which a dynamic block lists its code length code's
@@ -102,7 +165,7 @@ const LENGTH_BITS: u32 = 7;
 
 /// The most literal/length and distance codes a dynamic block may have.
 const MAX_LITERALS: usize = 286;
-const MAX_DISTANCES: usize = 30;
+const MAX_DISTANCES: usize = 32;
 
 /// Returns the low `n` bits set.
 fn mask(n: u32) -> u64 {
@@ -186,6 +249,7 @@ impl Bits {
 /// a buffer with room past them.
 #[derive(Clone, Debug, Default)]
 struct Window {
+    format: Format,
     buf: Vec<u8>,
     end: usize,
     /// How many of the bytes have been produced.
@@ -214,13 +278,16 @@ impl Window {
     /// past them; or grows the buffer, doubling, so that small streams
     /// take little.
     fn prepare(&mut self) {
-        let need = CHUNK.saturating_add(258).saturating_add(SLACK);
-        if self.end.saturating_add(need) > BUFFER {
+        let need = CHUNK
+            .saturating_add(self.format.longest())
+            .saturating_add(SLACK);
+        let buffer = self.format.buffer();
+        if self.end.saturating_add(need) > buffer {
             self.compact();
         }
         let want = self.end.saturating_add(need);
         if self.buf.len() < want {
-            let grown = want.max(self.buf.len().saturating_mul(2)).min(BUFFER);
+            let grown = want.max(self.buf.len().saturating_mul(2)).min(buffer);
             self.buf.resize(grown.max(want), 0);
         }
     }
@@ -228,7 +295,10 @@ impl Window {
     /// Moves the latest window, and what is not yet produced, to the
     /// buffer's start, dropping what is before them.
     fn compact(&mut self) {
-        let keep = self.end.saturating_sub(WINDOW).min(self.produced);
+        let keep = self
+            .end
+            .saturating_sub(self.format.window())
+            .min(self.produced);
         self.buf.copy_within(keep..self.end, 0);
         self.end = self.end.saturating_sub(keep);
         self.produced = self.produced.saturating_sub(keep);
@@ -266,6 +336,7 @@ impl Dynamic {
         &mut self,
         bits: &mut Bits,
         input: &mut Input<'_>,
+        format: Format,
     ) -> Result<Option<(Table, Table)>, Error> {
         bits.refill(input);
         let (literals, distances, count) = match self.counts {
@@ -280,7 +351,7 @@ impl Dynamic {
                     distances.saturating_add(1),
                     count.saturating_add(4),
                 );
-                if counts.0 > MAX_LITERALS || counts.1 > MAX_DISTANCES {
+                if counts.0 > MAX_LITERALS || counts.1 > format.distances() {
                     return Err(corrupt());
                 }
                 self.counts = Some(counts);
@@ -434,6 +505,17 @@ impl Decoder {
         }
     }
 
+    /// Returns a decoder at the start of a Deflate64 stream: PKWARE's
+    /// variant of Deflate, ZIP's method 9, with a 64 KiB window, length
+    /// code 285 as 3 and 16 extra bits, and distance codes 30 and 31.
+    #[cfg(feature = "deflate64")]
+    #[must_use]
+    pub fn deflate64() -> Self {
+        let mut decoder = Self::new();
+        decoder.window.format = Format::Deflate64;
+        decoder
+    }
+
     /// Decodes what it can of `input` into `output`, and returns how many
     /// bytes of each it consumed and produced.
     ///
@@ -571,7 +653,9 @@ impl Decoder {
                     *left = left.saturating_sub(u32::try_from(n).unwrap_or(u32::MAX));
                 },
                 State::Dynamic(dynamic) => {
-                    let Some((literals, distances)) = dynamic.read(&mut self.bits, input)? else {
+                    let Some((literals, distances)) =
+                        dynamic.read(&mut self.bits, input, self.window.format)?
+                    else {
                         return Ok(Flow::More);
                     };
                     (self.literals, self.distances) = (literals, distances);
@@ -606,7 +690,8 @@ impl Decoder {
             length,
         };
         let tables = (&self.literals, &self.distances);
-        let (stop, at) = codes(at, tables, &mut window.buf, limit, input.bytes);
+        let format = window.format;
+        let (stop, at) = codes(at, tables, format, &mut window.buf, limit, input.bytes);
         (self.bits, window.end, input.taken) = (at.bits, at.end, at.taken);
         length = at.length;
         self.state = length.map_or(State::Literal, State::Distance);
@@ -670,12 +755,13 @@ struct Cursor {
 fn codes(
     mut at: Cursor,
     (literals, distances): (&Table, &Table),
+    format: Format,
     buf: &mut [u8],
     limit: usize,
     input: &[u8],
 ) -> (Result<Stop, Error>, Cursor) {
     if at.length.is_none() {
-        match fast(&mut at, (literals, distances), buf, limit, input) {
+        match fast(&mut at, (literals, distances), format, buf, limit, input) {
             Ok(None) => {},
             Ok(Some(stop)) => return (Ok(stop), at),
             Err(error) => return (Err(error), at),
@@ -707,8 +793,7 @@ fn codes(
                     at.bits.consume(n);
                     break Ok(Stop::End);
                 }
-                let code = usize::from(symbol).saturating_sub(257);
-                let Some(&(base, extra)) = LENGTHS.get(code) else {
+                let Some((base, extra)) = format.length(u32::from(symbol)) else {
                     break Err(corrupt());
                 };
                 if at.bits.count < n.saturating_add(extra) {
@@ -727,7 +812,7 @@ fn codes(
             },
             Code::Invalid => break Err(corrupt()),
         };
-        let Some(&(base, extra)) = DISTANCES.get(usize::from(symbol)) else {
+        let Some((base, extra)) = format.distance(u32::from(symbol)) else {
             break Err(corrupt());
         };
         if at.bits.count < n.saturating_add(extra) {
@@ -739,7 +824,7 @@ fn codes(
         let (Ok(distance), Ok(len)) = (usize::try_from(distance), usize::try_from(len)) else {
             break Err(corrupt());
         };
-        match copy(buf, at.end, distance, len) {
+        match copy(buf, at.end, distance, len, format.window()) {
             Ok(end) => at.end = end,
             Err(error) => break Err(error),
         }
@@ -747,22 +832,25 @@ fn codes(
     (stop, at)
 }
 
-/// Decodes codes as `codes` does, while the input holds a word past what
-/// is taken, so that every refill leaves at least 56 bits: enough for a
-/// literal/length code, its extra bits, and a distance code and its own,
-/// so that no code can find too few. It returns why it stopped, or
-/// nothing once the input runs short, for `codes` to go on carefully.
+/// Decodes codes as `codes` does, while the input holds two words past
+/// what is taken, so that every refill leaves at least 56 bits: enough for
+/// a literal/length code, its extra bits, and a distance code and its own,
+/// in Deflate; and in Deflate64, whose lengths take up to 16 extra bits,
+/// once refilled before the distance. So no code can find too few. It
+/// returns why it stopped, or nothing once the input runs short, for
+/// `codes` to go on carefully.
 #[inline]
 fn fast(
     at: &mut Cursor,
     (literals, distances): (&Table, &Table),
+    format: Format,
     buf: &mut [u8],
     limit: usize,
     input: &[u8],
 ) -> Result<Option<Stop>, Error> {
     while at.end < limit {
         let rest = input.get(at.taken..).unwrap_or_default();
-        if rest.len() < 8 {
+        if rest.len() < 16 {
             return Ok(None);
         }
         at.bits.refill_from(input, &mut at.taken);
@@ -776,27 +864,36 @@ fn fast(
         if symbol == 256 {
             return Ok(Some(Stop::End));
         }
-        let code = usize::try_from(symbol.saturating_sub(257)).unwrap_or(usize::MAX);
-        let &(base, extra) = LENGTHS.get(code).ok_or_else(corrupt)?;
+        let (base, extra) = format.length(symbol).ok_or_else(corrupt)?;
         let length = base.saturating_add(at.bits.take(extra));
+        // A distance code and its extra bits take up to 29.
+        if at.bits.count < 29 {
+            at.bits.refill_from(input, &mut at.taken);
+        }
         let (symbol, n) = distances.decode(at.bits.value).ok_or_else(corrupt)?;
         at.bits.consume(n);
-        let code = usize::try_from(symbol).unwrap_or(usize::MAX);
-        let &(base, extra) = DISTANCES.get(code).ok_or_else(corrupt)?;
+        let (base, extra) = format.distance(symbol).ok_or_else(corrupt)?;
         let distance = base.saturating_add(at.bits.take(extra));
         let distance = usize::try_from(distance).map_err(|_| corrupt())?;
         let length = usize::try_from(length).map_err(|_| corrupt())?;
-        at.end = copy(buf, at.end, distance, length)?;
+        at.end = copy(buf, at.end, distance, length, format.window())?;
     }
     Ok(Some(Stop::Full))
 }
 
-/// Copies to `buf` past `end` `length` bytes from `distance` back, which
-/// they may overlap, repeating what they copy, and returns the new end.
-/// It may write up to `SLACK` bytes past that end.
-fn copy(buf: &mut [u8], end: usize, distance: usize, length: usize) -> Result<usize, Error> {
+/// Copies to `buf` past `end` `length` bytes from `distance` back, no
+/// further than `window`, which they may overlap, repeating what they
+/// copy, and returns the new end. It may write up to `SLACK` bytes past
+/// that end.
+fn copy(
+    buf: &mut [u8],
+    end: usize,
+    distance: usize,
+    length: usize,
+    window: usize,
+) -> Result<usize, Error> {
     let from = end.checked_sub(distance);
-    let mut from = from.filter(|_| distance <= WINDOW).ok_or_else(corrupt)?;
+    let mut from = from.filter(|_| distance <= window).ok_or_else(corrupt)?;
     let stop = end.saturating_add(length);
     let mut to = end;
     match distance {

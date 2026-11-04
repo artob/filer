@@ -15,8 +15,15 @@
 //! it serves blocking, async, and in-memory callers alike. A stream may be
 //! given and taken in pieces of any size, down to a byte, and decodes the
 //! same as whole. [`Decoder::checkpoint`] offers a copy of the decoder
-//! anywhere, about 100 KiB with its window, so that a caller may resume
-//! reading a long stream part way rather than from its start.
+//! anywhere, its window and a few KiB, so that a caller may resume reading
+//! a long stream part way rather than from its start.
+//!
+//! [`Decoder::deflate64`] decodes Deflate64, PKWARE's variant of Deflate,
+//! ZIP's method 9 and one of 7z's: a 64 KiB window, length code 285 as 3
+//! and 16 extra bits, for matches up to 65,538 bytes long, and distance
+//! codes 30 and 31. A stream is one or the other, as its container says,
+//! so the choice is per decoder, and the additive `deflate64` feature,
+//! enabled by `all`, only adds that constructor.
 //!
 //! Streams are untrusted input. Nothing in this crate may panic, loop
 //! without end, or allocate without bound on any input, which its root
@@ -26,10 +33,12 @@
 //! literal/length or 30 distance codes; codes that never occur; and
 //! distances past the start of the stream or the window.
 //!
-//! Its source is RFC 1951; zlib's own code is not copied, nor any other
-//! decoder's. It is pure, safe Rust without dependencies, and builds with
-//! `#![no_std]`, with an allocator. The `std` feature, enabled by default,
-//! currently adds nothing.
+//! Its source is RFC 1951, and for Deflate64, which PKWARE does not
+//! document, how it differs from Deflate, checked against what 7-Zip
+//! writes; zlib's own code is not copied, nor any other decoder's. It is
+//! pure, safe Rust without dependencies, and builds with `#![no_std]`,
+//! with an allocator. The `std` feature, enabled by default, currently
+//! adds nothing.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.
