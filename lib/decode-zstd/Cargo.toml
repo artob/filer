@@ -12,6 +12,7 @@ license.workspace = true
 keywords = ["zstd", "zstandard", "decompression", "decoder", "no-std"]
 categories = ["compression", "no-std"]
 publish.workspace = true
+exclude = ["tests/fuzz.rs"]
 
 [lints]
 workspace = true
@@ -26,5 +27,7 @@ all = []
 std = []
 
 [dev-dependencies]
-# Mutates streams for `tests/fuzz.rs`.
-filer-spec = { workspace = true, features = ["std"] }
+# Mutates streams for `tests/fuzz.rs`. A path alone, without a version, so
+# that publishing strips it, and the crate depends on nothing; the fuzzer
+# stays out of the package with it.
+filer-spec = { path = "../filer-spec", default-features = false, features = ["std"] }
