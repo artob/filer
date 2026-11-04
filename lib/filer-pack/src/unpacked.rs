@@ -95,8 +95,10 @@ impl<S: ReadAt, C: Codec> Unpacked<S, C> {
         let mut stream = Stream::new(codec.decoder()?);
         let size = stream.measure(&source, packed.clone(), max).await?;
         let unpacked = Self::new(source, packed, size, codec);
-        // What reads come back to, if the decoder offered any.
+        // What reads come back to, if the decoder offered any, and what it
+        // decoded last.
         unpacked.streams.record(WHOLE, &mut stream);
+        unpacked.streams.keep(WHOLE, stream);
         Ok(unpacked)
     }
 
@@ -175,6 +177,40 @@ mod tests {
         fn decoder(&self) -> Result<Box<dyn Decoder>, Error> {
             COUNTED.fetch_add(1, Ordering::Relaxed);
             self.0.decoder()
+        }
+    }
+
+    /// The toy codec, its decoders holding `.1` bytes, as they say.
+    #[derive(Clone, Copy)]
+    struct Heavy(Doubled, usize);
+
+    struct Holding(Box<dyn Decoder>, usize);
+
+    impl Decoder for Holding {
+        fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
+            self.0.decode(input, output)
+        }
+
+        fn finish(&mut self) -> Result<(), Error> {
+            self.0.finish()
+        }
+
+        fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+            Some(Box::new(Holding(self.0.checkpoint()?, self.1)))
+        }
+
+        fn footprint(&self) -> usize {
+            self.1
+        }
+    }
+
+    impl Codec for Heavy {
+        fn is_stored(&self) -> bool {
+            false
+        }
+
+        fn decoder(&self) -> Result<Box<dyn Decoder>, Error> {
+            Ok(Box::new(Holding(self.0.decoder()?, self.1)))
         }
     }
 
@@ -267,6 +303,37 @@ mod tests {
     }
 
     #[test]
+    fn reads_back_from_what_it_decoded_last() {
+        let mut rng = Rng::new(0x7A11);
+        let source: Vec<u8> = (0..1 << 18).map(|_| rng.below(256) as u8).collect();
+        let decoded: Vec<u8> = source.iter().flat_map(|&b| [b, b]).collect();
+        let source = filer_spec::Counted::new(source);
+        let reads = source.reads();
+        let (n, len) = (decoded.len(), decoded.len() as u64);
+        let codec = Doubled { sum: sum(&decoded) };
+        let unpacked = Unpacked::new(source, 0..1 << 18, len, codec);
+        // Back from the middle, within the 64 KiB a stream holds, reads
+        // nothing more of the source; past twice that, it does.
+        let mid = n / 2;
+        assert_eq!(
+            read_at(&unpacked, mid as u64, 100).unwrap(),
+            decoded[mid..mid + 100]
+        );
+        let before = reads.load(Ordering::Relaxed);
+        for off in [mid - 100, mid - 30_000, mid + 50 - 64 * 1024, mid - 10] {
+            let data = read_at(&unpacked, off as u64, 200).unwrap();
+            assert_eq!(data, decoded[off..off + 200], "{off}");
+        }
+        assert_eq!(reads.load(Ordering::Relaxed), before);
+        let off = mid - 130 * 1024;
+        assert_eq!(
+            read_at(&unpacked, off as u64, 10).unwrap(),
+            decoded[off..off + 10]
+        );
+        assert!(reads.load(Ordering::Relaxed) > before);
+    }
+
+    #[test]
     fn keeps_checkpoints_bounded() {
         // 300 intervals of 64 KiB, and some.
         let len = 300 * (64 << 10) / 2 + 1000;
@@ -282,6 +349,23 @@ mod tests {
             read_at(&unpacked, off as u64, 100).unwrap(),
             decoded[off..off + 100]
         );
+    }
+
+    #[test]
+    fn keeps_checkpoints_within_their_memory() {
+        // 300 intervals of 64 KiB, each checkpoint holding 1 MiB, then
+        // 4 MiB, of 64 MiB at most; and 9 MiB, of 8 MiB at most each.
+        let len = 300 * (64 << 10) / 2 + 1000;
+        let source: Vec<u8> = (0..len).map(|n| n as u8).collect();
+        let decoded: Vec<u8> = source.iter().flat_map(|&b| [b, b]).collect();
+        let (size, range) = (decoded.len() as u64, 0..len as u64);
+        for (held, most) in [(1 << 20, 64), (4 << 20, 16), (9 << 20, 0)] {
+            let codec = Heavy(Doubled { sum: sum(&decoded) }, held);
+            let source = source.clone();
+            let unpacked = block_on(Unpacked::measured(source, range.clone(), codec, size));
+            let kept = unpacked.unwrap().streams.checkpoints();
+            assert!((most / 2..=most).contains(&kept), "{kept} of {held}");
+        }
     }
 
     #[test]

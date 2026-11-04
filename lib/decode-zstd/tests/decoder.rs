@@ -169,38 +169,35 @@ fn refuses_what_it_cannot_decode() {
     assert_eq!(kind(&dictionary), Error::Unsupported);
 }
 
-#[test]
-fn offers_checkpoints_between_frames() {
-    let stream = [
-        zstd(&[Block::Raw(b"one")]),
-        skippable(b"skipped"),
-        zstd(&[Block::Rle(b'2', 3), Block::Raw(b"!")]),
-    ]
-    .concat();
+/// Decodes `stream` from each checkpoint that a decoder given `piece`
+/// bytes at a time and room for 16 offers, every `every` calls, and
+/// checks that each decodes on to the same end; returns how many it took.
+fn resume_from_checkpoints(stream: &[u8], piece: usize, every: usize) -> usize {
     let mut decoder = Decoder::new();
     let mut output = [0; 16];
-    assert!(decoder.checkpoint().is_none(), "before any frame");
-    // It returns at the end of each frame, so a checkpoint follows each.
-    let (mut at, mut decoded) = (0, Vec::new());
+    let (mut at, mut decoded, mut calls) = (0, Vec::new(), 0);
     let mut resumed = Vec::new();
     loop {
-        let (consumed, produced) = decoder.decode(&stream[at..], &mut output).unwrap();
-        if (consumed, produced) == (0, 0) {
+        let input = &stream[at..stream.len().min(at + piece)];
+        let (consumed, produced) = decoder.decode(input, &mut output).unwrap();
+        if (consumed, produced) == (0, 0) && at == stream.len() {
             break;
         }
         at += consumed;
         decoded.extend_from_slice(&output[..produced]);
-        if let Some(checkpoint) = decoder.checkpoint() {
+        calls += 1;
+        if calls % every == 0 {
+            let checkpoint = decoder.checkpoint().unwrap();
             resumed.push((at - decoder.buffered(), decoded.len(), checkpoint));
         }
     }
     decoder.finish().unwrap();
-    assert_eq!(decoded, b"one222!");
-    assert_eq!(resumed.len(), 3);
-    // Each goes on from where it was taken to the same end.
+    let taken = resumed.len();
+    // Each goes on from where it was taken to the same end, as whole.
     for (from, len, mut checkpoint) in resumed {
         let mut rest = Vec::new();
         let mut at = from;
+        let mut output = [0; 4096];
         loop {
             let (consumed, produced) = checkpoint.decode(&stream[at..], &mut output).unwrap();
             if (consumed, produced) == (0, 0) {
@@ -210,6 +207,49 @@ fn offers_checkpoints_between_frames() {
             rest.extend_from_slice(&output[..produced]);
         }
         checkpoint.finish().unwrap();
-        assert_eq!(rest, decoded[len..]);
+        assert!(rest == decoded[len..], "from {from}");
     }
+    taken
+}
+
+#[test]
+fn offers_checkpoints_between_frames() {
+    let stream = [
+        zstd(&[Block::Raw(b"one")]),
+        skippable(b"skipped"),
+        zstd(&[Block::Rle(b'2', 3), Block::Raw(b"!")]),
+    ]
+    .concat();
+    assert_eq!(decode(&stream).unwrap(), b"one222!");
+    // A fresh decoder, before any frame, as a checkpoint is.
+    let checkpoint = Decoder::new().checkpoint().unwrap();
+    assert!(checkpoint.finish().is_err());
+    // In whole pieces, each call ends a frame; byte by byte, it is
+    // anywhere within one, gathering a header or block.
+    assert_eq!(resume_from_checkpoints(&stream, stream.len(), 1), 3);
+    assert_eq!(resume_from_checkpoints(&stream, 1, 1), stream.len());
+}
+
+#[test]
+fn offers_checkpoints_within_frames() {
+    // Compressed blocks, between which their tables, repeat offsets,
+    // window, and hash so far go on; and within which output is pending.
+    for (stream, piece, every) in [
+        (&include_bytes!("data/sequences.zst")[..], 100, 97),
+        (include_bytes!("data/numbers.zst"), 7, 29),
+    ] {
+        assert!(resume_from_checkpoints(stream, piece, every) > 50);
+    }
+}
+
+#[test]
+fn copies_only_the_window_into_checkpoints() {
+    // `numbers.zst`'s first frame has a 1 KiB window.
+    let stream = include_bytes!("data/numbers.zst");
+    let mut decoder = Decoder::new();
+    let mut output = vec![0; 30_000];
+    decoder.decode(&stream[..3000], &mut output).unwrap();
+    let checkpoint = decoder.checkpoint().unwrap();
+    assert!(checkpoint.footprint() < decoder.footprint());
+    assert!(checkpoint.footprint() < 4096, "{}", checkpoint.footprint());
 }

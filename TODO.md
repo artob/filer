@@ -588,15 +588,6 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **PACK-20: Checkpoints within zstd frames.** Ubuntu 26.04's 61 MB
-  initrd is one zstd frame with a 4 MiB window: reading its files in
-  archive order takes 6.4 s in a release build, and in reverse 383 s,
-  from restarts that frame checkpoints cannot spare. Within a frame, a
-  checkpoint needs a copy of the decoder's state, which our own
-  `decode-zstd` (D61, D62) can make: between blocks, its window's last
-  window size of bytes, its Huffman and FSE tables, repeat offsets, and
-  hash so far, offered by `Decoder::checkpoint` every interval. Done when
-  that image reads in reverse in a few seconds.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
   (PACK-14), which TAR-02's `xz` shares, and

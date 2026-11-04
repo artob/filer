@@ -117,6 +117,10 @@ impl<D: Decoder + 'static> Decoder for Counting<D> {
     fn buffered(&self) -> usize {
         self.0.buffered()
     }
+
+    fn footprint(&self) -> usize {
+        self.0.footprint()
+    }
 }
 
 /// A codec decoding with what its function returns.

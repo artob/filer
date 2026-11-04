@@ -27,11 +27,14 @@ so any release may break compatibility.
   size declared or, with `Unpacked::measured`, learned by decoding it;
   `Compression` tells by its first bytes what a stream is compressed
   with, and decodes it. `Decoder::checkpoint` offers where decoding may
-  go on from, as `Zstd` does between frames, `Bzip2` between blocks, and
-  `Deflate` and `Gzip` anywhere, which `Streams` and `Unpacked` record
-  and resume from, rather than from the start, given again what
-  `Decoder::buffered` says the decoder held; `Verified` passes them on
-  with its `Digest`, which is now `Clone`.
+  go on from, as `Bzip2` does between blocks, and `Deflate`, `Gzip`, and
+  `Zstd` anywhere, which `Streams` and `Unpacked` record and resume
+  from, rather than from the start, given again what
+  `Decoder::buffered` says the decoder held, and keep within 64 MiB by
+  what `Decoder::footprint` says each holds; `Verified` passes them on
+  with its `Digest`, which is now `Clone`. Each kept `Stream` holds the
+  last 4 MiB or so it decoded, from which `Streams::take` serves reads a
+  little behind it.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `decode-deflate`, and `Deflate::deflate64`, with
   `deflate64`, Deflate64; `Gzip`, with `gzip`, decodes gzip streams over
@@ -89,7 +92,8 @@ so any release may break compatibility.
   `no_std` with an allocator. `Decoder` is sans-I/O: `decode` takes what
   input there is and fills what room there is, `finish` checks that the
   stream ended where it may, and `checkpoint` and `buffered` let a reader
-  resume between frames. `Error` is `Corrupt` or `Unsupported`.
+  resume anywhere: within a frame, from a copy of its window and tables,
+  which `footprint` measures. `Error` is `Corrupt` or `Unsupported`.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 - `filer-archive`: Formats told by content (`Format::detect`,
   `Archive::open_by_content`, and `FormatError::Unrecognized`), which

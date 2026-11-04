@@ -2502,7 +2502,17 @@ and mutations of them, run on comet, find no difference. In place of
 in 1.2 s rather than 1.6 s, and reads in archive order in 5.1 s rather
 than 6.2 s, and in reverse in 298 s rather than 381 s, which only
 checkpoints within frames can spare (PACK-20). Spun out, 2026-11-04,
-as `decode-zstd` (D62).
+as `decode-zstd` (D62). Checkpoints within frames done, 2026-11-04
+(PACK-20): `Decoder::checkpoint` copies the frame's window's size of
+the latest bytes, its tables, repeat offsets, and hash so far, and
+`Decoder::footprint` says what that holds, by which `Streams` keeps its
+checkpoints within 64 MiB, dropping every other one past that, and none
+over 8 MiB. Each kept stream also holds the last 4 MiB or more it
+decoded, from which a read a little behind it is served without
+decoding: as an archive's files read in reverse are, each just before
+the last. Ubuntu's initrd, one frame with a 4 MiB window that decodes to
+302 MB, now reads in archive order in 0.9 s, and in reverse in 2.1 s
+rather than 298 s, on comet; with 32 MiB of checkpoints, in 3.8 s.
 
 **Our decoders are `decode-*` crates (D62, 2026-11-04).** Each decoder
 written for Filer (D61) is a crate of its own, `decode-<codec>`, a

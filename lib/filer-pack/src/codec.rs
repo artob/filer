@@ -115,6 +115,14 @@ pub trait Decoder: Send {
     fn buffered(&self) -> usize {
         0
     }
+
+    /// Returns about how many bytes of memory it holds, by which the
+    /// checkpoints kept are bounded: as zstd's does within a frame, a copy
+    /// of its window. The default, for a decoder that holds little, is
+    /// none, the number of checkpoints kept bounding them alone.
+    fn footprint(&self) -> usize {
+        0
+    }
 }
 
 impl<D: Decoder + ?Sized> Decoder for Box<D> {
@@ -132,6 +140,10 @@ impl<D: Decoder + ?Sized> Decoder for Box<D> {
 
     fn buffered(&self) -> usize {
         (**self).buffered()
+    }
+
+    fn footprint(&self) -> usize {
+        (**self).footprint()
     }
 }
 

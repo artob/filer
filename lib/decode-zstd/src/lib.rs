@@ -13,8 +13,9 @@
 //! it serves blocking, async, and in-memory callers alike. A stream may be
 //! given and taken in pieces of any size, down to a byte, and decodes the
 //! same as whole. [`Decoder::checkpoint`] offers a decoder that goes on
-//! from where one is, between frames, so that a caller may resume reading
-//! a long stream part way rather than from its start.
+//! from where one is, so that a caller may resume reading a long stream
+//! part way rather than from its start: between frames, a new one, and
+//! within a frame, a copy of its window and tables.
 //!
 //! Streams are untrusted input. Nothing in this crate may panic, loop
 //! without end, or allocate without bound on any input, which its root

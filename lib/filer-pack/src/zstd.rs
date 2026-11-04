@@ -14,8 +14,9 @@ use filer_api::{Error, ErrorKind, OpKind};
 /// block. A frame whose window passes 128 MiB, the most zstd itself
 /// decodes by default, or that needs a dictionary is
 /// [`Unsupported`](ErrorKind::Unsupported). What follows the last frame
-/// must be another, as zstd requires. Between frames, it offers a
-/// [`checkpoint`](Decoder::checkpoint).
+/// must be another, as zstd requires. It offers a
+/// [`checkpoint`](Decoder::checkpoint) anywhere: between frames, a new
+/// decoder, and within one, a copy of its window and tables.
 ///
 /// # Examples
 ///
@@ -61,6 +62,10 @@ impl Decoder for Zstd {
 
     fn buffered(&self) -> usize {
         self.0.buffered()
+    }
+
+    fn footprint(&self) -> usize {
+        self.0.footprint()
     }
 }
 

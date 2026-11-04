@@ -152,10 +152,25 @@ impl Window {
     fn pending(&self) -> bool {
         self.produced < self.bytes.len()
     }
+
+    /// Returns a copy of what later blocks may copy from or are yet to
+    /// produce: the window's size of the latest bytes, or more if more are
+    /// pending.
+    fn copy(&self) -> Self {
+        let dropped = self
+            .bytes
+            .len()
+            .saturating_sub(self.size)
+            .min(self.produced);
+        Self {
+            bytes: self.bytes.get(dropped..).unwrap_or_default().to_vec(),
+            produced: self.produced.saturating_sub(dropped),
+            size: self.size,
+        }
+    }
 }
 
 /// A frame being decoded.
-#[derive(Clone)]
 struct Frame {
     header: Header,
     window: Window,
@@ -163,6 +178,20 @@ struct Frame {
     /// What its blocks have decoded to so far, hashed and counted.
     hash: Xxh64,
     decoded: u64,
+}
+
+impl Frame {
+    /// Returns a copy that decodes on as it would, holding only what it
+    /// needs of its window.
+    fn copy(&self) -> Self {
+        Self {
+            header: self.header,
+            window: self.window.copy(),
+            tables: self.tables.clone(),
+            hash: self.hash.clone(),
+            decoded: self.decoded,
+        }
+    }
 }
 
 /// Where a [`Decoder`] is in its stream.
@@ -239,7 +268,7 @@ impl Decoder {
     /// neither consumed nor produced once it can go no further: needing
     /// more input, or more room, or past the end of the stream, which
     /// [`finish`](Self::finish) then tells apart. It returns at the end of
-    /// each frame, where a [`checkpoint`](Self::checkpoint) may be.
+    /// each frame, where a [`checkpoint`](Self::checkpoint) costs nothing.
     ///
     /// # Errors
     ///
@@ -261,8 +290,8 @@ impl Decoder {
                     self.ended();
                 }
             }
-            // Stop between frames, where a checkpoint may be, once there
-            // is progress to report.
+            // Stop between frames, where a checkpoint costs nothing, once
+            // there is progress to report.
             if self.frames != frames && (consumed > 0 || produced > 0) {
                 return Ok((consumed, produced));
             }
@@ -288,16 +317,40 @@ impl Decoder {
         }
     }
 
-    /// Returns a decoder that goes on from where this one is, if it is
-    /// between frames: given the input from where this one has consumed to,
-    /// less what it has [`buffered`](Self::buffered), it decodes what this
-    /// one would, as frames decode alone.
+    /// Returns a decoder that goes on from where this one is: given the
+    /// input from where this one has consumed to, less what it has
+    /// [`buffered`](Self::buffered), it decodes what this one would.
+    ///
+    /// Between frames, which decode alone, that is a new decoder. Within
+    /// one, it is a copy of this one's state: its window's size of the
+    /// latest bytes, and those not yet produced, its tables and repeat
+    /// offsets, and its hash so far, which [`footprint`](Self::footprint)
+    /// measures. It is always offered, so `Option` only for the shape that
+    /// the `decode-*` crates share.
     #[must_use]
     pub fn checkpoint(&self) -> Option<Self> {
-        self.between().then(|| Self {
+        Some(Self {
+            state: self.state,
+            frame: self.frame.as_ref().map(Frame::copy),
             frames: self.frames,
             ..Self::new()
         })
+    }
+
+    /// Returns about how many bytes of memory it holds: mostly its
+    /// frame's window, which is what a [`checkpoint`](Self::checkpoint)
+    /// within a frame costs.
+    #[must_use]
+    pub fn footprint(&self) -> usize {
+        let window = self
+            .frame
+            .as_ref()
+            .map_or(0, |frame| frame.window.bytes.capacity());
+        size_of::<Self>()
+            .saturating_add(size_of::<Frame>())
+            .saturating_add(window)
+            .saturating_add(self.unit.capacity())
+            .saturating_add(self.literals.capacity())
     }
 
     /// Returns how many of the bytes it has consumed it holds, gathered

@@ -11,7 +11,8 @@ over 128 MiB as zstd itself does by default.
 Its `Decoder` is sans-I/O: `decode` takes what input there is, fills what
 room there is, and says how much of each it used, so it serves blocking,
 async, and in-memory callers alike. `checkpoint` offers a decoder that
-goes on from between frames, for resuming a long stream part way. It is
+goes on from where one is, for resuming a long stream part way: within a
+frame, a copy of its window and tables, which `footprint` measures. It is
 one of the `decode-*` crates: clean-room, public-domain decoders of
 common codecs, each of the same shape.
 
