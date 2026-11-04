@@ -12,9 +12,9 @@ is read.
 Its `Decoder` is sans-I/O: `decode` takes what input there is, fills what
 room there is, and says how much of each it used, so it serves blocking,
 async, and in-memory callers alike. `checkpoint` offers a decoder that
-goes on from between blocks, for resuming a long stream part way. It was
-written for [Filer](https://github.com/artob/filer), whose archive
-drivers read bzip2 through it.
+goes on from between blocks, for resuming a long stream part way. It is
+one of the `decode-*` crates: clean-room, public-domain decoders of
+common codecs, each of the same shape.
 
 ```rust
 use decode_bzip2::{Decoder, Error};

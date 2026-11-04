@@ -84,6 +84,13 @@ Decoders, written clean room and dedicated to the public domain:
 | --- | --- |
 | `decode-bzip2` | bzip2 |
 | `decode-zstd` | zstd |
+| `decode-deflate` | Deflate (planned) |
+| `decode-gzip` | gzip (planned) |
+| `decode-zlib` | zlib (planned) |
+| `decode-lzma` | LZMA and LZMA2 (planned) |
+| `decode-xz` | xz (planned) |
+| `decode-lz4` | LZ4 (planned) |
+| `decode-lzo` | LZO (planned) |
 
 Only `filer-windows` contains `unsafe`: the system calls the standard
 library lacks, each wrapped safely in its private `sys` module.

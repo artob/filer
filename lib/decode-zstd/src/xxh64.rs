@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 //! XXH64, which zstd checks frames with (RFC 8878 §3.1.1), written here from
-//! the xxHash specification (`LEGAL.md`).
+//! the xxHash specification.
 
 const P1: u64 = 0x9E37_79B1_85EB_CA87;
 const P2: u64 = 0xC2B2_AE3D_27D4_EB4F;

@@ -551,12 +551,17 @@ Created with `publish = false` (D16).
 
 Our own clean-room, public-domain decoders, each a crate of its own
 (D62), which `filer-pack` adapts, in place of the interim codec crates
-(D61), from the sources `LEGAL.md` names.
+(D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
+crate's name until its first code, which moves it to `lib/`.
 
 - [ ] **DEC-02: `decode-deflate`.** Deflate (RFC 1951) in place of
   `miniz_oxide`, with a state that copies for checkpoints. Done when ZIP
   members and gzip streams decode as `miniz_oxide` decodes them, and
-  differential fuzzing against it finds nothing.
+  differential fuzzing against it finds nothing. Deflate64 (ZIP's method
+  9, 7z) comes too, behind an additive `deflate64` feature, as a variant
+  chosen per stream that never changes what plain Deflate decodes: a
+  64 KiB window, length code 285 as 3 plus 16 extra bits, and distance
+  codes 30 and 31.
 - [ ] **DEC-03: `decode-gzip`.** gzip (RFC 1952): `filer-pack`'s `Gzip`
   framing, over `decode-deflate`. Done when `filer-pack` decodes gzip
   through it.
@@ -568,6 +573,16 @@ Our own clean-room, public-domain decoders, each a crate of its own
   specification: stream and block headers, filters, CRC-32, CRC-64, and
   SHA-256 checks, and the index, over `decode-lzma`, offering checkpoints
   at blocks (PACK-19). Done when `lzma-rust2` leaves the dependencies.
+- [ ] **DEC-06: `decode-zlib` (on demand).** zlib (RFC 1950), over
+  `decode-deflate`, for btrfs, SquashFS, ZFS, zisofs, and Apple's
+  compressed files. Done when the first driver to need it reads through
+  it.
+- [ ] **DEC-07: `decode-lz4` (on demand).** LZ4's blocks and frames, for
+  SquashFS, EROFS, ZFS, F2FS, ReFS, and initramfs images. Done when the
+  first driver to need it reads through it.
+- [ ] **DEC-08: `decode-lzo` (on demand).** LZO1X, for btrfs, SquashFS,
+  F2FS, and initramfs images, written as `LEGAL.md` requires. Done when
+  the first driver to need it reads through it.
 
 ## Virtual drivers
 

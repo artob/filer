@@ -61,6 +61,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "decode-deflate"
+version = "0.0.2"
+
+[[package]]
+name = "decode-gzip"
+version = "0.0.2"
+
+[[package]]
+name = "decode-lz4"
+version = "0.0.2"
+
+[[package]]
+name = "decode-lzma"
+version = "0.0.2"
+
+[[package]]
+name = "decode-lzo"
+version = "0.0.2"
+
+[[package]]
+name = "decode-xz"
+version = "0.0.2"
+
+[[package]]
+name = "decode-zlib"
+version = "0.0.2"
+
+[[package]]
 name = "decode-zstd"
 version = "0.0.2"
 dependencies = [

@@ -95,7 +95,8 @@
 - Stubs that reserve a crate name but read nothing yet live in
   `tmp/<crate>/` (archives: `filer-rar`, `filer-7z`; file systems, each
   depending on `filer-fs`: `filer-udf`, `filer-exfat`, `filer-btrfs`,
-  `filer-zfs`, ...). A stub's crate docs list what its format needs. It
+  `filer-zfs`, ...; codecs: `decode-deflate`, `decode-lzma`, ...). A
+  stub's crate docs list what its format needs. It
   moves to `lib/` with its first implementation, and joins its umbrella
   then (`filer-rar`, `filer-7z`, and `filer-udf` already have).
 - New crates must also be added to the README crate table. CI derives its

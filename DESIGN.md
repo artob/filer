@@ -405,7 +405,9 @@ over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
 Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
 and the file systems `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
 `filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,
-`filer-udf`, `filer-ufs`, and `filer-zfs`.
+`filer-udf`, `filer-ufs`, and `filer-zfs`; and the decoders
+`decode-deflate`, `decode-gzip`, `decode-zlib`, `decode-lzma` (LZMA and
+LZMA2), `decode-xz`, `decode-lz4`, and `decode-lzo` (D62).
 The rest are created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
@@ -2516,7 +2518,14 @@ or `Unsupported`. `filer-pack` adapts each to its `Decoder` trait behind
 a feature named for the codec, keeping its own types (`Zstd`, `Bzip2`).
 A side effect of Filer is thus a family of clean-room, public-domain
 decoders of every codec it reads: Deflate, gzip, LZMA and LZMA2, and xz
-next, in place of the interim crates (TODO DEC-02 to 05).
+next, in place of the interim crates (TODO DEC-02 to 05), then zlib,
+LZ4, and LZO as the drivers that need them come (DEC-06 to 08). Stubs
+in `tmp/` reserve their names. LZMA2 shares `decode-lzma` with LZMA, as
+it is LZMA in chunks over the same model and window; and Deflate64,
+Deflate with a larger window, a longer last length, and two more
+distances, is to share `decode-deflate`, chosen per stream behind an
+additive feature, so that enabling it never changes what Deflate
+decodes.
 
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and

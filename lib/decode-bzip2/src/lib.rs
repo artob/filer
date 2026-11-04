@@ -32,9 +32,8 @@
 //! without dependencies, and builds with `#![no_std]`, with an allocator.
 //! The `std` feature, enabled by default, currently adds nothing.
 //!
-//! It was written for [Filer](https://github.com/artob/filer), whose
-//! archive drivers read bzip2 through it, as one of its `decode-*` crates:
-//! clean-room, public-domain decoders of the codecs that Filer reads.
+//! It is one of the `decode-*` crates: clean-room, public-domain decoders
+//! of common codecs, each of the same shape.
 
 #![no_std]
 #![forbid(unsafe_code)]
