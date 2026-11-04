@@ -30,7 +30,8 @@
 //!
 //! Decoders are pure Rust, one feature per algorithm, assessed in
 //! `LEGAL.md` before adoption (D45): so far, [`Deflate`], over
-//! `miniz_oxide`, behind `deflate`, and [`Gzip`] over it, behind `gzip`.
+//! `miniz_oxide`, behind `deflate`; [`Gzip`] over it, behind `gzip`; and
+//! [`Zstd`], over `ruzstd`, behind `zstd`.
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will
@@ -44,7 +45,8 @@
 //! - `std` forwards to `filer-api`, and locks with the standard mutex;
 //! - `all` enables every decoder below;
 //! - `deflate` enables [`Deflate`];
-//! - `gzip` enables [`Gzip`], and `deflate`.
+//! - `gzip` enables [`Gzip`], and `deflate`;
+//! - `zstd` enables [`Zstd`].
 //!
 //! [`ReadAt`]: filer_api::ReadAt
 //! [`Driver`]: filer_api::Driver
@@ -128,6 +130,11 @@ pub use deflate::*;
 mod gzip;
 #[cfg(feature = "gzip")]
 pub use gzip::*;
+
+#[cfg(feature = "zstd")]
+mod zstd;
+#[cfg(feature = "zstd")]
+pub use zstd::*;
 
 #[cfg(test)]
 mod toy;

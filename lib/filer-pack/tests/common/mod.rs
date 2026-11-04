@@ -6,8 +6,8 @@
 // Each test binary compiles this module and uses only part of it.
 #![allow(dead_code)]
 
-use filer_api::{Error, checksum::crc32};
-use filer_pack::Decoder;
+use filer_api::{BufResult, Error, ReadAt, checksum::crc32};
+use filer_pack::{Codec, Decoder, Unpacked};
 
 /// The most a check decodes of any input.
 pub const CAP: usize = 256 * 1024;
@@ -53,6 +53,74 @@ impl Member<'_> {
         member.extend_from_slice(&(data.len() as u32).to_le_bytes());
         member
     }
+}
+
+/// A zstd block built by hand.
+#[derive(Clone, Copy)]
+pub enum Block<'a> {
+    /// Bytes as they are.
+    Raw(&'a [u8]),
+    /// A byte, repeated as many times.
+    Rle(u8, usize),
+}
+
+/// Returns a zstd frame of `blocks`, with a 128 KiB window and neither
+/// content size nor checksum.
+pub fn zstd(blocks: &[Block<'_>]) -> Vec<u8> {
+    let mut frame = vec![0x28, 0xB5, 0x2F, 0xFD, 0x00, 7 << 3];
+    for (i, block) in blocks.iter().enumerate() {
+        let last = u32::from(i + 1 == blocks.len());
+        let (kind, size, content) = match *block {
+            Block::Raw(bytes) => (0, bytes.len(), bytes.to_vec()),
+            Block::Rle(byte, count) => (1, count, vec![byte]),
+        };
+        let header = (size as u32) << 3 | kind << 1 | last;
+        frame.extend_from_slice(&header.to_le_bytes()[..3]);
+        frame.extend_from_slice(&content);
+    }
+    frame
+}
+
+/// Returns a skippable zstd frame holding `bytes`.
+pub fn skippable(bytes: &[u8]) -> Vec<u8> {
+    let mut frame = vec![0x5A, 0x2A, 0x4D, 0x18];
+    frame.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+    frame.extend_from_slice(bytes);
+    frame
+}
+
+/// What `tests/data/numbers.*` hold: `seq 1 3000` from a file, then
+/// `end\n` from a pipe, in two members or frames.
+pub fn numbers() -> Vec<u8> {
+    let mut numbers: Vec<u8> = (1..=3000)
+        .flat_map(|n| format!("{n}\n").into_bytes())
+        .collect();
+    numbers.extend_from_slice(b"end\n");
+    numbers
+}
+
+/// A codec decoding with what its function returns.
+#[derive(Clone, Copy)]
+pub struct With(pub fn() -> Box<dyn Decoder>);
+
+impl Codec for With {
+    fn is_stored(&self) -> bool {
+        false
+    }
+
+    fn decoder(&self) -> Result<Box<dyn Decoder>, Error> {
+        Ok((self.0)())
+    }
+}
+
+/// Reads the `size` bytes that `stream` decodes to with `codec`, through
+/// `Unpacked`, which checks what follows them.
+pub fn unpack(stream: Vec<u8>, size: usize, codec: With) -> Result<Vec<u8>, Error> {
+    let len = stream.len() as u64;
+    let unpacked = Unpacked::new(stream, 0..len, size as u64, codec);
+    let read = unpacked.read_exact_at(Vec::with_capacity(size), 0);
+    let BufResult(result, data) = filer_spec::block_on(read);
+    result.map(|()| data)
 }
 
 /// Decodes `input` with `decoder`, giving it at most `piece` bytes of

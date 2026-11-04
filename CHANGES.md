@@ -25,12 +25,12 @@ so any release may break compatibility.
   decoding `Stream`s part way, by `StreamId`, and `Unpacked` reads a
   packed range of a source decoded, as a `ReadAt` source itself.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
-  own, over `miniz_oxide`, and `Gzip`, with `gzip`, decodes gzip streams
-  over it; a decoder now reads the packed bytes after the declared size,
-  such as gzip's trailer, before it finishes. `Reader` reads headers
-  ahead, adaptively, so that the tar, ar, cpio, and ZIP parsers open
-  archives of many small members in a few reads rather than one or two
-  per member.
+  own, over `miniz_oxide`; `Gzip`, with `gzip`, decodes gzip streams over
+  it, and `Zstd`, with `zstd`, zstd streams over `ruzstd`. A decoder now
+  reads the packed bytes after the declared size, such as gzip's
+  trailer, before it finishes. `Reader` reads headers ahead, adaptively,
+  so that the tar, ar, cpio, and ZIP parsers open archives of many small
+  members in a few reads rather than one or two per member.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 - `filer-spec`: `Counted`, a source counting its reads; `Outcome::files`;
   `Checks::refusals` and

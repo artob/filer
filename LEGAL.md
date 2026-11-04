@@ -329,15 +329,15 @@ when adopting it.
 - **zstd: `ruzstd`.** `ruzstd` 0.9 (MIT; `no_std` with `alloc`;
   maintained, and the most used pure-Rust decoder) reads the format RFC
   8878 documents, through a sans-I/O call, `FrameDecoder::decode_from_to`,
-  that progresses only by whole blocks of up to 128 KiB, so its adaptor
-  buffers input. Its window is capped at 128 MiB by default, which bounds
-  its memory. It has `unsafe` code and internal panics, and is fuzzed
-  upstream; `filer-pack`'s fuzz targets cover it too, and any panic found
-  is a bug to report there. Its `hash` feature checks frame checksums with
-  `twox-hash`, pure Rust. zstd's own code (BSD-3-Clause or GPL-2.0) is not
-  copied. zstd 1.0 came with an explicit patent grant, dropped in 1.3.1
-  (2017) when the license became BSD and GPLv2; no patent is known to be
-  asserted against implementations.
+  that progresses only by whole blocks of up to 128 KiB, so its adaptor,
+  `Zstd`, gathers each block whole. Its window is capped at 128 MiB by
+  default, which bounds its memory. It has `unsafe` code and internal
+  panics, and is fuzzed upstream; `filer-pack`'s fuzz targets cover it
+  too, and any panic found is a bug to report there. Its `hash` feature
+  checks frame checksums with `twox-hash`, pure Rust. zstd's own code
+  (BSD-3-Clause or GPL-2.0) is not copied. zstd 1.0 came with an explicit
+  patent grant, dropped in 1.3.1 (2017) when the license became BSD and
+  GPLv2; no patent is known to be asserted against implementations.
 - **xz, LZMA and LZMA2 (and lzip): `lzma-rust2`.** `lzma-rust2` 0.25
   (Apache-2.0; a port of XZ for Java, which is public domain; `no_std`
   with `alloc` without its default features; maintained) has sans-I/O

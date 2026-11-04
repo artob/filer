@@ -22,15 +22,19 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = ["deflate", "gzip"]
+all = ["deflate", "gzip", "zstd"]
 std = ["filer-api/std"]
 deflate = ["dep:miniz_oxide"]
 gzip = ["deflate"]
+zstd = ["dep:ruzstd"]
 
 [dependencies]
 filer-api.workspace = true
 miniz_oxide = { workspace = true, optional = true, features = ["with-alloc"] }
+ruzstd = { workspace = true, optional = true, features = ["hash"] }
 spin = { workspace = true, features = ["spin_mutex"] }
 
 [dev-dependencies]
 filer-spec = { workspace = true, features = ["std"] }
+# Writes the tests' gzip members, whatever the features.
+miniz_oxide = { workspace = true, features = ["with-alloc"] }

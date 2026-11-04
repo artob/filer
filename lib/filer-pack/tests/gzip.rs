@@ -6,10 +6,9 @@
 
 mod common;
 
-use common::{Member, agree};
-use filer_api::{BufResult, Error, ErrorKind, ReadAt};
-use filer_pack::{Codec, Decoder, Gzip, Unpacked};
-use filer_spec::block_on;
+use common::{Member, With, agree, numbers, unpack};
+use filer_api::{Error, ErrorKind};
+use filer_pack::Gzip;
 
 fn decode(stream: &[u8]) -> Result<Vec<u8>, Error> {
     let whole = agree(Gzip::new, stream, 1);
@@ -24,16 +23,7 @@ fn kind(stream: &[u8]) -> ErrorKind {
     decode(stream).unwrap_err().kind()
 }
 
-/// What `tests/data/numbers.gz` holds: `seq 1 3000` from a file, by
-/// Apple's gzip 479 at `-9`, then `end\n` from a pipe at `-1`.
-fn numbers() -> Vec<u8> {
-    let mut numbers: Vec<u8> = (1..=3000)
-        .flat_map(|n| format!("{n}\n").into_bytes())
-        .collect();
-    numbers.extend_from_slice(b"end\n");
-    numbers
-}
-
+/// `numbers.gz` is by Apple's gzip 479, at `-9` and then `-1`.
 #[test]
 fn decodes_what_gzip_writes() {
     let stream = include_bytes!("data/numbers.gz");
@@ -107,28 +97,9 @@ fn refuses_malformed_streams() {
     }
 }
 
-/// gzip as a codec, for a stream read through `Unpacked`.
-#[derive(Clone, Copy)]
-struct Gzipped;
-
-impl Codec for Gzipped {
-    fn is_stored(&self) -> bool {
-        false
-    }
-
-    fn decoder(&self) -> Result<Box<dyn Decoder>, Error> {
-        Ok(Box::new(Gzip::new()))
-    }
-}
-
 #[test]
 fn checks_the_trailer_after_the_declared_size() {
-    let read = |stream: Vec<u8>, size: usize| {
-        let len = stream.len() as u64;
-        let unpacked = Unpacked::new(stream, 0..len, size as u64, Gzipped);
-        let BufResult(result, data) = block_on(unpacked.read_exact_at(Vec::with_capacity(size), 0));
-        result.map(|()| data)
-    };
+    let read = |stream, size| unpack(stream, size, With(|| Box::new(Gzip::new())));
     let stream = include_bytes!("data/numbers.gz").to_vec();
     let numbers = numbers();
     assert_eq!(read(stream.clone(), numbers.len()).unwrap(), numbers);

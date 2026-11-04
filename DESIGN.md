@@ -2366,7 +2366,10 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   its decoder the packed bytes after the declared size, with no room for
   output, so that it checks a trailer before it finishes; `tests/fuzz.rs`
   and `fuzz/` check that each decoder decodes the same in pieces as
-  whole);
+  whole; zstd done, 2026-11-03: `Zstd`, behind `zstd`, over `ruzstd`,
+  which decodes only the whole blocks that `Zstd` gathers, parsing frame
+  and block headers itself, and refusing what `ruzstd` would not: the
+  frame header's reserved bit, and reserved blocks, on which it panics);
 - the archive fuzz walk, into `filer-spec`, where shared test tooling
   goes (D54): `filer-zip`'s predates it (done, 2026-11-03: `Checks`
   allows refusals at open and reads files whole for zip's bomb bound,

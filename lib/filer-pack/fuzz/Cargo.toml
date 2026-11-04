@@ -1,8 +1,8 @@
 # Coverage-guided fuzzing of `filer-pack`'s decoders with `cargo-fuzz`
-# (nightly): `cargo fuzz run gzip` from `lib/filer-pack`. libFuzzer is
-# C++, so this crate stays outside the workspace and is never a dependency
-# of a published crate (DESIGN.md D50); `tests/fuzz.rs` is the pure-Rust
-# fuzzer.
+# (nightly): `cargo fuzz run gzip`, or `zstd`, from `lib/filer-pack`.
+# libFuzzer is C++, so this crate stays outside the workspace and is never
+# a dependency of a published crate (DESIGN.md D50); `tests/fuzz.rs` is
+# the pure-Rust fuzzer.
 
 [package]
 name = "filer-pack-fuzz"
@@ -16,6 +16,7 @@ cargo-fuzz = true
 [dependencies]
 filer-api = { path = "../../filer-api" }
 filer-pack = { path = ".." }
+filer-spec = { path = "../../filer-spec" }
 libfuzzer-sys = "0.4"
 miniz_oxide = "0.9"
 
@@ -26,6 +27,13 @@ members = ["."]
 [[bin]]
 name = "gzip"
 path = "fuzz_targets/gzip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "zstd"
+path = "fuzz_targets/zstd.rs"
 test = false
 doc = false
 bench = false
