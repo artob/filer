@@ -2527,6 +2527,25 @@ distances, is to share `decode-deflate`, chosen per stream behind an
 additive feature, so that enabling it never changes what Deflate
 decodes.
 
+**Benchmarking the decoders (D63, 2026-11-04).** Each `decode-*` crate
+keeps a `BENCH.md`: its decoder's figures alone, and against the
+reference C implementation and the leading pure-Rust decoders, by one
+protocol, `bench/METHOD.md`. In brief: public corpora (Silesia,
+enwik8, Canterbury, a kernel tarball, executables) and synthetic edge
+cases, encoded once by the reference encoder at levels across its range
+and verified by SHA-256, with every decoded output checked; whole
+streams, streaming in pieces, small streams, memory, checkpoints,
+counters, and code size; 64-bit x86 (current AMD and Intel on bare
+metal, and a VM) and ARM (Apple M4, and a Neoverse server), baseline
+and native builds; independent processes with decoders interleaved,
+medians with bootstrap confidence intervals, comparisons as geometric
+means of paired ratios; and a release blocked by a regression past its
+interval and 3%. The harness lives in `bench/`, a crate of its own
+workspace, never published nor depended on: like the fuzzers (D50), it
+may build C, there the counterparts' bindings, which the decoders
+themselves never may (D45). Counterparts are run as black boxes, never
+read.
+
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and
 cpio its name with another, where `filer-zip` reads its central
@@ -4109,6 +4128,7 @@ Record changes here with a date and one line of rationale.
 | D60 | Microsoft's on-disk conventions live in `filer-msft`, out of `filer-fs` | Accepted |
 | D61 | Codec crates are interim; our own public-domain decoders replace them when they block | Accepted |
 | D62 | Our decoders are `decode-<codec>` crates, generic, dependency-free, one sans-I/O shape | Accepted |
+| D63 | Decoders are benchmarked by `bench/METHOD.md`; its harness, apart, may build C counterparts | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

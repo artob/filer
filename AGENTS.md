@@ -48,9 +48,11 @@
   fine. Codecs must be pure-Rust decoders; codec crates are interim
   (D61): never wait on upstream, and when one blocks, write our own
   clean-room, public-domain decoder (`LEGAL.md`) as a `decode-<codec>`
-  crate (D62). Sole exemption (D50):
-  `cargo-fuzz` targets in a crate's `fuzz/` (own `[workspace]`, never a
-  dependency); keep a pure-Rust fuzz test in `tests/` too.
+  crate (D62). Sole exemptions, each its own `[workspace]` and never a
+  dependency: `cargo-fuzz` targets in a crate's `fuzz/` (D50; keep a
+  pure-Rust fuzz test in `tests/` too), and the benchmark harness in
+  `bench/` (D63), whose counterparts may be C. Each `decode-*` crate's
+  `BENCH.md` holds only what that harness generates (`bench/METHOD.md`).
 - Builders maximize usability: paths take `P: TryInto<RelPathBuf>` (plain
   strings or `rel!`), panicking under `#[track_caller]`; ops and driver APIs
   stay strictly typed.

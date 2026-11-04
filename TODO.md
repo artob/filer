@@ -573,6 +573,16 @@ crate's name until its first code, which moves it to `lib/`.
   specification: stream and block headers, filters, CRC-32, CRC-64, and
   SHA-256 checks, and the index, over `decode-lzma`, offering checkpoints
   at blocks (PACK-19). Done when `lzma-rust2` leaves the dependencies.
+- [ ] **BENCH-01: The benchmark harness.** `bench/` as `bench/METHOD.md`
+  describes it (D63): its own workspace; `corpus.toml` with each file's
+  source and SHA-256; encoding once at each codec's levels; every
+  decoder, ours and its counterparts, behind one interface; the
+  procedure, statistics, raw data, and generated tables. Done when it
+  fills `decode-zstd`'s and `decode-bzip2`'s `BENCH.md` on an x86 machine
+  and on Apple M4, its tables generated, not edited.
+- [ ] **BENCH-02: Every machine.** The rest of the protocol's machines:
+  current AMD and Intel on bare metal, and a Neoverse server. Done when
+  each `BENCH.md` of a written decoder holds them all.
 - [ ] **DEC-06: `decode-zlib` (on demand).** zlib (RFC 1950), over
   `decode-deflate`, for btrfs, SquashFS, ZFS, zisofs, and Apple's
   compressed files. Done when the first driver to need it reads through
