@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::Decoder;
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use filer_api::{Error, ErrorKind, OpKind};
 
 /// The magic numbers that begin a block, and that end a stream: π and √π,
@@ -432,6 +432,8 @@ enum State {
 /// let mut output = [0; 8];
 /// assert_eq!(bzip2.decode(&packed, &mut output)?, (41, 5));
 /// assert_eq!(&output[..5], b"hello");
+/// // It returns after each block; then reads the stream's end.
+/// assert_eq!(bzip2.decode(&[], &mut output)?, (0, 0));
 /// bzip2.finish()?;
 /// # Ok::<(), filer_api::Error>(())
 /// ```
@@ -574,6 +576,11 @@ impl Decoder for Bzip2 {
                 }
                 self.combined = self.combined.rotate_left(1) ^ block.expected;
                 self.block = None;
+                // Stop between blocks, where a checkpoint may be, once
+                // there is progress to report.
+                if consumed > 0 || produced > 0 {
+                    return Ok((consumed, produced));
+                }
             }
             // Parsing takes input only once the last block is written, so
             // that it holds no more than the next block's, and none past
@@ -587,6 +594,28 @@ impl Decoder for Bzip2 {
                 return Ok((consumed, produced));
             }
         }
+    }
+
+    /// Between blocks or streams: a decoder that parses on from the bit
+    /// where the next begins, given the bytes it has buffered again, with
+    /// the stream's limit and CRC so far.
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        if self.block.is_some() || self.state == State::Ended {
+            return None;
+        }
+        let resumed: Box<dyn Decoder> = Box::new(Self {
+            bit: self.bit,
+            state: self.state,
+            max: self.max,
+            combined: self.combined,
+            streams: self.streams,
+            ..Self::new()
+        });
+        Some(resumed)
+    }
+
+    fn buffered(&self) -> usize {
+        self.input.len()
     }
 
     fn finish(&mut self) -> Result<(), Error> {

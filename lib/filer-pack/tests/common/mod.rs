@@ -6,6 +6,7 @@
 // Each test binary compiles this module and uses only part of it.
 #![allow(dead_code)]
 
+use core::sync::atomic::{AtomicU64, Ordering};
 use filer_api::{BufResult, Error, ReadAt, checksum::crc32};
 use filer_pack::{Codec, Decoder, Unpacked};
 
@@ -97,6 +98,33 @@ pub fn numbers() -> Vec<u8> {
         .collect();
     numbers.extend_from_slice(b"end\n");
     numbers
+}
+
+/// The bytes that `Counting` decoders produced, across a test binary.
+pub static PRODUCED: AtomicU64 = AtomicU64::new(0);
+
+/// A decoder counting in `PRODUCED` what `D` produces, and passing its
+/// checkpoints on.
+pub struct Counting<D>(pub D);
+
+impl<D: Decoder + 'static> Decoder for Counting<D> {
+    fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
+        let (consumed, produced) = self.0.decode(input, output)?;
+        PRODUCED.fetch_add(produced as u64, Ordering::Relaxed);
+        Ok((consumed, produced))
+    }
+
+    fn finish(&mut self) -> Result<(), Error> {
+        self.0.finish()
+    }
+
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        Some(Box::new(Counting(self.0.checkpoint()?)))
+    }
+
+    fn buffered(&self) -> usize {
+        self.0.buffered()
+    }
 }
 
 /// A codec decoding with what its function returns.

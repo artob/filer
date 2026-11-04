@@ -113,6 +113,10 @@ impl<D: Decoder, H: Digest> Decoder for Verified<D, H> {
             expected,
         )))
     }
+
+    fn buffered(&self) -> usize {
+        self.decoder.buffered()
+    }
 }
 
 /// A decoder that copies its input: for members stored as is whose format

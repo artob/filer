@@ -101,10 +101,19 @@ pub trait Decoder: Send {
     /// It is asked between calls to [`decode`](Self::decode), and only
     /// once a few MiB have been decoded since the last checkpoint. The
     /// decoder it returns, given the packed bytes from where this one has
-    /// consumed to, must decode what this one would, and offer a copy of
-    /// itself in turn until it decodes. The default offers none.
+    /// consumed to, less those it has [`buffered`](Self::buffered), must
+    /// decode what this one would, and offer a copy of itself in turn
+    /// until it decodes. The default offers none.
     fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
         None
+    }
+
+    /// Returns how many of the packed bytes it consumed it holds still
+    /// undecoded, which the decoder its [`checkpoint`](Self::checkpoint)
+    /// returns must be given again: as bzip2's does, which gathers a whole
+    /// block before decoding it. The default holds none.
+    fn buffered(&self) -> usize {
+        0
     }
 }
 
@@ -119,6 +128,10 @@ impl<D: Decoder + ?Sized> Decoder for Box<D> {
 
     fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
         (**self).checkpoint()
+    }
+
+    fn buffered(&self) -> usize {
+        (**self).buffered()
     }
 }
 

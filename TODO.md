@@ -560,14 +560,12 @@ Created with `publish = false` (D16).
   The backslash check in `index.rs` must then apply to decoded names, as
   Shift-JIS trail bytes may be 0x5C. Done when CP437 and CP866 archives
   list correctly.
-- [ ] **PACK-18: bzip2 checkpoints.** Offer a decoder at each block,
-  which decodes alone but for the stream's combined CRC, carried along.
-  Done when reading the member before the last of a `.tar.bz2`, after
-  the last, reads from the checkpoint before it, as `.tar.gz` does.
 - [ ] **PACK-19: xz checkpoints.** xz blocks decode alone, and xz 5.4
   writes several by default, but `lzma-rust2`'s `XzStream` starts only at
   a stream header: resuming at a block means reading the block format
-  here, over its raw `Lzma2Stream`. Done as PACK-18's, for `.tar.xz`.
+  here, over its raw `Lzma2Stream`. Done when reading near the end of an
+  `.xz` of several blocks decodes at most an interval and a block, as
+  `.bz2` does.
 - [ ] **PACK-20: Checkpoints within zstd frames.** Ubuntu 26.04's 61 MB
   initrd is one zstd frame with a 4 MiB window: reading its files in
   archive order takes 6.4 s in a release build, and in reverse 383 s,

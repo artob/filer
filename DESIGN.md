@@ -2414,7 +2414,12 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   `Verified`, with its digest so far, for ZIP's members: reading the
   member before the last of a 12 MiB `.tar.gz`, after the last, takes 82
   reads of 64 KiB rather than 177; past 256 checkpoints, every other one
-  is dropped, which bounds gzip's to about 11 MB; bzip2 done,
+  is dropped, which bounds gzip's to about 11 MB; bzip2 offers a fresh
+  decoder between blocks (PACK-18), at the bit where the next begins,
+  with the stream's limit and CRC so far, and `Decoder::buffered` says
+  how many bytes before what it consumed that copy must be given again,
+  as it gathers whole blocks: reading near the end of 12 MiB in 14 blocks
+  decodes at most 5 MB, not all of it; bzip2 done,
   2026-11-03: `Bzip2`, behind
   `bzip2`, written here from Joe Tsai's description, which gathers each
   block whole, trying again only once its input has doubled, so that

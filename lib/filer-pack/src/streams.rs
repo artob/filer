@@ -269,7 +269,9 @@ impl Stream {
             return;
         }
         if let Some(decoder) = self.decoder.checkpoint() {
-            let pending = to_u64(self.input.len().saturating_sub(self.used));
+            // What it read but did not pass on, and what the decoder holds.
+            let pending = self.input.len().saturating_sub(self.used);
+            let pending = to_u64(pending.saturating_add(self.decoder.buffered()));
             let packed = self.fetched.saturating_sub(pending);
             self.recorded
                 .push((self.decoded, Checkpoint { packed, decoder }));
