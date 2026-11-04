@@ -554,10 +554,6 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **DEC-04: `decode-lzma`.** LZMA and LZMA2, from the LZMA SDK, in
-  place of `lzma-rust2`'s. Done when 7z's and ZIP's LZMA, and xz's LZMA2,
-  decode as `lzma-rust2` decodes them, and differential fuzzing finds
-  nothing.
 - [ ] **DEC-05: `decode-xz`.** The `.xz` container, from its file format
   specification: stream and block headers, filters, CRC-32, CRC-64, and
   SHA-256 checks, and the index, over `decode-lzma`, offering checkpoints

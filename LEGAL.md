@@ -359,18 +359,23 @@ its replacement.
   grant, dropped in 1.3.1 (2017) when the license became BSD and GPLv2;
   no patent is known to be asserted against implementations, nor to
   cover XXH64.
-- **xz, LZMA and LZMA2 (and lzip): `lzma-rust2`.** `lzma-rust2` 0.25
-  (Apache-2.0; a port of XZ for Java, which is public domain; `no_std`
-  with `alloc` without its default features; maintained) has sans-I/O
-  streams for raw LZMA, LZMA2, xz and lzip, with memory limits and the
-  BCJ and Delta filters: one crate for compressed tarballs and for 7z.
-  Without its `optimization` feature, which stays off, it forbids
-  `unsafe` code. Its `xz` feature checks SHA-256 with RustCrypto's
-  `sha2` 0.11, pure Rust (it has no `asm` feature, whose C CI's check
-  would catch). Also considered: `xz4rust` 0.2 (MIT; `no_std` without
-  `alloc`), xz only, without the LZMA1 that 7z mostly uses; and `lzma-rs`
-  0.3 (MIT), std readers only, last released in 2023. Porting the LZMA SDK
-  (public domain, see 7z) remains the fallback. No patent is known.
+- **LZMA and LZMA2: ported here; xz (and lzip): `lzma-rust2`.**
+  `decode-lzma` (D62) ports the LZMA SDK's specification, reference
+  decoder, and LZMA2 decoder (public domain, see 7z), in place of
+  `lzma-rust2` for raw LZMA and LZMA2 since 2026-11-04 (DEC-04);
+  `lzma-rust2`'s decoder and encoder are its tests' oracle and source of
+  streams, run, never read. `lzma-rust2` 0.25 (Apache-2.0; a port of XZ
+  for Java, which is public domain; `no_std` with `alloc` without its
+  default features; maintained) has sans-I/O streams for raw LZMA,
+  LZMA2, xz and lzip, with memory limits and the BCJ and Delta filters:
+  one crate for compressed tarballs and for 7z, and still `filer-pack`'s
+  `Xz`, until `decode-xz` (DEC-05). Without its `optimization` feature,
+  which stays off, it forbids `unsafe` code. Its `xz` feature checks
+  SHA-256 with RustCrypto's `sha2` 0.11, pure Rust (it has no `asm`
+  feature, whose C CI's check would catch). Also considered: `xz4rust`
+  0.2 (MIT; `no_std` without `alloc`), xz only, without the LZMA1 that
+  7z mostly uses; and `lzma-rs` 0.3 (MIT), std readers only, last
+  released in 2023. No patent is known.
 - **bzip2: written here.** No crate fits. `bzip2` 0.6 is std only; its
   pure-Rust backend, `libbz2-rs-sys` 0.2 (bzip2-1.0.6 license), builds
   with `#![no_std]` but offers only libbzip2's C interface, whose raw

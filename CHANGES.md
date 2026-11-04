@@ -35,17 +35,24 @@ so any release may break compatibility.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `decode-deflate`, and `Deflate::deflate64`, with
   `deflate64`, Deflate64; `Gzip`, with `gzip`, decodes gzip streams over
-  `decode-gzip`; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and
-  `Xz`, with `xz`, xz streams, over `lzma-rust2`; `Zstd`, with `zstd`,
+  `decode-gzip`; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2
+  streams, over `decode-lzma`; `Xz`, with `xz`, xz streams, over
+  `lzma-rust2`; `Zstd`, with `zstd`,
   zstd streams, over `decode-zstd`; and `Bzip2`, with `bzip2`, bzip2
   streams, over `decode-bzip2`. A decoder now reads the packed bytes after the
   declared size, such as gzip's trailer, before it finishes. `Reader`
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than
   one or two per member.
-- `decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`, and
-  `decode-zlib`: New crates, with no items yet, reserving the names of
-  decoders to come (D62).
+- `decode-lz4`, `decode-lzo`, `decode-xz`, and `decode-zlib`: New
+  crates, with no items yet, reserving the names of decoders to come
+  (D62).
+- `decode-lzma`: New crate: an LZMA and LZMA2 decoder, ported from the
+  LZMA SDK and dedicated to the public domain, without dependencies, for
+  `no_std` with an allocator. `Decoder::lzma` decodes LZMA with the
+  properties its container gives, of a known size or to its end marker,
+  and `Decoder::lzma2` LZMA2; each refuses what the LZMA SDK refuses,
+  and offers checkpoints anywhere.
 - `decode-gzip`: New crate: a gzip decoder, written clean room from RFC
   1952 and dedicated to the public domain, over `decode-deflate`, for
   `no_std` with an allocator. It decodes members in turn, checking each

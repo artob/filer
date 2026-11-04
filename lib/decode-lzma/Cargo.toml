@@ -4,7 +4,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "A clean-room, public-domain LZMA and LZMA2 decoder, in safe Rust (planned)."
+description = "A clean-room, public-domain LZMA and LZMA2 decoder, in safe Rust."
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
@@ -12,6 +12,7 @@ license.workspace = true
 keywords = ["lzma", "lzma2", "7z", "decoder", "no-std"]
 categories = ["compression", "no-std"]
 publish.workspace = true
+exclude = ["tests/fuzz.rs"]
 
 [lints]
 workspace = true
@@ -24,3 +25,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std"]
 all = []
 std = []
+
+[dev-dependencies]
+# Mutates streams for `tests/fuzz.rs`. A path alone, without a version, so
+# that publishing strips it; the fuzzer stays out of the package with it.
+filer-spec = { path = "../filer-spec", default-features = false, features = ["std"] }
+# Another decoder, which the tests check this one against.
+lzma-rust2 = { workspace = true, features = ["encoder", "std"] }
