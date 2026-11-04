@@ -580,15 +580,37 @@ Created with `publish = false` (D16).
   until our own LZMA2 replaces it. Done when reading near the end of an
   `.xz` of several blocks decodes at most an interval and a block, as
   `.bz2` does.
+- [ ] **PACK-21: Our own zstd, frames and stored blocks.** The first
+  part of a zstd decoder of our own (D61), clean room from RFC 8878,
+  developed beside `Zstd`'s use of `ruzstd` until it replaces it
+  (PACK-24): frame headers and skippable frames, window sizes bounded at
+  128 MiB, raw and RLE blocks, and the XXH64 content checksum, written
+  here too. Done when frames of raw and RLE blocks decode as `ruzstd`
+  decodes them, checksums checked.
+- [ ] **PACK-22: Our own zstd, literals.** The literals section: raw,
+  RLE, and Huffman-coded, in one stream or four, with tables described
+  directly or by FSE-coded weights, and a previous block's table reused.
+  Done when blocks without sequences, as zstd writes them for data that
+  only Huffman coding shrinks, decode as `ruzstd` decodes them.
+- [ ] **PACK-23: Our own zstd, sequences.** The sequences section:
+  predefined, RLE, FSE-coded, and repeated tables for literal lengths,
+  match lengths, and offsets; repeat offsets; and executing sequences
+  over the window. Done when every zstd fixture and fuzzer input decodes
+  as `ruzstd` decodes it, and differential fuzzing against it, on comet,
+  finds nothing.
+- [ ] **PACK-24: Our own zstd in place of `ruzstd`.** `Zstd` decodes with
+  our own decoder, `ruzstd` leaves the dependencies, and `LEGAL.md`
+  records it (D61). Done when every test, fixture, and fuzzer passes
+  without `ruzstd`, and Ubuntu's initrd reads as before, no slower.
 - [ ] **PACK-20: Checkpoints within zstd frames.** Ubuntu 26.04's 61 MB
   initrd is one zstd frame with a 4 MiB window: reading its files in
   archive order takes 6.4 s in a release build, and in reverse 383 s,
   from restarts that frame checkpoints cannot spare. Within a frame, a
   checkpoint needs a copy of the decoder's state, which `ruzstd`'s
   `FrameDecoder` cannot make (UP-05): the path is our own zstd decoder
-  (D61), clean room from RFC 8878, whose state (window, Huffman and FSE
-  tables, repeat offsets) is `Clone`, replacing `ruzstd`. Done when that
-  image reads in reverse in a few seconds.
+  (D61, PACK-21 to 24), whose state (window, Huffman and FSE tables,
+  repeat offsets) is `Clone`, offering a copy every interval. Done when
+  that image reads in reverse in a few seconds.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
   (PACK-14), which TAR-02's `xz` shares, and
