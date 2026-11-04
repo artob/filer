@@ -13,18 +13,24 @@ pub(crate) const MAX_BITS: u32 = 15;
 /// The lengths a code may have, from 0, none, to the longest.
 const LENGTHS: usize = 16;
 
-/// What a table holds for a run of bits: a symbol and its code's length;
-/// or, under a prefix of longer codes, where their table begins and how
-/// many bits past the prefix index it; or, for bits that no code begins
-/// with, nothing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct Entry {
-    /// The symbol, or the offset of the table of longer codes.
-    value: u16,
-    /// The code's length, or 0 for no code.
-    bits: u8,
-    /// The bits that index the table of longer codes, or 0 for a symbol.
-    link: u8,
+/// What a table holds for a run of bits, packed for speed: the symbol, or
+/// where a table of longer codes begins, above a length byte, which is the
+/// code's length; or `LINK` and the bits that index that table; or
+/// `INVALID`, for bits that no code begins with. Neither of those is a
+/// length that the bits a decoder holds reach, so that one comparison
+/// tells a code decoded from the rest.
+type Entry = u32;
+
+/// The length byte of an entry of no code.
+const INVALID: u32 = 0x7F;
+
+/// The flag in the length byte of an entry that links to a table of longer
+/// codes.
+const LINK: u32 = 0x80;
+
+/// Returns the entry of `value` and the length byte `bits`.
+fn entry(value: u16, bits: u32) -> Entry {
+    u32::from(value).wrapping_shl(16) | bits
 }
 
 /// A decoded symbol, and the length of its code.
@@ -55,6 +61,8 @@ pub(crate) enum Kind {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Table {
     bits: u32,
+    /// The low `bits` bits set.
+    mask: u64,
     entries: Vec<Entry>,
 }
 
@@ -102,99 +110,104 @@ impl Table {
                 *next = code;
             }
         }
-
-        // Codes no longer than the index fill every entry they begin;
-        // longer ones, a table under their prefix, as long as the longest.
-        let size = 1_usize.wrapping_shl(bits);
-        let mask = size.wrapping_sub(1);
-        let mut entries = vec![Entry::default(); size];
+        // Each code, read from the stream first bit first, so reversed.
         let mut codes = Vec::with_capacity(lengths.len());
         for (symbol, &len) in lengths.iter().enumerate().filter(|(_, len)| **len > 0) {
             let next = next.get_mut(usize::from(len)).ok_or_else(corrupt)?;
-            let code = *next;
+            let code = u16::try_from(*next).map_err(|_| corrupt())?;
             *next = next.saturating_add(1);
-            // Read from the stream, a code's first bit comes first.
-            let reversed = u16::try_from(code).map_err(|_| corrupt())?.reverse_bits()
-                >> 16_u32.saturating_sub(u32::from(len));
+            let reversed = code.reverse_bits() >> 16_u32.saturating_sub(u32::from(len));
             let symbol = u16::try_from(symbol).map_err(|_| corrupt())?;
             codes.push((symbol, u32::from(len), usize::from(reversed)));
         }
+
+        // Codes no longer than the index fill every entry they begin.
+        let size = 1_usize.wrapping_shl(bits);
+        let mask = size.wrapping_sub(1);
+        let mut entries = vec![INVALID; size];
         for &(symbol, len, reversed) in codes.iter().filter(|(_, len, _)| *len <= bits) {
             let step = 1_usize.wrapping_shl(len);
-            let entry = Entry {
-                value: symbol,
-                bits: u8::try_from(len).map_err(|_| corrupt())?,
-                link: 0,
-            };
             for slot in entries.iter_mut().skip(reversed).step_by(step) {
-                *slot = entry;
+                *slot = entry(symbol, len);
             }
         }
-        let long = codes.iter().filter(|(_, len, _)| *len > bits);
-        for &(_, len, reversed) in long.clone() {
-            // The longest code under each prefix sets its table's size.
-            let link = len.saturating_sub(bits);
-            let slot = entries.get_mut(reversed & mask).ok_or_else(corrupt)?;
-            if u32::from(slot.link) < link {
-                slot.link = u8::try_from(link).map_err(|_| corrupt())?;
-            }
+        // Longer ones, a table under their prefix, as long as the longest
+        // code under it, past the prefix, needs.
+        let long = || codes.iter().filter(|(_, len, _)| *len > bits);
+        let mut links = vec![0_u32; size];
+        for &(_, len, reversed) in long() {
+            let link = links.get_mut(reversed & mask).ok_or_else(corrupt)?;
+            *link = (*link).max(len.saturating_sub(bits));
         }
-        for prefix in 0..size {
-            let Some(slot) = entries.get(prefix).copied().filter(|slot| slot.link > 0) else {
-                continue;
-            };
+        for (prefix, &link) in links.iter().enumerate().filter(|(_, link)| **link > 0) {
             let offset = u16::try_from(entries.len()).map_err(|_| corrupt())?;
-            let sub = 1_usize.wrapping_shl(u32::from(slot.link));
-            entries.resize(entries.len().saturating_add(sub), Entry::default());
-            if let Some(slot) = entries.get_mut(prefix) {
-                slot.value = offset;
-            }
+            *entries.get_mut(prefix).ok_or_else(corrupt)? = entry(offset, LINK | link);
+            let sub = 1_usize.wrapping_shl(link);
+            entries.resize(entries.len().saturating_add(sub), INVALID);
         }
-        for &(symbol, len, reversed) in long {
-            let slot = entries.get(reversed & mask).copied().ok_or_else(corrupt)?;
-            let start = usize::from(slot.value).saturating_add(reversed >> bits);
-            let end =
-                usize::from(slot.value).saturating_add(1_usize.wrapping_shl(u32::from(slot.link)));
+        for &(symbol, len, reversed) in long() {
+            let link = links.get(reversed & mask).copied().ok_or_else(corrupt)?;
+            let at = entries.get(reversed & mask).copied().ok_or_else(corrupt)?;
+            let offset = usize::try_from(at >> 16).map_err(|_| corrupt())?;
+            let start = offset.saturating_add(reversed >> bits);
+            let end = offset.saturating_add(1_usize.wrapping_shl(link));
             let step = 1_usize.wrapping_shl(len.saturating_sub(bits));
-            let entry = Entry {
-                value: symbol,
-                bits: u8::try_from(len).map_err(|_| corrupt())?,
-                link: 0,
-            };
-            for slot in entries
-                .get_mut(start..end)
-                .unwrap_or_default()
-                .iter_mut()
-                .step_by(step)
-            {
-                *slot = entry;
+            let sub = entries.get_mut(start..end).unwrap_or_default();
+            for slot in sub.iter_mut().step_by(step) {
+                *slot = entry(symbol, len);
             }
         }
-        Ok(Self { bits, entries })
+        Ok(Self {
+            bits,
+            mask: 1_u64.wrapping_shl(bits).wrapping_sub(1),
+            entries,
+        })
     }
 
     /// Decodes the code that `value`, the next `count` bits of the stream,
     /// begins with, the first in its lowest bit.
-    pub(crate) fn decode(&self, value: u64, count: u32) -> Code {
-        let mask = 1_u64.wrapping_shl(self.bits).wrapping_sub(1);
-        let index = usize::try_from(value & mask).unwrap_or_default();
-        let mut entry = self.entries.get(index).copied().unwrap_or_default();
-        if entry.link > 0 {
-            let sub = 1_u64.wrapping_shl(u32::from(entry.link)).wrapping_sub(1);
+    #[inline]
+    pub(crate) fn lookup(&self, value: u64, count: u32) -> Code {
+        let index = usize::try_from(value & self.mask).unwrap_or_default();
+        let entry = self.entries.get(index).copied().unwrap_or(INVALID);
+        if entry & 0xFF <= count {
+            return symbol(entry);
+        }
+        self.slow(entry, value, count)
+    }
+
+    /// Decodes a code longer than the table's index, or one the bits do
+    /// not yet hold, or none.
+    #[cold]
+    fn slow(&self, mut entry: Entry, value: u64, count: u32) -> Code {
+        if entry & LINK != 0 {
+            let link = entry & !LINK & 0xFF;
+            let sub = 1_u64.wrapping_shl(link).wrapping_sub(1);
             let index = usize::try_from(value.wrapping_shr(self.bits) & sub).unwrap_or_default();
-            let index = usize::from(entry.value).saturating_add(index);
-            entry = self.entries.get(index).copied().unwrap_or_default();
+            let offset = usize::try_from(entry >> 16).unwrap_or_default();
+            entry = self
+                .entries
+                .get(offset.saturating_add(index))
+                .copied()
+                .unwrap_or(INVALID);
+            if entry & 0xFF <= count {
+                return symbol(entry);
+            }
         }
-        match u32::from(entry.bits) {
-            // Past the bits there are, a longer code may yet begin.
-            0 if count < MAX_BITS => Code::Short,
-            0 => Code::Invalid,
-            bits if bits > count => Code::Short,
-            bits => Code::Symbol {
-                symbol: entry.value,
-                bits,
-            },
+        // Past the bits there are, a longer code may yet begin.
+        if entry & 0xFF == INVALID && count >= MAX_BITS {
+            Code::Invalid
+        } else {
+            Code::Short
         }
+    }
+}
+
+/// Returns the symbol and code length of an entry that has them.
+fn symbol(entry: Entry) -> Code {
+    Code::Symbol {
+        symbol: u16::try_from(entry >> 16).unwrap_or_default(),
+        bits: entry & 0xFF,
     }
 }
 
@@ -220,13 +233,13 @@ mod tests {
                 (7, 0b1111, 4),
             ] {
                 let stream = u64::from(u16::reverse_bits(code) >> (16 - len));
-                let decoded = table.decode(stream, 15);
+                let decoded = table.lookup(stream, 15);
                 assert_eq!(
                     decoded,
                     Code::Symbol { symbol, bits: len },
                     "{bits}: {symbol}"
                 );
-                assert_eq!(table.decode(stream, len - 1), Code::Short);
+                assert_eq!(table.lookup(stream, len - 1), Code::Short);
             }
         }
     }
@@ -239,10 +252,10 @@ mod tests {
         assert!(Table::new(&[2, 2, 2], 9, Kind::Literals).is_err());
         // A single code of one bit, and no distance codes at all.
         let single = Table::new(&[0, 1], 9, Kind::Distances).unwrap();
-        assert_eq!(single.decode(0, 15), Code::Symbol { symbol: 1, bits: 1 });
-        assert_eq!(single.decode(1, 15), Code::Invalid);
+        assert_eq!(single.lookup(0, 15), Code::Symbol { symbol: 1, bits: 1 });
+        assert_eq!(single.lookup(1, 15), Code::Invalid);
         let none = Table::new(&[0, 0], 9, Kind::Distances).unwrap();
-        assert_eq!(none.decode(0, 15), Code::Invalid);
+        assert_eq!(none.lookup(0, 15), Code::Invalid);
         assert!(Table::new(&[0, 0], 9, Kind::Literals).is_err());
     }
 }

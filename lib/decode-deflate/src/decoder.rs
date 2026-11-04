@@ -12,6 +12,14 @@ const CHUNK: usize = 32 * 1024;
 /// How far back a match may copy from.
 const WINDOW: usize = 32 * 1024;
 
+/// How far past its end a match may write, as it copies in chunks of up
+/// to 16.
+const SLACK: usize = 16;
+
+/// What a window's buffer holds at most: the window, and room to decode
+/// three chunks before it must move the window back to its start.
+const BUFFER: usize = WINDOW + 3 * CHUNK + 258 + SLACK;
+
 /// Each length code's base and extra bits, from code 257 (RFC 1951
 /// §3.2.5); codes 286 and 287 never occur.
 const LENGTHS: [(u32, u32); 29] = [
@@ -121,18 +129,22 @@ impl Bits {
     /// Takes whole bytes from `input` until it holds more than 55 bits, or
     /// the input runs out.
     fn refill(&mut self, input: &mut Input<'_>) {
+        self.refill_from(input.bytes, &mut input.taken);
+    }
+
+    /// Takes whole bytes from `bytes` past `taken`, as `refill` does.
+    #[inline]
+    fn refill_from(&mut self, bytes: &[u8], taken: &mut usize) {
         if self.count > 55 {
             return;
         }
-        let rest = input.bytes.get(input.taken..).unwrap_or_default();
+        let rest = bytes.get(*taken..).unwrap_or_default();
         if let Some(word) = rest.first_chunk::<8>() {
             let take = 63_u32.saturating_sub(self.count) / 8;
             self.value |= u64::from_le_bytes(*word).wrapping_shl(self.count);
             self.count = self.count.saturating_add(take.saturating_mul(8));
             self.value &= mask(self.count);
-            input.taken = input
-                .taken
-                .saturating_add(usize::try_from(take).unwrap_or_default());
+            *taken = taken.saturating_add(usize::try_from(take).unwrap_or_default());
             return;
         }
         for &byte in rest {
@@ -141,7 +153,7 @@ impl Bits {
             }
             self.value |= u64::from(byte).wrapping_shl(self.count);
             self.count = self.count.saturating_add(8);
-            input.taken = input.taken.saturating_add(1);
+            *taken = taken.saturating_add(1);
         }
     }
 
@@ -170,23 +182,25 @@ impl Bits {
 }
 
 /// What a stream has decoded: at least the window of the latest bytes,
-/// which matches copy from, and those not yet produced.
+/// which matches copy from, and those not yet produced, `end` of them, in
+/// a buffer with room past them.
 #[derive(Clone, Debug, Default)]
 struct Window {
-    bytes: Vec<u8>,
-    /// How many of `bytes` have been produced.
+    buf: Vec<u8>,
+    end: usize,
+    /// How many of the bytes have been produced.
     produced: usize,
 }
 
 impl Window {
     /// Returns how many bytes are decoded and not yet produced.
     fn held(&self) -> usize {
-        self.bytes.len().saturating_sub(self.produced)
+        self.end.saturating_sub(self.produced)
     }
 
     /// Produces what it can into `output`, and returns how much.
     fn produce(&mut self, output: &mut [u8]) -> usize {
-        let pending = self.bytes.get(self.produced..).unwrap_or_default();
+        let pending = self.buf.get(self.produced..self.end).unwrap_or_default();
         let n = pending.len().min(output.len());
         if let (Some(to), Some(from)) = (output.get_mut(..n), pending.get(..n)) {
             to.copy_from_slice(from);
@@ -195,28 +209,29 @@ impl Window {
         n
     }
 
-    /// Drops the bytes produced and further back than the window, once
-    /// they are `slack` or more, so that each byte moves once at most.
-    fn trim(&mut self, slack: usize) {
-        let excess = self.bytes.len().saturating_sub(WINDOW).min(self.produced);
-        if excess >= slack {
-            self.bytes.drain(..excess);
-            self.produced = self.produced.saturating_sub(excess);
+    /// Makes room to decode a chunk: moves the latest window, and what is
+    /// not yet produced, to the buffer's start, if the buffer has no room
+    /// past them; or grows the buffer, doubling, so that small streams
+    /// take little.
+    fn prepare(&mut self) {
+        let need = CHUNK.saturating_add(258).saturating_add(SLACK);
+        if self.end.saturating_add(need) > BUFFER {
+            self.compact();
+        }
+        let want = self.end.saturating_add(need);
+        if self.buf.len() < want {
+            let grown = want.max(self.buf.len().saturating_mul(2)).min(BUFFER);
+            self.buf.resize(grown.max(want), 0);
         }
     }
 
-    /// Appends `length` bytes copied from `distance` back, which they may
-    /// overlap, repeating what they copy.
-    fn copy(&mut self, distance: usize, length: usize) -> Result<(), Error> {
-        let from = self.bytes.len().checked_sub(distance);
-        let from = from.filter(|_| distance <= WINDOW).ok_or_else(corrupt)?;
-        let mut left = length;
-        while left > 0 {
-            let n = left.min(self.bytes.len().saturating_sub(from));
-            self.bytes.extend_from_within(from..from.saturating_add(n));
-            left = left.saturating_sub(n);
-        }
-        Ok(())
+    /// Moves the latest window, and what is not yet produced, to the
+    /// buffer's start, dropping what is before them.
+    fn compact(&mut self) {
+        let keep = self.end.saturating_sub(WINDOW).min(self.produced);
+        self.buf.copy_within(keep..self.end, 0);
+        self.end = self.end.saturating_sub(keep);
+        self.produced = self.produced.saturating_sub(keep);
     }
 }
 
@@ -297,7 +312,7 @@ impl Dynamic {
         let total = literals.saturating_add(distances);
         while self.read < total {
             bits.refill(input);
-            let (symbol, len) = match code.decode(bits.value, bits.count) {
+            let (symbol, len) = match code.lookup(bits.value, bits.count) {
                 Code::Symbol { symbol, bits } => (symbol, bits),
                 Code::Short => return Ok(None),
                 Code::Invalid => return Err(corrupt()),
@@ -444,7 +459,7 @@ impl Decoder {
                 self.bits.give_back(&mut input);
                 return Ok((input.taken, produced));
             }
-            self.window.trim(CHUNK);
+            self.window.prepare();
             if let Flow::More = self.run(&mut input)? {
                 // Every bit it holds is part of what it needs next.
                 return Ok((input.taken, produced));
@@ -471,7 +486,9 @@ impl Decoder {
     #[must_use]
     pub fn checkpoint(&self) -> Option<Self> {
         let mut copy = self.clone();
-        copy.window.trim(0);
+        copy.window.compact();
+        copy.window.buf.truncate(copy.window.end);
+        copy.window.buf.shrink_to_fit();
         Some(copy)
     }
 
@@ -486,7 +503,6 @@ impl Decoder {
     /// Decodes until it holds a chunk to produce, the stream ends, or it
     /// needs more input.
     fn run(&mut self, input: &mut Input<'_>) -> Result<Flow, Error> {
-        self.window.bytes.reserve(CHUNK.saturating_add(258));
         loop {
             if self.window.held() >= CHUNK {
                 return Ok(Flow::Done);
@@ -526,18 +542,26 @@ impl Decoder {
                 State::Stored(left) => {
                     let room = CHUNK.saturating_sub(self.window.held());
                     let want = usize::try_from(*left).unwrap_or_default().min(room);
+                    let window = &mut self.window;
                     // What the bits hold first, whole bytes as they are.
                     let n = if self.bits.count >= 8 {
                         let n = want.min(usize::try_from(self.bits.count / 8).unwrap_or_default());
                         for _ in 0..n {
                             let byte = u8::try_from(self.bits.take(8)).unwrap_or_default();
-                            self.window.bytes.push(byte);
+                            *window.buf.get_mut(window.end).ok_or_else(corrupt)? = byte;
+                            window.end = window.end.saturating_add(1);
                         }
                         n
                     } else {
                         let rest = input.bytes.get(input.taken..).unwrap_or_default();
                         let bytes = rest.get(..want.min(rest.len())).unwrap_or_default();
-                        self.window.bytes.extend_from_slice(bytes);
+                        let to = window.end..window.end.saturating_add(bytes.len());
+                        window
+                            .buf
+                            .get_mut(to)
+                            .ok_or_else(corrupt)?
+                            .copy_from_slice(bytes);
+                        window.end = window.end.saturating_add(bytes.len());
                         input.taken = input.taken.saturating_add(bytes.len());
                         bytes.len()
                     };
@@ -566,56 +590,33 @@ impl Decoder {
     /// Decodes codes until it holds a chunk, the block ends, or it needs
     /// more input, and returns whether it can go on.
     fn codes(&mut self, input: &mut Input<'_>) -> Result<bool, Error> {
-        loop {
-            if self.window.held() >= CHUNK {
-                return Ok(true);
-            }
-            let length = match self.state {
-                State::Distance(length) => length,
-                _ => {
-                    self.bits.refill(input);
-                    let (symbol, len) = match self.literals.decode(self.bits.value, self.bits.count)
-                    {
-                        Code::Symbol { symbol, bits } => (symbol, bits),
-                        Code::Short => return Ok(false),
-                        Code::Invalid => return Err(corrupt()),
-                    };
-                    if let Ok(literal) = u8::try_from(symbol) {
-                        self.bits.consume(len);
-                        self.window.bytes.push(literal);
-                        continue;
-                    }
-                    if symbol == 256 {
-                        self.bits.consume(len);
-                        self.ended();
-                        return Ok(true);
-                    }
-                    let code = usize::from(symbol).saturating_sub(257);
-                    let &(base, extra) = LENGTHS.get(code).ok_or_else(corrupt)?;
-                    if self.bits.count < len.saturating_add(extra) {
-                        return Ok(false);
-                    }
-                    self.bits.consume(len);
-                    base.saturating_add(self.bits.take(extra))
-                },
-            };
-            self.state = State::Distance(length);
-            self.bits.refill(input);
-            let (symbol, len) = match self.distances.decode(self.bits.value, self.bits.count) {
-                Code::Symbol { symbol, bits } => (symbol, bits),
-                Code::Short => return Ok(false),
-                Code::Invalid => return Err(corrupt()),
-            };
-            let &(base, extra) = DISTANCES.get(usize::from(symbol)).ok_or_else(corrupt)?;
-            if self.bits.count < len.saturating_add(extra) {
-                return Ok(false);
-            }
-            self.bits.consume(len);
-            let distance = base.saturating_add(self.bits.take(extra));
-            let distance = usize::try_from(distance).map_err(|_| corrupt())?;
-            let length = usize::try_from(length).map_err(|_| corrupt())?;
-            self.window.copy(distance, length)?;
-            self.state = State::Literal;
+        // The bits, and a length decoded and its distance not, in locals,
+        // which the loop keeps in registers.
+        let bits = self.bits;
+        let mut length = match self.state {
+            State::Distance(length) => Some(length),
+            _ => None,
+        };
+        let window = &mut self.window;
+        let limit = window.produced.saturating_add(CHUNK);
+        let at = Cursor {
+            bits,
+            end: window.end,
+            taken: input.taken,
+            length,
+        };
+        let tables = (&self.literals, &self.distances);
+        let (stop, at) = codes(at, tables, &mut window.buf, limit, input.bytes);
+        (self.bits, window.end, input.taken) = (at.bits, at.end, at.taken);
+        length = at.length;
+        self.state = length.map_or(State::Literal, State::Distance);
+        match stop? {
+            Stop::More => Ok(false),
+            Stop::Full => Ok(true),
+            Stop::End => {
+                self.ended();
+                Ok(true)
+            },
         }
     }
 
@@ -639,6 +640,158 @@ impl Decoder {
     fn ended(&mut self) {
         self.state = if self.last { State::End } else { State::Header };
     }
+}
+
+/// Why decoding codes stopped.
+enum Stop {
+    /// It needs more input.
+    More,
+    /// It holds a chunk.
+    Full,
+    /// The block ended.
+    End,
+}
+
+/// Where decoding codes is: the bits, the end of what is decoded, the
+/// input taken, and a match's length, decoded before its distance; by
+/// value, so that the loop keeps them in registers.
+#[derive(Clone, Copy)]
+struct Cursor {
+    bits: Bits,
+    end: usize,
+    taken: usize,
+    length: Option<u32>,
+}
+
+/// Decodes literal/length and distance codes with `tables`, from `at`'s
+/// bits, refilled from `input`, onto `buf`, until it reaches `limit`, the
+/// block ends, or it needs more input; and returns why it stopped, and
+/// where.
+fn codes(
+    mut at: Cursor,
+    (literals, distances): (&Table, &Table),
+    buf: &mut [u8],
+    limit: usize,
+    input: &[u8],
+) -> (Result<Stop, Error>, Cursor) {
+    let stop = loop {
+        if at.end >= limit {
+            break Ok(Stop::Full);
+        }
+        let len = match at.length.take() {
+            Some(len) => len,
+            None => {
+                at.bits.refill_from(input, &mut at.taken);
+                let (symbol, n) = match literals.lookup(at.bits.value, at.bits.count) {
+                    Code::Symbol { symbol, bits } => (symbol, bits),
+                    Code::Short => break Ok(Stop::More),
+                    Code::Invalid => break Err(corrupt()),
+                };
+                if let Ok(literal) = u8::try_from(symbol) {
+                    let Some(slot) = buf.get_mut(at.end) else {
+                        break Err(corrupt());
+                    };
+                    *slot = literal;
+                    at.bits.consume(n);
+                    at.end = at.end.saturating_add(1);
+                    continue;
+                }
+                if symbol == 256 {
+                    at.bits.consume(n);
+                    break Ok(Stop::End);
+                }
+                let code = usize::from(symbol).saturating_sub(257);
+                let Some(&(base, extra)) = LENGTHS.get(code) else {
+                    break Err(corrupt());
+                };
+                if at.bits.count < n.saturating_add(extra) {
+                    break Ok(Stop::More);
+                }
+                at.bits.consume(n);
+                base.saturating_add(at.bits.take(extra))
+            },
+        };
+        at.bits.refill_from(input, &mut at.taken);
+        let (symbol, n) = match distances.lookup(at.bits.value, at.bits.count) {
+            Code::Symbol { symbol, bits } => (symbol, bits),
+            Code::Short => {
+                at.length = Some(len);
+                break Ok(Stop::More);
+            },
+            Code::Invalid => break Err(corrupt()),
+        };
+        let Some(&(base, extra)) = DISTANCES.get(usize::from(symbol)) else {
+            break Err(corrupt());
+        };
+        if at.bits.count < n.saturating_add(extra) {
+            at.length = Some(len);
+            break Ok(Stop::More);
+        }
+        at.bits.consume(n);
+        let distance = base.saturating_add(at.bits.take(extra));
+        let (Ok(distance), Ok(len)) = (usize::try_from(distance), usize::try_from(len)) else {
+            break Err(corrupt());
+        };
+        match copy(buf, at.end, distance, len) {
+            Ok(end) => at.end = end,
+            Err(error) => break Err(error),
+        }
+    };
+    (stop, at)
+}
+
+/// Copies to `buf` past `end` `length` bytes from `distance` back, which
+/// they may overlap, repeating what they copy, and returns the new end.
+/// It may write up to `SLACK` bytes past that end.
+fn copy(buf: &mut [u8], end: usize, distance: usize, length: usize) -> Result<usize, Error> {
+    let from = end.checked_sub(distance);
+    let mut from = from.filter(|_| distance <= WINDOW).ok_or_else(corrupt)?;
+    let stop = end.saturating_add(length);
+    let mut to = end;
+    match distance {
+        1 => {
+            let byte = buf.get(from).copied().ok_or_else(corrupt)?;
+            buf.get_mut(to..stop).ok_or_else(corrupt)?.fill(byte);
+        },
+        16.. => chunks::<16>(buf, from, to, stop)?,
+        8.. => chunks::<8>(buf, from, to, stop)?,
+        _ => {
+            // Byte by byte until what is written repeats with a period of
+            // 8 or more, a multiple of the distance; then in chunks.
+            let period = 8_usize.div_ceil(distance).saturating_mul(distance);
+            let head = stop.min(end.saturating_add(period));
+            while to < head {
+                *buf.get_mut(to).ok_or_else(corrupt)? =
+                    buf.get(from).copied().ok_or_else(corrupt)?;
+                (from, to) = (from.saturating_add(1), to.saturating_add(1));
+            }
+            chunks::<8>(buf, to.saturating_sub(period), to, stop)?;
+        },
+    }
+    Ok(stop)
+}
+
+/// Copies to `buf` from `from` to `to`, until `stop`, in chunks of `N`
+/// bytes, up to `N` past it: chunks that do not overlap what they copy, as
+/// `to` is at least `N` past `from`, each after the last has written what
+/// it reads.
+fn chunks<const N: usize>(
+    buf: &mut [u8],
+    mut from: usize,
+    mut to: usize,
+    stop: usize,
+) -> Result<(), Error> {
+    while to < stop {
+        let chunk: [u8; N] = *buf
+            .get(from..)
+            .and_then(|rest| rest.first_chunk())
+            .ok_or_else(corrupt)?;
+        *buf.get_mut(to..)
+            .and_then(|rest| rest.first_chunk_mut())
+            .ok_or_else(corrupt)? = chunk;
+        (from, to) = (from.saturating_add(N), to.saturating_add(N));
+    }
+    Ok(())
 }
 
 impl Default for Decoder {

@@ -554,14 +554,18 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **DEC-02: `decode-deflate`.** Deflate (RFC 1951) in place of
-  `miniz_oxide`, with a state that copies for checkpoints. Done when ZIP
-  members and gzip streams decode as `miniz_oxide` decodes them, and
-  differential fuzzing against it finds nothing. Deflate64 (ZIP's method
-  9, 7z) comes too, behind an additive `deflate64` feature, as a variant
-  chosen per stream that never changes what plain Deflate decodes: a
-  64 KiB window, length code 285 as 3 plus 16 extra bits, and distance
-  codes 30 and 31.
+- [ ] **DEC-02: `decode-deflate` in place of `miniz_oxide`.** It
+  decodes Deflate as zlib does, and copies for checkpoints. What remains:
+  decoding at least as fast as `miniz_oxide` (on Apple M4, 20% slower on
+  executables, as fast on text, and half as fast as `zlib-rs`, whose
+  `inflate_fast` loop is the model: no checks of input or room while
+  both suffice, and wide copies); Deflate64 (ZIP's method 9, 7z), behind
+  an additive `deflate64` feature, as a variant chosen per stream that
+  never changes what plain Deflate decodes (a 64 KiB window, length code
+  285 as 3 plus 16 extra bits, and distance codes 30 and 31); and
+  `filer-pack`'s `Deflate` over it. Done when `miniz_oxide` leaves
+  `filer-pack`'s dependencies, ZIP members and gzip streams read as
+  before, no slower.
 - [ ] **DEC-03: `decode-gzip`.** gzip (RFC 1952): `filer-pack`'s `Gzip`
   framing, over `decode-deflate`. Done when `filer-pack` decodes gzip
   through it.
