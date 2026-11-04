@@ -22,9 +22,13 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = ["deflate"]
+all = ["bzip2", "deflate", "lzma", "xz", "zstd"]
 std = ["filer-api/std", "filer-msft/std", "filer-pack/std"]
+bzip2 = ["filer-pack/bzip2"]
 deflate = ["filer-pack/deflate"]
+lzma = ["filer-pack/lzma"]
+xz = ["filer-pack/xz"]
+zstd = ["filer-pack/zstd"]
 
 [dependencies]
 filer-api.workspace = true

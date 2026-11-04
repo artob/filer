@@ -159,6 +159,7 @@ async fn add<S: ReadAt>(
     let codec = Method {
         method: central.fixed.method,
         crc: central.fixed.crc,
+        size: central.size,
         encrypted: central.encrypted(),
     };
     if codec.is_stored() && central.size != central.compressed {

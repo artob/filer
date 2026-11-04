@@ -38,7 +38,8 @@ so any release may break compatibility.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 - `filer-archive`: Compressed tarballs, by their extensions (`.tar.gz`,
   `.tgz`, `.tar.zst`, `.tar.xz`, `.tar.bz2`, and the like); the `bzip2`,
-  `gzip`, `xz`, and `zstd` features, which `filer-tar` reads with.
+  `gzip`, `lzma`, `xz`, and `zstd` features, which `filer-tar` and
+  `filer-zip` decode with.
 - `filer-spec`: `Counted`, a source counting its reads; `Outcome::files`;
   `Checks::refusals` and
   `Checks::read_cap`, for archive drivers; `Mutations::aligned` and
@@ -46,6 +47,8 @@ so any release may break compatibility.
 - `filer-tar`: Archives compressed with gzip, zstd, xz, or bzip2, told by
   their first bytes, behind features named as they are; `Compression`,
   and `Tar::compression`.
+- `filer-zip`: Members compressed with bzip2, LZMA, zstd, or xz, behind
+  features named as they are, which `filer-archive` forwards.
 ### Changed
 - `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the
   members an archive shows, no longer ar's symbol and name tables or

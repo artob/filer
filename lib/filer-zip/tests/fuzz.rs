@@ -74,7 +74,10 @@ const MUTATIONS: Mutations = Mutations::new(&BYTES, &WORDS).aligned(false).most(
 
 /// Archives of every kind the driver reads.
 fn corpus() -> Vec<Seed> {
-    let mut seeds = vec![include_bytes!("data/hello.zip").to_vec()];
+    let mut seeds = vec![
+        include_bytes!("data/hello.zip").to_vec(),
+        include_bytes!("data/methods.zip").to_vec(),
+    ];
     for (zip64, deflate) in [(false, false), (false, true), (true, true)] {
         let mut writer = Writer {
             zip64,

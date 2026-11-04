@@ -14,17 +14,21 @@
 //! never creates or modifies them, and never will: writing archives is out
 //! of scope for this project. Use a dedicated archiving library for that.
 //!
-//! So far it reads stored and Deflate members, with limits against zip
-//! bombs. More codecs behind features and legacy code-page names are
-//! planned (see `DESIGN.md` §17.7).
+//! It reads stored members and those of the methods most archivers write,
+//! with limits against zip bombs. Legacy code-page names are planned (see
+//! `DESIGN.md` §17.7).
 //!
 //! It needs no OS and builds with `#![no_std]`. Features, all enabled by
-//! default:
+//! default, each decoding members of a method with `filer-pack`'s
+//! decoder:
 //!
 //! - `std` forwards to `filer-api`;
 //! - `all` enables every codec below;
-//! - `deflate` decodes Deflate members, with `filer-pack`'s, over
-//!   `miniz_oxide`.
+//! - `deflate` decodes Deflate members (method 8), over `miniz_oxide`;
+//! - `bzip2` decodes bzip2 members (12);
+//! - `lzma` decodes LZMA members (14), over `lzma-rust2`;
+//! - `zstd` decodes zstd members (93), over `ruzstd`;
+//! - `xz` decodes xz members (95), over `lzma-rust2`.
 
 #![no_std]
 #![forbid(unsafe_code)]

@@ -2227,7 +2227,10 @@ Times come from the NTFS extra field, then the extended timestamp, then
 the DOS fields, read as UTC. Its codec records each member's method,
 CRC-32, and encryption: Deflate decodes with `filer-pack`'s, over
 `miniz_oxide` (feature `deflate`), checked against the CRC at the
-member's end; other methods
+member's end; since 2026-11-03 (ZIP-02), so do bzip2 (12), LZMA (14,
+after its own header of the SDK's version and the properties), zstd
+(93), and xz (95), each behind a feature, which a Python 3.14 `zipfile`
+archive of each tests; other methods
 and encryption fail on read, not open, except for symlinks, whose
 targets are decoded at open. Spanned archives are `Unsupported`.
 Against bombs, `Limits` gained `max_total_size` (16 GiB of declared

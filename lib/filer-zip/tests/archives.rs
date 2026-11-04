@@ -144,21 +144,22 @@ fn refuses_malformed_archives() {
 
 #[test]
 fn refuses_what_it_cannot_read() {
-    // Unknown methods and encryption fail on read, not open.
+    // Unknown methods, such as PPMd, and encryption fail on read, not
+    // open.
     let mut writer = Writer::default();
-    writer.file(b"lzma", b"x").last().method = 14;
+    writer.file(b"ppmd", b"x").last().method = 98;
     writer.file(b"secret", b"x").last().flags = 1;
     writer.file(b"plain", b"x");
     let root = open(writer.finish()).unwrap();
     assert_eq!(read(&root, "plain"), b"x");
-    for path in ["lzma", "secret"] {
+    for path in ["ppmd", "secret"] {
         let file = block_on(root.open_file(path)).unwrap();
         let error = block_on(file.read_to_end()).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Unsupported, "{path}");
     }
     // Symlink targets are read at open, so there it fails.
     let mut writer = Writer::default();
-    writer.symlink(b"l", b"x").last().method = 14;
+    writer.symlink(b"l", b"x").last().method = 98;
     assert_eq!(kind(open(writer.finish())), ErrorKind::Unsupported);
 
     let mut spanned = Writer::default().file(b"a", b"x").finish();
@@ -270,6 +271,60 @@ fn reads_archives_stored_in_another_driver() {
 fn try_read(root: &Root, path: &str) -> Result<Vec<u8>, Error> {
     let file = block_on(root.open_file(path)).unwrap();
     block_on(file.read_to_end())
+}
+
+/// `printf hello | xz -0 -C crc32`, by xz 5.8.4.
+const XZ_HELLO: [u8; 64] = [
+    0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00, 0x00, 0x01, 0x69, 0x22, 0xDE, 0x36, 0x03, 0xC0, 0x09, 0x05,
+    0x21, 0x01, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6D, 0xFF, 0x09, 0xFF, 0x01, 0x00, 0x04, 0x68,
+    0x65, 0x6C, 0x6C, 0x6F, 0x00, 0x00, 0x00, 0x00, 0x86, 0xA6, 0x10, 0x36, 0x00, 0x01, 0x1D, 0x05,
+    0xB8, 0x2D, 0x80, 0xAF, 0x90, 0x42, 0x99, 0x0D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x59, 0x5A,
+];
+
+/// `methods.zip` is by Python 3.14's `zipfile`: `seq 500` in each method
+/// it writes, stored, Deflate, bzip2, LZMA (with an end marker), and zstd.
+#[test]
+fn reads_each_method() {
+    let root = open(include_bytes!("data/methods.zip").to_vec()).unwrap();
+    let text: Vec<u8> = (1..=500)
+        .flat_map(|n| format!("{n}\n").into_bytes())
+        .collect();
+    let methods = [
+        ("stored.txt", true),
+        ("deflated.txt", cfg!(feature = "deflate")),
+        ("bzip2.txt", cfg!(feature = "bzip2")),
+        ("lzma.txt", cfg!(feature = "lzma")),
+        ("zstd.txt", cfg!(feature = "zstd")),
+    ];
+    for (name, enabled) in methods {
+        match try_read(&root, name) {
+            Ok(data) => {
+                assert!(enabled, "{name}");
+                assert_eq!(data, text, "{name}");
+            },
+            Err(error) => {
+                assert!(!enabled, "{name}: {error:?}");
+                assert_eq!(error.kind(), ErrorKind::Unsupported, "{name}");
+            },
+        }
+    }
+    // xz, which WinZip writes; and LZMA whose header says other than five
+    // bytes of properties.
+    let mut writer = Writer::default();
+    let xz = writer.file(b"xz", b"hello").last();
+    (xz.method, xz.packed) = (95, Some(XZ_HELLO.to_vec()));
+    let lzma = writer.file(b"lzma", b"hello").last();
+    (lzma.method, lzma.packed) = (14, Some(vec![9, 4, 4, 0, 0x5D, 0, 0, 1, 0]));
+    let root = open(writer.finish()).unwrap();
+    if cfg!(feature = "xz") {
+        assert_eq!(read(&root, "xz"), b"hello");
+    }
+    if cfg!(feature = "lzma") {
+        assert_eq!(
+            try_read(&root, "lzma").unwrap_err().kind(),
+            ErrorKind::Corrupt
+        );
+    }
 }
 
 #[test]

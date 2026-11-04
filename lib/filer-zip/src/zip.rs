@@ -16,9 +16,10 @@ use filer_pack::{Archive, Limits};
 /// archive's root directory comes back as a [`Dir`] with only
 /// [`Rights::READ`]. The serving itself is the shared [`Archive`] driver.
 ///
-/// It reads stored members and, with the `deflate` feature, Deflate
-/// members, checking a member's CRC-32 when a read reaches its end; ZIP64
-/// archives; and archives with a comment. Directories, symlinks, and special files come from Unix
+/// It reads stored members and, each with its feature, Deflate, bzip2,
+/// LZMA, zstd, and xz members, checking a member's CRC-32 when a read
+/// reaches its end; ZIP64 archives; and archives with a comment.
+/// Directories, symlinks, and special files come from Unix
 /// modes in the external attributes, and directories also from a trailing
 /// `/` or the MS-DOS directory attribute. Modification times come from an
 /// NTFS extra field (100 ns), an extended timestamp (1 s), or the DOS

@@ -561,10 +561,6 @@ Created with `publish = false` (D16).
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **ZIP-02: More codecs.** zstd (method 93), bzip2 (12), and LZMA
-  (14, with its own small header) from `filer-pack` (PACK-13 to 15)
-  behind features, as `deflate` is. Done when each decodes a test
-  archive.
 - [ ] **ZIP-03: Legacy names.** Decode names without the UTF-8 flag with
   `known-codepages`, CP437 by default and any `CodePage` by option, as
   `filer-fat` does; also Info-ZIP's Unicode path extra field (0x7075).
