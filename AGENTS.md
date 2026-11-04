@@ -88,17 +88,17 @@
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `decode-<codec>` crates (`decode-bzip2`, `decode-deflate`,
-  `decode-gzip` over it, `decode-lzma`, `decode-zstd`) are our
-  clean-room decoders (D62): generic, no dependencies but each other,
-  each a `Decoder` with `decode`, `finish`, `checkpoint`, and
-  `buffered`, which `filer-pack` adapts;
+  `decode-gzip` over it, `decode-lzma`, `decode-xz` over it,
+  `decode-zstd`) are our clean-room decoders (D62): generic, no
+  dependencies but each other, each a `Decoder` with `decode`, `finish`,
+  `checkpoint`, and `buffered`, which `filer-pack` adapts;
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.
 - Stubs that reserve a crate name but read nothing yet live in
   `tmp/<crate>/` (archives: `filer-rar`, `filer-7z`; file systems, each
   depending on `filer-fs`: `filer-udf`, `filer-exfat`, `filer-btrfs`,
-  `filer-zfs`, ...; codecs: `decode-xz`, `decode-zlib`, ...). A
+  `filer-zfs`, ...; codecs: `decode-zlib`, `decode-lz4`, ...). A
   stub's crate docs list what its format needs. It
   moves to `lib/` with its first implementation, and joins its umbrella
   then (`filer-rar`, `filer-7z`, and `filer-udf` already have).

@@ -293,12 +293,11 @@ on macOS and the BSDs (their system call interface is private), and
 with no C library at all.
 
 Consequences: compression codecs are pure-Rust decoders (Deflate, zstd,
-LZMA, and bzip2 written here, and `lzma-rust2` for xz, as `LEGAL.md`
-assesses them), which suffices since archive drivers only read;
-`filer-fuse` must use a FUSE mount path that needs no `libfuse`
-(**VERIFY** `fuser` without its `libfuse` feature). CI fails if `cc`,
-`cmake`, `pkg-config`, or `bindgen` enters the dependency tree on any
-target.
+LZMA, xz, and bzip2 written here, as `LEGAL.md` assesses them), which
+suffices since archive drivers only read; `filer-fuse` must use a FUSE
+mount path that needs no `libfuse` (**VERIFY** `fuser` without its
+`libfuse` feature). CI fails if `cc`, `cmake`, `pkg-config`, or
+`bindgen` enters the dependency tree on any target.
 
 **Fuzzing tooling (D50).** The one exemption: `cargo-fuzz` targets, in a
 `fuzz/` crate inside the crate they fuzz, may depend on `libfuzzer-sys`,
@@ -395,20 +394,19 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | umbrella (Q11) | re-exports and feature forwarding | no |
 
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
-`filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
-`filer-msft`, `known-codepages`, `decode-bzip2`, `decode-deflate`,
-`decode-gzip`, `decode-lzma`, `decode-zstd`, `filer-pack`, the read-only
+`filer-windows`, `filer-system`, `filer-spec`, `filer-fs`, `filer-msft`,
+`known-codepages`, `decode-bzip2`, `decode-deflate`, `decode-gzip`,
+`decode-lzma`, `decode-xz`, `decode-zstd`, `filer-pack`, the read-only
 `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
 over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
 `filer-volume` over them, and as empty skeletons `filer-wasi`,
-`filer-whatwg`, and `filer-cli` (D30, D38, D41).
-Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
-and the file systems `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
-`filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,
-`filer-udf`, `filer-ufs`, and `filer-zfs`; and the decoders
-`decode-zlib`, `decode-xz`,
-`decode-lz4`, and `decode-lzo` (D62).
-The rest are created when their first `TODO.md` item starts.
+`filer-whatwg`, and `filer-cli` (D30, D38, D41). Stubs reserving names
+live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
+`filer-apfs`, `filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`,
+`filer-refs`, `filer-squashfs`, `filer-udf`, `filer-ufs`, and
+`filer-zfs`; and the decoders `decode-zlib`, `decode-lz4`, and
+`decode-lzo` (D62). The rest are created when their first `TODO.md` item
+starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
 that perform no I/O and hold no filesystem state (`DynDriver`, `Hybrid`,
@@ -2516,20 +2514,20 @@ shape: a `Decoder` with `new`, `decode(input, output)` returning what it
 consumed and produced, `finish`, `checkpoint`, and `buffered`, and an
 `Error` that is `Corrupt` or `Unsupported`. `filer-pack` adapts each to
 its `Decoder` trait behind a feature named for the codec, keeping its
-own types (`Zstd`, `Bzip2`, `Deflate`, `Gzip`, `Lzma`, `Lzma2`). A side
-effect of Filer is thus a family of clean-room, public-domain decoders
-of every codec it reads: Deflate, gzip, LZMA and LZMA2, and xz next, in
-place of the interim crates (TODO DEC-02 to 05), then zlib, LZ4, and LZO
-as the drivers that need them come (DEC-06 to 08). Stubs in `tmp/`
-reserve their names. LZMA2 shares `decode-lzma` with LZMA, as it is LZMA
-in chunks over the same model and window; and Deflate64, Deflate with a
-larger window, a longer last length, and two more distances, is to share
-`decode-deflate`, chosen per stream behind an additive feature, so that
-enabling it never changes what Deflate decodes. `decode-deflate` decodes
-since 2026-11-04 (DEC-02), from RFC 1951 alone, refusing what zlib
-refuses: it decodes zlib's own output at each level and strategy, and
-mutations of it, as zlib does, through `zlib-rs`, a port of it used to
-test, and consumes as much of each stream as zlib does. It reads bits
+own types (`Zstd`, `Bzip2`, `Deflate`, `Gzip`, `Lzma`, `Lzma2`, `Xz`). A
+side effect of Filer is thus a family of clean-room, public-domain
+decoders of every codec it reads: Deflate, gzip, LZMA and LZMA2, and xz
+next, in place of the interim crates (TODO DEC-02 to 05), then zlib,
+LZ4, and LZO as the drivers that need them come (DEC-06 to 08). Stubs in
+`tmp/` reserve their names. LZMA2 shares `decode-lzma` with LZMA, as it
+is LZMA in chunks over the same model and window; and Deflate64, Deflate
+with a larger window, a longer last length, and two more distances, is
+to share `decode-deflate`, chosen per stream behind an additive feature,
+so that enabling it never changes what Deflate decodes. `decode-deflate`
+decodes since 2026-11-04 (DEC-02), from RFC 1951 alone, refusing what
+zlib refuses: it decodes zlib's own output at each level and strategy,
+and mutations of it, as zlib does, through `zlib-rs`, a port of it used
+to test, and consumes as much of each stream as zlib does. It reads bits
 ahead for speed only within a call's input, and gives back the whole
 bytes it does not use when it returns, so that it never consumes past a
 stream's end. While the input holds two words past what is taken, a fast
@@ -2560,8 +2558,19 @@ few, as the SDK's decoder does. Literals and bit trees decode without
 branches, which their bits, as likely one as the other, would
 mispredict; so it decodes as fast as `lzma-rust2` on the M4, and within
 3% on Zen 1. `filer-pack`'s `Lzma` and `Lzma2` adapt it, without
-checkpoints, which would copy the whole dictionary; `Xz` stays on
-`lzma-rust2` until `decode-xz` (DEC-05).
+checkpoints, which would copy the whole dictionary. `decode-xz` (DEC-05,
+2026-11-04) is written from the `.xz` file format specification, its
+branch converters ported from the LZMA SDK (x86, PowerPC, IA-64, ARM,
+ARM Thumb, and SPARC from 9.20's plain ones, ARM64 and RISC-V from
+26.05's), and its SHA-256 from FIPS 180-4, over `decode-lzma`'s LZMA2.
+Each filter is a stage holding back what it cannot yet convert until
+more follows or the block ends; the index is checked in constant memory,
+by hashing the blocks' sizes as they end and as it lists them, which
+must agree. It decodes chains of filters that `lzma-rust2` refuses, as
+xz does, and decodes a tenth faster than it on the M4. It offers
+checkpoints between blocks, and returns as each ends, so that
+`filer-pack`'s `Xz`, which adapts it, resumes a read at the block before
+it (PACK-19); `lzma-rust2` is now only the tests' oracle and encoder.
 
 **Benchmarking the decoders (D63, 2026-11-04).** Each `decode-*` crate
 keeps a `BENCH.md`: its decoder's figures alone, and against the
@@ -3940,7 +3949,7 @@ only when the first item needs it.
 | `bitflags` | 2.13 | `filer-api` | `no_std`; optional `serde` |
 | `ref-cast` | 1.0 | `filer-api` | path DSTs (D4) |
 | `spin` | 0.12 | `filer-pack`, `filer-heap` | `no_std` lock |
-| `lzma-rust2` | 0.25 | `filer-pack` | xz, LZMA; `no_std`, no `optimization` |
+| `lzma-rust2` | 0.25 | `decode-lzma`, `decode-xz` | tests' oracle and encoder |
 | `async-lock` | 3.4 | `filer-tx`, `filer-quota` | MSRV 1.85; `no_std` |
 | `serde` | 1.0 | several | optional |
 | `bytes` | 1.12 | `filer-api` | optional |

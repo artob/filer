@@ -35,9 +35,8 @@
 //! `deflate64`; [`Gzip`], over `decode-gzip`, behind `gzip`; [`Zstd`], over
 //! `decode-zstd`, behind `zstd`; [`Bzip2`], over `decode-bzip2`, behind
 //! `bzip2`; [`Lzma`] and [`Lzma2`], over `decode-lzma`, behind `lzma`; and
-//! [`Xz`], over `lzma-rust2`, behind `xz`. The `decode-*` crates are the
-//! decoders written for Filer, as crates of their own, clean room and
-//! public domain (D62).
+//! [`Xz`], over `decode-xz`, behind `xz`: the decoders written for Filer,
+//! as crates of their own, clean room and public domain (D62).
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will

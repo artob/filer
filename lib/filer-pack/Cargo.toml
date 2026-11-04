@@ -29,7 +29,7 @@ deflate = ["dep:decode-deflate"]
 deflate64 = ["deflate", "decode-deflate/deflate64"]
 gzip = ["dep:decode-gzip"]
 lzma = ["dep:decode-lzma"]
-xz = ["lzma", "dep:lzma-rust2", "lzma-rust2/xz"]
+xz = ["lzma", "dep:decode-xz"]
 zstd = ["dep:decode-zstd"]
 
 [dependencies]
@@ -37,9 +37,9 @@ decode-bzip2 = { workspace = true, optional = true }
 decode-deflate = { workspace = true, optional = true }
 decode-gzip = { workspace = true, optional = true }
 decode-lzma = { workspace = true, optional = true }
+decode-xz = { workspace = true, optional = true }
 decode-zstd = { workspace = true, optional = true }
 filer-api.workspace = true
-lzma-rust2 = { workspace = true, optional = true }
 spin = { workspace = true, features = ["spin_mutex"] }
 
 [dev-dependencies]

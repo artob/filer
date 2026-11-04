@@ -99,6 +99,11 @@ version = "0.0.2"
 [[package]]
 name = "decode-xz"
 version = "0.0.2"
+dependencies = [
+ "decode-lzma",
+ "filer-spec",
+ "lzma-rust2",
+]
 
 [[package]]
 name = "decode-zlib"
@@ -300,10 +305,10 @@ dependencies = [
  "decode-deflate",
  "decode-gzip",
  "decode-lzma",
+ "decode-xz",
  "decode-zstd",
  "filer-api",
  "filer-spec",
- "lzma-rust2",
  "miniz_oxide",
  "spin",
 ]

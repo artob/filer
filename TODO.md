@@ -96,10 +96,6 @@ at low priority, as our own decoders replace the crates when they block.
   `fcntl_lock` explaining classic lock semantics.
 - [ ] **UP-04: `winx`: `windows-sys` range (optional).**
   Only if Filer.rs decides to depend on `winx` (§17.2).
-- [ ] **UP-06: `lzma-rust2`: resuming xz at a block (low priority).**
-  `Clone` for `XzStream` between blocks, or a public block decoder, for
-  checkpoints at xz blocks (PACK-19); our own `decode-xz` is the path
-  meanwhile (DEC-05).
 
 ## `filer-api`: paths
 
@@ -554,10 +550,6 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **DEC-05: `decode-xz`.** The `.xz` container, from its file format
-  specification: stream and block headers, filters, CRC-32, CRC-64, and
-  SHA-256 checks, and the index, over `decode-lzma`, offering checkpoints
-  at blocks (PACK-19). Done when `lzma-rust2` leaves the dependencies.
 - [ ] **BENCH-01: The benchmark harness.** `bench/` as `bench/METHOD.md`
   describes it (D63): its own workspace; `corpus.toml` with each file's
   source and SHA-256; encoding once at each codec's levels; every
@@ -592,12 +584,6 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **PACK-19: xz checkpoints.** xz blocks decode alone, and xz 5.4
-  writes several by default, but `lzma-rust2`'s `XzStream` starts only at
-  a stream header and exposes no block decoder (UP-06): resuming at a
-  block means our own xz container, `decode-xz` (DEC-05). Done when
-  reading near the end of an `.xz` of several blocks decodes at most an
-  interval and a block, as `.bz2` does.
 - [ ] **PACK-20: Checkpoints within zstd frames.** Ubuntu 26.04's 61 MB
   initrd is one zstd frame with a 4 MiB window: reading its files in
   archive order takes 6.4 s in a release build, and in reverse 383 s,

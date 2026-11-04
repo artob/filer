@@ -6,7 +6,7 @@ alternatives, measured by the protocol of this repository's
 and builds for every decoder, each figure a median with its 95%
 confidence interval, and every output checked against the original.
 
-**No results yet**: the decoder is still to be written.
+**No results yet**: the harness that measures it is still to be built.
 
 ## Counterparts
 

@@ -1,0 +1,37 @@
+# Coverage-guided fuzzing of `decode-xz` with `cargo-fuzz` (nightly):
+# `cargo fuzz run decode`, or `differential`, from `lib/decode-xz`.
+# libFuzzer is C++, so this crate stays outside the workspace and is never
+# a dependency of a published crate (DESIGN.md D50); `tests/fuzz.rs` is the
+# pure-Rust fuzzer.
+
+[package]
+name = "decode-xz-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+decode-xz = { path = ".." }
+libfuzzer-sys = "0.4"
+lzma-rust2 = { version = "0.25", default-features = false, features = ["std", "xz"] }
+
+# Its own workspace, apart from the repository's.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "decode"
+path = "fuzz_targets/decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "differential"
+path = "fuzz_targets/differential.rs"
+test = false
+doc = false
+bench = false

@@ -37,16 +37,20 @@ so any release may break compatibility.
   `deflate64`, Deflate64; `Gzip`, with `gzip`, decodes gzip streams over
   `decode-gzip`; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2
   streams, over `decode-lzma`; `Xz`, with `xz`, xz streams, over
-  `lzma-rust2`; `Zstd`, with `zstd`,
+  `decode-xz`, with checkpoints between blocks; `Zstd`, with `zstd`,
   zstd streams, over `decode-zstd`; and `Bzip2`, with `bzip2`, bzip2
   streams, over `decode-bzip2`. A decoder now reads the packed bytes after the
   declared size, such as gzip's trailer, before it finishes. `Reader`
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than
   one or two per member.
-- `decode-lz4`, `decode-lzo`, `decode-xz`, and `decode-zlib`: New
-  crates, with no items yet, reserving the names of decoders to come
-  (D62).
+- `decode-lz4`, `decode-lzo`, and `decode-zlib`: New crates, with no
+  items yet, reserving the names of decoders to come (D62).
+- `decode-xz`: New crate: an xz decoder, written clean room from the
+  `.xz` file format specification and dedicated to the public domain,
+  over `decode-lzma`, for `no_std` with an allocator: streams, padding,
+  every filter xz writes, CRC-32, CRC-64, and SHA-256 checks, and the
+  index; it offers checkpoints between blocks.
 - `decode-lzma`: New crate: an LZMA and LZMA2 decoder, ported from the
   LZMA SDK and dedicated to the public domain, without dependencies, for
   `no_std` with an allocator. `Decoder::lzma` decodes LZMA with the
