@@ -76,3 +76,8 @@ pub use decoder::*;
 
 mod error;
 pub use error::*;
+
+// The README's example runs as a doctest.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;

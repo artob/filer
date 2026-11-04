@@ -35,3 +35,8 @@ pub use code_page::*;
 
 #[rustfmt::skip]
 mod tables;
+
+// The README's example runs as a doctest.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
