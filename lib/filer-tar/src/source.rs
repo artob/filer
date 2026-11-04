@@ -4,81 +4,9 @@ use crate::{
     header::{BLOCK, BLOCK_LEN, Header},
     index::TAR,
 };
-use alloc::{boxed::Box, vec::Vec};
-use filer_api::{BufResult, Error, ErrorKind, IoBufMut, OpKind, ReadAt};
-use filer_pack::{Codec, Decoder, Limits, Unpacked};
-
-/// What a tarball is compressed with.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum Compression {
-    /// bzip2 (`.tar.bz2`), read with the `bzip2` feature.
-    Bzip2,
-    /// gzip (`.tar.gz`), read with the `gzip` feature.
-    Gzip,
-    /// xz (`.tar.xz`), read with the `xz` feature.
-    Xz,
-    /// zstd (`.tar.zst`), read with the `zstd` feature.
-    Zstd,
-}
-
-impl Compression {
-    /// Returns what `head`, an archive's first bytes, says it is compressed
-    /// with, by the magic number its stream begins with, if anything.
-    ///
-    /// bzip2's own is two letters and a digit, so its first block's, or
-    /// its end's, must follow, as a member's name might begin `BZh9`.
-    #[must_use]
-    pub fn detect(head: &[u8]) -> Option<Self> {
-        if head.starts_with(&[0x1F, 0x8B]) {
-            Some(Self::Gzip)
-        } else if head.starts_with(&[0x28, 0xB5, 0x2F, 0xFD]) {
-            Some(Self::Zstd)
-        } else if head.starts_with(&[0xFD, b'7', b'z', b'X', b'Z', 0]) {
-            Some(Self::Xz)
-        } else {
-            let [b'B', b'Z', b'h', b'1'..=b'9', rest @ ..] = head else {
-                return None;
-            };
-            let block = rest.starts_with(&[0x31, 0x41, 0x59, 0x26, 0x53, 0x59]);
-            let end = rest.starts_with(&[0x17, 0x72, 0x45, 0x38, 0x50, 0x90]);
-            (block || end).then_some(Self::Bzip2)
-        }
-    }
-
-    /// Returns whether this build decodes it: whether its feature, named
-    /// as it is, is enabled.
-    #[must_use]
-    pub const fn is_enabled(self) -> bool {
-        match self {
-            Self::Bzip2 => cfg!(feature = "bzip2"),
-            Self::Gzip => cfg!(feature = "gzip"),
-            Self::Xz => cfg!(feature = "xz"),
-            Self::Zstd => cfg!(feature = "zstd"),
-        }
-    }
-}
-
-impl Codec for Compression {
-    fn is_stored(&self) -> bool {
-        false
-    }
-
-    fn decoder(&self) -> Result<Box<dyn Decoder>, Error> {
-        match self {
-            #[cfg(feature = "bzip2")]
-            Self::Bzip2 => Ok(Box::new(filer_pack::Bzip2::new())),
-            #[cfg(feature = "gzip")]
-            Self::Gzip => Ok(Box::new(filer_pack::Gzip::new())),
-            #[cfg(feature = "xz")]
-            Self::Xz => Ok(Box::new(filer_pack::Xz::new())),
-            #[cfg(feature = "zstd")]
-            Self::Zstd => Ok(Box::new(filer_pack::Zstd::new())),
-            #[allow(unreachable_patterns, reason = "with every compression enabled")]
-            _ => Err(Error::new(ErrorKind::Unsupported, OpKind::Open)),
-        }
-    }
-}
+use alloc::vec::Vec;
+use filer_api::{BufResult, Error, ErrorKind, IoBufMut, ReadAt};
+use filer_pack::{Compression, Limits, Unpacked};
 
 /// An archive's bytes: as they are, or decoded.
 pub(crate) enum Source<S> {

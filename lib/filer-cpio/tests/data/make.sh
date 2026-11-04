@@ -6,8 +6,9 @@
 # hardlinks, in each of its formats (`gnu-newc.cpio`, `gnu-crc.cpio`,
 # `gnu-odc.cpio`, `gnu-bin.cpio`), and `initramfs.img` is an early archive
 # of fake microcode followed by `gnu-newc.cpio`, as Linux distributions
-# build their images, but uncompressed. `bsd-newc.cpio` and
-# `bsd-odc.cpio` come from macOS's `bsdcpio`, from the same tree:
+# build their images; `initramfs-*.img` compress `gnu-newc.cpio`, as they
+# do. `bsd-newc.cpio` and `bsd-odc.cpio` come from macOS's `bsdcpio`, from
+# the same tree:
 #
 #     find . | LC_ALL=C sort | cpio -o -H newc > bsd-newc.cpio
 #
@@ -35,3 +36,8 @@ printf 'not really microcode\n' > kernel/x86/microcode/GenuineIntel.bin
 find . -exec touch -h -d @1700000000 {} +
 find . | LC_ALL=C sort | cpio --quiet -o -H newc --reproducible > ../early.cpio
 cat ../early.cpio "$out/gnu-newc.cpio" > "$out/initramfs.img"
+# And as distributions build them, compressed after the early archive.
+gzip -9n < "$out/gnu-newc.cpio" | cat ../early.cpio - > "$out/initramfs-gz.img"
+zstd -19 -q < "$out/gnu-newc.cpio" | cat ../early.cpio - > "$out/initramfs-zst.img"
+xz -6 < "$out/gnu-newc.cpio" | cat ../early.cpio - > "$out/initramfs-xz.img"
+bzip2 -9 < "$out/gnu-newc.cpio" | cat ../early.cpio - > "$out/initramfs-bz2.img"

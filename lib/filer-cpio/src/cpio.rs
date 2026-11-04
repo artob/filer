@@ -1,9 +1,13 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{codec::Sum, index::index};
+use crate::{
+    codec::Sum,
+    index::{CPIO, Indexed, index},
+    source::Source,
+};
 use core::future::Future;
-use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
-use filer_pack::{Archive, Limits};
+use filer_api::{Completion, Dir, Driver, DriverId, Error, ErrorKind, Op, ReadAt, Rights};
+use filer_pack::{Archive, Compression, Limits};
 
 /// A read-only driver over a cpio archive.
 ///
@@ -24,9 +28,15 @@ use filer_pack::{Archive, Limits};
 /// A `newc` checksum, which only regular files have, is checked when a
 /// read reaches the file's end, failing that read with [`Corrupt`](filer_api::ErrorKind::Corrupt) if
 /// the sum differs. Archives concatenated, as in an initramfs image, read
-/// as one, with zeros allowed between them; a compressed archive among
-/// them is [`Unsupported`](filer_api::ErrorKind::Unsupported), as
-/// decompression is not built in.
+/// as one, with zeros allowed between them. One compressed with gzip,
+/// zstd, xz, or bzip2, as distributions compress the main archive after
+/// an early one, reads decoded, with the [`Compression`]'s feature, to the
+/// image's end, which may hold more archives: opening decodes it once, to
+/// learn its size, which must not pass [`Limits::max_total_size`], and
+/// again as it indexes; reading on from the last read decodes no more,
+/// while reading back decodes again from the start. Without its feature,
+/// or compressed with LZO or LZ4, which Linux reads too, it is
+/// [`Unsupported`](filer_api::ErrorKind::Unsupported).
 ///
 /// The archive is untrusted. Opening it fails, rather than exposing a
 /// member, if any member name is absolute, contains `..`, or contains NUL
@@ -58,7 +68,10 @@ use filer_pack::{Archive, Limits};
 /// # Ok::<(), filer_api::Error>(())
 /// # }).unwrap();
 /// ```
-pub struct Cpio<S>(Archive<S, Sum>);
+pub struct Cpio<S> {
+    archive: Archive<Source<S>, Sum>,
+    compression: Option<Compression>,
+}
 
 impl<S: ReadAt + 'static> Cpio<S> {
     /// Indexes the archive in `source` with the default [`Limits`] and
@@ -78,31 +91,64 @@ impl<S: ReadAt + 'static> Cpio<S> {
     ///
     /// See the [type docs](Self); also any error reading `source`.
     pub async fn open_with(source: S, limits: Limits) -> Result<Dir<Self>, Error> {
-        let tree = index(&source, &limits).await?;
+        let (tree, source) = match index(&source, &limits).await? {
+            Indexed::Tree(tree) => (tree, Source::Plain(source)),
+            Indexed::Compressed { at, compression } => {
+                // Again, through the decoded bytes, from the start.
+                let source = Source::spliced(source, at, compression, &limits).await?;
+                match index(&source, &limits).await? {
+                    Indexed::Tree(tree) => (tree, source),
+                    Indexed::Compressed { at, .. } => {
+                        let reason = "compressed archive after a compressed one";
+                        return Err(CPIO.fail(ErrorKind::Unsupported, at, reason));
+                    },
+                }
+            },
+        };
+        let compression = source.compression();
         let archive = Archive::new(tree, source);
         let root = archive.root();
-        Ok(Dir::new(Self(archive), root)?.restrict(Rights::READ))
+        let cpio = Self {
+            archive,
+            compression,
+        };
+        Ok(Dir::new(cpio, root)?.restrict(Rights::READ))
+    }
+}
+
+impl<S> Cpio<S> {
+    /// Returns what the image's later part is compressed with, if
+    /// anything.
+    #[must_use]
+    pub const fn compression(&self) -> Option<Compression> {
+        self.compression
     }
 }
 
 impl<S: ReadAt + 'static> Driver for Cpio<S> {
     fn id(&self) -> DriverId {
-        self.0.id()
+        self.archive.id()
     }
 
     fn submit(&self, op: Op) -> impl Future<Output = Completion> + Send + use<S> {
-        self.0.submit(op)
+        self.archive.submit(op)
     }
 }
 
 impl<S> Clone for Cpio<S> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self {
+            archive: self.archive.clone(),
+            compression: self.compression,
+        }
     }
 }
 
 impl<S> core::fmt::Debug for Cpio<S> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("Cpio").field(&self.0).finish()
+        f.debug_struct("Cpio")
+            .field("archive", &self.archive)
+            .field("compression", &self.compression)
+            .finish()
     }
 }

@@ -551,13 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **TAR-04: Checkpoints in compressed TAR.** Save the decoder's state
-  every few MiB while indexing, as zlib's `zran` does, so that reading a
-  member out of order resumes from the nearest checkpoint, not the start.
-  Needs a decoder whose state can be saved: `miniz_oxide`'s
-  `InflateState` is `Clone`, with its 32 KiB window.
-  Done when reading the first member after the last of a 100 MiB
-  `.tar.gz` decodes at most one interval.
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
@@ -567,12 +560,16 @@ Created with `publish = false` (D16).
   The backslash check in `index.rs` must then apply to decoded names, as
   Shift-JIS trail bytes may be 0x5C. Done when CP437 and CP866 archives
   list correctly.
-- [ ] **CPIO-02: Compressed initramfs images.** Distributions follow an
-  uncompressed early archive with a compressed one (zstd on Ubuntu),
-  which `filer-cpio` refuses as `Unsupported`. Decode it behind features,
-  through `filer-pack`'s `Unpacked` and decoders (PACK-12 to 14).
-  Done when a distribution's image reads as GNU cpio extracts it once
-  decompressed.
+- [ ] **PACK-16: Checkpoints in `Unpacked`.** Save the decoder's state
+  every few MiB as a stream is first decoded, as zlib's `zran` does, so
+  that a read behind the last resumes from the nearest checkpoint, not
+  the start, for compressed tarballs and initramfs images alike. Reading
+  every file of Ubuntu 26.04's 61 MB zstd initrd in directory order takes
+  73 s in a release build, from restarts. Needs decoders whose state can
+  be saved: `miniz_oxide`'s `InflateState` is `Clone`, with its 32 KiB
+  window; zstd's and xz's windows run to 128 MiB, so their checkpoints
+  may cost more than restarts. Done when reading the first member after
+  the last of a 100 MiB `.tar.gz` decodes at most one interval.
 - [ ] **ARC-01: Detect archive formats by content.** `filer-archive`
   picks a format from the file name's extension only. Also read the
   first bytes (`ustar` at offset 257, `PK\x03\x04` or an end record,

@@ -24,7 +24,9 @@ so any release may break compatibility.
   produced, over another decoder or `Passthrough`. `Streams` keeps
   decoding `Stream`s part way, by `StreamId`, and `Unpacked` reads a
   packed range of a source decoded, as a `ReadAt` source itself, of a
-  size declared or, with `Unpacked::measured`, learned by decoding it.
+  size declared or, with `Unpacked::measured`, learned by decoding it;
+  `Compression` tells by its first bytes what a stream is compressed
+  with, and decodes it.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `miniz_oxide`; `Gzip`, with `gzip`, decodes gzip streams over
   it; `Zstd`, with `zstd`, zstd streams over `ruzstd`; `Lzma` and
@@ -38,8 +40,11 @@ so any release may break compatibility.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 - `filer-archive`: Compressed tarballs, by their extensions (`.tar.gz`,
   `.tgz`, `.tar.zst`, `.tar.xz`, `.tar.bz2`, and the like); the `bzip2`,
-  `gzip`, `lzma`, `xz`, and `zstd` features, which `filer-tar` and
-  `filer-zip` decode with.
+  `gzip`, `lzma`, `xz`, and `zstd` features, which `filer-cpio`,
+  `filer-tar`, and `filer-zip` decode with.
+- `filer-cpio`: Initramfs images whose later archive is compressed with
+  gzip, zstd, xz, or bzip2, as distributions build them, behind features
+  named as they are; `Compression`, and `Cpio::compression`.
 - `filer-spec`: `Counted`, a source counting its reads; `Outcome::files`;
   `Checks::refusals` and
   `Checks::read_cap`, for archive drivers; `Mutations::aligned` and

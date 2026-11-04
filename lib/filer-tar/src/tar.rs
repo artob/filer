@@ -1,8 +1,9 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{Compression, index::index, source::Source};
+use crate::{index::index, source::Source};
 use core::future::Future;
 use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
+use filer_pack::Compression;
 use filer_pack::{Archive, Limits};
 
 /// A read-only driver over a TAR archive.

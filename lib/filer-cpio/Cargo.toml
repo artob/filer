@@ -22,8 +22,12 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = []
+all = ["bzip2", "gzip", "xz", "zstd"]
 std = ["filer-api/std", "filer-pack/std"]
+bzip2 = ["filer-pack/bzip2"]
+gzip = ["filer-pack/gzip"]
+xz = ["filer-pack/xz"]
+zstd = ["filer-pack/zstd"]
 
 [dependencies]
 filer-api.workspace = true

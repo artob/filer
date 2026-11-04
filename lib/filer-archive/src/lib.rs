@@ -19,8 +19,9 @@
 //! re-exported here as a module (as [`zip`] for `filer-zip`), for what is
 //! particular to it. `deflate` lets `filer-zip` decode Deflate, the method
 //! most ZIP archives use, and `lzma` LZMA; `gzip`, `zstd`, `xz`, and
-//! `bzip2` let `filer-tar` read tarballs so compressed, and all but
-//! `gzip` let `filer-zip` decode members so compressed. `rar` and `7z` enable `filer-rar` and
+//! `bzip2` let `filer-tar` read tarballs so compressed and `filer-cpio`
+//! initramfs images, and all but `gzip` let `filer-zip` decode members so
+//! compressed. `rar` and `7z` enable `filer-rar` and
 //! `filer-7z` (as `sevenz`, since a module's name cannot begin with a
 //! digit), which read nothing yet, so [`Format`] names neither until they
 //! do. `all`, enabled by default, enables every one.

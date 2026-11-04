@@ -14,20 +14,27 @@ use filer_api::{
     Error, ErrorKind, FileKind, ReadAt, Timestamp,
     tree::{Ino, Node, Tree},
 };
-use filer_pack::{Index, Limits, Member, Parser, Reader};
+use filer_pack::{Compression, Index, Limits, Member, Parser, Reader};
 
-const CPIO: Parser = Parser::new("cpio");
+pub(crate) const CPIO: Parser = Parser::new("cpio");
+
+/// What indexing an image found.
+pub(crate) enum Indexed {
+    /// Its archives, all of them.
+    Tree(Tree<Member<Sum>>),
+    /// An archive compressed with `compression`, at `at`, where indexing
+    /// stopped.
+    Compressed { at: u64, compression: Compression },
+}
 
 /// Identifies a hardlinked file: its archive's number among those
 /// concatenated, its device, and its inode.
 type LinkKey = (usize, u64, u64);
 
 /// Builds the index of the archive in `source`: of each of the archives
-/// concatenated there, as in a Linux initramfs image.
-pub(crate) async fn index<S: ReadAt>(
-    source: &S,
-    limits: &Limits,
-) -> Result<Tree<Member<Sum>>, Error> {
+/// concatenated there, as in a Linux initramfs image, up to one that is
+/// compressed.
+pub(crate) async fn index<S: ReadAt>(source: &S, limits: &Limits) -> Result<Indexed, Error> {
     let end = source.size().await?;
     let mut reader = Reader::new(source, CPIO, end);
     let mut index = Index::new(CPIO, *limits);
@@ -47,6 +54,14 @@ pub(crate) async fn index<S: ReadAt>(
         let bytes = reader.read(offset, available.min(MAX_HEADER)).await?;
         let corrupt = |reason| CPIO.fail(ErrorKind::Corrupt, offset, reason);
         let Some(format) = Format::detect(bytes) else {
+            if offset == base
+                && let Some(compression) = Compression::detect(bytes)
+            {
+                return Ok(Indexed::Compressed {
+                    at: offset,
+                    compression,
+                });
+            }
             return Err(if offset != base {
                 corrupt("bad magic number")
             } else if is_compressed(bytes) {
@@ -126,7 +141,7 @@ pub(crate) async fn index<S: ReadAt>(
         }
         offset = next;
     }
-    Ok(index.into_tree())
+    Ok(Indexed::Tree(index.into_tree()))
 }
 
 /// Returns a regular file's member, at `data` in the archive.

@@ -2207,7 +2207,7 @@ the first block is a valid header, through `filer-pack`'s decoders and an
 bounded by `Limits::max_total_size` against bombs, and again as it
 indexes; reading on from the last read decodes no more, while reading
 back decodes again from the start, which checkpoints are to spare
-(TAR-04). The full `filer-spec` passes over gzip-compressed archives too.
+(PACK-16). The full `filer-spec` passes over gzip-compressed archives too.
 `filer-archive` names compressed tarballs by their two-part extensions.
 
 **`filer-zip` as built** (2026-11-01, stored members): an own parser
@@ -2287,7 +2287,18 @@ fixtures come from GNU cpio in each of its formats and macOS's
 `bsdcpio`, and an uncompressed initramfs image; decompressed by hand, a
 real Ubuntu image's 2,468 entries read as GNU cpio extracts them.
 `tests/fuzz.rs` mutates headers and names; `fuzz/` has a `cargo-fuzz`
-target over the same walk.
+target over the same walk. Since 2026-11-03 (CPIO-02), an archive
+compressed with gzip, zstd, xz, or bzip2 at an archive boundary reads
+decoded, as the Linux kernel unpacks it: the image becomes a spliced
+source, as it is up to there and decoded after, through `filer-pack`'s
+`Unpacked`, so that indexing goes on through the decoded archives as
+through plain ones; the `Compression` that tells them apart moved to
+`filer-pack` from `filer-tar`. Ubuntu 26.04's own 61 MB image, an early
+archive and a zstd one, reads whole as its `unmkinitramfs` extracts it:
+1,805 files of 302 MB, 480 directories, 183 symlinks, and 5 devices.
+Reading every file in the order of a directory walk took 73 s in a
+release build, as each read before the last decodes again from the
+start: what checkpoints are to spare (PACK-16).
 
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of

@@ -6,8 +6,9 @@
 //! [`Dir`](filer_api::Dir): open the archive from any
 //! [`ReadAt`](filer_api::ReadAt) source, such as a `File` from another
 //! driver or bytes in memory, then use it like any other directory. That
-//! covers uncompressed Linux initramfs images and the payloads of RPM
-//! packages, once decompressed. Paths stay confined to the archive, and a
+//! covers Linux initramfs images, compressed as distributions build them,
+//! and the payloads of RPM packages, once decompressed. Paths stay
+//! confined to the archive, and a
 //! hostile archive fails to open rather than exposing anything outside it
 //! (see [`Cpio`] and [`Limits`]).
 //!
@@ -15,8 +16,13 @@
 //! never creates or modifies them, and never will: writing archives is out
 //! of scope for this project. Use a dedicated archiving library for that.
 //!
-//! It needs no OS and builds with `#![no_std]`; the `std` feature, enabled
-//! by default, forwards to `filer-api`. `all` currently enables nothing.
+//! It needs no OS and builds with `#![no_std]`. Features, all enabled by
+//! default:
+//!
+//! - `std` forwards to `filer-api`;
+//! - `all` enables every compression below;
+//! - `bzip2`, `gzip`, `xz`, and `zstd` each read images whose later archive
+//!   is so compressed (see [`Compression`]).
 //!
 //! # Examples
 //!
@@ -89,6 +95,11 @@ mod index;
 
 /// Re-exported from [`filer_pack`], where all archive drivers share it.
 pub use filer_pack::Limits;
+
+/// Re-exported from [`filer_pack`], which decodes what it names.
+pub use filer_pack::Compression;
+
+mod source;
 
 mod cpio;
 pub use cpio::*;

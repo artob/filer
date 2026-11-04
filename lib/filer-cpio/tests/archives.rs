@@ -12,7 +12,7 @@ mod common;
 
 use common::{FILE, FORMATS, Format, Writer};
 use filer_api::{Dir, EntryName, Error, ErrorKind, FileKind, MetaMask};
-use filer_cpio::{Cpio, Limits};
+use filer_cpio::{Compression, Cpio, Limits};
 use filer_spec::block_on;
 
 type Root = Dir<Cpio<Vec<u8>>>;
@@ -123,15 +123,21 @@ fn reads_concatenated_archives() {
     assert_eq!(stat(&root, "c").id, stat(&root, "d").id);
     assert_ne!(stat(&root, "a").id, stat(&root, "c").id);
 
-    // As Linux distributions build them: an archive, then a compressed one.
+    // As Linux distributions build them: an archive, then a compressed one,
+    // which must decode; LZ4, which Linux reads too, is not decoded here.
     let zstd = [&first[..], &[0x28, 0xB5, 0x2F, 0xFD, 0x84, 0]].concat();
     let offset = first.len() as u64;
     assert_eq!(
         error(open(zstd)),
+        (ErrorKind::Corrupt, at(offset, "bad compressed stream"))
+    );
+    let lz4 = [&first[..], &[0x02, 0x21, 0x4C, 0x18, 0]].concat();
+    assert_eq!(
+        error(open(lz4)),
         (ErrorKind::Unsupported, at(offset, "compressed archive"))
     );
     let gzip = vec![0x1F, 0x8B, 8, 0];
-    assert_eq!(kind(open(gzip)), ErrorKind::Unsupported);
+    assert_eq!(kind(open(gzip)), ErrorKind::Corrupt);
     let garbage = [&first[..], b"garbage"].concat();
     assert_eq!(
         error(open(garbage)),
@@ -311,4 +317,45 @@ fn reads_the_headers_of_small_members_together() {
     assert!(reads < 100, "{reads} reads to open 1,000 members");
     let file = block_on(root.open_file("m0999")).unwrap();
     assert_eq!(block_on(file.read_to_end()).unwrap(), b"x");
+}
+
+/// `initramfs.img`, with its main archive compressed by gzip 479
+/// (Apple's), zstd 1.5.7, xz 5.8.4, and bzip2 1.0.8.
+#[test]
+fn reads_compressed_images() {
+    let plain = open(fixture("initramfs.img")).unwrap();
+    let paths = [
+        "kernel/x86/microcode/GenuineIntel.bin",
+        "dir/hello.txt",
+        "link",
+        "hard1",
+        "dir/hard2",
+    ];
+    let images = [
+        ("initramfs-gz.img", Compression::Gzip),
+        ("initramfs-zst.img", Compression::Zstd),
+        ("initramfs-xz.img", Compression::Xz),
+        ("initramfs-bz2.img", Compression::Bzip2),
+    ];
+    for (name, compression) in images {
+        let opened = open(fixture(name));
+        if !compression.is_enabled() {
+            assert_eq!(kind(opened), ErrorKind::Unsupported, "{name}");
+            continue;
+        }
+        let root = opened.unwrap();
+        assert_eq!(root.driver().compression(), Some(compression), "{name}");
+        for path in paths {
+            assert_eq!(
+                read(&root, path).unwrap(),
+                read(&plain, path).unwrap(),
+                "{path}"
+            );
+        }
+        for dir in ["", "dir", "kernel/x86/microcode"] {
+            assert_eq!(list(&root, dir), list(&plain, dir), "{name}: {dir}");
+        }
+        assert_eq!(stat(&root, "hard1").id, stat(&root, "dir/hard2").id);
+    }
+    assert_eq!(plain.driver().compression(), None);
 }

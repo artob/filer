@@ -22,7 +22,8 @@
 //! - [`Streams`] keeps [`Stream`]s part way through what they decode,
 //!   so that reading on from where a read stopped decodes no more, and
 //!   [`Unpacked`] reads a packed range of a source decoded, as a source
-//!   in turn: a compressed tarball, or a solid block;
+//!   in turn: a compressed tarball, or a solid block, whose
+//!   [`Compression`] its first bytes tell;
 //! - [`Limits`] bounds what an untrusted archive may make the index hold;
 //! - [`Parser`] reads a format's headers, and its errors carry an
 //!   [`ArchiveError`] naming the format, header offset, and reason, while
@@ -104,6 +105,9 @@ pub use bzip2::*;
 
 mod codec;
 pub use codec::*;
+
+mod compression;
+pub use compression::*;
 
 mod driver;
 pub use driver::*;

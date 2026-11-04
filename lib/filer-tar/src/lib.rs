@@ -67,8 +67,10 @@ mod index;
 /// Re-exported from [`filer_pack`], where all archive drivers share it.
 pub use filer_pack::Limits;
 
+/// Re-exported from [`filer_pack`], which decodes what it names.
+pub use filer_pack::Compression;
+
 mod source;
-pub use source::Compression;
 
 mod tar;
 pub use tar::*;
