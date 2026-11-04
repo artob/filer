@@ -96,11 +96,6 @@ at low priority, as our own decoders replace the crates when they block.
   `fcntl_lock` explaining classic lock semantics.
 - [ ] **UP-04: `winx`: `windows-sys` range (optional).**
   Only if Filer.rs decides to depend on `winx` (§17.2).
-- [ ] **UP-05: `ruzstd`: a copyable `FrameDecoder` (low priority).**
-  `Clone` for it and what it holds (its window, Huffman and FSE tables,
-  and offset history), so that a zstd frame can be resumed part way,
-  for checkpoints within frames (PACK-20); our own decoder is the path
-  meanwhile (D61).
 - [ ] **UP-06: `lzma-rust2`: resuming xz at a block (low priority).**
   `Clone` for `XzStream` between blocks, or a public block decoder, for
   checkpoints at xz blocks (PACK-19); our own xz container is the path
@@ -574,19 +569,15 @@ Created with `publish = false` (D16).
   until our own LZMA2 replaces it. Done when reading near the end of an
   `.xz` of several blocks decodes at most an interval and a block, as
   `.bz2` does.
-- [ ] **PACK-24: Our own zstd in place of `ruzstd`.** `Zstd` decodes with
-  our own decoder, `ruzstd` leaves the dependencies, and `LEGAL.md`
-  records it (D61). Done when every test, fixture, and fuzzer passes
-  without `ruzstd`, and Ubuntu's initrd reads as before, no slower.
 - [ ] **PACK-20: Checkpoints within zstd frames.** Ubuntu 26.04's 61 MB
   initrd is one zstd frame with a 4 MiB window: reading its files in
   archive order takes 6.4 s in a release build, and in reverse 383 s,
   from restarts that frame checkpoints cannot spare. Within a frame, a
-  checkpoint needs a copy of the decoder's state, which `ruzstd`'s
-  `FrameDecoder` cannot make (UP-05): the path is our own zstd decoder
-  (D61, PACK-21 to 24), whose state (window, Huffman and FSE tables,
-  repeat offsets) is `Clone`, offering a copy every interval. Done when
-  that image reads in reverse in a few seconds.
+  checkpoint needs a copy of the decoder's state, which our own `Zstd`
+  (D61, PACK-21 to 24) can make: between blocks, its window's last
+  window size of bytes, its Huffman and FSE tables, repeat offsets, and
+  hash so far, offered every interval. Done when that image reads in
+  reverse in a few seconds.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
   (PACK-14), which TAR-02's `xz` shares, and

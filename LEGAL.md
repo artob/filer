@@ -338,22 +338,18 @@ its replacement.
   wraps Deflate in a header and a trailer holding a CRC-32 and the
   length, which `Gzip` checks: written from RFC 1952, not from zlib or
   `flate2`. Deflate's patent (US 5,051,745) expired in 2008.
-- **zstd: `ruzstd`.** `ruzstd` 0.9 (MIT; `no_std` with `alloc`;
-  maintained, and the most used pure-Rust decoder) reads the format RFC
-  8878 documents, through a sans-I/O call, `FrameDecoder::decode_from_to`,
-  that progresses only by whole blocks of up to 128 KiB, so its adaptor,
-  `Zstd`, gathers each block whole. Its window is capped at 128 MiB by
-  default, which bounds its memory. It has `unsafe` code and internal
-  panics, and is fuzzed upstream; `filer-pack`'s fuzz targets cover it
-  too, and any panic found is avoided here, as `Zstd` avoids the one on
-  reserved blocks, rather than waited on upstream (D61). Its `hash`
-  feature checks frame checksums with `twox-hash`, pure Rust. zstd's own
-  code (BSD-3-Clause or GPL-2.0) is not copied. Our own decoder, written
-  from RFC 8878, is replacing it (D61): it decodes all that `ruzstd`
-  does, and XXH64, which no patent is known to cover. zstd 1.0 came with an
-  explicit patent grant, dropped in 1.3.1 (2017) when the license became
-  BSD and GPLv2; no patent is known to be asserted against
-  implementations.
+- **zstd: written here.** `Zstd` is written from RFC 8878 alone, and
+  its XXH64 checksum from the xxHash specification (D61, 2026-11-04);
+  zstd's and xxHash's own code (BSD-3-Clause or GPL-2.0, and
+  BSD-2-Clause) is not copied. It replaced `ruzstd` 0.9 (MIT), which
+  decoded zstd here before it, and which had `unsafe` code and internal
+  panics, and a decoder state that could not be copied for checkpoints
+  within frames. It was checked against `ruzstd` on zstd's own output
+  and mutations of it until then, and is now checked by the frames'
+  checksums and its fuzzers. zstd 1.0 came with an explicit patent
+  grant, dropped in 1.3.1 (2017) when the license became BSD and GPLv2;
+  no patent is known to be asserted against implementations, nor to
+  cover XXH64.
 - **xz, LZMA and LZMA2 (and lzip): `lzma-rust2`.** `lzma-rust2` 0.25
   (Apache-2.0; a port of XZ for Java, which is public domain; `no_std`
   with `alloc` without its default features; maintained) has sans-I/O

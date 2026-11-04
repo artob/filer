@@ -27,7 +27,7 @@
 //! - `deflate` decodes Deflate members (method 8), over `miniz_oxide`;
 //! - `bzip2` decodes bzip2 members (12);
 //! - `lzma` decodes LZMA members (14), over `lzma-rust2`;
-//! - `zstd` decodes zstd members (93), over `ruzstd`;
+//! - `zstd` decodes zstd members (93);
 //! - `xz` decodes xz members (95), over `lzma-rust2`.
 //!
 //! The `code-pages` feature, off by default, makes every [`CodePage`] of

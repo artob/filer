@@ -291,8 +291,8 @@ on macOS and the BSDs (their system call interface is private), and
 with no C library at all.
 
 Consequences: compression codecs are pure-Rust decoders (`miniz_oxide`
-for Deflate, `ruzstd` for zstd, `lzma-rust2` for xz and LZMA, and bzip2
-written here, as `LEGAL.md` assesses them), which suffices since archive
+for Deflate, `lzma-rust2` for xz and LZMA, and zstd and bzip2 written
+here, as `LEGAL.md` assesses them), which suffices since archive
 drivers only read; `filer-fuse` must use a FUSE mount path that needs no
 `libfuse` (**VERIFY** `fuser` without its `libfuse` feature). CI fails
 if `cc`, `cmake`, `pkg-config`, or `bindgen` enters the dependency tree
@@ -2312,7 +2312,9 @@ start. Measured there, opening decodes the 97 MB of its zstd part twice
 in 1.6 s; reading every file in the archive's order takes 6.4 s, and in
 reverse 383 s. Its zstd part is one frame, with a 4 MiB window, so the
 checkpoints at frame boundaries of PACK-16 cannot spare those restarts:
-within a frame, they need a copy of `ruzstd`'s decoder (PACK-20).
+within a frame, they need a copy of the decoder's state, which
+`ruzstd`'s could not make, and which ours, since PACK-24, can
+(PACK-20).
 
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
@@ -2402,10 +2404,11 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   its decoder the packed bytes after the declared size, with no room for
   output, so that it checks a trailer before it finishes; `tests/fuzz.rs`
   and `fuzz/` check that each decoder decodes the same in pieces as
-  whole; zstd done, 2026-11-03: `Zstd`, behind `zstd`, over `ruzstd`,
-  which decodes only the whole blocks that `Zstd` gathers, parsing frame
-  and block headers itself, and refusing what `ruzstd` would not: the
-  frame header's reserved bit, and reserved blocks, on which it panics;
+  whole; zstd done, 2026-11-03: `Zstd`, behind `zstd`, at first over
+  `ruzstd`, which decoded only the whole blocks that `Zstd` gathered,
+  parsing frame and block headers itself, and refusing what `ruzstd`
+  would not: the frame header's reserved bit, and reserved blocks, on
+  which it panicked; our own since 2026-11-04 (PACK-24, below);
   LZMA done, 2026-11-03: `Lzma` and `Lzma2`, behind `lzma`, for raw
   streams with the properties their container gives, and `Xz`, behind
   `xz`, over `lzma-rust2`'s sans-I/O streams, each told that the input
@@ -2456,9 +2459,10 @@ upstream: a pull request may take months or years to be merged and
 released. When a crate becomes an inconvenience or a blocker, its own
 decoder takes priority instead. The first such gaps: checkpoints within
 a zstd frame need a copy of `ruzstd`'s decoder, which it cannot make
-(PACK-20), and checkpoints at xz blocks a block-level decoder that
-`lzma-rust2` does not expose (PACK-19). Upstream requests for them are
-recorded (UP-05, UP-06), at low priority.
+(PACK-20), so `Zstd` is now ours (PACK-21 to 24); and checkpoints at
+xz blocks a block-level decoder that `lzma-rust2` does not expose
+(PACK-19), whose upstream request is recorded (UP-06), at low
+priority.
 
 **Our own zstd (PACK-21 to 24).** Written from RFC 8878 beside `Zstd`,
 and checked against it, which is to say against `ruzstd`, until it
@@ -2486,7 +2490,11 @@ copies doubling. zstd's output of synthetic text, LZ77-shaped data,
 and records, at levels from 1 to 22 and windows from 1 KiB, decodes as
 `ruzstd` decodes it, as do Ubuntu's initrd and a corpus of binaries,
 libraries, and documentation at every level, strategy, and window,
-and mutations of them, run on comet, find no difference.
+and mutations of them, run on comet, find no difference. In place of
+`ruzstd`, 2026-11-04 (PACK-24): Ubuntu's initrd, read as above, opens
+in 1.2 s rather than 1.6 s, and reads in archive order in 5.1 s rather
+than 6.2 s, and in reverse in 298 s rather than 381 s, which only
+checkpoints within frames can spare (PACK-20).
 
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and
@@ -3847,7 +3855,6 @@ only when the first item needs it.
 | `ref-cast` | 1.0 | `filer-api` | path DSTs (D4) |
 | `spin` | 0.12 | `filer-pack`, `filer-heap` | `no_std` lock |
 | `miniz_oxide` | 0.9 | `filer-pack` | Deflate; `no_std`; no `unsafe` |
-| `ruzstd` | 0.9 | `filer-pack` | zstd; `no_std`; planned (`LEGAL.md`) |
 | `lzma-rust2` | 0.25 | `filer-pack` | xz, LZMA; `no_std`, no `optimization` |
 | `async-lock` | 3.4 | `filer-tx`, `filer-quota` | MSRV 1.85; `no_std` |
 | `serde` | 1.0 | several | optional |

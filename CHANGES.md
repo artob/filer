@@ -34,10 +34,10 @@ so any release may break compatibility.
   with its `Digest`, which is now `Clone`.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `miniz_oxide`; `Gzip`, with `gzip`, decodes gzip streams over
-  it; `Zstd`, with `zstd`, zstd streams over `ruzstd`; `Lzma` and
-  `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and `Xz`, with `xz`,
-  xz streams, over `lzma-rust2`; and `Bzip2`, with `bzip2`, bzip2
-  streams, written here. A decoder now reads the packed bytes after the
+  it; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and
+  `Xz`, with `xz`, xz streams, over `lzma-rust2`; and `Zstd`, with
+  `zstd`, and `Bzip2`, with `bzip2`, zstd and bzip2 streams, written
+  here. A decoder now reads the packed bytes after the
   declared size, such as gzip's trailer, before it finishes. `Reader`
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than

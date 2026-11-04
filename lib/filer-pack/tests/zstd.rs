@@ -8,8 +8,8 @@ mod common;
 
 use common::{Block, With, agree, numbers, skippable, unpack, zstd};
 use core::sync::atomic::Ordering;
-use filer_api::{BufResult, Error, ErrorKind, ReadAt};
-use filer_pack::{Unpacked, Zstd};
+use filer_api::{BufResult, Error, ErrorKind, ReadAt, checksum::crc32};
+use filer_pack::{Decoder, Unpacked, Zstd};
 use filer_spec::block_on;
 
 fn decode(stream: &[u8]) -> Result<Vec<u8>, Error> {
@@ -31,6 +31,69 @@ fn kind(stream: &[u8]) -> ErrorKind {
 fn decodes_what_zstd_writes() {
     let stream = include_bytes!("data/numbers.zst");
     assert_eq!(decode(stream).unwrap(), numbers());
+}
+
+/// `raw.zst` is by zstd 1.5.7, of random bytes it cannot compress: 5000
+/// with a 1 KiB window, in five raw blocks; 100 in a single segment; and
+/// 2000 from a pipe, with neither size nor checksum.
+#[test]
+fn decodes_raw_blocks_as_zstd_writes_them() {
+    let data = decode(include_bytes!("data/raw.zst")).unwrap();
+    assert_eq!((data.len(), crc32(&data)), (7100, 0x6E88_D59A));
+}
+
+/// `literals.zst` is by zstd 1.5.7, of bytes drawn at random, unevenly,
+/// from an alphabet, and too short a window to repeat: so they code as
+/// literals alone, in one Huffman-coded stream or four, of each size,
+/// with trees whose weights are coded with FSE or not, or reused.
+#[test]
+fn decodes_literals_as_zstd_writes_them() {
+    let data = decode(include_bytes!("data/literals.zst")).unwrap();
+    assert_eq!((data.len(), crc32(&data)), (28_200, 0x2265_4C06));
+}
+
+/// `sequences.zst` is by zstd 1.5.7: text at levels 1, 19, and 22 with a
+/// 1 KiB window; data shaped as LZ77 makes it, its offsets often repeated,
+/// at 3, and at 19 with a 64 KiB window, which it outgrows; records alike
+/// but for a counter; and a short pattern, repeated. They take tables of
+/// each mode, and repeated offsets of each kind.
+#[test]
+fn decodes_sequences_as_zstd_writes_them() {
+    let data = decode(include_bytes!("data/sequences.zst")).unwrap();
+    assert_eq!((data.len(), crc32(&data)), (471_800, 0x717B_B20A));
+}
+
+/// Decodes each `.zst` file in the directory `FILER_PACK_ZSTD_CORPUS`
+/// names, whole, and times it: zstd's output of a varied corpus, at many
+/// levels and windows, checked by their checksums, checks more than the
+/// fixtures can, and in a release build, measures.
+#[test]
+#[ignore = "needs a corpus of zstd streams"]
+fn decodes_a_corpus() {
+    let corpus = std::env::var("FILER_PACK_ZSTD_CORPUS").unwrap();
+    let mut paths: Vec<_> = std::fs::read_dir(corpus)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "zst"))
+        .collect();
+    paths.sort();
+    let (mut bytes, start) = (0, std::time::Instant::now());
+    let mut buf = vec![0; 1 << 20];
+    for path in &paths {
+        let stream = std::fs::read(path).unwrap();
+        let (mut zstd, mut at) = (Zstd::new(), 0);
+        loop {
+            let (consumed, produced) = zstd.decode(&stream[at..], &mut buf).unwrap();
+            if (consumed, produced) == (0, 0) {
+                break;
+            }
+            (at, bytes) = (at + consumed, bytes + produced);
+        }
+        zstd.finish()
+            .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+    }
+    let elapsed = start.elapsed();
+    println!("{} streams, {bytes} bytes, in {elapsed:?}", paths.len());
 }
 
 #[test]
@@ -123,10 +186,11 @@ fn checks_the_checksum_after_the_declared_size() {
 fn resumes_between_frames() {
     // Twelve frames of 1 MiB, stored as they are, so packed as long.
     let frame = |i: u8| -> Vec<u8> { (0..1 << 20).map(|n| (n % 251) as u8 ^ i).collect() };
-    let level = ruzstd::encoding::CompressionLevel::Uncompressed;
     let mut stream = Vec::new();
     for i in 0..12 {
-        stream.extend(ruzstd::encoding::compress_to_vec(&frame(i)[..], level));
+        let data = frame(i);
+        let blocks: Vec<_> = data.chunks(128 * 1024).map(Block::Raw).collect();
+        stream.extend(zstd(&blocks));
     }
     let len = stream.len() as u64;
     let source = filer_spec::Counted::new(stream);
