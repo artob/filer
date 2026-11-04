@@ -86,7 +86,7 @@ Decoders, written clean room and dedicated to the public domain:
 | `decode-zstd` | zstd |
 | `decode-deflate` | Deflate |
 | `decode-gzip` | gzip |
-| `decode-zlib` | zlib (planned) |
+| `decode-zlib` | zlib |
 | `decode-lzma` | LZMA and LZMA2 |
 | `decode-xz` | xz |
 | `decode-lz4` | LZ4 (planned) |

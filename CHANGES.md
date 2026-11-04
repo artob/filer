@@ -47,8 +47,13 @@ so any release may break compatibility.
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than
   one or two per member.
-- `decode-lz4`, `decode-lzo`, and `decode-zlib`: New crates, with no
-  items yet, reserving the names of decoders to come (D62).
+- `decode-lz4` and `decode-lzo`: New crates, with no items yet,
+  reserving the names of decoders to come (D62).
+- `decode-zlib`: New crate: a zlib decoder, written clean room from RFC
+  1950 and dedicated to the public domain, over `decode-deflate`, its
+  Adler-32 `compute-adler32`'s, for `no_std` with an allocator. It
+  consumes a stream to its end and no further, and offers checkpoints
+  anywhere; a stream needing a preset dictionary is `Unsupported`.
 - `decode-xz`: New crate: an xz decoder, written clean room from the
   `.xz` file format specification and dedicated to the public domain,
   over `decode-lzma`, for `no_std` with an allocator: streams, padding,

@@ -563,10 +563,6 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **BENCH-03: The `compute-*` crates.** The harness measures their
   throughput over buffers from 16 B to 1 MiB, against portable and SIMD
   counterparts (D64). Done when each one's `BENCH.md` holds its figures.
-- [ ] **DEC-06: `decode-zlib` (on demand).** zlib (RFC 1950), over
-  `decode-deflate`, its Adler-32 `compute-adler32`'s (D64), for btrfs,
-  SquashFS, ZFS, zisofs, and Apple's compressed files. Done when the
-  first driver to need it reads through it.
 - [ ] **DEC-07: `decode-lz4` (on demand).** LZ4's blocks and frames, for
   SquashFS, EROFS, ZFS, F2FS, ReFS, and initramfs images, its XXH32
   `compute-xxhash`'s (D64). Done when the first driver to need it reads

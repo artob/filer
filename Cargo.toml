@@ -40,6 +40,7 @@ decode-gzip = { version = "0.0.2", path = "lib/decode-gzip", default-features = 
 decode-lzma = { version = "0.0.2", path = "lib/decode-lzma", default-features = false }
 decode-xz = { version = "0.0.2", path = "lib/decode-xz", default-features = false }
 decode-bzip2 = { version = "0.0.2", path = "lib/decode-bzip2", default-features = false }
+decode-zlib = { version = "0.0.2", path = "lib/decode-zlib", default-features = false }
 decode-zstd = { version = "0.0.2", path = "lib/decode-zstd", default-features = false }
 filer-7z = { version = "0.0.2", path = "tmp/filer-7z", default-features = false }
 filer-apfs = { version = "0.0.2", path = "tmp/filer-apfs", default-features = false }
@@ -95,6 +96,7 @@ decode-gzip = { path = "lib/decode-gzip" }
 decode-lzma = { path = "lib/decode-lzma" }
 decode-xz = { path = "lib/decode-xz" }
 decode-bzip2 = { path = "lib/decode-bzip2" }
+decode-zlib = { path = "lib/decode-zlib" }
 decode-zstd = { path = "lib/decode-zstd" }
 filer-7z = { path = "tmp/filer-7z" }
 filer-apfs = { path = "tmp/filer-apfs" }

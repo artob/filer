@@ -345,7 +345,8 @@ Adler-32. A crate's code is never read as the source of its replacement.
   (DEC-02), which stays only to write tests' data. gzip wraps Deflate in
   a header and a trailer holding a CRC-32 and the length, which
   `decode-gzip` checks: written from RFC 1952, not from zlib or
-  `flate2`. `zlib-rs`, a port of zlib (Zlib license), is the reference
+  `flate2`; zlib's stream wraps it in two bytes and an Adler-32, which
+  `decode-zlib` checks, written from RFC 1950 (DEC-06). `zlib-rs`, a port of zlib (Zlib license), is the reference
   of both crates' tests for zlib's behavior, run, never read. Deflate64,
   which PKWARE names but does not document, is decoded from how it is
   known to differ from Deflate (a 64 KiB window, length code 285, and

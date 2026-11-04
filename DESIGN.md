@@ -398,7 +398,8 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`, `filer-msft`,
 `known-codepages`, `compute-adler32`, `compute-crc`, `compute-sha256`,
 `compute-xxhash`, `decode-bzip2`, `decode-deflate`, `decode-gzip`,
-`decode-lzma`, `decode-xz`, `decode-zstd`, `filer-pack`, the read-only
+`decode-lzma`, `decode-xz`, `decode-zlib`, `decode-zstd`, `filer-pack`,
+the read-only
 `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
 over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
 `filer-volume` over them, and as empty skeletons `filer-wasi`,
@@ -406,8 +407,7 @@ over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
 live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
 `filer-apfs`, `filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`,
 `filer-refs`, `filer-squashfs`, `filer-udf`, `filer-ufs`, and
-`filer-zfs`; the decoders `decode-zlib`, `decode-lz4`, and `decode-lzo`
-(D62); and `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
+`filer-zfs`; the decoders `decode-lz4` and `decode-lzo` (D62); and `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
 `compute-sha512` (D64). The rest are created when their first `TODO.md`
 item starts.
 
@@ -2559,7 +2559,12 @@ ZIP's method 9, in place of `miniz_oxide`, now only a test dependency,
 which writes members and gzip streams to read. `decode-gzip` (DEC-03,
 2026-11-04) frames it in gzip's members, as `filer-pack`'s `Gzip`, moved
 there whole, did, with a CRC-32 of its own; its tests check it against
-zlib's gzip decoding, member by member, through `zlib-rs`. `decode-lzma`
+zlib's gzip decoding, member by member, through `zlib-rs`. `decode-zlib`
+(DEC-06, 2026-11-04) frames it in zlib's header and Adler-32 trailer,
+`compute-adler32`'s, and is checked against zlib likewise; as zlib does
+by default, it checks the header's window size but does not impose it,
+and a stream needing a preset dictionary is `Unsupported`. No driver
+reads through it yet: btrfs, SquashFS, ZFS, and zisofs will. `decode-lzma`
 (DEC-04, 2026-11-04) is ported from the LZMA SDK's specification, its
 reference decoder, and its LZMA2 decoder, and refuses what they refuse:
 data that ends otherwise than its size or end marker says, or with the

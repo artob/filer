@@ -158,6 +158,13 @@ dependencies = [
 [[package]]
 name = "decode-zlib"
 version = "0.0.2"
+dependencies = [
+ "compute-adler32",
+ "decode-deflate",
+ "filer-spec",
+ "miniz_oxide",
+ "zlib-rs",
+]
 
 [[package]]
 name = "decode-zstd"
