@@ -84,6 +84,8 @@ Each spike produces findings, not library code: update the matching
 
 Per D28, gaps in safe dependencies are fixed upstream first. Each item is
 done when the PR is merged and released, or when §17.1 records why not.
+Codec crates are the exception (D61): their gaps are recorded here, but
+at low priority, as our own decoders replace the crates when they block.
 
 - [ ] **UP-01: `rustix`: `STATX_MNT_ID_UNIQUE` and `STATX_WRITE_ATOMIC`.**
   Constants plus the atomic-write fields of `Statx`.
@@ -94,6 +96,15 @@ done when the PR is merged and released, or when §17.1 records why not.
   `fcntl_lock` explaining classic lock semantics.
 - [ ] **UP-04: `winx`: `windows-sys` range (optional).**
   Only if Filer.rs decides to depend on `winx` (§17.2).
+- [ ] **UP-05: `ruzstd`: a copyable `FrameDecoder` (low priority).**
+  `Clone` for it and what it holds (its window, Huffman and FSE tables,
+  and offset history), so that a zstd frame can be resumed part way,
+  for checkpoints within frames (PACK-20); our own decoder is the path
+  meanwhile (D61).
+- [ ] **UP-06: `lzma-rust2`: resuming xz at a block (low priority).**
+  `Clone` for `XzStream` between blocks, or a public block decoder, for
+  checkpoints at xz blocks (PACK-19); our own xz container is the path
+  meanwhile (D61).
 
 ## `filer-api`: paths
 
@@ -562,18 +573,22 @@ Created with `publish = false` (D16).
   list correctly.
 - [ ] **PACK-19: xz checkpoints.** xz blocks decode alone, and xz 5.4
   writes several by default, but `lzma-rust2`'s `XzStream` starts only at
-  a stream header: resuming at a block means reading the block format
-  here, over its raw `Lzma2Stream`. Done when reading near the end of an
+  a stream header and exposes no block decoder (UP-06): resuming at a
+  block means our own xz container (D61), from the `.xz` file format
+  specification: stream and block headers, filters, CRC-32, CRC-64, and
+  SHA-256 checks, and the index, over `lzma-rust2`'s raw `Lzma2Stream`
+  until our own LZMA2 replaces it. Done when reading near the end of an
   `.xz` of several blocks decodes at most an interval and a block, as
   `.bz2` does.
 - [ ] **PACK-20: Checkpoints within zstd frames.** Ubuntu 26.04's 61 MB
   initrd is one zstd frame with a 4 MiB window: reading its files in
   archive order takes 6.4 s in a release build, and in reverse 383 s,
   from restarts that frame checkpoints cannot spare. Within a frame, a
-  checkpoint needs a copy of `ruzstd`'s `FrameDecoder`, which is not
-  `Clone`: propose that upstream (its window, Huffman and FSE tables, and
-  offset history), then offer one every interval. Done when that image
-  reads in reverse in a few seconds.
+  checkpoint needs a copy of the decoder's state, which `ruzstd`'s
+  `FrameDecoder` cannot make (UP-05): the path is our own zstd decoder
+  (D61), clean room from RFC 8878, whose state (window, Huffman and FSE
+  tables, repeat offsets) is `Clone`, replacing `ruzstd`. Done when that
+  image reads in reverse in a few seconds.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
   (PACK-14), which TAR-02's `xz` shares, and

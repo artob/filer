@@ -2441,6 +2441,19 @@ with Microsoft's file systems come from `filer-msft` (D60, §17.17),
 Unix modes from a `FileKind` constructor in `filer-api`, and the field
 readers stay per crate for now.
 
+**Codec crates are interim (D61, 2026-11-04).** The decoder crates
+`filer-pack` adopts under permissive licenses (`miniz_oxide`, `ruzstd`,
+`lzma-rust2`) are conveniences on the way to owning a clean-room,
+public-domain decoder of each format, written here from its
+specification, as `Bzip2` already is. Gaps in them are not waited on
+upstream: a pull request may take months or years to be merged and
+released. When a crate becomes an inconvenience or a blocker, its own
+decoder takes priority instead. The first such gaps: checkpoints within
+a zstd frame need a copy of `ruzstd`'s decoder, which it cannot make
+(PACK-20), and checkpoints at xz blocks a block-level decoder that
+`lzma-rust2` does not expose (PACK-19). Upstream requests for them are
+recorded (UP-05, UP-06), at low priority.
+
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and
 cpio its name with another, where `filer-zip` reads its central
@@ -4022,6 +4035,7 @@ Record changes here with a date and one line of rationale.
 | D58 | Stubs reserving names live in `tmp/` until they read something | Accepted |
 | D59 | Archive drivers share code in `filer-pack`, where `filer_api::archive` moves | Accepted |
 | D60 | Microsoft's on-disk conventions live in `filer-msft`, out of `filer-fs` | Accepted |
+| D61 | Codec crates are interim; our own public-domain decoders replace them when they block | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

@@ -45,7 +45,9 @@
 - 100% Rust: never add a dependency that compiles or bundles C/C++ (no `cc`,
   `cmake`, `pkg-config`, `bindgen`, or C-wrapping `-sys` crates; CI checks).
   Rust bindings to the OS's own APIs (`libc` on macOS, `windows-sys`) are
-  fine. Codecs must be pure-Rust decoders. Sole exemption (D50):
+  fine. Codecs must be pure-Rust decoders; codec crates are interim
+  (D61): never wait on upstream, and when one blocks, write our own
+  clean-room, public-domain decoder (`LEGAL.md`). Sole exemption (D50):
   `cargo-fuzz` targets in a crate's `fuzz/` (own `[workspace]`, never a
   dependency); keep a pure-Rust fuzz test in `tests/` too.
 - Builders maximize usability: paths take `P: TryInto<RelPathBuf>` (plain
