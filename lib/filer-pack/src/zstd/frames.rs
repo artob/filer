@@ -2,15 +2,21 @@
 
 //! zstd frames, decoded here, from RFC 8878 alone (`LEGAL.md`): the
 //! decoder of our own that is to replace `ruzstd` behind [`Zstd`] (D61,
-//! TODO PACK-21 to 24). So far it decodes raw and RLE blocks, and finds
-//! compressed ones [`Unsupported`](ErrorKind::Unsupported).
+//! TODO PACK-21 to 24). So far it decodes raw and RLE blocks, and
+//! compressed ones without sequences, and finds those with sequences
+//! [`Unsupported`](filer_api::ErrorKind::Unsupported).
 //!
 //! [`Zstd`]: super::Zstd
 
-use super::{MAGIC, MAX_BLOCK, SKIPPABLE, xxh64::Xxh64};
+use super::{
+    MAGIC, MAX_BLOCK, SKIPPABLE,
+    block::{self, Tables},
+    corrupt, unsupported,
+    xxh64::Xxh64,
+};
 use crate::Decoder;
 use alloc::{boxed::Box, vec::Vec};
-use filer_api::{Error, ErrorKind, OpKind};
+use filer_api::Error;
 
 /// The largest window decoded, 128 MiB, the most zstd itself decodes by
 /// default: a frame needing more is unsupported.
@@ -154,6 +160,7 @@ impl Window {
 struct Frame {
     header: Header,
     window: Window,
+    tables: Tables,
     /// What its blocks have decoded to so far, hashed and counted.
     hash: Xxh64,
     decoded: u64,
@@ -182,11 +189,13 @@ enum State {
 /// bytes; and of what they decode to, the frame's window, as much again
 /// or 128 KiB if more, and a block. A frame whose window passes 128 MiB,
 /// the most zstd itself decodes by default, or that needs a dictionary
-/// is [`Unsupported`](ErrorKind::Unsupported). What follows the last
-/// frame must be another, as zstd requires.
+/// is [`Unsupported`](filer_api::ErrorKind::Unsupported). What follows
+/// the last frame must be another, as zstd requires.
 pub(crate) struct Frames {
     /// The packed bytes of a frame header or block, gathered until whole.
     unit: Vec<u8>,
+    /// What a block's literals decode to, before its sequences run.
+    literals: Vec<u8>,
     state: State,
     frame: Option<Frame>,
     /// The frames decoded whole, skippable ones included.
@@ -198,6 +207,7 @@ impl Frames {
     pub(crate) const fn new() -> Self {
         Self {
             unit: Vec::new(),
+            literals: Vec::new(),
             state: State::Frame,
             frame: None,
             frames: 0,
@@ -313,6 +323,7 @@ impl Frames {
                 produced: 0,
                 size: header.window,
             },
+            tables: Tables::default(),
             hash: Xxh64::new(),
             decoded: 0,
         });
@@ -343,7 +354,11 @@ impl Frames {
                 let byte = content.first().copied().ok_or_else(corrupt)?;
                 window.bytes.resize(start.saturating_add(size), byte);
             },
-            _ => return Err(unsupported()),
+            _ => {
+                let max = frame.header.max_block();
+                let (tables, scratch) = (&mut frame.tables, &mut self.literals);
+                block::decode(content, tables, scratch, &mut window.bytes, max)?;
+            },
         }
         let block = window.bytes.get(start..).unwrap_or_default();
         frame.hash.update(block);
@@ -440,14 +455,6 @@ impl Decoder for Frames {
     }
 }
 
-fn corrupt() -> Error {
-    Error::new(ErrorKind::Corrupt, OpKind::Read)
-}
-
-fn unsupported() -> Error {
-    Error::new(ErrorKind::Unsupported, OpKind::Read)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -456,19 +463,22 @@ mod tests {
         common::{Block, agree, skippable, zstd},
     };
     use alloc::{sync::Arc, vec};
+    use core::ops::Range;
+    use filer_api::ErrorKind;
     use filer_spec::{
         Image, Outcome,
         fuzz::{Fuzz, Mutations},
     };
 
     /// Decodes `stream` whole and in pieces, and checks that `ruzstd`,
-    /// behind [`Zstd`], decodes it alike.
+    /// behind [`Zstd`], decodes it alike, or decodes what it should not.
     fn decode(stream: &[u8]) -> Result<Vec<u8>, Error> {
         let ours = agree(Frames::new, stream, 7);
         let theirs = agree(Zstd::new, stream, 64 * 1024);
         match (&ours, &theirs) {
             (Ok(ours), Ok(theirs)) => assert!(ours == theirs, "decoded otherwise"),
             (Err(ours), Err(theirs)) => assert_eq!(ours.kind(), theirs.kind()),
+            (Err(_), Ok(_)) if lax(stream) => {},
             _ => panic!("ours: {ours:?}; ruzstd's: {theirs:?}"),
         }
         ours
@@ -512,6 +522,43 @@ mod tests {
     fn decodes_raw_blocks_as_zstd_writes_them() {
         let stream = include_bytes!("../../tests/data/raw.zst");
         assert_eq!(decode(stream).unwrap().len(), 7100);
+    }
+
+    /// `literals.zst` is by zstd 1.5.7, of bytes drawn at random, unevenly,
+    /// from an alphabet, and too short a window to repeat: so they code as
+    /// literals alone, in one Huffman-coded stream or four, of each size,
+    /// with trees whose weights are coded with FSE or not, or reused.
+    #[test]
+    fn decodes_literals_as_zstd_writes_them() {
+        let stream = include_bytes!("../../tests/data/literals.zst");
+        assert_eq!(decode(stream).unwrap().len(), 28_200);
+    }
+
+    #[test]
+    fn decodes_literals_stored_and_repeated() {
+        // A compressed block of `content`, alone in its frame.
+        let block = |content: &[u8]| {
+            let mut stream = zstd(&[Block::Raw(content)]);
+            stream[6] |= 2 << 1;
+            stream
+        };
+        // Five bytes stored, in each size format, then none repeated.
+        for header in [
+            &[5 << 3][..],
+            &[1 << 2 | 5 << 4, 0],
+            &[3 << 2 | 5 << 4, 0, 0],
+        ] {
+            let stream = block(&[header, b"hello", &[0]].concat());
+            assert_eq!(decode(&stream).unwrap(), b"hello");
+        }
+        assert_eq!(decode(&block(&[1 | 5 << 3, b'z', 0])).unwrap(), b"zzzzz");
+        // The sequences' count must end the block, as zstd checks.
+        assert_eq!(kind(&block(&[5 << 3, 1, 2, 3, 4, 5])), ErrorKind::Corrupt);
+        assert_eq!(kind(&block(&[1 << 3, 1, 0, 0])), ErrorKind::Corrupt);
+        // More literals than a block may decode to, which zstd refuses:
+        // 128 KiB and one, repeated, in 20 bits.
+        let large = block(&[1 | 3 << 2 | 1 << 4, 0x00, 0x20, b'z', 0]);
+        assert_eq!(kind(&large), ErrorKind::Corrupt);
     }
 
     #[test]
@@ -600,57 +647,121 @@ mod tests {
         }
     }
 
-    /// Returns whether a frame of `stream` declares a size other than what
-    /// `ruzstd` decodes it to, which `ruzstd` lets pass, but zstd refuses,
-    /// as ours does.
-    fn misdeclares(stream: &[u8]) -> bool {
-        let mut at = 0;
-        while let Some(magic) = stream.get(at..at + 4) {
-            let magic = u32::from_le_bytes(magic.try_into().unwrap());
+    /// Where a frame of a stream lies: a skippable frame's bytes; or a
+    /// frame's header, its blocks, headers included, and its checksum.
+    enum Span {
+        Skippable(Range<usize>),
+        Frame {
+            header: Range<usize>,
+            blocks: Vec<Range<usize>>,
+            checksum: Range<usize>,
+        },
+    }
+
+    /// Returns where the frames of `stream` lie, if they all parse.
+    fn spans(stream: &[u8]) -> Option<Vec<Span>> {
+        let (mut spans, mut at) = (Vec::new(), 0);
+        while at < stream.len() {
+            let magic = u32::from_le_bytes(stream.get(at..at + 4)?.try_into().ok()?);
             if SKIPPABLE.contains(&magic) {
-                let Some(len) = stream.get(at + 4..at + 8) else {
-                    return false;
-                };
-                at += 8 + u32::from_le_bytes(len.try_into().unwrap()) as usize;
+                let len = u32::from_le_bytes(stream.get(at + 4..at + 8)?.try_into().ok()?);
+                let end = at + 8 + len as usize;
+                spans.push(Span::Skippable(at..end));
+                at = end;
                 continue;
             }
-            let Some(&descriptor) = stream.get(at + 4) else {
-                return false;
-            };
-            let mut end = at + Header::len(descriptor);
-            let Ok(header) = Header::parse(stream.get(at..end).unwrap_or_default()) else {
-                return false;
-            };
-            // The frame ends with its last block, and its checksum.
+            let header = at..at + Header::len(*stream.get(at + 4)?);
+            let parsed = Header::parse(stream.get(header.clone())?).ok()?;
+            let (mut blocks, mut end) = (Vec::new(), header.end);
             loop {
-                let Some(&[a, b, c]) = stream.get(end..end + 3).and_then(|h| h.first_chunk())
-                else {
-                    return false;
-                };
+                let &[a, b, c] = stream.get(end..end + 3)?.first_chunk()?;
                 let block = u32::from_le_bytes([a, b, c, 0]);
-                let size = (block >> 3) as usize;
-                end += 3 + if (block >> 1) & 3 == 1 { 1 } else { size };
+                let content = if (block >> 1) & 3 == 1 {
+                    1
+                } else {
+                    (block >> 3) as usize
+                };
+                blocks.push(end..end + 3 + content);
+                end += 3 + content;
                 if block & 1 != 0 {
                     break;
                 }
             }
-            end += if header.checksum { 4 } else { 0 };
-            let Some(frame) = stream.get(at..end) else {
+            let checksum = end..end + if parsed.checksum { 4 } else { 0 };
+            stream.get(checksum.clone())?;
+            at = checksum.end;
+            spans.push(Span::Frame {
+                header,
+                blocks,
+                checksum,
+            });
+        }
+        Some(spans)
+    }
+
+    /// Returns `stream` without its frames' checksums, so that what a
+    /// stream decodes to, not just whether it decodes, is compared.
+    fn unchecked(stream: &[u8]) -> Vec<u8> {
+        let mut unchecked = Vec::new();
+        for span in spans(stream).unwrap() {
+            match span {
+                Span::Skippable(bytes) => unchecked.extend_from_slice(&stream[bytes]),
+                Span::Frame { header, blocks, .. } => {
+                    let at = unchecked.len();
+                    unchecked.extend_from_slice(&stream[header]);
+                    unchecked[at + 4] &= !0x04;
+                    for block in blocks {
+                        unchecked.extend_from_slice(&stream[block]);
+                    }
+                },
+            }
+        }
+        unchecked
+    }
+
+    /// Returns whether `ruzstd` decodes a frame of `stream` that zstd
+    /// refuses, as ours does: one whose content size disagrees with what
+    /// it decodes to, or with a block that decodes to more than the frame
+    /// allows. It decodes each frame block by block to tell.
+    fn lax(stream: &[u8]) -> bool {
+        for span in spans(stream).unwrap_or_default() {
+            let Span::Frame {
+                header,
+                blocks,
+                checksum,
+            } = span
+            else {
+                continue;
+            };
+            let header = &stream[header];
+            let mut decoder = ruzstd::decoding::FrameDecoder::new();
+            let (Ok(parsed), Ok(())) = (Header::parse(header), decoder.reset(header)) else {
                 return false;
             };
-            if let (Some(size), Ok(data)) = (header.size, agree(Zstd::new, frame, 1 << 16))
-                && data.len() as u64 != size
-            {
+            let (mut output, mut decoded) = (vec![0; 1 << 18], 0);
+            let last = blocks.len() - 1;
+            for (i, block) in blocks.into_iter().enumerate() {
+                // The last block's unit holds the checksum too.
+                let end = if i == last { checksum.end } else { block.end };
+                let unit = &stream[block.start..end];
+                let Ok((_, written)) = decoder.decode_from_to(unit, &mut output) else {
+                    return false;
+                };
+                if written > parsed.max_block() {
+                    return true;
+                }
+                decoded += written as u64;
+            }
+            if parsed.size.is_some_and(|size| size != decoded) {
                 return true;
             }
-            at = end;
         }
         false
     }
 
-    /// Mutates frames of raw and RLE blocks, and checks that ours decodes
-    /// each as `ruzstd` does, but for those it finds unsupported, as it
-    /// does compressed blocks so far.
+    /// Mutates frames of blocks without sequences, and checks that ours
+    /// decodes each as `ruzstd` does, but for those it finds unsupported,
+    /// as it does blocks with sequences so far.
     #[test]
     fn decodes_mutations_as_ruzstd_does() {
         const BYTES: [u8; 12] = [0, 1, 2, 4, 6, 0x08, 0x20, 0x28, 0x50, 0xC0, 0xFD, 0xFF];
@@ -658,6 +769,8 @@ mod tests {
         const MUTATIONS: Mutations = Mutations::new(&BYTES, &WORDS).aligned(false).most(2);
         let seeds = [
             include_bytes!("../../tests/data/raw.zst").to_vec(),
+            include_bytes!("../../tests/data/literals.zst").to_vec(),
+            unchecked(include_bytes!("../../tests/data/literals.zst")),
             checked(&[Block::Rle(b'a', 3000), Block::Raw(b"bc")], false),
             [skippable(b"x"), checked(&[Block::Raw(b"yz")], true)].concat(),
         ]
@@ -677,7 +790,7 @@ mod tests {
                 let theirs = agree(Zstd::new, &stream, piece);
                 match (&ours, &theirs) {
                     (Err(ours), _) if ours.kind() == ErrorKind::Unsupported => {},
-                    (Err(_), Ok(_)) if misdeclares(&stream) => {},
+                    (Err(_), Ok(_)) if lax(&stream) => {},
                     (Ok(ours), Ok(theirs)) => assert!(ours == theirs, "decoded otherwise"),
                     (Err(ours), Err(theirs)) => assert_eq!(ours.kind(), theirs.kind()),
                     _ => panic!(

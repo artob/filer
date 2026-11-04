@@ -574,11 +574,6 @@ Created with `publish = false` (D16).
   until our own LZMA2 replaces it. Done when reading near the end of an
   `.xz` of several blocks decodes at most an interval and a block, as
   `.bz2` does.
-- [ ] **PACK-22: Our own zstd, literals.** The literals section: raw,
-  RLE, and Huffman-coded, in one stream or four, with tables described
-  directly or by FSE-coded weights, and a previous block's table reused.
-  Done when blocks without sequences, as zstd writes them for data that
-  only Huffman coding shrinks, decode as `ruzstd` decodes them.
 - [ ] **PACK-23: Our own zstd, sequences.** The sequences section:
   predefined, RLE, FSE-coded, and repeated tables for literal lengths,
   match lengths, and offsets; repeat offsets; and executing sequences

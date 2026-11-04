@@ -2470,7 +2470,15 @@ window size of the latest bytes and drops what is produced past them
 once it is as much again, so that each byte moves once at most. It
 refuses what zstd refuses and `ruzstd` lets pass: a frame whose content
 size disagrees with what it decodes to, which its differential test
-checks frame by frame.
+checks frame by frame. Literals done, 2026-11-04 (PACK-22): stored,
+repeated, or Huffman-coded in one stream or four, with trees described
+directly or by FSE-coded weights, or reused. FSE tables are built as
+RFC 8878 §4.1.1 lays out, checked against its worked example, and
+zstd's own output, in every size format, decodes as `ruzstd` decodes
+it. zstd refuses, and so does it, a block that decodes to more than its
+frame allows, and a sequences section that does not end the block;
+`ruzstd` lets the former pass, which the differential test checks
+block by block.
 
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and

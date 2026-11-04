@@ -1,16 +1,23 @@
 // This is free and unencumbered software released into the public domain.
 
+// Our own decoder, beside `Zstd`'s use of `ruzstd` until it replaces it.
+#![cfg_attr(
+    not(test),
+    allow(dead_code, reason = "`Zstd` decodes with it from PACK-24")
+)]
+
 use crate::Decoder;
 use alloc::{boxed::Box, vec::Vec};
 use core::ops::RangeInclusive;
 use filer_api::{Error, ErrorKind, OpKind};
 use ruzstd::decoding::{FrameDecoder, errors::FrameDecoderError};
 
-#[cfg_attr(
-    not(test),
-    allow(dead_code, reason = "`Zstd` decodes with it from PACK-24")
-)]
+mod bits;
+mod block;
 mod frames;
+mod fse;
+mod huffman;
+mod literals;
 mod xxh64;
 
 /// A frame's magic number, and the range of skippable frames' (RFC 8878
@@ -308,12 +315,16 @@ fn corrupt() -> Error {
     Error::new(ErrorKind::Corrupt, OpKind::Read)
 }
 
+fn unsupported() -> Error {
+    Error::new(ErrorKind::Unsupported, OpKind::Read)
+}
+
 /// Returns `ruzstd`'s `error` as one of ours: a window too large, or a
 /// dictionary, is unsupported, and anything else corrupt.
 fn error(error: FrameDecoderError) -> Error {
     match error {
         FrameDecoderError::WindowSizeTooBig { .. } | FrameDecoderError::DictNotProvided { .. } => {
-            Error::new(ErrorKind::Unsupported, OpKind::Read)
+            unsupported()
         },
         _ => corrupt(),
     }
