@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::codec::Method;
 use crate::index::index;
+use crate::{Options, codec::Method};
 use core::future::Future;
 use filer_api::{Completion, Dir, Driver, DriverId, Error, Op, ReadAt, Rights};
 use filer_pack::{Archive, Limits};
@@ -25,7 +25,11 @@ use filer_pack::{Archive, Limits};
 /// NTFS extra field (100 ns), an extended timestamp (1 s), or the DOS
 /// fields (2 s, read as UTC since they name no zone), in that order; see
 /// [`Timestamp::granularity`](filer_api::Timestamp::granularity). Names
-/// are UTF-8 if valid, and foreign names otherwise. Reading a member with
+/// are UTF-8 where the UTF-8 flag says so, or Info-ZIP's Unicode Path
+/// extra field gives them; those that DOS and Windows hosts wrote without
+/// it are decoded from the [`Options`]' code page, 437 by default, as
+/// Info-ZIP decodes them; and the rest, as Unix hosts write them, are
+/// UTF-8 if valid, and foreign names otherwise. Reading a member with
 /// another method, or an encrypted one, is
 /// [`Unsupported`](filer_api::ErrorKind::Unsupported), as is opening a
 /// spanned archive or one with such a symlink, since symlink targets are
@@ -79,14 +83,15 @@ impl<S: ReadAt + 'static> Zip<S> {
         Self::open_with(source, Limits::default()).await
     }
 
-    /// Indexes the archive in `source` with `limits` and returns its root
-    /// directory.
+    /// Indexes the archive in `source` with `options`, or [`Limits`]
+    /// alone, and returns its root directory.
     ///
     /// # Errors
     ///
     /// See the [type docs](Self); also any error reading `source`.
-    pub async fn open_with(source: S, limits: Limits) -> Result<Dir<Self>, Error> {
-        let tree = index(&source, &limits).await?;
+    pub async fn open_with(source: S, options: impl Into<Options>) -> Result<Dir<Self>, Error> {
+        let options = options.into();
+        let tree = index(&source, &options.limits(), options.code_page()).await?;
         let archive = Archive::new(tree, source);
         let root = archive.root();
         Ok(Dir::new(Self(archive), root)?.restrict(Rights::READ))

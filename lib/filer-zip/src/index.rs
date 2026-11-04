@@ -16,6 +16,7 @@ use filer_api::{
     tree::{Node, Tree},
 };
 use filer_pack::{Codec, Index, Limits, Member, Parser, Reader};
+use known_codepages::CodePage;
 
 const ZIP: Parser = Parser::new("zip");
 
@@ -80,6 +81,7 @@ async fn locate<S: ReadAt>(source: &S, end: u64) -> Result<(Eocd, u64), Error> {
 pub(crate) async fn index<S: ReadAt>(
     source: &S,
     limits: &Limits,
+    page: CodePage,
 ) -> Result<Tree<Member<Method>>, Error> {
     let end = source.size().await?;
     let (eocd, cd_end) = locate(source, end).await?;
@@ -114,7 +116,7 @@ pub(crate) async fn index<S: ReadAt>(
             let reason = "compression ratio too high";
             return Err(ZIP.fail(ErrorKind::LimitExceeded, offset, reason));
         }
-        let span = add(source, &mut locals, &mut index, &central, offset).await?;
+        let span = add(source, &mut locals, &mut index, &central, page, offset).await?;
         spans.push((span, offset));
     }
     if pos != cd_end {
@@ -142,9 +144,11 @@ async fn add<S: ReadAt>(
     locals: &mut Reader<'_, S>,
     index: &mut Index<Method>,
     central: &Central,
+    page: CodePage,
     offset: u64,
 ) -> Result<(u64, u64), Error> {
-    let name = central.name.as_slice();
+    let name = central.decoded_name(page);
+    let name = name.as_slice();
     // ZIP names use `/` alone; a backslash or drive letter would mean
     // something else to a Windows extractor.
     if name.contains(&b'\\') || matches!(name, [letter, b':', ..] if letter.is_ascii_alphabetic()) {

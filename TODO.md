@@ -565,12 +565,6 @@ Created with `publish = false` (D16).
 - [ ] **TAR-03: Streaming visitor.** Forward-only TAR reading as a visitor
   and extractor, not a `Dir`. Done when an archive extracts into a `Dir`
   from a non-seekable source.
-- [ ] **ZIP-03: Legacy names.** Decode names without the UTF-8 flag with
-  `known-codepages`, CP437 by default and any `CodePage` by option, as
-  `filer-fat` does; also Info-ZIP's Unicode path extra field (0x7075).
-  The backslash check in `index.rs` must then apply to decoded names, as
-  Shift-JIS trail bytes may be 0x5C. Done when CP437 and CP866 archives
-  list correctly.
 - [ ] **PACK-19: xz checkpoints.** xz blocks decode alone, and xz 5.4
   writes several by default, but `lzma-rust2`'s `XzStream` starts only at
   a stream header and exposes no block decoder (UP-06): resuming at a

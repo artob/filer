@@ -7,7 +7,7 @@ mod common;
 use common::{Entry, FILE, Writer};
 use filer_api::{Dir, Error, ErrorKind, FileKind, MetaMask};
 use filer_spec::block_on;
-use filer_zip::{Limits, Zip};
+use filer_zip::{CodePage, Limits, Options, Zip};
 use std::time::Duration;
 
 type Root = Dir<Zip<Vec<u8>>>;
@@ -459,4 +459,81 @@ fn reads_the_headers_of_small_members_together() {
     assert!(reads < 100, "{reads} reads to open 1,000 members");
     let file = block_on(root.open_file("m0999")).unwrap();
     assert_eq!(block_on(file.read_to_end()).unwrap(), b"x");
+}
+
+/// Returns the names in `root`, as listed.
+fn names(root: &Root) -> Vec<filer_api::EntryName> {
+    let mut names = block_on(root.names()).unwrap();
+    names.sort();
+    names
+}
+
+#[test]
+fn reads_legacy_names_in_a_code_page() {
+    // Names that a DOS or Windows host wrote without the UTF-8 flag:
+    // "Café.txt" and "Größe/Übersicht.txt" in code page 437, and
+    // "Привет.txt" in code page 866.
+    let mut writer = Writer::default();
+    writer.entry(Entry::new(b"Caf\x82.txt", None, b"cafe"));
+    writer.entry(Entry::new(b"Gr\x94\xE1e/\x9Abersicht.txt", None, b"x"));
+    writer.entry(Entry::new(b"\x8F\xE0\xA8\xA2\xA5\xE2.txt", None, b"hi"));
+    let archive = writer.finish();
+    let root = open(archive.clone()).unwrap();
+    assert_eq!(read(&root, "Café.txt"), b"cafe");
+    assert_eq!(read(&root, "Größe/Übersicht.txt"), b"x");
+    let options = Options::new().with_code_page(CodePage::Cp866);
+    let root = block_on(Zip::open_with(archive, options)).unwrap();
+    assert_eq!(read(&root, "Привет.txt"), b"hi");
+
+    // A backslash is unsafe, decoded as it is.
+    let mut writer = Writer::default();
+    writer.entry(Entry::new(b"\x82\\x.txt", None, b"x"));
+    assert_eq!(kind(open(writer.finish())), ErrorKind::InvalidName);
+}
+
+#[test]
+fn reads_names_in_utf8_however_marked() {
+    // macOS's `zip`, Info-ZIP 3.0, writes UTF-8 without the flag, from a
+    // Unix host, whose names are never decoded from a code page.
+    let root = open(include_bytes!("data/macos-utf8.zip").to_vec()).unwrap();
+    assert_eq!(read(&root, "Café.txt"), b"caf\xC3\xA9\n");
+    // With the flag, from any host; and without it, from a Unix host, a
+    // name that is not UTF-8 stays foreign.
+    let mut writer = Writer::default();
+    writer.file(b"\xC3\xA9t\xC3\xA9", b"summer").last().flags = 1 << 11;
+    writer
+        .entry(Entry::new(b"\xC3\xA9t\xC3\xA9-dos", None, b"x"))
+        .last()
+        .flags = 1 << 11;
+    writer.file(b"caf\x82", b"foreign");
+    let root = open(writer.finish()).unwrap();
+    assert_eq!(read(&root, "été"), b"summer");
+    assert_eq!(read(&root, "été-dos"), b"x");
+    let names = names(&root);
+    let foreign = |name: &&_| matches!(name, filer_api::EntryName::Foreign(_));
+    assert_eq!(names.iter().filter(foreign).count(), 1, "{names:?}");
+}
+
+#[test]
+fn reads_info_zip_unicode_paths() {
+    // Info-ZIP's Unicode Path extra field, when its CRC-32 is of the name
+    // as stored; otherwise, as a later tool renamed the member, the name
+    // stored, decoded.
+    let unicode = |name: &[u8], crc: u32, utf8: &str| {
+        let mut field = vec![0x75, 0x70];
+        field.extend((5 + utf8.len() as u16).to_le_bytes());
+        field.push(1);
+        field.extend(crc.to_le_bytes());
+        field.extend(utf8.as_bytes());
+        let mut entry = Entry::new(name, None, b"x");
+        entry.central_extra = field;
+        entry
+    };
+    let crc = filer_api::checksum::crc32(b"Caf\x82.txt");
+    let mut writer = Writer::default();
+    writer.entry(unicode(b"Caf\x82.txt", crc, "Café, in Unicode.txt"));
+    writer.entry(unicode(b"Caf\x82s.txt", crc, "stale.txt"));
+    let root = open(writer.finish()).unwrap();
+    assert_eq!(read(&root, "Café, in Unicode.txt"), b"x");
+    assert_eq!(read(&root, "Cafés.txt"), b"x");
 }

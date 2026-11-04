@@ -60,7 +60,11 @@ so any release may break compatibility.
   their first bytes, behind features named as they are; `Compression`,
   and `Tar::compression`.
 - `filer-zip`: Members compressed with bzip2, LZMA, zstd, or xz, behind
-  features named as they are, which `filer-archive` forwards.
+  features named as they are, which `filer-archive` forwards. Names that
+  DOS and Windows hosts wrote without the UTF-8 flag, in a `CodePage`,
+  437 by default, and Info-ZIP's Unicode Path extra field; `Options`,
+  which `Zip::open_with` now takes, or `Limits` alone; the `code-pages`
+  feature.
 ### Changed
 - `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the
   members an archive shows, no longer ar's symbol and name tables or

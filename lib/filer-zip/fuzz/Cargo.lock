@@ -122,6 +122,7 @@ dependencies = [
  "filer-api",
  "filer-msft",
  "filer-pack",
+ "known-codepages",
 ]
 
 [[package]]
@@ -170,6 +171,10 @@ dependencies = [
  "getrandom",
  "libc",
 ]
+
+[[package]]
+name = "known-codepages"
+version = "0.0.2"
 
 [[package]]
 name = "libc"

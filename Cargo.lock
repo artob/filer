@@ -383,6 +383,7 @@ dependencies = [
  "filer-msft",
  "filer-pack",
  "filer-spec",
+ "known-codepages",
  "miniz_oxide",
 ]
 

@@ -15,8 +15,8 @@
 //! of scope for this project. Use a dedicated archiving library for that.
 //!
 //! It reads stored members and those of the methods most archivers write,
-//! with limits against zip bombs. Legacy code-page names are planned (see
-//! `DESIGN.md` §17.7).
+//! with limits against zip bombs, and names in UTF-8 or, from DOS and
+//! Windows hosts, in a [`CodePage`] (see [`Options`]).
 //!
 //! It needs no OS and builds with `#![no_std]`. Features, all enabled by
 //! default, each decoding members of a method with `filer-pack`'s
@@ -29,6 +29,9 @@
 //! - `lzma` decodes LZMA members (14), over `lzma-rust2`;
 //! - `zstd` decodes zstd members (93), over `ruzstd`;
 //! - `xz` decodes xz members (95), over `lzma-rust2`.
+//!
+//! The `code-pages` feature, off by default, makes every [`CodePage`] of
+//! `known-codepages` available for names, beyond code page 437.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -71,6 +74,12 @@ mod index;
 
 /// Re-exported from [`filer_pack`], where all archive drivers share it.
 pub use filer_pack::Limits;
+
+/// Re-exported from `known-codepages`, which decodes names in it.
+pub use known_codepages::CodePage;
+
+mod options;
+pub use options::*;
 
 mod zip;
 pub use zip::*;

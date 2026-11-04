@@ -23,8 +23,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = ["bzip2", "deflate", "lzma", "xz", "zstd"]
-std = ["filer-api/std", "filer-msft/std", "filer-pack/std"]
+std = ["filer-api/std", "filer-msft/std", "filer-pack/std", "known-codepages/std"]
 bzip2 = ["filer-pack/bzip2"]
+code-pages = ["known-codepages/all"]
 deflate = ["filer-pack/deflate"]
 lzma = ["filer-pack/lzma"]
 xz = ["filer-pack/xz"]
@@ -34,8 +35,11 @@ zstd = ["filer-pack/zstd"]
 filer-api.workspace = true
 filer-msft.workspace = true
 filer-pack.workspace = true
+known-codepages.workspace = true
 
 [dev-dependencies]
+# Code page 866, as a test reads names in it.
+known-codepages = { workspace = true, features = ["cp866"] }
 filer-heap = { workspace = true, features = ["std"] }
 miniz_oxide = { workspace = true, features = ["with-alloc"] }
 filer-spec = { workspace = true, features = ["std"] }

@@ -2228,7 +2228,13 @@ letter are `InvalidName`, besides what `Index` refuses. Directories,
 symlinks, and special files come from Unix modes (hosts 3 and 19), with
 a trailing `/` or the DOS directory attribute also making directories.
 Times come from the NTFS extra field, then the extended timestamp, then
-the DOS fields, read as UTC. Its codec records each member's method,
+the DOS fields, read as UTC. Since 2026-11-04 (ZIP-03), names without
+the UTF-8 flag come from Info-ZIP's Unicode Path extra field, if its CRC
+matches, or, from DOS and Windows hosts (0, 6, 11, 14), are decoded from
+`Options`' code page, 437 by default, through `known-codepages`, as
+Info-ZIP decodes them; Unix hosts' stay UTF-8 if valid, since macOS's
+`zip` writes UTF-8 without the flag, and foreign otherwise. Names are
+checked after decoding. Its codec records each member's method,
 CRC-32, and encryption: Deflate decodes with `filer-pack`'s, over
 `miniz_oxide` (feature `deflate`), checked against the CRC at the
 member's end; since 2026-11-03 (ZIP-02), so do bzip2 (12), LZMA (14,

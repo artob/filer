@@ -7,8 +7,9 @@
 
 use alloc::vec::Vec;
 use core::time::Duration;
-use filer_api::{FileKind, Timestamp};
+use filer_api::{FileKind, Timestamp, checksum::crc32};
 use filer_msft::{dos, nt};
+use known_codepages::CodePage;
 
 /// The end of central directory record, without its comment.
 pub(crate) const EOCD_LEN: usize = 22;
@@ -39,15 +40,22 @@ const LOCAL_SIG: u32 = 0x0403_4b50;
 const ENCRYPTED: u16 = 1 << 0;
 const DATA_DESCRIPTOR: u16 = 1 << 3;
 const STRONG_ENCRYPTION: u16 = 1 << 6;
+/// Names and comments in UTF-8 (APPNOTE appendix D).
+const UTF8: u16 = 1 << 11;
 
 /// Extra field tags.
 const ZIP64: u16 = 0x0001;
 const NTFS: u16 = 0x000a;
 const EXTENDED_TIMESTAMP: u16 = 0x5455;
+const UNICODE_PATH: u16 = 0x7075;
 
 /// Hosts in "version made by" whose external attributes hold a Unix mode
 /// in their high 16 bits: Unix and OS X.
 const UNIX_HOSTS: [u8; 2] = [3, 19];
+
+/// Hosts in "version made by" whose names are in a DOS code page, as
+/// Info-ZIP reads them: MS-DOS, OS/2's HPFS, NTFS, and VFAT.
+const DOS_HOSTS: [u8; 4] = [0, 6, 11, 14];
 
 /// The MS-DOS directory attribute.
 const DOS_DIRECTORY: u32 = 0x10;
@@ -281,9 +289,11 @@ impl CentralFixed {
         let modified = ntfs_time(extra)
             .or_else(|| unix_time(extra))
             .or_else(|| dos_time(self.date, self.time));
+        let unicode_name = unicode_path(extra, &name);
         Some(Central {
             fixed: self,
             name,
+            unicode_name,
             size,
             compressed,
             local_offset,
@@ -297,7 +307,11 @@ impl CentralFixed {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Central {
     pub(crate) fixed: CentralFixed,
+    /// The name as stored.
     pub(crate) name: Vec<u8>,
+    /// The name in UTF-8 from Info-ZIP's Unicode Path extra field, if it
+    /// has one that matches the name stored.
+    unicode_name: Option<Vec<u8>>,
     pub(crate) size: u64,
     pub(crate) compressed: u64,
     pub(crate) local_offset: u64,
@@ -312,6 +326,30 @@ impl Central {
     /// support.
     pub(crate) fn encrypted(&self) -> bool {
         self.fixed.flags & (ENCRYPTED | STRONG_ENCRYPTION) != 0
+    }
+
+    /// Returns the member's name in UTF-8 where it can: as stored if the
+    /// UTF-8 flag says so, or it is ASCII; from Info-ZIP's Unicode Path
+    /// extra field; or decoded from `page`, if a DOS or Windows host wrote
+    /// it. Otherwise, as stored, which the index keeps as a foreign name
+    /// unless it is valid UTF-8, as Unix hosts mostly write without the
+    /// flag.
+    pub(crate) fn decoded_name(&self, page: CodePage) -> Vec<u8> {
+        if self.fixed.flags & UTF8 != 0 || self.name.is_ascii() {
+            return self.name.clone();
+        }
+        if let Some(name) = &self.unicode_name {
+            return name.clone();
+        }
+        let [_, host] = self.fixed.made_by.to_le_bytes();
+        if DOS_HOSTS.contains(&host) {
+            let decoded: Option<alloc::string::String> =
+                self.name.iter().map(|&byte| page.decode(byte)).collect();
+            if let Some(decoded) = decoded {
+                return decoded.into_bytes();
+            }
+        }
+        self.name.clone()
     }
 
     /// Returns what the member is. A trailing `/` makes a directory, as do
@@ -454,6 +492,19 @@ fn field(extra: &[u8], tag: u16) -> Option<&[u8]> {
             return Some(data);
         }
     }
+}
+
+/// Returns the name in Info-ZIP's Unicode Path extra field, version 1, if
+/// the CRC-32 it records is of `name`, the name as stored, and it is valid
+/// UTF-8: a later tool may have renamed the member without updating it.
+fn unicode_path(extra: &[u8], name: &[u8]) -> Option<Vec<u8>> {
+    let mut f = Fields(field(extra, UNICODE_PATH)?);
+    if f.u8()? != 1 || f.u32()? != crc32(name) {
+        return None;
+    }
+    core::str::from_utf8(f.0)
+        .ok()
+        .map(|name| name.as_bytes().to_vec())
 }
 
 /// Reads the modification time from an Info-ZIP extended timestamp extra
