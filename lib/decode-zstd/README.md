@@ -3,8 +3,8 @@
 A zstd decoder, written clean room from RFC 8878 alone and dedicated to
 the public domain. It decodes zstd streams, frame after frame, checking
 each against its content size and XXH64 checksum, and reads past
-skippable frames; it never compresses. It is pure, safe Rust without
-dependencies, builds with `#![no_std]` and an allocator, never panics on
+skippable frames; it never compresses. It is pure, safe Rust, its XXH64
+`compute-xxhash`'s, builds with `#![no_std]` and an allocator, never panics on
 any input, and bounds its memory by the frame's window, refusing windows
 over 128 MiB as zstd itself does by default.
 

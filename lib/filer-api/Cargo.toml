@@ -27,4 +27,5 @@ std = []
 
 [dependencies]
 bitflags.workspace = true
+compute-crc = { workspace = true, features = ["crc16-modbus", "crc32", "crc32c"] }
 ref-cast.workspace = true

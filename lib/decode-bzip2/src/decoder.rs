@@ -2,6 +2,7 @@
 
 use crate::{Error, corrupt, unsupported};
 use alloc::{vec, vec::Vec};
+use compute_crc::Crc32Bzip2;
 
 /// The magic numbers that begin a block, and that end a stream: π and √π,
 /// in binary-coded decimal.
@@ -17,44 +18,6 @@ const MAX_SELECTORS: usize = 18_002;
 
 /// The longest a Huffman code may be.
 const MAX_CODE: u8 = 20;
-
-/// The CRC-32 that bzip2 checks blocks with: polynomial 0x04C11DB7, most
-/// significant bit first.
-#[allow(
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::indexing_slicing,
-    reason = "evaluated at compile time, where any overflow fails the build"
-)]
-const CRC: [u32; 256] = {
-    let mut table = [0; 256];
-    let mut i = 0;
-    while i < 256 {
-        let mut crc = (i as u32) << 24;
-        let mut bit = 0;
-        while bit < 8 {
-            crc = if crc & 0x8000_0000 == 0 {
-                crc << 1
-            } else {
-                (crc << 1) ^ 0x04C1_1DB7
-            };
-            bit += 1;
-        }
-        table[i] = crc;
-        i += 1;
-    }
-    table
-};
-
-/// Returns `crc` updated with `byte`.
-fn crc(crc: u32, byte: u8) -> u32 {
-    let [top, ..] = crc.to_be_bytes();
-    let entry = CRC
-        .get(usize::from(top ^ byte))
-        .copied()
-        .unwrap_or_default();
-    crc.wrapping_shl(8) ^ entry
-}
 
 /// Why a unit of a stream did not parse.
 enum Fail {
@@ -156,7 +119,9 @@ struct Block {
     run: u8,
     /// The copies of `last` left to produce, from a run's count.
     repeat: u8,
-    crc: u32,
+    /// The CRC of what it has written, which bzip2 checks blocks with, and
+    /// the one it must come to.
+    crc: Crc32Bzip2,
     expected: u32,
 }
 
@@ -303,7 +268,7 @@ impl Block {
             last: None,
             run: 0,
             repeat: 0,
-            crc: u32::MAX,
+            crc: Crc32Bzip2::new(),
             expected,
         })
     }
@@ -339,14 +304,14 @@ impl Block {
     /// Writes its next bytes to `output`, and returns how many.
     fn write(&mut self, output: &mut [u8]) -> Result<usize, Error> {
         let mut written = 0_usize;
-        for slot in output {
+        for slot in output.iter_mut() {
             let Some(byte) = self.next()? else {
                 break;
             };
             *slot = byte;
-            self.crc = crc(self.crc, byte);
             written = written.saturating_add(1);
         }
+        self.crc = self.crc.update(output.get(..written).unwrap_or_default());
         Ok(written)
     }
 
@@ -492,7 +457,7 @@ impl Decoder {
                 if !block.done() {
                     return Ok((consumed, produced));
                 }
-                if !block.crc != block.expected {
+                if block.crc.finish() != block.expected {
                     return Err(corrupt());
                 }
                 self.combined = self.combined.rotate_left(1) ^ block.expected;

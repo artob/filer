@@ -1,6 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
-use crate::{Error, corrupt, crc32::Crc32};
+use crate::{Error, corrupt};
+use compute_crc::Crc32;
 
 /// The flags of a member's header (RFC 1952 §2.3.1). Those of its optional
 /// fields ascend in the order the fields follow the fixed header, which

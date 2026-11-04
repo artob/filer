@@ -1,13 +1,13 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{
-    Error,
-    check::{Crc32, Crc64, Sha256, crc32},
-    corrupt,
+    Error, corrupt,
     filter::{Filter, Kind},
     unsupported,
 };
 use alloc::{boxed::Box, vec::Vec};
+use compute_crc::{Crc32, Crc64Xz, crc32};
+use compute_sha256::Sha256;
 
 /// The bytes a stream begins with (§2.1.1.1) and ends with (§2.1.2.4).
 const HEADER_MAGIC: [u8; 6] = [0xFD, b'7', b'z', b'X', b'Z', 0x00];
@@ -29,7 +29,7 @@ const STAGE: usize = 64 * 1024;
 enum Check {
     None,
     Crc32(Crc32),
-    Crc64(Crc64),
+    Crc64(Crc64Xz),
     Sha256(Box<Sha256>),
     /// One this decoder does not know, of this many bytes, which it reads
     /// past without checking, as xz does.
@@ -42,7 +42,7 @@ impl Check {
         match id {
             0x00 => Self::None,
             0x01 => Self::Crc32(Crc32::new()),
-            0x04 => Self::Crc64(Crc64::new()),
+            0x04 => Self::Crc64(Crc64Xz::new()),
             0x0A => Self::Sha256(Box::new(Sha256::new())),
             // Sizes of 4, 8, 16, 32, and 64 bytes, three types each.
             id => Self::Unknown(4_usize.wrapping_shl(u32::from(id.wrapping_sub(1) / 3))),
@@ -76,7 +76,7 @@ impl Check {
             Self::None | Self::Unknown(_) => true,
             Self::Crc32(crc) => stored == crc.finish().to_le_bytes(),
             Self::Crc64(crc) => stored == crc.finish().to_le_bytes(),
-            Self::Sha256(sha) => stored == sha.as_ref().clone().finish(),
+            Self::Sha256(sha) => stored == sha.finish(),
         }
     }
 }

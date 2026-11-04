@@ -31,6 +31,9 @@ must_use_candidate = "warn"
 undocumented_unsafe_blocks = "deny"
 
 [workspace.dependencies]
+compute-crc = { version = "0.0.2", path = "lib/compute-crc", default-features = false }
+compute-sha256 = { version = "0.0.2", path = "lib/compute-sha256", default-features = false }
+compute-xxhash = { version = "0.0.2", path = "lib/compute-xxhash", default-features = false }
 decode-deflate = { version = "0.0.2", path = "lib/decode-deflate", default-features = false }
 decode-gzip = { version = "0.0.2", path = "lib/decode-gzip", default-features = false }
 decode-lzma = { version = "0.0.2", path = "lib/decode-lzma", default-features = false }
@@ -82,6 +85,9 @@ zlib-rs = { version = "0.6", default-features = false }
 windows-sys = { version = "0.61", default-features = false }
 
 [patch.crates-io]
+compute-crc = { path = "lib/compute-crc" }
+compute-sha256 = { path = "lib/compute-sha256" }
+compute-xxhash = { path = "lib/compute-xxhash" }
 decode-deflate = { path = "lib/decode-deflate" }
 decode-gzip = { path = "lib/decode-gzip" }
 decode-lzma = { path = "lib/decode-lzma" }

@@ -90,15 +90,22 @@
   `decode-<codec>` crates (`decode-bzip2`, `decode-deflate`,
   `decode-gzip` over it, `decode-lzma`, `decode-xz` over it,
   `decode-zstd`) are our clean-room decoders (D62): generic, no
-  dependencies but each other, each a `Decoder` with `decode`, `finish`,
-  `checkpoint`, and `buffered`, which `filer-pack` adapts;
+  dependencies but each other and `compute-*`, each a `Decoder` with
+  `decode`, `finish`, `checkpoint`, and `buffered`, which `filer-pack`
+  adapts; `compute-<algorithm>` crates (`compute-crc`, every CRC a type
+  and a feature, `compute-sha256`, `compute-xxhash`) are our clean-room
+  checksums and hashes (D64): generic, no dependencies, each with `new`,
+  `update`, and `finish`; `filer_api::checksum` re-exports
+  `compute-crc`'s, and new checksum code goes into a `compute-*` crate,
+  never into a decoder or a driver;
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.
 - Stubs that reserve a crate name but read nothing yet live in
   `tmp/<crate>/` (archives: `filer-rar`, `filer-7z`; file systems, each
   depending on `filer-fs`: `filer-udf`, `filer-exfat`, `filer-btrfs`,
-  `filer-zfs`, ...; codecs: `decode-zlib`, `decode-lz4`, ...). A
+  `filer-zfs`, ...; codecs: `decode-zlib`, `decode-lz4`, ...;
+  checksums: `compute-adler32`). A
   stub's crate docs list what its format needs. It
   moves to `lib/` with its first implementation, and joins its umbrella
   then (`filer-rar`, `filer-7z`, and `filer-udf` already have).

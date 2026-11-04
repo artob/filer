@@ -92,6 +92,15 @@ Decoders, written clean room and dedicated to the public domain:
 | `decode-lz4` | LZ4 (planned) |
 | `decode-lzo` | LZO (planned) |
 
+Checksums and hashes, written clean room and dedicated to the public domain:
+
+| Crate | Summary |
+| --- | --- |
+| `compute-crc` | CRC-32, CRC-32C, CRC-64/XZ, and more |
+| `compute-sha256` | SHA-256 |
+| `compute-xxhash` | XXH64 |
+| `compute-adler32` | Adler-32 (planned) |
+
 Only `filer-windows` contains `unsafe`: the system calls the standard
 library lacks, each wrapped safely in its private `sys` module.
 

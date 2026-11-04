@@ -1,0 +1,31 @@
+[package]
+name = "compute-crc"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Clean-room, public-domain CRCs: CRC-32, CRC-32C, CRC-64/XZ, and more, in safe Rust."
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["crc", "crc32", "crc32c", "checksum", "no-std"]
+categories = ["algorithms", "no-std", "no-std::no-alloc"]
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["all", "std"]
+all = ["crc16-modbus", "crc32", "crc32-bzip2", "crc32c", "crc64-xz"]
+std = []
+crc16-modbus = []
+crc32 = []
+crc32-bzip2 = []
+crc32c = []
+crc64-xz = []

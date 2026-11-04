@@ -4,9 +4,9 @@ use crate::{
     Error,
     block::{self, Tables},
     corrupt, unsupported,
-    xxh64::Xxh64,
 };
 use alloc::vec::Vec;
+use compute_xxhash::Xxh64;
 use core::ops::RangeInclusive;
 
 /// A frame's magic number, and the range of skippable frames' (RFC 8878
@@ -417,7 +417,7 @@ impl Decoder {
                 size: header.window,
             },
             tables: Tables::default(),
-            hash: Xxh64::new(),
+            hash: Xxh64::new(0),
             decoded: 0,
         });
         self.state = State::Block;
@@ -465,7 +465,7 @@ impl Decoder {
                 return Err(corrupt());
             }
             // The low four bytes of the hash, little-endian.
-            let digest = frame.hash.digest().to_le_bytes();
+            let digest = frame.hash.finish().to_le_bytes();
             if frame.header.checksum && digest.get(..4) != Some(checksum) {
                 return Err(corrupt());
             }
@@ -520,7 +520,7 @@ mod tests {
     /// of what they decode to, and a single segment of that size if
     /// `single`.
     fn checked(blocks: &[Block<'_>], single: bool) -> Vec<u8> {
-        let mut hash = Xxh64::new();
+        let mut hash = Xxh64::new(0);
         let mut size = 0;
         for block in blocks {
             match *block {
@@ -539,7 +539,7 @@ mod tests {
             frame[4] |= 0xE0;
             frame.splice(5..6, (size as u64).to_le_bytes());
         }
-        frame.extend_from_slice(&hash.digest().to_le_bytes()[..4]);
+        frame.extend_from_slice(&hash.finish().to_le_bytes()[..4]);
         frame
     }
 

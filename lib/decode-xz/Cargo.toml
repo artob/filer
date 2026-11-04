@@ -24,9 +24,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = ["decode-lzma/std"]
+std = ["compute-crc/std", "compute-sha256/std", "decode-lzma/std"]
 
 [dependencies]
+compute-crc = { workspace = true, features = ["crc32", "crc64-xz"] }
+compute-sha256.workspace = true
 decode-lzma.workspace = true
 
 [dev-dependencies]

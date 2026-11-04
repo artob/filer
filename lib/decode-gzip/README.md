@@ -6,7 +6,8 @@ tarballs, and initramfs images hold them, checking each member's CRC-32
 and length; it decodes members that follow one another as one stream, as
 gzip does, and leaves what follows the last unread. It never compresses. It
 is pure, safe Rust, builds with `#![no_std]` and an allocator, never panics
-on any input, and decodes Deflate with `decode-deflate`, written likewise.
+on any input, and decodes Deflate with `decode-deflate`, and computes CRC-32
+with `compute-crc`, both written likewise.
 
 Its `Decoder` is sans-I/O: `decode` takes what input there is, fills what
 room there is, and says how much of each it used, so it serves blocking,

@@ -24,7 +24,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = []
+std = ["compute-xxhash/std"]
+
+[dependencies]
+compute-xxhash = { workspace = true, features = ["xxh64"] }
 
 [dev-dependencies]
 # Mutates streams for `tests/fuzz.rs`. A path alone, without a version, so

@@ -33,10 +33,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "compute-crc"
+version = "0.0.2"
+
+[[package]]
 name = "filer-api"
 version = "0.0.2"
 dependencies = [
  "bitflags",
+ "compute-crc",
  "ref-cast",
 ]
 

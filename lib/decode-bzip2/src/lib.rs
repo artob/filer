@@ -28,9 +28,10 @@
 //!
 //! Its source is Joe Tsai's *bzip2 format* (2016), an independent
 //! description of what bzip2 1.0.6 writes, with bzip2's own source and
-//! Wuffs' decoder read for facts only, never copied. It is pure, safe Rust
-//! without dependencies, and builds with `#![no_std]`, with an allocator.
-//! The `std` feature, enabled by default, currently adds nothing.
+//! Wuffs' decoder read for facts only, never copied. It is pure, safe Rust,
+//! its CRC `compute-crc`'s, written likewise, and builds with
+//! `#![no_std]`, with an allocator. The `std` feature, enabled by
+//! default, currently adds nothing.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

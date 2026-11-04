@@ -1,15 +1,16 @@
 # decode-xz
 
 An xz decoder, written clean room from the `.xz` file format specification,
-its branch converters ported from the LZMA SDK, both public domain, and its
-SHA-256 from FIPS 180-4; dedicated to the public domain. It decodes `.xz`
+its branch converters ported from the LZMA SDK, both public domain;
+dedicated to the public domain. It decodes `.xz`
 files, as compressed tarballs, Debian packages, and initramfs images hold
 them: streams of blocks of LZMA2, through Delta or a branch converter for
 x86, PowerPC, IA-64, ARM, ARM Thumb, SPARC, ARM64, or RISC-V code, each
 checked against its CRC-32, CRC-64, or SHA-256, and each stream against its
 index. It never compresses. It is pure, safe Rust, builds with `#![no_std]`
-and an allocator, never panics on any input, and decodes LZMA2 with
-`decode-lzma`, ported likewise.
+and an allocator, never panics on any input, decodes LZMA2 with
+`decode-lzma`, ported likewise, and computes its checks with `compute-crc` and
+`compute-sha256`.
 
 Its `Decoder` is sans-I/O: `decode` takes what input there is, fills what
 room there is, and says how much of each it used, so it serves blocking,

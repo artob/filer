@@ -24,9 +24,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = ["decode-deflate/std"]
+std = ["compute-crc/std", "decode-deflate/std"]
 
 [dependencies]
+compute-crc = { workspace = true, features = ["crc32"] }
 decode-deflate.workspace = true
 
 [dev-dependencies]

@@ -2,8 +2,7 @@
 
 //! An xz decoder, written clean room from the `.xz` file format
 //! specification, its branch converters ported from the LZMA SDK, both
-//! public domain, and its SHA-256 from FIPS 180-4; and dedicated to the
-//! public domain.
+//! public domain; and dedicated to the public domain.
 //!
 //! [`Decoder`] decodes `.xz` files, as compressed tarballs, Debian
 //! packages, and initramfs images hold them: streams, one after another,
@@ -27,9 +26,10 @@
 //! refuses as [`Corrupt`](Error::Corrupt); filters it does not know, and
 //! dictionaries over 128 MiB, are [`Unsupported`](Error::Unsupported).
 //!
-//! Its sources are the `.xz` file format specification, the LZMA SDK's
-//! branch converters, and FIPS 180-4; xz's own code is not copied, nor
-//! any other decoder's. It is pure, safe Rust, and builds with
+//! Its sources are the `.xz` file format specification and the LZMA SDK's
+//! branch converters; xz's own code is not copied, nor any other
+//! decoder's. Its checks are `compute-crc`'s and `compute-sha256`'s,
+//! written likewise. It is pure, safe Rust, and builds with
 //! `#![no_std]`, with an allocator. The `std` feature, enabled by
 //! default, currently adds nothing.
 //!
@@ -70,8 +70,6 @@
 )]
 
 extern crate alloc;
-
-mod check;
 
 mod decoder;
 pub use decoder::*;

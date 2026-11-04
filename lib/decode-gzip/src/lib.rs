@@ -29,7 +29,8 @@
 //!
 //! Its source is RFC 1952; zlib's own code is not copied, nor any other
 //! decoder's. It decodes Deflate with `decode-deflate`, written likewise
-//! from RFC 1951 alone. It is pure, safe Rust, and builds with
+//! from RFC 1951 alone, and computes CRC-32 with `compute-crc`. It is pure,
+//! safe Rust, and builds with
 //! `#![no_std]`, with an allocator. The `std` feature, enabled by
 //! default, currently adds nothing.
 //!
@@ -68,8 +69,6 @@
         clippy::unwrap_used
     )
 )]
-
-mod crc32;
 
 mod decoder;
 pub use decoder::*;

@@ -4,8 +4,8 @@ A bzip2 decoder, written clean room from a description of the format and
 dedicated to the public domain. It decodes bzip2 streams, one after
 another, checking each block against its CRC and the blocks against the
 stream's, and ignores what follows the last stream, as bzip2 does; it
-never compresses. It is pure, safe Rust without dependencies, builds with
-`#![no_std]` and an allocator, never panics on any input, and holds at
+never compresses. It is pure, safe Rust, its CRC `compute-crc`'s, builds
+with `#![no_std]` and an allocator, never panics on any input, and holds at
 most a block, about 900 KiB packed, producing what it decodes to as it
 is read.
 

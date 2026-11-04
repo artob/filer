@@ -153,7 +153,8 @@ windows; this section holds the rationale.
   and Windows code pages, used by `filer-fat` and later `filer-zip`) will
   move to <https://github.com/it-is-known/known-codepages> (D49); and
   the `decode-*` crates, our clean-room, public-domain decoders, such as
-  `decode-zstd` and `decode-bzip2` (D62).
+  `decode-zstd` and `decode-bzip2` (D62); and the `compute-*` crates, our
+  checksums and hashes, such as `compute-crc` (D64).
 - Root files: `AGENTS.md`, `README.md`, `CHANGES.md` (Keep a Changelog,
   Semantic Versioning, **Breaking** markers), `TODO.md`, `DESIGN.md`,
   `VERSION`, `UNLICENSE`, `AUTHORS`, `CREDITS.md`, `.rustfmt.toml` (same
@@ -395,18 +396,19 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`, `filer-msft`,
-`known-codepages`, `decode-bzip2`, `decode-deflate`, `decode-gzip`,
-`decode-lzma`, `decode-xz`, `decode-zstd`, `filer-pack`, the read-only
-`filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
-over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
-`filer-volume` over them, and as empty skeletons `filer-wasi`,
-`filer-whatwg`, and `filer-cli` (D30, D38, D41). Stubs reserving names
-live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
-`filer-apfs`, `filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`,
-`filer-refs`, `filer-squashfs`, `filer-udf`, `filer-ufs`, and
-`filer-zfs`; and the decoders `decode-zlib`, `decode-lz4`, and
-`decode-lzo` (D62). The rest are created when their first `TODO.md` item
-starts.
+`known-codepages`, `compute-crc`, `compute-sha256`, `compute-xxhash`,
+`decode-bzip2`, `decode-deflate`, `decode-gzip`, `decode-lzma`,
+`decode-xz`, `decode-zstd`, `filer-pack`, the read-only `filer-tar`,
+`filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive` over them,
+`filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and `filer-volume`
+over them, and as empty skeletons `filer-wasi`, `filer-whatwg`, and
+`filer-cli` (D30, D38, D41). Stubs reserving names live in `tmp/` (D58):
+`filer-rar` and `filer-7z`, and the file systems `filer-apfs`,
+`filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`, `filer-refs`,
+`filer-squashfs`, `filer-udf`, `filer-ufs`, and `filer-zfs`; the
+decoders `decode-zlib`, `decode-lz4`, and `decode-lzo` (D62); and
+`compute-adler32` (D64). The rest are created when their first `TODO.md`
+item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
 that perform no I/O and hold no filesystem state (`DynDriver`, `Hybrid`,
@@ -2591,6 +2593,30 @@ may build C, there the counterparts' bindings, which the decoders
 themselves never may (D45). Counterparts are run as black boxes, never
 read.
 
+**Our checksums are `compute-*` crates (D64, 2026-11-04).** The
+checksums and hashes that formats stamp are crates of their own, as the
+decoders are (D62), named for what they do, as theirs are:
+`compute-<algorithm>`, a namespace free on crates.io. CRC-32 had come to
+be written three times over, in `filer_api::checksum`, `decode-gzip`,
+and `decode-xz`, each with its own tables in a build; `decode-bzip2`'s
+CRC, `decode-xz`'s CRC-64 and SHA-256, and `decode-zstd`'s XXH64 were
+each private to one decoder, and Adler-32 (zlib) and XXH32 (LZ4) were to
+come. `compute-crc` holds every CRC, each a type and a feature, over one
+engine of eight tables built at compile time: CRC-16/MODBUS, CRC-32,
+CRC-32C, CRC-32/BZIP2, and CRC-64/XZ, each a `Copy` value whose
+`update` returns the next, with its register exposed for formats that
+chain it, as ext4 does. `compute-sha256` (FIPS 180-4) and
+`compute-xxhash` (XXH64, from any seed; XXH32 to follow) are crates of
+their own, as their algorithms share nothing; `compute-adler32` is
+reserved for `decode-zlib`. Each is clean room, public domain, pure safe
+Rust, `no_std` without an allocator, and dependency-free; the
+`decode-*` crates depend on them, and `filer_api::checksum` re-exports
+`compute-crc`'s, which keeps D53. Their ceiling is portable code: the
+fastest CRCs and SHA-256 use carry-less multiplication or SHA
+instructions, chosen at run time, which takes `unsafe` code and `std`'s
+detection, so their `BENCH.md` (D63) compares them with both kinds of
+counterparts.
+
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and
 cpio its name with another, where `filer-zip` reads its central
@@ -4173,6 +4199,7 @@ Record changes here with a date and one line of rationale.
 | D61 | Codec crates are interim; our own public-domain decoders replace them when they block | Accepted |
 | D62 | Our decoders are `decode-<codec>` crates, generic, dependency-free, one sans-I/O shape | Accepted |
 | D63 | Decoders are benchmarked by `bench/METHOD.md`; its harness, apart, may build C counterparts | Accepted |
+| D64 | Our checksums and hashes are `compute-<algorithm>` crates, generic and dependency-free | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

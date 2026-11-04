@@ -321,17 +321,21 @@ Assessed 2026-11-03: re-check each crate's version, license and features
 when adopting it.
 
 The crates are interim (`DESIGN.md` D61): the aim is a clean-room,
-public-domain decoder of each format, written here as a `decode-*`
-crate of its own (D62), which replaces a crate once the crate becomes
-an inconvenience or a blocker, rather than waiting on changes
-upstream. The sources stay those assessed below: RFC
-1951 and 1952 for Deflate and gzip; RFC 8878 for zstd, and for its
-XXH64 checksum the xxHash specification (Yann Collet, whose notice lets
-anyone copy and distribute it), never zstd's or xxHash's own code; the
-LZMA SDK and the `.xz` file format specification, both public
-domain, for LZMA, LZMA2, and xz; and Joe Tsai's description for bzip2,
-as `Bzip2` already is. A crate's code is never read as the source of
-its replacement.
+public-domain decoder of each format, written here as a `decode-*` crate
+of its own (D62), which replaces a crate once the crate becomes an
+inconvenience or a blocker, rather than waiting on changes upstream. The
+sources stay those assessed below: RFC 1951 and 1952 for Deflate and
+gzip; RFC 8878 for zstd, and for its XXH64 checksum the xxHash
+specification (Yann Collet, whose notice lets anyone copy and distribute
+it), never zstd's or xxHash's own code; the LZMA SDK and the `.xz` file
+format specification, both public domain, for LZMA, LZMA2, and xz; and
+Joe Tsai's description for bzip2, as `Bzip2` already is. The checksums
+and hashes, `compute-*` crates (D64), come likewise from their
+definitions: each CRC's parameters, facts as the catalogue of CRCs lists
+them, and RFC 3720's test vectors; FIPS 180-4 for SHA-256, a United
+States government work; the xxHash specification for XXH64; and RFC 1950
+for Adler-32. A crate's code is never read as the source of its
+replacement.
 
 - **Deflate and gzip: written here.** `decode-deflate` (D62), written
   from RFC 1951 alone, decodes ZIP's raw Deflate, behind `deflate`, in

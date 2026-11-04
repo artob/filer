@@ -27,9 +27,9 @@
 //!
 //! Its sources are RFC 8878, and the xxHash specification for the XXH64
 //! checksum; zstd's and xxHash's own code is not copied, nor any other
-//! decoder's. It is pure, safe Rust without dependencies, and builds with
-//! `#![no_std]`, with an allocator. The `std` feature, enabled by
-//! default, currently adds nothing.
+//! decoder's. It is pure, safe Rust, its XXH64 `compute-xxhash`'s, written
+//! likewise, and builds with `#![no_std]`, with an allocator. The `std`
+//! feature, enabled by default, currently adds nothing.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.
@@ -85,7 +85,6 @@ mod fse;
 mod huffman;
 mod literals;
 mod sequences;
-mod xxh64;
 
 mod decoder;
 pub use decoder::*;
