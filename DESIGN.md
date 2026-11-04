@@ -406,8 +406,8 @@ Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
 and the file systems `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
 `filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,
 `filer-udf`, `filer-ufs`, and `filer-zfs`; and the decoders
-`decode-deflate`, `decode-gzip`, `decode-zlib`, `decode-lzma` (LZMA and
-LZMA2), `decode-xz`, `decode-lz4`, and `decode-lzo` (D62).
+`decode-gzip`, `decode-zlib`, `decode-lzma` (LZMA and LZMA2),
+`decode-xz`, `decode-lz4`, and `decode-lzo` (D62).
 The rest are created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
@@ -2525,7 +2525,13 @@ it is LZMA in chunks over the same model and window; and Deflate64,
 Deflate with a larger window, a longer last length, and two more
 distances, is to share `decode-deflate`, chosen per stream behind an
 additive feature, so that enabling it never changes what Deflate
-decodes.
+decodes. `decode-deflate` decodes since 2026-11-04 (DEC-02, first
+part), from RFC 1951 alone, refusing what zlib refuses: it decodes
+zlib's own output at each level and strategy, and mutations of it, as
+zlib does, through `zlib-rs`, a port of it used to test, and consumes as
+much of each stream as zlib does. It reads bits ahead for speed only
+within a call's input, and gives back the whole bytes it does not use
+when it returns, so that it never consumes past a stream's end.
 
 **Benchmarking the decoders (D63, 2026-11-04).** Each `decode-*` crate
 keeps a `BENCH.md`: its decoder's figures alone, and against the

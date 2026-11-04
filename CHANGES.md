@@ -42,9 +42,13 @@ so any release may break compatibility.
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than
   one or two per member.
-- `decode-deflate`, `decode-gzip`, `decode-lz4`, `decode-lzma`,
-  `decode-lzo`, `decode-xz`, and `decode-zlib`: New crates, with no items
-  yet, reserving the names of decoders to come (D62).
+- `decode-gzip`, `decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`,
+  and `decode-zlib`: New crates, with no items yet, reserving the names
+  of decoders to come (D62).
+- `decode-deflate`: New crate: a Deflate decoder, written clean room from
+  RFC 1951 and dedicated to the public domain, without dependencies, for
+  `no_std` with an allocator. It refuses what zlib refuses, consumes a
+  stream to its end and no further, and offers checkpoints anywhere.
 - `decode-bzip2`: New crate: a bzip2 decoder, written clean room from Joe
   Tsai's description of the format and dedicated to the public domain,
   without dependencies, for `no_std` with an allocator. Its `Decoder` is

@@ -4,7 +4,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "A clean-room, public-domain Deflate decoder, in safe Rust (planned)."
+description = "A clean-room, public-domain Deflate decoder, in safe Rust."
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
@@ -12,6 +12,7 @@ license.workspace = true
 keywords = ["deflate", "zip", "inflate", "decoder", "no-std"]
 categories = ["compression", "no-std"]
 publish.workspace = true
+exclude = ["tests/fuzz.rs"]
 
 [lints]
 workspace = true
@@ -24,3 +25,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std"]
 all = []
 std = []
+
+[dev-dependencies]
+# Mutates streams for `tests/fuzz.rs`. A path alone, without a version, so
+# that publishing strips it; the fuzzer stays out of the package with it.
+filer-spec = { path = "../filer-spec", default-features = false, features = ["std"] }
+# Other decoders, which the tests check this one against.
+miniz_oxide = { workspace = true, features = ["with-alloc"] }
+zlib-rs = { workspace = true, features = ["std"] }

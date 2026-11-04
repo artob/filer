@@ -73,6 +73,7 @@ miniz_oxide = { version = "0.9", default-features = false }
 ref-cast = { version = "1.0.27", default-features = false }
 rustix = { version = "1.1", default-features = false }
 spin = { version = "0.12", default-features = false }
+zlib-rs = { version = "0.6", default-features = false }
 windows-sys = { version = "0.61", default-features = false }
 
 [patch.crates-io]

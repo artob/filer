@@ -338,7 +338,10 @@ its replacement.
   `unsafe`) already decodes ZIP's raw Deflate, behind `deflate`. gzip
   wraps Deflate in a header and a trailer holding a CRC-32 and the
   length, which `Gzip` checks: written from RFC 1952, not from zlib or
-  `flate2`. Deflate's patent (US 5,051,745) expired in 2008.
+  `flate2`. `decode-deflate` (D62), written from RFC 1951 alone, is to
+  replace `miniz_oxide` (DEC-02); `zlib-rs`, a port of zlib (Zlib
+  license), is its tests' reference for zlib's behavior, run, never
+  read. Deflate's patent (US 5,051,745) expired in 2008.
 - **zstd: written here.** `decode-zstd`, which `filer-pack`'s `Zstd`
   adapts, is written from RFC 8878 alone, and its XXH64 checksum from
   the xxHash specification (D61, D62, 2026-11-04);
