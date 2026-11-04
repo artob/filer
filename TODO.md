@@ -560,16 +560,26 @@ Created with `publish = false` (D16).
   The backslash check in `index.rs` must then apply to decoded names, as
   Shift-JIS trail bytes may be 0x5C. Done when CP437 and CP866 archives
   list correctly.
-- [ ] **PACK-16: Checkpoints in `Unpacked`.** Save the decoder's state
-  every few MiB as a stream is first decoded, as zlib's `zran` does, so
-  that a read behind the last resumes from the nearest checkpoint, not
-  the start, for compressed tarballs and initramfs images alike. Reading
-  every file of Ubuntu 26.04's 61 MB zstd initrd in directory order takes
-  73 s in a release build, from restarts. Needs decoders whose state can
-  be saved: `miniz_oxide`'s `InflateState` is `Clone`, with its 32 KiB
-  window; zstd's and xz's windows run to 128 MiB, so their checkpoints
-  may cost more than restarts. Done when reading the first member after
-  the last of a 100 MiB `.tar.gz` decodes at most one interval.
+- [ ] **PACK-16: Checkpoints in `Streams`, at zstd frames.** Let a
+  decoder offer a copy of itself where decoding may go on from, recorded
+  every few MiB as a stream is first decoded, so that a read behind the
+  last resumes from the nearest, not the start, for compressed tarballs,
+  initramfs images, and members alike. zstd offers one between frames, a
+  fresh decoder, as frames decode alone: Ubuntu 26.04's 61 MB initrd has
+  370. Done when reading every file of that image in directory order,
+  73 s in a release build from restarts, takes a few.
+- [ ] **PACK-17: gzip checkpoints.** Offer a copy of `Deflate`'s state
+  (`miniz_oxide`'s `InflateState` is `Clone`, about 43 KiB with its
+  window) inside a member, and a fresh decoder between members. Done
+  when reading the first member after the last of a 100 MiB `.tar.gz`
+  decodes at most one interval.
+- [ ] **PACK-18: bzip2 checkpoints.** Offer a decoder at each block,
+  which decodes alone but for the stream's combined CRC, carried along.
+  Done as PACK-17's, for `.tar.bz2`.
+- [ ] **PACK-19: xz checkpoints.** xz blocks decode alone, and xz 5.4
+  writes several by default, but `lzma-rust2`'s `XzStream` starts only at
+  a stream header: resuming at a block means reading the block format
+  here, over its raw `Lzma2Stream`. Done as PACK-17's, for `.tar.xz`.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
   (PACK-14), which TAR-02's `xz` shares, and
