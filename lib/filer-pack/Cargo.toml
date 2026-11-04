@@ -27,7 +27,7 @@ std = ["filer-api/std"]
 bzip2 = ["dep:decode-bzip2"]
 deflate = ["dep:decode-deflate"]
 deflate64 = ["deflate", "decode-deflate/deflate64"]
-gzip = ["deflate"]
+gzip = ["dep:decode-gzip"]
 lzma = ["dep:lzma-rust2"]
 xz = ["lzma", "lzma-rust2/xz"]
 zstd = ["dep:decode-zstd"]
@@ -35,6 +35,7 @@ zstd = ["dep:decode-zstd"]
 [dependencies]
 decode-bzip2 = { workspace = true, optional = true }
 decode-deflate = { workspace = true, optional = true }
+decode-gzip = { workspace = true, optional = true }
 decode-zstd = { workspace = true, optional = true }
 filer-api.workspace = true
 lzma-rust2 = { workspace = true, optional = true }

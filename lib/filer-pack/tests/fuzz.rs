@@ -10,10 +10,10 @@
 //! runs, set `FILER_PACK_FUZZ_ITERATIONS`; `FILER_PACK_FUZZ_SEED` picks
 //! another sequence, and a failure prints the seed and iteration that
 //! reproduce it. `fuzz/` has a coverage-guided `cargo-fuzz` target per
-//! decoder over the same check. `decode-zstd` and `decode-bzip2` fuzz
-//! their own decoders.
+//! decoder over the same check. `decode-zstd`, `decode-bzip2`, and
+//! `decode-gzip` fuzz their own decoders.
 
-#![cfg(any(feature = "gzip", feature = "xz"))]
+#![cfg(feature = "xz")]
 
 mod common;
 
@@ -77,68 +77,6 @@ fn run<D: Decoder>(
             },
         },
     );
-}
-
-#[cfg(feature = "gzip")]
-mod gzip {
-    use super::*;
-    use common::Member;
-    use filer_pack::Gzip;
-
-    /// Values at the edges of what gzip headers and trailers hold: the
-    /// magic number's bytes, the method, and each flag.
-    const BYTES: [u8; 12] = [0, 1, 7, 8, 0x02, 0x04, 0x08, 0x10, 0x1F, 0x8B, 0xE0, 0xFF];
-    const WORDS: [u32; 7] = [0, 1, 0xFF, 0xFFFF, 0x8B1F, 0x7FFF_FFFF, u32::MAX];
-
-    /// Fields lie anywhere after a name; the checksums catch most
-    /// mutations, so few at once.
-    const MUTATIONS: Mutations = Mutations::new(&BYTES, &WORDS).aligned(false).most(2);
-
-    /// Returns the stream of `members`, each with its data, and `garbage`
-    /// after.
-    fn seed(members: &[(Member<'_>, &[u8])], garbage: &[u8]) -> Seed {
-        let mut stream = Vec::new();
-        let mut regions = Vec::new();
-        for (member, data) in members {
-            let at = stream.len() as u64;
-            stream.extend(member.gzip(data));
-            regions.push(at..at + member.header().len() as u64);
-            regions.push(stream.len() as u64 - 8..stream.len() as u64);
-        }
-        stream.extend_from_slice(garbage);
-        Seed::new(stream, regions)
-    }
-
-    #[test]
-    fn survives_mutated_gzip_streams() {
-        let full = Member {
-            extra: Some(b"AB\x02\x00hi"),
-            name: Some(b"name.txt"),
-            comment: Some(b"comment"),
-            header_crc: true,
-        };
-        let numbers = include_bytes!("data/numbers.gz").to_vec();
-        let len = numbers.len() as u64;
-        let corpus = [
-            Seed::new(numbers, vec![0..32, len - 30..len]),
-            seed(&[(full, b"some data, some data")], b""),
-            seed(
-                &[
-                    (Member::default(), b"one"),
-                    (full, b""),
-                    (Member::default(), b"two"),
-                ],
-                b"garbage",
-            ),
-        ];
-        run(
-            0x6219_5EED,
-            &corpus,
-            MUTATIONS,
-            Gzip::new,
-            &[ErrorKind::Corrupt],
-        );
-    }
 }
 
 #[cfg(feature = "xz")]

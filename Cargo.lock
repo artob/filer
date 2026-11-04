@@ -73,6 +73,12 @@ dependencies = [
 [[package]]
 name = "decode-gzip"
 version = "0.0.2"
+dependencies = [
+ "decode-deflate",
+ "filer-spec",
+ "miniz_oxide",
+ "zlib-rs",
+]
 
 [[package]]
 name = "decode-lz4"
@@ -288,6 +294,7 @@ version = "0.0.2"
 dependencies = [
  "decode-bzip2",
  "decode-deflate",
+ "decode-gzip",
  "decode-zstd",
  "filer-api",
  "filer-spec",

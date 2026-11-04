@@ -32,7 +32,7 @@
 //! Decoders are pure Rust, one feature per algorithm, assessed in
 //! `LEGAL.md` before adoption (D45): so far, [`Deflate`], over
 //! `decode-deflate`, behind `deflate`, and Deflate64 too, behind
-//! `deflate64`; [`Gzip`] over it, behind `gzip`; [`Zstd`], over
+//! `deflate64`; [`Gzip`], over `decode-gzip`, behind `gzip`; [`Zstd`], over
 //! `decode-zstd`, behind `zstd`; [`Bzip2`], over `decode-bzip2`, behind
 //! `bzip2`; and [`Lzma`], [`Lzma2`], and [`Xz`], over `lzma-rust2`, behind
 //! `lzma` and `xz`. The `decode-*` crates are the decoders written for

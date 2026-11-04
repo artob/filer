@@ -396,8 +396,8 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
-`filer-msft`, `known-codepages`, `decode-bzip2`, `decode-zstd`,
-`filer-pack`, the read-only
+`filer-msft`, `known-codepages`, `decode-bzip2`, `decode-deflate`,
+`decode-gzip`, `decode-zstd`, `filer-pack`, the read-only
 `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
 over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
 `filer-volume` over them, and as empty skeletons `filer-wasi`,
@@ -406,8 +406,8 @@ Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
 and the file systems `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
 `filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,
 `filer-udf`, `filer-ufs`, and `filer-zfs`; and the decoders
-`decode-gzip`, `decode-zlib`, `decode-lzma` (LZMA and LZMA2),
-`decode-xz`, `decode-lz4`, and `decode-lzo` (D62).
+`decode-zlib`, `decode-lzma` (LZMA and LZMA2), `decode-xz`,
+`decode-lz4`, and `decode-lzo` (D62).
 The rest are created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
@@ -2516,36 +2516,39 @@ shape: a `Decoder` with `new`, `decode(input, output)` returning what it
 consumed and produced, `finish`, `checkpoint`, and `buffered`, and an
 `Error` that is `Corrupt` or `Unsupported`. `filer-pack` adapts each to
 its `Decoder` trait behind a feature named for the codec, keeping its
-own types (`Zstd`, `Bzip2`). A side effect of Filer is thus a family of
-clean-room, public-domain decoders of every codec it reads: Deflate,
-gzip, LZMA and LZMA2, and xz next, in place of the interim crates (TODO
-DEC-02 to 05), then zlib, LZ4, and LZO as the drivers that need them
-come (DEC-06 to 08). Stubs in `tmp/` reserve their names. LZMA2 shares
-`decode-lzma` with LZMA, as it is LZMA in chunks over the same model and
-window; and Deflate64, Deflate with a larger window, a longer last
-length, and two more distances, is to share `decode-deflate`, chosen per
-stream behind an additive feature, so that enabling it never changes
-what Deflate decodes. `decode-deflate` decodes since 2026-11-04
-(DEC-02), from RFC 1951 alone, refusing what zlib refuses: it decodes
-zlib's own output at each level and strategy, and mutations of it, as
-zlib does, through `zlib-rs`, a port of it used to test, and consumes as
-much of each stream as zlib does. It reads bits ahead for speed only
-within a call's input, and gives back the whole bytes it does not use
-when it returns, so that it never consumes past a stream's end. While
-the input holds two words past what is taken, a fast loop decodes codes
-without checking for too few bits, as every refill, without a branch,
-leaves enough for two codes, a length's extra bits, and, refilled again
-if short, a distance; its tables hold each length's and distance's base
-and extra bits, and matches are copied in chunks of 16 or 8 bytes into a
-buffer with room past its end. So it takes a quarter less time than
-`miniz_oxide` on the M4, and as much on Zen 1, where `zlib-rs` takes two
-thirds of its time (on the M4, five sixths). Deflate64 is a variant
-chosen per decoder (`Decoder::deflate64`), checked against 7-Zip's
-output and the `deflate64` crate, which decodes matches from before a
-stream's start, as zeros, that zlib and this crate refuse.
-`filer-pack`'s `Deflate` adapts it since 2026-11-04, and with it ZIP's
-method 9, in place of `miniz_oxide`, now only a test dependency, which
-writes members and gzip streams to read.
+own types (`Zstd`, `Bzip2`, `Deflate`, `Gzip`). A side effect of Filer
+is thus a family of clean-room, public-domain decoders of every codec it
+reads: Deflate, gzip, LZMA and LZMA2, and xz next, in place of the
+interim crates (TODO DEC-02 to 05), then zlib, LZ4, and LZO as the
+drivers that need them come (DEC-06 to 08). Stubs in `tmp/` reserve
+their names. LZMA2 shares `decode-lzma` with LZMA, as it is LZMA in
+chunks over the same model and window; and Deflate64, Deflate with a
+larger window, a longer last length, and two more distances, is to share
+`decode-deflate`, chosen per stream behind an additive feature, so that
+enabling it never changes what Deflate decodes. `decode-deflate` decodes
+since 2026-11-04 (DEC-02), from RFC 1951 alone, refusing what zlib
+refuses: it decodes zlib's own output at each level and strategy, and
+mutations of it, as zlib does, through `zlib-rs`, a port of it used to
+test, and consumes as much of each stream as zlib does. It reads bits
+ahead for speed only within a call's input, and gives back the whole
+bytes it does not use when it returns, so that it never consumes past a
+stream's end. While the input holds two words past what is taken, a fast
+loop decodes codes without checking for too few bits, as every refill,
+without a branch, leaves enough for two codes, a length's extra bits,
+and, refilled again if short, a distance; its tables hold each length's
+and distance's base and extra bits, and matches are copied in chunks of
+16 or 8 bytes into a buffer with room past its end. So it takes a
+quarter less time than `miniz_oxide` on the M4, and as much on Zen 1,
+where `zlib-rs` takes two thirds of its time (on the M4, five sixths).
+Deflate64 is a variant chosen per decoder (`Decoder::deflate64`),
+checked against 7-Zip's output and the `deflate64` crate, which decodes
+matches from before a stream's start, as zeros, that zlib and this crate
+refuse. `filer-pack`'s `Deflate` adapts it since 2026-11-04, and with it
+ZIP's method 9, in place of `miniz_oxide`, now only a test dependency,
+which writes members and gzip streams to read. `decode-gzip` (DEC-03,
+2026-11-04) frames it in gzip's members, as `filer-pack`'s `Gzip`, moved
+there whole, did, with a CRC-32 of its own; its tests check it against
+zlib's gzip decoding, member by member, through `zlib-rs`.
 
 **Benchmarking the decoders (D63, 2026-11-04).** Each `decode-*` crate
 keeps a `BENCH.md`: its decoder's figures alone, and against the

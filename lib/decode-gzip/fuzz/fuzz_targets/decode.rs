@@ -10,15 +10,13 @@
 #[path = "../../tests/common/mod.rs"]
 mod common;
 
-use filer_api::ErrorKind;
-use filer_pack::Gzip;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     let Some((&piece, stream)) = data.split_first() else {
         return;
     };
-    if let Err(error) = common::agree(Gzip::new, stream, usize::from(piece % 64) + 1) {
-        assert_eq!(error.kind(), ErrorKind::Corrupt);
-    }
+    // Any error is `Corrupt`; what matters is that pieces and the whole
+    // agree, and that nothing panics.
+    let _ = common::agree(stream, usize::from(piece % 64) + 1);
 });

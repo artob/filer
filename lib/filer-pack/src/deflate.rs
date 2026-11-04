@@ -42,20 +42,6 @@ impl Deflate {
     pub fn deflate64() -> Self {
         Self(decode_deflate::Decoder::deflate64())
     }
-
-    /// Returns whether the stream has ended: its last block decoded, and
-    /// all of it produced. A container reads on from there, past the
-    /// bytes consumed.
-    #[cfg(feature = "gzip")]
-    pub(crate) fn ended(&self) -> bool {
-        self.0.finish().is_ok()
-    }
-
-    /// Starts over, at the start of a new stream.
-    #[cfg(feature = "gzip")]
-    pub(crate) fn reset(&mut self) {
-        self.0 = decode_deflate::Decoder::new();
-    }
 }
 
 impl Decoder for Deflate {

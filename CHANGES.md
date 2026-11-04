@@ -35,7 +35,7 @@ so any release may break compatibility.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `decode-deflate`, and `Deflate::deflate64`, with
   `deflate64`, Deflate64; `Gzip`, with `gzip`, decodes gzip streams over
-  it; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and
+  `decode-gzip`; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and
   `Xz`, with `xz`, xz streams, over `lzma-rust2`; `Zstd`, with `zstd`,
   zstd streams, over `decode-zstd`; and `Bzip2`, with `bzip2`, bzip2
   streams, over `decode-bzip2`. A decoder now reads the packed bytes after the
@@ -43,9 +43,14 @@ so any release may break compatibility.
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than
   one or two per member.
-- `decode-gzip`, `decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`,
-  and `decode-zlib`: New crates, with no items yet, reserving the names
-  of decoders to come (D62).
+- `decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`, and
+  `decode-zlib`: New crates, with no items yet, reserving the names of
+  decoders to come (D62).
+- `decode-gzip`: New crate: a gzip decoder, written clean room from RFC
+  1952 and dedicated to the public domain, over `decode-deflate`, for
+  `no_std` with an allocator. It decodes members in turn, checking each
+  one's CRC-32 and length, leaves what follows the last unread, and
+  offers checkpoints anywhere.
 - `decode-deflate`: New crate: a Deflate decoder, written clean room from
   RFC 1951 and dedicated to the public domain, without dependencies, for
   `no_std` with an allocator. It refuses what zlib refuses, consumes a
