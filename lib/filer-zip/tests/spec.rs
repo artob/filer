@@ -42,7 +42,12 @@ fn write(tree: &filer_spec::Tree, zip64: bool, deflate: bool) -> Vec<u8> {
 fn passes_the_specification() {
     // With Unix modes, ZIP records everything the specification's tree
     // describes but extended attributes.
-    for (zip64, deflate) in [(false, false), (true, false), (false, true)] {
+    let cases = [(false, false), (true, false), (false, true)];
+    // Deflated, with the feature that decodes it.
+    for (zip64, deflate) in cases
+        .into_iter()
+        .filter(|&(_, d)| !d || cfg!(feature = "deflate"))
+    {
         let report = filer_spec::run_blocking(Profile::default().with_xattrs(false), |tree| {
             filer_spec::block_on(Zip::open(write(tree, zip64, deflate))).unwrap()
         });

@@ -31,12 +31,14 @@ fn reason(result: Result<Root, Error>) -> String {
 }
 
 /// The lines of `hello/lines.txt` in `data/hello.zip`.
+#[cfg(feature = "deflate")]
 fn lines() -> Vec<u8> {
     (1..=400)
         .flat_map(|i| format!("Line {i} of a compressible file.\n").into_bytes())
         .collect()
 }
 
+#[cfg(feature = "deflate")]
 #[test]
 fn reads_an_info_zip_archive() {
     // Written by `zip -9 -r -y` (Info-ZIP 3.0): `lines.txt` is deflated,
@@ -327,6 +329,7 @@ fn reads_each_method() {
     }
 }
 
+#[cfg(feature = "deflate")]
 #[test]
 fn reads_deflated_members() {
     // Larger than one chunk of packed input even deflated.
@@ -353,6 +356,7 @@ fn reads_deflated_members() {
     }
 }
 
+#[cfg(feature = "deflate")]
 #[test]
 fn refuses_corrupt_deflated_members() {
     let data = lines();
@@ -384,6 +388,7 @@ fn refuses_corrupt_deflated_members() {
     }
 }
 
+#[cfg(feature = "deflate")]
 #[test]
 fn never_decodes_past_the_declared_size() {
     // A member that inflates to more than its header says.
@@ -398,6 +403,7 @@ fn never_decodes_past_the_declared_size() {
     );
 }
 
+#[cfg(feature = "deflate")]
 #[test]
 fn refuses_bombs() {
     // 4 MiB of zeros deflate to about 4 KiB: a ratio near 1000.
