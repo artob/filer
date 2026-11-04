@@ -28,6 +28,7 @@ all = [
   "bzip2",
   "cpio",
   "deflate",
+  "deflate64",
   "gzip",
   "lzma",
   "rar",
@@ -51,6 +52,7 @@ ar = ["dep:filer-ar"]
 bzip2 = ["filer-cpio?/bzip2", "filer-tar?/bzip2", "filer-zip?/bzip2"]
 cpio = ["dep:filer-cpio"]
 deflate = ["zip", "filer-zip/deflate"]
+deflate64 = ["zip", "filer-zip/deflate64"]
 gzip = ["filer-cpio?/gzip", "filer-tar?/gzip"]
 lzma = ["filer-zip?/lzma"]
 rar = ["dep:filer-rar"]

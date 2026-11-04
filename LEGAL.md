@@ -333,15 +333,14 @@ domain, for LZMA, LZMA2, and xz; and Joe Tsai's description for bzip2,
 as `Bzip2` already is. A crate's code is never read as the source of
 its replacement.
 
-- **Deflate and gzip: `miniz_oxide`, and RFC 1952 written here.**
-  `miniz_oxide` 0.9 (MIT, Zlib or Apache-2.0; `no_std` with `alloc`; no
-  `unsafe`) already decodes ZIP's raw Deflate, behind `deflate`. gzip
-  wraps Deflate in a header and a trailer holding a CRC-32 and the
-  length, which `Gzip` checks: written from RFC 1952, not from zlib or
-  `flate2`. `decode-deflate` (D62), written from RFC 1951 alone, is to
-  replace `miniz_oxide` (DEC-02); `zlib-rs`, a port of zlib (Zlib
-  license), is its tests' reference for zlib's behavior, run, never
-  read. Deflate64, which PKWARE names but does not document, is decoded
+- **Deflate and gzip: written here.** `decode-deflate` (D62), written
+  from RFC 1951 alone, decodes ZIP's raw Deflate, behind `deflate`, in
+  place of `miniz_oxide` (MIT, Zlib or Apache-2.0) since 2026-11-04
+  (DEC-02), which stays only to write tests' data. gzip wraps Deflate
+  in a header and a trailer holding a CRC-32 and the length, which
+  `Gzip` checks: written from RFC 1952, not from zlib or `flate2`.
+  `zlib-rs`, a port of zlib (Zlib license), is `decode-deflate`'s tests'
+  reference for zlib's behavior, run, never read. Deflate64, which PKWARE names but does not document, is decoded
   from how it is known to differ from Deflate (a 64 KiB window, length
   code 285, and distance codes 30 and 31), checked against 7-Zip's
   output and the `deflate64` crate (MIT), run as a black box; no patent

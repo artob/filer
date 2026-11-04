@@ -329,6 +329,26 @@ fn reads_each_method() {
     }
 }
 
+/// `deflate64.zip` is by 7-Zip 26.00 at `-mm=Deflate64 -mx=9`: `seq 500`,
+/// and that followed by 70,000 `a`s, in matches longer than Deflate's.
+#[test]
+fn reads_deflate64_members() {
+    let root = open(include_bytes!("data/deflate64.zip").to_vec()).unwrap();
+    let text: Vec<u8> = (1..=500)
+        .flat_map(|n| format!("{n}\n").into_bytes())
+        .collect();
+    let long = [text.as_slice(), &[b'a'; 70_000]].concat();
+    for (name, data) in [("text.txt", text), ("long.txt", long)] {
+        let expected = if cfg!(feature = "deflate64") {
+            Ok(data)
+        } else {
+            Err(ErrorKind::Unsupported)
+        };
+        let read = try_read(&root, name).map_err(|error| error.kind());
+        assert!(read == expected, "{name}");
+    }
+}
+
 #[cfg(feature = "deflate")]
 #[test]
 fn reads_deflated_members() {

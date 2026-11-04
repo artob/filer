@@ -292,9 +292,9 @@ on macOS and the BSDs (their system call interface is private), and
 `windows-sys` on Windows. On Linux, `rustix` calls the kernel directly,
 with no C library at all.
 
-Consequences: compression codecs are pure-Rust decoders (`miniz_oxide`
-for Deflate, `lzma-rust2` for xz and LZMA, and zstd and bzip2 written
-here, as `LEGAL.md` assesses them), which suffices since archive
+Consequences: compression codecs are pure-Rust decoders (Deflate, zstd,
+and bzip2 written here, and `lzma-rust2` for xz and LZMA, as `LEGAL.md`
+assesses them), which suffices since archive
 drivers only read; `filer-fuse` must use a FUSE mount path that needs no
 `libfuse` (**VERIFY** `fuser` without its `libfuse` feature). CI fails
 if `cc`, `cmake`, `pkg-config`, or `bindgen` enters the dependency tree
@@ -2241,11 +2241,12 @@ Info-ZIP decodes them; Unix hosts' stay UTF-8 if valid, since macOS's
 `zip` writes UTF-8 without the flag, and foreign otherwise. Names are
 checked after decoding. Its codec records each member's method,
 CRC-32, and encryption: Deflate decodes with `filer-pack`'s, over
-`miniz_oxide` (feature `deflate`), checked against the CRC at the
+`decode-deflate` (feature `deflate`), checked against the CRC at the
 member's end; since 2026-11-03 (ZIP-02), so do bzip2 (12), LZMA (14,
 after its own header of the SDK's version and the properties), zstd
 (93), and xz (95), each behind a feature, which a Python 3.14 `zipfile`
-archive of each tests; other methods
+archive of each tests, and since 2026-11-04 (DEC-02) Deflate64 (9),
+behind `deflate64`, which a 7-Zip archive tests; other methods
 and encryption fail on read, not open, except for symlinks, whose
 targets are decoded at open. Spanned archives are `Unsupported`.
 Against bombs, `Limits` gained `max_total_size` (16 GiB of declared
@@ -2424,7 +2425,7 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   `Streams` resumes a read from when it lies nearer than any kept
   stream, as `Unpacked::measured`'s first decode records them for every
   later read; zstd offers a fresh decoder between frames, and Deflate
-  and gzip a copy of `miniz_oxide`'s state anywhere (PACK-17), as does
+  and gzip a copy of their decoder's state anywhere (PACK-17), as does
   `Verified`, with its digest so far, for ZIP's members: reading the
   member before the last of a 12 MiB `.tar.gz`, after the last, takes 82
   reads of 64 KiB rather than 177; past 256 checkpoints, every other one
@@ -2536,10 +2537,14 @@ input holds two words past what is taken, a fast loop decodes codes
 without checking for too few bits, as every refill leaves enough for a
 code, its extra bits, and a distance; with matches copied in chunks of
 16 or 8 bytes into a buffer with room past its end, it decodes as fast
-as `miniz_oxide`, and two thirds as fast as `zlib-rs`. Deflate64 is a
+as `miniz_oxide` on the M4, if a fifth slower on Zen 1, and two thirds
+as fast as `zlib-rs`. Deflate64 is a
 variant chosen per decoder (`Decoder::deflate64`), checked against
 7-Zip's output and the `deflate64` crate, which decodes matches from
 before a stream's start, as zeros, that zlib and this crate refuse.
+`filer-pack`'s `Deflate` adapts it since 2026-11-04, and with it ZIP's
+method 9, in place of `miniz_oxide`, now only a test dependency, which
+writes members and gzip streams to read.
 
 **Benchmarking the decoders (D63, 2026-11-04).** Each `decode-*` crate
 keeps a `BENCH.md`: its decoder's figures alone, and against the
@@ -3918,7 +3923,6 @@ only when the first item needs it.
 | `bitflags` | 2.13 | `filer-api` | `no_std`; optional `serde` |
 | `ref-cast` | 1.0 | `filer-api` | path DSTs (D4) |
 | `spin` | 0.12 | `filer-pack`, `filer-heap` | `no_std` lock |
-| `miniz_oxide` | 0.9 | `filer-pack` | Deflate; `no_std`; no `unsafe` |
 | `lzma-rust2` | 0.25 | `filer-pack` | xz, LZMA; `no_std`, no `optimization` |
 | `async-lock` | 3.4 | `filer-tx`, `filer-quota` | MSRV 1.85; `no_std` |
 | `serde` | 1.0 | several | optional |

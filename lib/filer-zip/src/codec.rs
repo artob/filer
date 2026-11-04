@@ -11,6 +11,8 @@ use filer_pack::{Codec, Decoder, Verified};
 pub(crate) const STORED: u16 = 0;
 #[cfg_attr(not(feature = "deflate"), allow(dead_code))]
 pub(crate) const DEFLATE: u16 = 8;
+#[cfg_attr(not(feature = "deflate64"), allow(dead_code))]
+pub(crate) const DEFLATE64: u16 = 9;
 #[cfg_attr(not(feature = "bzip2"), allow(dead_code))]
 pub(crate) const BZIP2: u16 = 12;
 #[cfg_attr(not(feature = "lzma"), allow(dead_code))]
@@ -52,6 +54,8 @@ fn decoder(method: u16, size: u64) -> Option<Box<dyn Decoder>> {
     match method {
         #[cfg(feature = "deflate")]
         DEFLATE => Some(Box::new(filer_pack::Deflate::new())),
+        #[cfg(feature = "deflate64")]
+        DEFLATE64 => Some(Box::new(filer_pack::Deflate::deflate64())),
         #[cfg(feature = "bzip2")]
         BZIP2 => Some(Box::new(filer_pack::Bzip2::new())),
         #[cfg(feature = "lzma")]

@@ -13,15 +13,15 @@
 //! | ar | `.a`, `.ar`, `.deb`, `.lib`, `.udeb` | `ar` | `filer-ar` |
 //! | cpio | `.cpio` | `cpio` | `filer-cpio` |
 //! | TAR | `.tar`, `.tar.gz`, `.tgz`, `.tar.zst`, `.tar.xz`, `.tar.bz2`, ... | `tar`, `gzip`, `zstd`, `xz`, `bzip2` | `filer-tar` |
-//! | ZIP | `.zip`, `.jar`, `.apk`, `.whl`, `.epub`, `.docx`, ... | `zip`, `deflate`, `bzip2`, `lzma`, `zstd`, `xz` | `filer-zip` |
+//! | ZIP | `.zip`, `.jar`, `.apk`, `.whl`, `.epub`, `.docx`, ... | `zip`, `deflate`, `deflate64`, `bzip2`, `lzma`, `zstd`, `xz` | `filer-zip` |
 //!
 //! Each format's feature enables its driver, which is then also
 //! re-exported here as a module (as [`zip`] for `filer-zip`), for what is
 //! particular to it. `deflate` lets `filer-zip` decode Deflate, the method
-//! most ZIP archives use, and `lzma` LZMA; `gzip`, `zstd`, `xz`, and
-//! `bzip2` let `filer-tar` read tarballs so compressed and `filer-cpio`
-//! initramfs images, and all but `gzip` let `filer-zip` decode members so
-//! compressed. `rar` and `7z` enable `filer-rar` and
+//! most ZIP archives use, `deflate64` Deflate64, and `lzma` LZMA; `gzip`,
+//! `zstd`, `xz`, and `bzip2` let `filer-tar` read tarballs so compressed
+//! and `filer-cpio` initramfs images, and all but `gzip` let `filer-zip`
+//! decode members so compressed. `rar` and `7z` enable `filer-rar` and
 //! `filer-7z` (as `sevenz`, since a module's name cannot begin with a
 //! digit), which read nothing yet, so [`Format`] names neither until they
 //! do. `all`, enabled by default, enables every one.

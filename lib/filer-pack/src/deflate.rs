@@ -3,13 +3,15 @@
 use crate::Decoder;
 use alloc::boxed::Box;
 use filer_api::{Error, ErrorKind, OpKind};
-use miniz_oxide::{
-    DataFormat, MZError, MZFlush, MZStatus,
-    inflate::stream::{InflateState, inflate},
-};
 
-/// A decoder of a raw Deflate stream (RFC 1951), as ZIP stores members,
-/// over `miniz_oxide`.
+/// A decoder of a raw Deflate stream (RFC 1951), as ZIP stores members:
+/// `decode-deflate`'s, written for Filer from RFC 1951 alone (`LEGAL.md`,
+/// D62), which refuses what zlib refuses; or, from
+/// [`deflate64`](Self::deflate64), of Deflate64, ZIP's method 9.
+///
+/// It consumes the stream to its end and no further, and offers a
+/// [`checkpoint`](Decoder::checkpoint) anywhere: a copy of its state, its
+/// 32 KiB window and a few KiB.
 ///
 /// # Examples
 ///
@@ -23,67 +25,61 @@ use miniz_oxide::{
 /// assert_eq!(&output, b"hello");
 /// # Ok::<(), filer_api::Error>(())
 /// ```
-#[derive(Clone)]
-pub struct Deflate {
-    state: Box<InflateState>,
-    /// Whether the last block is decoded and all of it produced.
-    ended: bool,
-}
+#[derive(Clone, Debug, Default)]
+pub struct Deflate(decode_deflate::Decoder);
 
 impl Deflate {
     /// Returns a decoder at the start of a stream.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            state: InflateState::new_boxed(DataFormat::Raw),
-            ended: false,
-        }
+        Self(decode_deflate::Decoder::new())
+    }
+
+    /// Returns a decoder at the start of a Deflate64 stream: PKWARE's
+    /// variant of Deflate, with a 64 KiB window and longer matches.
+    #[cfg(feature = "deflate64")]
+    #[must_use]
+    pub fn deflate64() -> Self {
+        Self(decode_deflate::Decoder::deflate64())
     }
 
     /// Returns whether the stream has ended: its last block decoded, and
     /// all of it produced. A container reads on from there, past the
     /// bytes consumed.
     #[cfg(feature = "gzip")]
-    pub(crate) const fn ended(&self) -> bool {
-        self.ended
+    pub(crate) fn ended(&self) -> bool {
+        self.0.finish().is_ok()
     }
 
     /// Starts over, at the start of a new stream.
     #[cfg(feature = "gzip")]
     pub(crate) fn reset(&mut self) {
-        self.state.reset(DataFormat::Raw);
-        self.ended = false;
-    }
-}
-
-impl Default for Deflate {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl core::fmt::Debug for Deflate {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Deflate").finish_non_exhaustive()
+        self.0 = decode_deflate::Decoder::new();
     }
 }
 
 impl Decoder for Deflate {
     fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
-        let result = inflate(&mut self.state, input, output, MZFlush::None);
-        // At its end, the stream consumes no bytes past it.
-        self.ended |= result.status == Ok(MZStatus::StreamEnd);
-        match result.status {
-            // No progress: the archive sees the member end early.
-            Ok(_) | Err(MZError::Buf) => Ok((result.bytes_consumed, result.bytes_written)),
-            Err(_) => Err(Error::new(ErrorKind::Corrupt, OpKind::Read)),
-        }
+        self.0.decode(input, output).map_err(error)
     }
 
-    /// Anywhere: a copy of its state, about 43 KiB with its window.
-    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
-        Some(Box::new(self.clone()))
+    fn finish(&mut self) -> Result<(), Error> {
+        self.0.finish().map_err(error)
     }
+
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        let resumed: Box<dyn Decoder> = Box::new(Self(self.0.checkpoint()?));
+        Some(resumed)
+    }
+
+    fn buffered(&self) -> usize {
+        self.0.buffered()
+    }
+}
+
+/// Returns `decode-deflate`'s `error` as one of ours.
+fn error(_: decode_deflate::Error) -> Error {
+    Error::new(ErrorKind::Corrupt, OpKind::Read)
 }
 
 #[cfg(test)]
@@ -95,7 +91,10 @@ mod tests {
         // Block type 3 is reserved.
         let error = Deflate::new().decode(&[0x07], &mut [0; 8]).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Corrupt);
-        // An empty input makes no progress, which callers see.
-        assert_eq!(Deflate::new().decode(&[], &mut [0; 8]).unwrap(), (0, 0));
+        // An empty input makes no progress, which callers see, and the
+        // stream has not ended.
+        let mut deflate = Deflate::new();
+        assert_eq!(deflate.decode(&[], &mut [0; 8]).unwrap(), (0, 0));
+        assert_eq!(deflate.finish().unwrap_err().kind(), ErrorKind::Corrupt);
     }
 }

@@ -3,12 +3,6 @@
 version = 4
 
 [[package]]
-name = "adler2"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
-
-[[package]]
 name = "arbitrary"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -76,6 +70,10 @@ name = "decode-bzip2"
 version = "0.0.2"
 
 [[package]]
+name = "decode-deflate"
+version = "0.0.2"
+
+[[package]]
 name = "decode-zstd"
 version = "0.0.2"
 
@@ -121,10 +119,10 @@ name = "filer-pack"
 version = "0.0.2"
 dependencies = [
  "decode-bzip2",
+ "decode-deflate",
  "decode-zstd",
  "filer-api",
  "lzma-rust2",
- "miniz_oxide",
  "spin",
 ]
 
@@ -194,15 +192,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef1d73c59a56771343712b22ea5615092c612c16ba291c0979e3105dfeec4890"
 dependencies = [
  "sha2",
-]
-
-[[package]]
-name = "miniz_oxide"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b63fbc4a50860e98e7b2aa7804ded1db5cbc3aff9193adaff57a6931bf7c4b4c"
-dependencies = [
- "adler2",
 ]
 
 [[package]]

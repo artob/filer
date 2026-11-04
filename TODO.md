@@ -554,12 +554,10 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **DEC-02: `decode-deflate` in place of `miniz_oxide`.** It
-  decodes Deflate as zlib does, and Deflate64, and copies for
-  checkpoints. What remains: `filer-pack`'s `Deflate` over it, and ZIP's
-  method 9 through `Decoder::deflate64`. Done when `miniz_oxide` leaves
-  `filer-pack`'s dependencies, and ZIP members and gzip streams read as
-  before, no slower.
+- [ ] **DEC-02: `decode-deflate` as fast as `miniz_oxide`.** It is in
+  `filer-pack` in its place, and decodes ZIP's method 9 too, but on Zen 1
+  takes 296 ms to `miniz_oxide`'s 247 over a 55 MB corpus (on the M4,
+  252 to 262 over 97 MB). Done when it is no slower on x86-64.
 - [ ] **DEC-03: `decode-gzip`.** gzip (RFC 1952): `filer-pack`'s `Gzip`
   framing, over `decode-deflate`. Done when `filer-pack` decodes gzip
   through it.

@@ -33,7 +33,8 @@ so any release may break compatibility.
   `Decoder::buffered` says the decoder held; `Verified` passes them on
   with its `Digest`, which is now `Clone`.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
-  own, over `miniz_oxide`; `Gzip`, with `gzip`, decodes gzip streams over
+  own, over `decode-deflate`, and `Deflate::deflate64`, with
+  `deflate64`, Deflate64; `Gzip`, with `gzip`, decodes gzip streams over
   it; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and
   `Xz`, with `xz`, xz streams, over `lzma-rust2`; `Zstd`, with `zstd`,
   zstd streams, over `decode-zstd`; and `Bzip2`, with `bzip2`, bzip2
@@ -77,8 +78,8 @@ so any release may break compatibility.
 - `filer-tar`: Archives compressed with gzip, zstd, xz, or bzip2, told by
   their first bytes, behind features named as they are; `Compression`,
   and `Tar::compression`.
-- `filer-zip`: Members compressed with bzip2, LZMA, zstd, or xz, behind
-  features named as they are, which `filer-archive` forwards. Names that
+- `filer-zip`: Members compressed with Deflate64, bzip2, LZMA, zstd, or
+  xz, behind features named as they are, which `filer-archive` forwards. Names that
   DOS and Windows hosts wrote without the UTF-8 flag, in a `CodePage`,
   437 by default, and Info-ZIP's Unicode Path extra field; `Options`,
   which `Zip::open_with` now takes, or `Limits` alone; the `code-pages`

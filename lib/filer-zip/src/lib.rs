@@ -24,7 +24,8 @@
 //!
 //! - `std` forwards to `filer-api`;
 //! - `all` enables every codec below;
-//! - `deflate` decodes Deflate members (method 8), over `miniz_oxide`;
+//! - `deflate` decodes Deflate members (method 8);
+//! - `deflate64` decodes Deflate64 members (9);
 //! - `bzip2` decodes bzip2 members (12);
 //! - `lzma` decodes LZMA members (14), over `lzma-rust2`;
 //! - `zstd` decodes zstd members (93);

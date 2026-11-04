@@ -31,11 +31,12 @@
 //!
 //! Decoders are pure Rust, one feature per algorithm, assessed in
 //! `LEGAL.md` before adoption (D45): so far, [`Deflate`], over
-//! `miniz_oxide`, behind `deflate`; [`Gzip`] over it, behind `gzip`;
-//! [`Lzma`], [`Lzma2`], and [`Xz`], over `lzma-rust2`, behind `lzma` and
-//! `xz`; [`Zstd`], over `decode-zstd`, behind `zstd`; and [`Bzip2`],
-//! over `decode-bzip2`, behind `bzip2`: the decoders written for Filer,
-//! as crates of their own, clean room and public domain (D62).
+//! `decode-deflate`, behind `deflate`, and Deflate64 too, behind
+//! `deflate64`; [`Gzip`] over it, behind `gzip`; [`Zstd`], over
+//! `decode-zstd`, behind `zstd`; [`Bzip2`], over `decode-bzip2`, behind
+//! `bzip2`; and [`Lzma`], [`Lzma2`], and [`Xz`], over `lzma-rust2`, behind
+//! `lzma` and `xz`. The `decode-*` crates are the decoders written for
+//! Filer, as crates of their own, clean room and public domain (D62).
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will
