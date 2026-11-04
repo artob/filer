@@ -2506,42 +2506,43 @@ as `decode-zstd` (D62).
 **Our decoders are `decode-*` crates (D62, 2026-11-04).** Each decoder
 written for Filer (D61) is a crate of its own, `decode-<codec>`, a
 namespace otherwise free on crates.io: `decode-zstd` and `decode-bzip2`
-so far. Like
-`known-codepages` (D49), they are generic, not Filer-specific, and
-written to be spun out: no Filer dependency (`filer-spec` only to test),
-and no dependency at all. Each is written clean room from its format's
-specification (`LEGAL.md`), dedicated to the public domain, pure safe
-Rust, `no_std` with an allocator, never panics on any input, and bounds
-its memory. All share one sans-I/O shape: a `Decoder` with `new`,
-`decode(input, output)` returning what it consumed and produced,
-`finish`, `checkpoint`, and `buffered`, and an `Error` that is `Corrupt`
-or `Unsupported`. `filer-pack` adapts each to its `Decoder` trait behind
-a feature named for the codec, keeping its own types (`Zstd`, `Bzip2`).
-A side effect of Filer is thus a family of clean-room, public-domain
-decoders of every codec it reads: Deflate, gzip, LZMA and LZMA2, and xz
-next, in place of the interim crates (TODO DEC-02 to 05), then zlib,
-LZ4, and LZO as the drivers that need them come (DEC-06 to 08). Stubs
-in `tmp/` reserve their names. LZMA2 shares `decode-lzma` with LZMA, as
-it is LZMA in chunks over the same model and window; and Deflate64,
-Deflate with a larger window, a longer last length, and two more
-distances, is to share `decode-deflate`, chosen per stream behind an
-additive feature, so that enabling it never changes what Deflate
-decodes. `decode-deflate` decodes since 2026-11-04 (DEC-02, first
-part), from RFC 1951 alone, refusing what zlib refuses: it decodes
+so far. Like `known-codepages` (D49), they are generic, not
+Filer-specific, and written to be spun out: no Filer dependency
+(`filer-spec` only to test), and no dependency at all. Each is written
+clean room from its format's specification (`LEGAL.md`), dedicated to
+the public domain, pure safe Rust, `no_std` with an allocator, never
+panics on any input, and bounds its memory. All share one sans-I/O
+shape: a `Decoder` with `new`, `decode(input, output)` returning what it
+consumed and produced, `finish`, `checkpoint`, and `buffered`, and an
+`Error` that is `Corrupt` or `Unsupported`. `filer-pack` adapts each to
+its `Decoder` trait behind a feature named for the codec, keeping its
+own types (`Zstd`, `Bzip2`). A side effect of Filer is thus a family of
+clean-room, public-domain decoders of every codec it reads: Deflate,
+gzip, LZMA and LZMA2, and xz next, in place of the interim crates (TODO
+DEC-02 to 05), then zlib, LZ4, and LZO as the drivers that need them
+come (DEC-06 to 08). Stubs in `tmp/` reserve their names. LZMA2 shares
+`decode-lzma` with LZMA, as it is LZMA in chunks over the same model and
+window; and Deflate64, Deflate with a larger window, a longer last
+length, and two more distances, is to share `decode-deflate`, chosen per
+stream behind an additive feature, so that enabling it never changes
+what Deflate decodes. `decode-deflate` decodes since 2026-11-04
+(DEC-02), from RFC 1951 alone, refusing what zlib refuses: it decodes
 zlib's own output at each level and strategy, and mutations of it, as
 zlib does, through `zlib-rs`, a port of it used to test, and consumes as
 much of each stream as zlib does. It reads bits ahead for speed only
 within a call's input, and gives back the whole bytes it does not use
-when it returns, so that it never consumes past a stream's end. While the
-input holds two words past what is taken, a fast loop decodes codes
-without checking for too few bits, as every refill leaves enough for a
-code, its extra bits, and a distance; with matches copied in chunks of
-16 or 8 bytes into a buffer with room past its end, it decodes as fast
-as `miniz_oxide` on the M4, if a fifth slower on Zen 1, and two thirds
-as fast as `zlib-rs`. Deflate64 is a
-variant chosen per decoder (`Decoder::deflate64`), checked against
-7-Zip's output and the `deflate64` crate, which decodes matches from
-before a stream's start, as zeros, that zlib and this crate refuse.
+when it returns, so that it never consumes past a stream's end. While
+the input holds two words past what is taken, a fast loop decodes codes
+without checking for too few bits, as every refill, without a branch,
+leaves enough for two codes, a length's extra bits, and, refilled again
+if short, a distance; its tables hold each length's and distance's base
+and extra bits, and matches are copied in chunks of 16 or 8 bytes into a
+buffer with room past its end. So it takes a quarter less time than
+`miniz_oxide` on the M4, and as much on Zen 1, where `zlib-rs` takes two
+thirds of its time (on the M4, five sixths). Deflate64 is a variant
+chosen per decoder (`Decoder::deflate64`), checked against 7-Zip's
+output and the `deflate64` crate, which decodes matches from before a
+stream's start, as zeros, that zlib and this crate refuse.
 `filer-pack`'s `Deflate` adapts it since 2026-11-04, and with it ZIP's
 method 9, in place of `miniz_oxide`, now only a test dependency, which
 writes members and gzip streams to read.

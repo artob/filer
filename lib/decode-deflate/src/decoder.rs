@@ -61,29 +61,42 @@ impl Format {
             .saturating_add(SLACK)
     }
 
-    /// Returns length code `symbol`'s base and extra bits, if it is one.
-    fn length(self, symbol: u32) -> Option<(u32, u32)> {
-        let code = usize::try_from(symbol.checked_sub(257)?).ok()?;
-        match (self, code) {
+    /// Returns what literal/length symbol `symbol` means, as its table
+    /// holds it: a literal, the block's end, or a length's base and how
+    /// many extra bits follow, or that it never occurs.
+    fn literal(self, symbol: u16) -> (u16, u8) {
+        let length = usize::from(symbol).checked_sub(257);
+        match (self, symbol, length) {
+            (_, 0..=255, _) => (symbol, LITERAL),
+            (_, 256, _) => (0, END),
             #[cfg(feature = "deflate64")]
-            (Self::Deflate64, 28) => Some((3, 16)),
-            _ => LENGTHS.get(code).copied(),
+            (Self::Deflate64, 285, _) => (3, 16),
+            (_, _, Some(code)) => LENGTHS.get(code).copied().unwrap_or((0, NEVER)),
+            _ => (0, NEVER),
         }
     }
 
-    /// Returns distance code `symbol`'s base and extra bits, if it is one.
-    fn distance(self, symbol: u32) -> Option<(u32, u32)> {
-        let code = usize::try_from(symbol)
-            .ok()
-            .filter(|&code| code < self.distances())?;
-        DISTANCES.get(code).copied()
+    /// Returns what distance symbol `symbol` means, as its table holds it:
+    /// a distance's base and how many extra bits follow, or that it never
+    /// occurs.
+    fn distance(self, symbol: u16) -> (u16, u8) {
+        let code = usize::from(symbol);
+        let distance = DISTANCES.get(code).filter(|_| code < self.distances());
+        distance.copied().unwrap_or((0, NEVER))
     }
 }
+
+/// The kinds of literal/length and distance symbols, beside how many extra
+/// bits follow a length's or a distance's base, 16 at most: a literal, the
+/// block's end, and a symbol that never occurs.
+const LITERAL: u8 = 0x40;
+const END: u8 = 0x20;
+const NEVER: u8 = 0x80;
 
 /// Each length code's base and extra bits, from code 257 (RFC 1951
 /// §3.2.5), but for 285, which the format gives; codes 286 and 287 never
 /// occur.
-const LENGTHS: [(u32, u32); 29] = [
+const LENGTHS: [(u16, u8); 29] = [
     (3, 0),
     (4, 0),
     (5, 0),
@@ -117,7 +130,7 @@ const LENGTHS: [(u32, u32); 29] = [
 
 /// Each distance code's base and extra bits (§3.2.5); codes 30 and 31,
 /// Deflate64's, never occur in Deflate.
-const DISTANCES: [(u32, u32); 32] = [
+const DISTANCES: [(u16, u8); 32] = [
     (1, 0),
     (2, 0),
     (3, 0),
@@ -181,7 +194,8 @@ struct Input<'a> {
 }
 
 /// The bits taken from the input and not yet read, the next in the
-/// lowest; those above `count` are zero.
+/// lowest; those above `count` are zero, but in `fast`, where they are the
+/// input's next bits, as `refill_word` leaves them.
 #[derive(Clone, Copy, Debug, Default)]
 struct Bits {
     value: u64,
@@ -220,6 +234,17 @@ impl Bits {
         }
     }
 
+    /// Takes whole bytes from `word`, the input's next eight past `taken`,
+    /// until it holds 56 bits or more, as `refill` does, but without a
+    /// branch, and leaving above them the word's next bits.
+    #[inline]
+    fn refill_word(&mut self, word: [u8; 8], taken: &mut usize) {
+        self.value |= u64::from_le_bytes(word).wrapping_shl(self.count);
+        let take = 63_u32.wrapping_sub(self.count) >> 3;
+        *taken = taken.wrapping_add(usize::try_from(take).unwrap_or_default());
+        self.count |= 56;
+    }
+
     /// Reads past the next `n` bits, which it holds.
     fn consume(&mut self, n: u32) {
         self.value = self.value.wrapping_shr(n);
@@ -228,9 +253,9 @@ impl Bits {
 
     /// Reads the next `n` bits, up to 32, which it holds, as a number.
     fn take(&mut self, n: u32) -> u32 {
-        let value = u32::try_from(self.value & mask(n)).unwrap_or_default();
+        let low = self.value & !u64::MAX.wrapping_shl(n);
         self.consume(n);
-        value
+        u32::try_from(low).unwrap_or_default()
     }
 
     /// Gives back to `input` the whole bytes it took and does not need.
@@ -377,6 +402,7 @@ impl Dynamic {
                 &self.lengths_of_lengths,
                 LENGTH_BITS,
                 Kind::Lengths,
+                |symbol| (symbol, 0),
             )?);
         }
         let code = self.code.as_ref().ok_or_else(corrupt)?;
@@ -384,7 +410,7 @@ impl Dynamic {
         while self.read < total {
             bits.refill(input);
             let (symbol, len) = match code.lookup(bits.value, bits.count) {
-                Code::Symbol { symbol, bits } => (symbol, bits),
+                Code::Symbol { value, bits, .. } => (value, bits),
                 Code::Short => return Ok(None),
                 Code::Invalid => return Err(corrupt()),
             };
@@ -425,8 +451,12 @@ impl Dynamic {
         if literal_lengths.get(256).is_none_or(|&length| length == 0) {
             return Err(corrupt());
         }
-        let literals = Table::new(literal_lengths, LITERAL_BITS, Kind::Literals)?;
-        let distances = Table::new(distance_lengths, DISTANCE_BITS, Kind::Distances)?;
+        let literals = Table::new(literal_lengths, LITERAL_BITS, Kind::Literals, |symbol| {
+            format.literal(symbol)
+        })?;
+        let distances = Table::new(distance_lengths, DISTANCE_BITS, Kind::Distances, |symbol| {
+            format.distance(symbol)
+        })?;
         Ok(Some((literals, distances)))
     }
 }
@@ -716,8 +746,13 @@ impl Decoder {
                 _ => 7,
             };
         }
-        self.literals = Table::new(&literals, LITERAL_BITS, Kind::Literals)?;
-        self.distances = Table::new(&[5; 32], DISTANCE_BITS, Kind::Distances)?;
+        let format = self.window.format;
+        self.literals = Table::new(&literals, LITERAL_BITS, Kind::Literals, |symbol| {
+            format.literal(symbol)
+        })?;
+        self.distances = Table::new(&[5; 32], DISTANCE_BITS, Kind::Distances, |symbol| {
+            format.distance(symbol)
+        })?;
         Ok(())
     }
 
@@ -775,52 +810,52 @@ fn codes(
             Some(len) => len,
             None => {
                 at.bits.refill_from(input, &mut at.taken);
-                let (symbol, n) = match literals.lookup(at.bits.value, at.bits.count) {
-                    Code::Symbol { symbol, bits } => (symbol, bits),
+                let (value, kind, n) = match literals.lookup(at.bits.value, at.bits.count) {
+                    Code::Symbol { value, kind, bits } => (value, kind, bits),
                     Code::Short => break Ok(Stop::More),
                     Code::Invalid => break Err(corrupt()),
                 };
-                if let Ok(literal) = u8::try_from(symbol) {
+                if kind == u32::from(LITERAL) {
                     let Some(slot) = buf.get_mut(at.end) else {
                         break Err(corrupt());
                     };
-                    *slot = literal;
+                    [*slot, ..] = value.to_le_bytes();
                     at.bits.consume(n);
-                    at.end = at.end.saturating_add(1);
+                    at.end = at.end.wrapping_add(1);
                     continue;
                 }
-                if symbol == 256 {
+                if kind == u32::from(END) {
                     at.bits.consume(n);
                     break Ok(Stop::End);
                 }
-                let Some((base, extra)) = format.length(u32::from(symbol)) else {
+                if kind & u32::from(NEVER) != 0 {
                     break Err(corrupt());
-                };
-                if at.bits.count < n.saturating_add(extra) {
+                }
+                if at.bits.count < n.saturating_add(kind) {
                     break Ok(Stop::More);
                 }
                 at.bits.consume(n);
-                base.saturating_add(at.bits.take(extra))
+                value.wrapping_add(at.bits.take(kind))
             },
         };
         at.bits.refill_from(input, &mut at.taken);
-        let (symbol, n) = match distances.lookup(at.bits.value, at.bits.count) {
-            Code::Symbol { symbol, bits } => (symbol, bits),
+        let (base, extra, n) = match distances.lookup(at.bits.value, at.bits.count) {
+            Code::Symbol { value, kind, bits } => (value, kind, bits),
             Code::Short => {
                 at.length = Some(len);
                 break Ok(Stop::More);
             },
             Code::Invalid => break Err(corrupt()),
         };
-        let Some((base, extra)) = format.distance(u32::from(symbol)) else {
+        if extra & u32::from(NEVER) != 0 {
             break Err(corrupt());
-        };
+        }
         if at.bits.count < n.saturating_add(extra) {
             at.length = Some(len);
             break Ok(Stop::More);
         }
         at.bits.consume(n);
-        let distance = base.saturating_add(at.bits.take(extra));
+        let distance = base.wrapping_add(at.bits.take(extra));
         let (Ok(distance), Ok(len)) = (usize::try_from(distance), usize::try_from(len)) else {
             break Err(corrupt());
         };
@@ -834,11 +869,13 @@ fn codes(
 
 /// Decodes codes as `codes` does, while the input holds two words past
 /// what is taken, so that every refill leaves at least 56 bits: enough for
-/// a literal/length code, its extra bits, and a distance code and its own,
-/// in Deflate; and in Deflate64, whose lengths take up to 16 extra bits,
-/// once refilled before the distance. So no code can find too few. It
-/// returns why it stopped, or nothing once the input runs short, for
-/// `codes` to go on carefully.
+/// two literal/length codes, and a length's extra bits, and, refilled
+/// again if they run short, a distance code and its own. So no code can
+/// find too few. Its tables hold each symbol's meaning, so that a length
+/// or distance takes no lookup of its own, and its refills take no branch,
+/// leaving above the bits they need the input's next. It returns why it
+/// stopped, or nothing once the input runs short, for `codes` to go on
+/// carefully.
 #[inline]
 fn fast(
     at: &mut Cursor,
@@ -850,30 +887,50 @@ fn fast(
 ) -> Result<Option<Stop>, Error> {
     while at.end < limit {
         let rest = input.get(at.taken..).unwrap_or_default();
-        if rest.len() < 16 {
+        let Some((word, more)) = rest.split_first_chunk::<8>() else {
+            return Ok(None);
+        };
+        if more.len() < 8 {
             return Ok(None);
         }
-        at.bits.refill_from(input, &mut at.taken);
-        let (symbol, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
+        at.bits.refill_word(*word, &mut at.taken);
+        let (mut value, mut kind, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
         at.bits.consume(n);
-        if let Ok(literal) = u8::try_from(symbol) {
-            *buf.get_mut(at.end).ok_or_else(corrupt)? = literal;
-            at.end = at.end.saturating_add(1);
-            continue;
+        if kind == u32::from(LITERAL) {
+            [*buf.get_mut(at.end).ok_or_else(corrupt)?, ..] = value.to_le_bytes();
+            at.end = at.end.wrapping_add(1);
+            // A second code needs no refill, leaving 26 bits at least.
+            let n;
+            (value, kind, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
+            at.bits.consume(n);
+            if kind == u32::from(LITERAL) {
+                [*buf.get_mut(at.end).ok_or_else(corrupt)?, ..] = value.to_le_bytes();
+                at.end = at.end.wrapping_add(1);
+                continue;
+            }
         }
-        if symbol == 256 {
+        if kind == u32::from(END) {
             return Ok(Some(Stop::End));
         }
-        let (base, extra) = format.length(symbol).ok_or_else(corrupt)?;
-        let length = base.saturating_add(at.bits.take(extra));
+        if kind & u32::from(NEVER) != 0 {
+            return Err(corrupt());
+        }
+        let length = value.wrapping_add(at.bits.take(kind));
         // A distance code and its extra bits take up to 29.
         if at.bits.count < 29 {
-            at.bits.refill_from(input, &mut at.taken);
+            let rest = input.get(at.taken..).unwrap_or_default();
+            let Some(word) = rest.first_chunk::<8>() else {
+                at.length = Some(length);
+                return Ok(None);
+            };
+            at.bits.refill_word(*word, &mut at.taken);
         }
-        let (symbol, n) = distances.decode(at.bits.value).ok_or_else(corrupt)?;
+        let (base, extra, n) = distances.decode(at.bits.value).ok_or_else(corrupt)?;
+        if extra & u32::from(NEVER) != 0 {
+            return Err(corrupt());
+        }
         at.bits.consume(n);
-        let (base, extra) = format.distance(symbol).ok_or_else(corrupt)?;
-        let distance = base.saturating_add(at.bits.take(extra));
+        let distance = base.wrapping_add(at.bits.take(extra));
         let distance = usize::try_from(distance).map_err(|_| corrupt())?;
         let length = usize::try_from(length).map_err(|_| corrupt())?;
         at.end = copy(buf, at.end, distance, length, format.window())?;
@@ -937,7 +994,7 @@ fn chunks<const N: usize>(
         *buf.get_mut(to..)
             .and_then(|rest| rest.first_chunk_mut())
             .ok_or_else(corrupt)? = chunk;
-        (from, to) = (from.saturating_add(N), to.saturating_add(N));
+        (from, to) = (from.wrapping_add(N), to.wrapping_add(N));
     }
     Ok(())
 }
