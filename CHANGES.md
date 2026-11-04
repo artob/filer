@@ -26,13 +26,14 @@ so any release may break compatibility.
   packed range of a source decoded, as a `ReadAt` source itself.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `miniz_oxide`; `Gzip`, with `gzip`, decodes gzip streams over
-  it; `Zstd`, with `zstd`, zstd streams over `ruzstd`; and `Lzma` and
+  it; `Zstd`, with `zstd`, zstd streams over `ruzstd`; `Lzma` and
   `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and `Xz`, with `xz`,
-  xz streams, over `lzma-rust2`. A decoder now
-  reads the packed bytes after the declared size, such as gzip's
-  trailer, before it finishes. `Reader` reads headers ahead, adaptively,
-  so that the tar, ar, cpio, and ZIP parsers open archives of many small
-  members in a few reads rather than one or two per member.
+  xz streams, over `lzma-rust2`; and `Bzip2`, with `bzip2`, bzip2
+  streams, written here. A decoder now reads the packed bytes after the
+  declared size, such as gzip's trailer, before it finishes. `Reader`
+  reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
+  parsers open archives of many small members in a few reads rather than
+  one or two per member.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 - `filer-spec`: `Counted`, a source counting its reads; `Outcome::files`;
   `Checks::refusals` and

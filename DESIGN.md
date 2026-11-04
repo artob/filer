@@ -2374,7 +2374,13 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   streams with the properties their container gives, and `Xz`, behind
   `xz`, over `lzma-rust2`'s sans-I/O streams, each told that the input
   is exhausted by an empty slice; dictionaries over 128 MiB, as zstd's
-  windows, are `Unsupported`);
+  windows, are `Unsupported`; bzip2 done, 2026-11-03: `Bzip2`, behind
+  `bzip2`, written here from Joe Tsai's description, which gathers each
+  block whole, trying again only once its input has doubled, so that
+  parsing stays linear, and undoes the Burrows–Wheeler transform and the
+  first run-length coding as the block is read, so that one holds at
+  most about 900 KiB packed and 3.5 MiB of links, whatever it decodes
+  to; randomized blocks, unwritten since 1999, are `Unsupported`);
 - the archive fuzz walk, into `filer-spec`, where shared test tooling
   goes (D54): `filer-zip`'s predates it (done, 2026-11-03: `Checks`
   allows refusals at open and reads files whole for zip's bomb bound,

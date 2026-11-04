@@ -10,7 +10,7 @@ use filer_api::{BufResult, Error, ReadAt, checksum::crc32};
 use filer_pack::{Codec, Decoder, Unpacked};
 
 /// The most a check decodes of any input.
-pub const CAP: usize = 256 * 1024;
+pub const CAP: usize = 1024 * 1024;
 
 /// A gzip member's optional header fields.
 #[derive(Clone, Copy, Default)]

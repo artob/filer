@@ -12,7 +12,7 @@
 //! reproduce it. `fuzz/` has a coverage-guided `cargo-fuzz` target per
 //! decoder over the same check.
 
-#![cfg(any(feature = "gzip", feature = "xz", feature = "zstd"))]
+#![cfg(any(feature = "bzip2", feature = "gzip", feature = "xz", feature = "zstd"))]
 
 mod common;
 
@@ -272,5 +272,43 @@ mod xz {
         let corpus = [seed(include_bytes!("data/numbers.lzma2"), b"")];
         let new = || Lzma2::new(22).unwrap();
         run(0x1A3B_5EED, &corpus, MUTATIONS, new, &[ErrorKind::Corrupt]);
+    }
+}
+
+#[cfg(feature = "bzip2")]
+mod bzip2 {
+    use super::*;
+    use filer_pack::Bzip2;
+    use filer_spec::fuzz::Order;
+
+    /// Values at the edges of what bzip2 headers hold: the magic numbers'
+    /// bytes, block sizes, and table and selector counts.
+    const BYTES: [u8; 12] = [0, 1, 2, 6, 7, 0x17, 0x31, 0x80, b'1', b'9', b'h', 0xFF];
+    const WORDS: [u32; 6] = [0, 1, 0xFFFF, 0x3141_5926, 0x1772_4538, u32::MAX];
+
+    /// Fields are of bits, most significant first; the CRCs catch most
+    /// mutations, so few at once.
+    const MUTATIONS: Mutations = Mutations::new(&BYTES, &WORDS)
+        .order(Order::Big)
+        .aligned(false)
+        .most(2);
+
+    /// Returns `stream`, with where its first block's header and tables
+    /// are, as far as its first 64 bytes go, and its end.
+    fn seed(stream: &[u8]) -> Seed {
+        let len = stream.len() as u64;
+        Seed::new(
+            stream.to_vec(),
+            vec![0..len.min(64), len.saturating_sub(16)..len],
+        )
+    }
+
+    #[test]
+    fn survives_mutated_bzip2_streams() {
+        // Only a small stream: a mutated block decodes whole, in pieces,
+        // before its CRC fails it.
+        let corpus = [seed(include_bytes!("data/numbers.bz2"))];
+        let kinds = [ErrorKind::Corrupt, ErrorKind::Unsupported];
+        run(0xB212_5EED, &corpus, MUTATIONS, Bzip2::new, &kinds);
     }
 }

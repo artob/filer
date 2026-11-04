@@ -31,8 +31,9 @@
 //! Decoders are pure Rust, one feature per algorithm, assessed in
 //! `LEGAL.md` before adoption (D45): so far, [`Deflate`], over
 //! `miniz_oxide`, behind `deflate`; [`Gzip`] over it, behind `gzip`;
-//! [`Zstd`], over `ruzstd`, behind `zstd`; and [`Lzma`], [`Lzma2`], and
-//! [`Xz`], over `lzma-rust2`, behind `lzma` and `xz`.
+//! [`Zstd`], over `ruzstd`, behind `zstd`; [`Lzma`], [`Lzma2`], and
+//! [`Xz`], over `lzma-rust2`, behind `lzma` and `xz`; and [`Bzip2`],
+//! written here, behind `bzip2`.
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will
@@ -45,6 +46,7 @@
 //!
 //! - `std` forwards to `filer-api`, and locks with the standard mutex;
 //! - `all` enables every decoder below;
+//! - `bzip2` enables [`Bzip2`];
 //! - `deflate` enables [`Deflate`];
 //! - `gzip` enables [`Gzip`], and `deflate`;
 //! - `lzma` enables [`Lzma`] and [`Lzma2`];
@@ -94,6 +96,11 @@ extern crate std;
 
 mod archive_error;
 pub use archive_error::*;
+
+#[cfg(feature = "bzip2")]
+mod bzip2;
+#[cfg(feature = "bzip2")]
+pub use bzip2::*;
 
 mod codec;
 pub use codec::*;

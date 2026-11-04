@@ -1,6 +1,6 @@
 # Coverage-guided fuzzing of `filer-pack`'s decoders with `cargo-fuzz`
-# (nightly): `cargo fuzz run gzip`, or `lzma`, `xz`, or `zstd`, from
-# `lib/filer-pack`. libFuzzer is C++, so this crate stays outside the
+# (nightly): `cargo fuzz run bzip2`, or `gzip`, `lzma`, `xz`, or `zstd`,
+# from `lib/filer-pack`. libFuzzer is C++, so this crate stays outside the
 # workspace and is never a dependency of a published crate (DESIGN.md
 # D50); `tests/fuzz.rs` is the pure-Rust fuzzer.
 
@@ -48,6 +48,13 @@ bench = false
 [[bin]]
 name = "lzma"
 path = "fuzz_targets/lzma.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "bzip2"
+path = "fuzz_targets/bzip2.rs"
 test = false
 doc = false
 bench = false

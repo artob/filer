@@ -551,12 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **PACK-15: bzip2.** A `Bzip2` decoder behind a `bzip2` feature,
-  written here from Joe Tsai's description (`LEGAL.md`): Huffman tables,
-  move-to-front, the inverse Burrows–Wheeler transform, and the block and
-  stream CRCs. Done when `bzip2` output at levels 1 and 9, and
-  concatenated streams, decode, a bad CRC is `Corrupt`, and fuzzers cover
-  it.
 - [ ] **TAR-02: Compressed TAR.** gzip, zstd, and xz (PACK-12 to 14)
   behind features that `filer-archive` forwards, told apart by magic
   number and read through `Unpacked`: opening decodes the archive once to
