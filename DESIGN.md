@@ -371,7 +371,7 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 | `filer-overlay` | overlay routing driver | no |
 | `filer-tar`, `filer-zip` | read-only archive drivers | no |
 | `filer-ar`, `-cpio`, `-rar`, `-7z` | read-only archive drivers | no |
-| `filer-archive` | any archive format, by name, over those drivers | no |
+| `filer-archive` | any archive format, by content or name, over those drivers | no |
 | `filer-pack` | shared machinery of archive drivers (§17.7, D59) | no |
 | `filer-volume` | any file system, by content, over their drivers (§17.18) | no |
 | `filer-tracing` | tracing middleware | no |
@@ -2208,7 +2208,11 @@ bounded by `Limits::max_total_size` against bombs, and again as it
 indexes; reading on from the last read decodes no more, while reading
 back decodes again from the start, which checkpoints are to spare
 (PACK-16). The full `filer-spec` passes over gzip-compressed archives too.
-`filer-archive` names compressed tarballs by their two-part extensions.
+`filer-archive` names compressed tarballs by their two-part extensions,
+and since ARC-01 (2026-11-03) tells every format by its content first:
+magic numbers at the start, those of the first bytes decoded from a
+compressed stream, which only a tarball or cpio archive may be, and a
+ZIP end record at the end, after a self-extractor's stub.
 
 **`filer-zip` as built** (2026-11-01, stored members): an own parser
 too (answering Q7 for ZIP), reading the end of central directory record,

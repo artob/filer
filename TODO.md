@@ -570,12 +570,6 @@ Created with `publish = false` (D16).
   window; zstd's and xz's windows run to 128 MiB, so their checkpoints
   may cost more than restarts. Done when reading the first member after
   the last of a 100 MiB `.tar.gz` decodes at most one interval.
-- [ ] **ARC-01: Detect archive formats by content.** `filer-archive`
-  picks a format from the file name's extension only. Also read the
-  first bytes (`ustar` at offset 257, `PK\x03\x04` or an end record,
-  `!<arch>\n`, cpio's magic numbers), for names that say nothing of the
-  format, such as `initrd.img`, or misname it. Done when
-  each fixture of each format opens without a name.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
   (PACK-14), which TAR-02's `xz` shares, and

@@ -51,6 +51,51 @@ impl Format {
         })
     }
 
+    /// Returns the format that `head`, an archive's first bytes, says it is
+    /// in, by its magic number, if any: TAR's `ustar` at offset 257, which
+    /// takes the first 262 bytes; ar's `!<arch>`; cpio's in each of its
+    /// formats; or the local header or end record a ZIP archive begins
+    /// with.
+    ///
+    /// A compressed tarball or initramfs image, or a ZIP archive after a
+    /// self-extractor, says nothing here: [`Archive::open`] and
+    /// [`Archive::open_by_content`](crate::Archive::open_by_content) look
+    /// further.
+    ///
+    /// [`Archive::open`]: crate::Archive::open
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use filer_archive::Format;
+    ///
+    /// assert_eq!(Format::detect(b"!<arch>\n"), Some(Format::Ar));
+    /// assert_eq!(Format::detect(b"070701"), Some(Format::Cpio));
+    /// assert_eq!(Format::detect(b"PK\x03\x04"), Some(Format::Zip));
+    /// assert_eq!(Format::detect(b"Hello, world!"), None);
+    /// ```
+    #[must_use]
+    pub fn detect(head: &[u8]) -> Option<Self> {
+        let starts = |magics: &[&[u8]]| magics.iter().any(|magic| head.starts_with(magic));
+        if head.get(257..262) == Some(b"ustar") {
+            Some(Self::Tar)
+        } else if starts(&[b"!<arch>\n", b"!<thin>\n"]) {
+            Some(Self::Ar)
+        } else if starts(&[
+            b"070701",
+            b"070702",
+            b"070707",
+            &[0xC7, 0x71],
+            &[0x71, 0xC7],
+        ]) {
+            Some(Self::Cpio)
+        } else if starts(&[b"PK\x03\x04", b"PK\x05\x06"]) {
+            Some(Self::Zip)
+        } else {
+            None
+        }
+    }
+
     /// Returns the extensions of files in this format, in lowercase.
     #[must_use]
     pub const fn extensions(self) -> &'static [&'static str] {

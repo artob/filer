@@ -28,9 +28,9 @@
 //! Without a format's feature, [`Format`] still names it, and opening it
 //! fails with [`Unsupported`](filer_api::ErrorKind::Unsupported).
 //!
-//! The format comes from the name's extension for now; detecting it from
-//! the archive's first bytes is planned. A tarball's compression, though,
-//! `filer-tar` tells by its first bytes.
+//! The format comes from the archive's content, by its magic numbers,
+//! looking inside a compressed stream, or else from the name's extension;
+//! [`Archive::open_by_content`] goes by the content alone.
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: writing archives is out

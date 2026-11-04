@@ -38,10 +38,12 @@ so any release may break compatibility.
   parsers open archives of many small members in a few reads rather than
   one or two per member.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
-- `filer-archive`: Compressed tarballs, by their extensions (`.tar.gz`,
-  `.tgz`, `.tar.zst`, `.tar.xz`, `.tar.bz2`, and the like); the `bzip2`,
-  `gzip`, `lzma`, `xz`, and `zstd` features, which `filer-cpio`,
-  `filer-tar`, and `filer-zip` decode with.
+- `filer-archive`: Formats told by content (`Format::detect`,
+  `Archive::open_by_content`, and `FormatError::Unrecognized`), which
+  `Archive::open` now goes by before the name. Compressed tarballs, by
+  their extensions (`.tar.gz`, `.tgz`, `.tar.zst`, `.tar.xz`, `.tar.bz2`,
+  and the like); the `bzip2`, `gzip`, `lzma`, `xz`, and `zstd` features,
+  which `filer-cpio`, `filer-tar`, and `filer-zip` decode with.
 - `filer-cpio`: Initramfs images whose later archive is compressed with
   gzip, zstd, xz, or bzip2, as distributions build them, behind features
   named as they are; `Compression`, and `Cpio::compression`.

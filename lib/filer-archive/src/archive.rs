@@ -1,17 +1,31 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::Format;
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec, vec::Vec};
 use core::future::Future;
 use filer_api::{
-    Completion, Dir, Driver, DriverId, DynDriver, Error, ErrorKind, Op, OpKind, ReadAt,
+    BufResult, Completion, Dir, Driver, DriverId, DynDriver, Error, ErrorKind, Op, OpKind, ReadAt,
 };
-use filer_pack::Limits;
+use filer_pack::{Codec, Compression, Limits};
+
+/// How many of an archive's first bytes tell its format: as far as TAR's
+/// magic number reaches, and a block.
+const HEAD: usize = 512;
+const HEAD_LEN: u64 = 512;
+
+/// The most packed bytes read to decode a compressed archive's first
+/// bytes: more than a bzip2 block, the largest unit any decoder needs.
+const MAX_PACKED: u64 = 4 << 20;
 
 /// A read-only driver over an archive of any supported [`Format`].
 ///
-/// [`open`](Self::open) picks the format from the archive's file name, and
-/// [`open_as`](Self::open_as) takes it from the caller; either way, the
+/// [`open`](Self::open) picks the format from the archive's content, or
+/// else its file name, [`open_by_content`](Self::open_by_content) from its
+/// content alone, and [`open_as`](Self::open_as) takes it from the caller.
+/// The content tells by magic numbers (see [`Format::detect`]), looking
+/// inside a compressed stream for a tarball or cpio archive, and at a ZIP
+/// archive's end, past whatever precedes it, such as a self-extractor.
+/// Either way, the
 /// format's own driver indexes the archive and serves it, so everything
 /// its docs say of reading, hostile archives, and [`Limits`] holds here.
 /// The archive's root comes back as a [`Dir`] with only
@@ -41,22 +55,42 @@ pub struct Archive {
 }
 
 impl Archive {
-    /// Opens the archive in `source`, in the format its file `name` says
-    /// (see [`Format::from_name`]), with the default [`Limits`], and
-    /// returns its root directory, labeled with `name`.
+    /// Opens the archive in `source`, in the format its content says, or
+    /// else its file `name` (see [`Format::from_name`]), so that names
+    /// that say nothing of the format, as an initramfs image's often do
+    /// (`initrd.img`), or misname it, open too; with the default
+    /// [`Limits`]; and returns its root directory, labeled with `name`.
     ///
     /// # Errors
     ///
-    /// [`Unsupported`](ErrorKind::Unsupported) if `name` names no format,
-    /// or one this build does not read, with a [`FormatError`] as its
-    /// source; otherwise as the format's driver opens it.
+    /// [`Unsupported`](ErrorKind::Unsupported) if neither says a format, or
+    /// one says one this build does not read, with a [`FormatError`] as its
+    /// source; otherwise as the format's driver opens it, or as reading the
+    /// first and last bytes of `source` fails.
     pub async fn open<S: ReadAt + 'static>(source: S, name: &str) -> Result<Dir<Self>, Error> {
-        let format = Format::from_name(name).ok_or_else(|| {
-            let error = FormatError::Unknown(Box::from(name));
-            Error::new(ErrorKind::Unsupported, OpKind::Open).with_source(error)
-        })?;
+        let format = match detect(&source).await? {
+            Some(format) => format,
+            None => Format::from_name(name)
+                .ok_or_else(|| unknown(FormatError::Unknown(Box::from(name))))?,
+        };
         let root = Self::open_as(source, format).await?;
         Ok(root.with_label(name))
+    }
+
+    /// Opens the archive in `source`, in the format its content says, with
+    /// the default [`Limits`], and returns its root directory.
+    ///
+    /// # Errors
+    ///
+    /// [`Unsupported`](ErrorKind::Unsupported) if its content says no
+    /// format, or one this build does not read, with a [`FormatError`] as
+    /// its source; otherwise as the format's driver opens it, or as
+    /// reading the first and last bytes of `source` fails.
+    pub async fn open_by_content<S: ReadAt + 'static>(source: S) -> Result<Dir<Self>, Error> {
+        let format = detect(&source)
+            .await?
+            .ok_or_else(|| unknown(FormatError::Unrecognized))?;
+        Self::open_as(source, format).await
     }
 
     /// Opens the archive in `source` as `format`, with the default
@@ -110,6 +144,89 @@ impl Archive {
     }
 }
 
+/// Returns the error of opening an archive in no format, for `error`.
+fn unknown(error: FormatError) -> Error {
+    Error::new(ErrorKind::Unsupported, OpKind::Open).with_source(error)
+}
+
+/// Returns the format `source`'s content says it is in, if any: what its
+/// first bytes say, or, if they begin a compressed stream, what its
+/// first bytes decoded say, which only a tarball or cpio archive may be;
+/// or else ZIP, if it ends as a ZIP archive does.
+async fn detect<S: ReadAt>(source: &S) -> Result<Option<Format>, Error> {
+    let size = source.size().await?;
+    let head = read(source, 0, size.min(HEAD_LEN)).await?;
+    if let Some(format) = Format::detect(&head) {
+        return Ok(Some(format));
+    }
+    if let Some(compression) = Compression::detect(&head).filter(|c| c.is_enabled()) {
+        // A stream that does not decode says nothing.
+        let decoded = decoded_head(source, size, compression)
+            .await
+            .unwrap_or_default();
+        let format = Format::detect(&decoded);
+        return Ok(format.filter(|format| matches!(format, Format::Tar | Format::Cpio)));
+    }
+    Ok(ends_as_zip(source, size).await?.then_some(Format::Zip))
+}
+
+/// Returns the first bytes, up to [`HEAD`], that `source`, of `size` bytes
+/// compressed with `compression`, decodes to.
+async fn decoded_head<S: ReadAt>(
+    source: &S,
+    size: u64,
+    compression: Compression,
+) -> Result<Vec<u8>, Error> {
+    let mut decoder = compression.decoder()?;
+    let mut head = vec![0; HEAD];
+    let (mut filled, mut fetched) = (0_usize, 0_u64);
+    let (mut input, mut used) = (Vec::new(), 0_usize);
+    let end = size.min(MAX_PACKED);
+    while filled < HEAD {
+        if used == input.len() && fetched < end {
+            let len = end.saturating_sub(fetched).min(64 * 1024);
+            input = read(source, fetched, len).await?;
+            (used, fetched) = (0, fetched.saturating_add(len));
+        }
+        let rest = input.get(used..).unwrap_or_default();
+        let room = head.get_mut(filled..).unwrap_or_default();
+        let (consumed, produced) = decoder.decode(rest, room)?;
+        if consumed == 0 && produced == 0 {
+            break;
+        }
+        used = used.saturating_add(consumed);
+        filled = filled.saturating_add(produced);
+    }
+    head.truncate(filled);
+    Ok(head)
+}
+
+/// Returns whether `source`, of `size` bytes, ends as a ZIP archive does:
+/// with an end of central directory record, and as long a comment as it
+/// says.
+async fn ends_as_zip<S: ReadAt>(source: &S, size: u64) -> Result<bool, Error> {
+    const RECORD: usize = 22;
+    let len = size.min(u64::from(u16::MAX).saturating_add(22));
+    let tail = read(source, size.saturating_sub(len), len).await?;
+    Ok((0..tail.len()).rev().any(|at| {
+        let record = tail.get(at..).unwrap_or_default();
+        let comment = record
+            .get(20..RECORD)
+            .and_then(|n| <[u8; 2]>::try_from(n).ok());
+        record.starts_with(b"PK\x05\x06")
+            && comment.is_some_and(|n| {
+                usize::from(u16::from_le_bytes(n)) == record.len().saturating_sub(RECORD)
+            })
+    }))
+}
+
+/// Reads the `len` bytes of `source` at `at`, which lie within it.
+async fn read<S: ReadAt>(source: &S, at: u64, len: u64) -> Result<Vec<u8>, Error> {
+    let len = usize::try_from(len).unwrap_or(HEAD);
+    let BufResult(result, bytes) = source.read_exact_at(Vec::with_capacity(len), at).await;
+    result.map(|()| bytes)
+}
+
 /// Returns `root`, the root of a format's driver, as an `Archive`'s, with
 /// the same rights.
 #[cfg_attr(
@@ -148,8 +265,11 @@ impl core::fmt::Debug for Archive {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum FormatError {
-    /// The file name, held here, names no format.
+    /// Neither the archive's content nor its file name, held here, says a
+    /// format.
     Unknown(Box<str>),
+    /// The archive's content says no format.
+    Unrecognized,
     /// This build does not read the format, as its feature is disabled.
     Disabled(Format),
 }
@@ -157,7 +277,13 @@ pub enum FormatError {
 impl core::fmt::Display for FormatError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Unknown(name) => write!(f, "no archive format is named by {name:?}"),
+            Self::Unknown(name) => {
+                write!(
+                    f,
+                    "no archive format is named by {name:?}, or by its content"
+                )
+            },
+            Self::Unrecognized => f.write_str("no archive format is told by its content"),
             Self::Disabled(format) => write!(f, "the {format} format is not enabled"),
         }
     }
