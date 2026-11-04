@@ -321,9 +321,10 @@ Assessed 2026-11-03: re-check each crate's version, license and features
 when adopting it.
 
 The crates are interim (`DESIGN.md` D61): the aim is a clean-room,
-public-domain decoder of each format, written here, which replaces a
-crate once the crate becomes an inconvenience or a blocker, rather than
-waiting on changes upstream. The sources stay those assessed below: RFC
+public-domain decoder of each format, written here as a `decode-*`
+crate of its own (D62), which replaces a crate once the crate becomes
+an inconvenience or a blocker, rather than waiting on changes
+upstream. The sources stay those assessed below: RFC
 1951 and 1952 for Deflate and gzip; RFC 8878 for zstd, and for its
 XXH64 checksum the xxHash specification (Yann Collet, whose notice lets
 anyone copy and distribute it), never zstd's or xxHash's own code; the
@@ -338,8 +339,9 @@ its replacement.
   wraps Deflate in a header and a trailer holding a CRC-32 and the
   length, which `Gzip` checks: written from RFC 1952, not from zlib or
   `flate2`. Deflate's patent (US 5,051,745) expired in 2008.
-- **zstd: written here.** `Zstd` is written from RFC 8878 alone, and
-  its XXH64 checksum from the xxHash specification (D61, 2026-11-04);
+- **zstd: written here.** `decode-zstd`, which `filer-pack`'s `Zstd`
+  adapts, is written from RFC 8878 alone, and its XXH64 checksum from
+  the xxHash specification (D61, D62, 2026-11-04);
   zstd's and xxHash's own code (BSD-3-Clause or GPL-2.0, and
   BSD-2-Clause) is not copied. It replaced `ruzstd` 0.9 (MIT), which
   decoded zstd here before it, and which had `unsafe` code and internal

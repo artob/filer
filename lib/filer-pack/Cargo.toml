@@ -29,9 +29,10 @@ deflate = ["dep:miniz_oxide"]
 gzip = ["deflate"]
 lzma = ["dep:lzma-rust2"]
 xz = ["lzma", "lzma-rust2/xz"]
-zstd = []
+zstd = ["dep:decode-zstd"]
 
 [dependencies]
+decode-zstd = { workspace = true, optional = true }
 filer-api.workspace = true
 lzma-rust2 = { workspace = true, optional = true }
 miniz_oxide = { workspace = true, optional = true, features = ["with-alloc"] }

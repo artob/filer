@@ -9,8 +9,6 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 use filer_api::{BufResult, Error, ReadAt, checksum::crc32};
 use filer_pack::{Codec, Decoder, Unpacked};
-// Named, for `filer-pack`'s own tests, which are `no_std`.
-use std::{boxed::Box, format, vec, vec::Vec};
 
 /// The most a check decodes of any input.
 pub const CAP: usize = 1024 * 1024;
@@ -81,14 +79,6 @@ pub fn zstd(blocks: &[Block<'_>]) -> Vec<u8> {
         frame.extend_from_slice(&header.to_le_bytes()[..3]);
         frame.extend_from_slice(&content);
     }
-    frame
-}
-
-/// Returns a skippable zstd frame holding `bytes`.
-pub fn skippable(bytes: &[u8]) -> Vec<u8> {
-    let mut frame = vec![0x5A, 0x2A, 0x4D, 0x18];
-    frame.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
-    frame.extend_from_slice(bytes);
     frame
 }
 

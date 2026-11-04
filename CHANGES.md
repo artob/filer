@@ -35,13 +35,19 @@ so any release may break compatibility.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `miniz_oxide`; `Gzip`, with `gzip`, decodes gzip streams over
   it; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and
-  `Xz`, with `xz`, xz streams, over `lzma-rust2`; and `Zstd`, with
-  `zstd`, and `Bzip2`, with `bzip2`, zstd and bzip2 streams, written
-  here. A decoder now reads the packed bytes after the
+  `Xz`, with `xz`, xz streams, over `lzma-rust2`; `Zstd`, with `zstd`,
+  zstd streams, over `decode-zstd`; and `Bzip2`, with `bzip2`, bzip2
+  streams, written here. A decoder now reads the packed bytes after the
   declared size, such as gzip's trailer, before it finishes. `Reader`
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than
   one or two per member.
+- `decode-zstd`: New crate: a zstd decoder, written clean room from RFC
+  8878 and dedicated to the public domain, without dependencies, for
+  `no_std` with an allocator. `Decoder` is sans-I/O: `decode` takes what
+  input there is and fills what room there is, `finish` checks that the
+  stream ended where it may, and `checkpoint` and `buffered` let a reader
+  resume between frames. `Error` is `Corrupt` or `Unsupported`.
 - `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
 - `filer-archive`: Formats told by content (`Format::detect`,
   `Archive::open_by_content`, and `FormatError::Unrecognized`), which

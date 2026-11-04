@@ -5,7 +5,7 @@
 //! its Huffman- and FSE-coded streams are (RFC 8878 §4.1).
 
 use super::corrupt;
-use filer_api::Error;
+use crate::Error;
 
 /// The most bits read at once.
 const MAX: u32 = 56;

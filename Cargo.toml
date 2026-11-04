@@ -31,6 +31,7 @@ must_use_candidate = "warn"
 undocumented_unsafe_blocks = "deny"
 
 [workspace.dependencies]
+decode-zstd = { version = "0.0.2", path = "lib/decode-zstd", default-features = false }
 filer-7z = { version = "0.0.2", path = "tmp/filer-7z", default-features = false }
 filer-apfs = { version = "0.0.2", path = "tmp/filer-apfs", default-features = false }
 filer-api = { version = "0.0.2", path = "lib/filer-api", default-features = false }
@@ -74,6 +75,7 @@ spin = { version = "0.12", default-features = false }
 windows-sys = { version = "0.61", default-features = false }
 
 [patch.crates-io]
+decode-zstd = { path = "lib/decode-zstd" }
 filer-7z = { path = "tmp/filer-7z" }
 filer-apfs = { path = "tmp/filer-apfs" }
 filer-api = { path = "lib/filer-api" }

@@ -5,8 +5,8 @@
 //! one stream or four.
 
 use super::{corrupt, huffman::Huffman};
+use crate::Error;
 use alloc::vec::Vec;
-use filer_api::Error;
 
 /// Reads the literals section that `block` begins with, of at most `max`
 /// literals, and returns them and the section's length: as they lie in

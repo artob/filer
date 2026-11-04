@@ -78,6 +78,12 @@ Foundations:
 | `known-codepages` | DOS code pages, for FAT names |
 | `filer-cli` | `filer` command-line interface (planned) |
 
+Decoders, written clean room and dedicated to the public domain:
+
+| Crate | Summary |
+| --- | --- |
+| `decode-zstd` | zstd |
+
 Only `filer-windows` contains `unsafe`: the system calls the standard
 library lacks, each wrapped safely in its private `sys` module.
 

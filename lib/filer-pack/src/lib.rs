@@ -33,8 +33,9 @@
 //! `LEGAL.md` before adoption (D45): so far, [`Deflate`], over
 //! `miniz_oxide`, behind `deflate`; [`Gzip`] over it, behind `gzip`;
 //! [`Lzma`], [`Lzma2`], and [`Xz`], over `lzma-rust2`, behind `lzma` and
-//! `xz`; and [`Zstd`] and [`Bzip2`], written here, behind `zstd` and
-//! `bzip2`.
+//! `xz`; [`Zstd`], over `decode-zstd`, behind `zstd`; and [`Bzip2`],
+//! written here, behind `bzip2`. The decoders written for Filer are
+//! spun out as `decode-*` crates, clean room and public domain (D62).
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will
@@ -92,15 +93,8 @@
 
 extern crate alloc;
 
-#[cfg(any(feature = "std", test))]
+#[cfg(feature = "std")]
 extern crate std;
-
-// The crate's own tests share its integration tests' helpers.
-#[cfg(test)]
-extern crate self as filer_pack;
-#[cfg(test)]
-#[path = "../tests/common/mod.rs"]
-mod common;
 
 mod archive_error;
 pub use archive_error::*;

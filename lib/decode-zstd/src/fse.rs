@@ -8,8 +8,8 @@ use super::{
     bits::{Backward, Forward},
     corrupt,
 };
+use crate::Error;
 use alloc::{vec, vec::Vec};
-use filer_api::Error;
 
 /// A state of a decoding table: the symbol it decodes, and how to find
 /// the next, from `bits` more read and added to `base`.

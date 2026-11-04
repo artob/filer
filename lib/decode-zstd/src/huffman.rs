@@ -4,8 +4,8 @@
 //! tree's description gives each byte, and the streams coded with them.
 
 use super::{bits::Backward, corrupt, fse::Table};
+use crate::Error;
 use alloc::{vec, vec::Vec};
-use filer_api::Error;
 
 /// The longest a code may be, and so the heaviest a weight.
 const MAX_BITS: u8 = 11;

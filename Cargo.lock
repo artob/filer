@@ -54,6 +54,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "decode-zstd"
+version = "0.0.2"
+dependencies = [
+ "filer-spec",
+]
+
+[[package]]
 name = "digest"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -232,6 +239,7 @@ dependencies = [
 name = "filer-pack"
 version = "0.0.2"
 dependencies = [
+ "decode-zstd",
  "filer-api",
  "filer-spec",
  "lzma-rust2",

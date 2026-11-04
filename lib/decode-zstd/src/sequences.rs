@@ -6,8 +6,8 @@
 //! bytes, from as far back as the window reaches.
 
 use super::{bits::Backward, corrupt, fse::Table};
+use crate::Error;
 use alloc::vec::Vec;
-use filer_api::Error;
 
 /// Each literal length code's baseline and extra bits (Table 16).
 const LITERAL_LENGTHS: [(u32, u8); 36] = [
@@ -391,7 +391,7 @@ fn resolve(value: usize, literal_len: usize, repeats: &mut [usize; 3]) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::zstd::fse::Entry;
+    use crate::fse::Entry;
 
     const LITERAL_LENGTH_STATES: [(u8, u8, u16); 64] = [
         (0, 4, 0),

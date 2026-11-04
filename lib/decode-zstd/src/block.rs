@@ -8,8 +8,8 @@ use super::{
     literals,
     sequences::{self, Codes},
 };
+use crate::Error;
 use alloc::vec::Vec;
-use filer_api::Error;
 
 /// What a frame's compressed blocks pass on, each to the next: the last
 /// Huffman table, and their sequences' tables and offsets.

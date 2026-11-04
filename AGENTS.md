@@ -47,7 +47,8 @@
   Rust bindings to the OS's own APIs (`libc` on macOS, `windows-sys`) are
   fine. Codecs must be pure-Rust decoders; codec crates are interim
   (D61): never wait on upstream, and when one blocks, write our own
-  clean-room, public-domain decoder (`LEGAL.md`). Sole exemption (D50):
+  clean-room, public-domain decoder (`LEGAL.md`) as a `decode-<codec>`
+  crate (D62). Sole exemption (D50):
   `cargo-fuzz` targets in a crate's `fuzz/` (own `[workspace]`, never a
   dependency); keep a pure-Rust fuzz test in `tests/` too.
 - Builders maximize usability: paths take `P: TryInto<RelPathBuf>` (plain
@@ -84,6 +85,9 @@
   driver reading them, file system, archive, or `filer-windows`;
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
+  `decode-<codec>` crates (`decode-zstd`) are our clean-room decoders
+  (D62): generic, no dependencies, each a `Decoder` with `decode`,
+  `finish`, `checkpoint`, and `buffered`, which `filer-pack` adapts;
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.

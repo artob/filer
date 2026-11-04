@@ -98,8 +98,8 @@ at low priority, as our own decoders replace the crates when they block.
   Only if Filer.rs decides to depend on `winx` (§17.2).
 - [ ] **UP-06: `lzma-rust2`: resuming xz at a block (low priority).**
   `Clone` for `XzStream` between blocks, or a public block decoder, for
-  checkpoints at xz blocks (PACK-19); our own xz container is the path
-  meanwhile (D61).
+  checkpoints at xz blocks (PACK-19); our own `decode-xz` is the path
+  meanwhile (DEC-05).
 
 ## `filer-api`: paths
 
@@ -547,6 +547,31 @@ Created with `publish = false` (D16).
   sequential, random 4 KiB, versus `Posix`. Done when results and machine
   details are recorded in §17.3.
 
+## Decoders (`decode-*`)
+
+Our own clean-room, public-domain decoders, each a crate of its own
+(D62), which `filer-pack` adapts, in place of the interim codec crates
+(D61), from the sources `LEGAL.md` names.
+
+- [ ] **DEC-01: `decode-bzip2`.** `filer-pack`'s `Bzip2`, written from
+  Joe Tsai's description, spun out as `decode-zstd` was. Done when
+  `filer-pack` decodes bzip2 through it, with its tests and fuzzers.
+- [ ] **DEC-02: `decode-deflate`.** Deflate (RFC 1951) in place of
+  `miniz_oxide`, with a state that copies for checkpoints. Done when ZIP
+  members and gzip streams decode as `miniz_oxide` decodes them, and
+  differential fuzzing against it finds nothing.
+- [ ] **DEC-03: `decode-gzip`.** gzip (RFC 1952): `filer-pack`'s `Gzip`
+  framing, over `decode-deflate`. Done when `filer-pack` decodes gzip
+  through it.
+- [ ] **DEC-04: `decode-lzma`.** LZMA and LZMA2, from the LZMA SDK, in
+  place of `lzma-rust2`'s. Done when 7z's and ZIP's LZMA, and xz's LZMA2,
+  decode as `lzma-rust2` decodes them, and differential fuzzing finds
+  nothing.
+- [ ] **DEC-05: `decode-xz`.** The `.xz` container, from its file format
+  specification: stream and block headers, filters, CRC-32, CRC-64, and
+  SHA-256 checks, and the index, over `decode-lzma`, offering checkpoints
+  at blocks (PACK-19). Done when `lzma-rust2` leaves the dependencies.
+
 ## Virtual drivers
 
 - [ ] **VFS-01: `filer-vfs` mount table.** Done when `filer-spec`
@@ -563,21 +588,18 @@ Created with `publish = false` (D16).
 - [ ] **PACK-19: xz checkpoints.** xz blocks decode alone, and xz 5.4
   writes several by default, but `lzma-rust2`'s `XzStream` starts only at
   a stream header and exposes no block decoder (UP-06): resuming at a
-  block means our own xz container (D61), from the `.xz` file format
-  specification: stream and block headers, filters, CRC-32, CRC-64, and
-  SHA-256 checks, and the index, over `lzma-rust2`'s raw `Lzma2Stream`
-  until our own LZMA2 replaces it. Done when reading near the end of an
-  `.xz` of several blocks decodes at most an interval and a block, as
-  `.bz2` does.
+  block means our own xz container, `decode-xz` (DEC-05). Done when
+  reading near the end of an `.xz` of several blocks decodes at most an
+  interval and a block, as `.bz2` does.
 - [ ] **PACK-20: Checkpoints within zstd frames.** Ubuntu 26.04's 61 MB
   initrd is one zstd frame with a 4 MiB window: reading its files in
   archive order takes 6.4 s in a release build, and in reverse 383 s,
   from restarts that frame checkpoints cannot spare. Within a frame, a
-  checkpoint needs a copy of the decoder's state, which our own `Zstd`
-  (D61, PACK-21 to 24) can make: between blocks, its window's last
+  checkpoint needs a copy of the decoder's state, which our own
+  `decode-zstd` (D61, D62) can make: between blocks, its window's last
   window size of bytes, its Huffman and FSE tables, repeat offsets, and
-  hash so far, offered every interval. Done when that image reads in
-  reverse in a few seconds.
+  hash so far, offered by `Decoder::checkpoint` every interval. Done when
+  that image reads in reverse in a few seconds.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
   (PACK-14), which TAR-02's `xz` shares, and
