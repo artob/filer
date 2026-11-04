@@ -1,6 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{Decoder, Deflate, streams::to_u64};
+use alloc::boxed::Box;
 use filer_api::{Error, ErrorKind, OpKind, checksum::Crc32};
 
 /// The flags of a member's header (RFC 1952 §2.3.1). Those of its optional
@@ -65,7 +66,7 @@ enum State {
 /// gzip.finish()?;
 /// # Ok::<(), filer_api::Error>(())
 /// ```
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Gzip {
     state: State,
     /// The member's flags.
@@ -284,6 +285,11 @@ impl Decoder for Gzip {
                 return Ok((consumed, produced));
             }
         }
+    }
+
+    /// Anywhere: a copy of its state, `Deflate`'s included.
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        Some(Box::new(self.clone()))
     }
 
     fn finish(&mut self) -> Result<(), Error> {

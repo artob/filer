@@ -7,8 +7,10 @@
 mod common;
 
 use common::{Member, With, agree, numbers, unpack};
-use filer_api::{Error, ErrorKind};
-use filer_pack::Gzip;
+use core::sync::atomic::Ordering;
+use filer_api::{BufResult, Error, ErrorKind, ReadAt};
+use filer_pack::{Gzip, Unpacked};
+use filer_spec::block_on;
 
 fn decode(stream: &[u8]) -> Result<Vec<u8>, Error> {
     let whole = agree(Gzip::new, stream, 1);
@@ -114,4 +116,36 @@ fn checks_the_trailer_after_the_declared_size() {
         read(bad, numbers.len()).unwrap_err().kind(),
         ErrorKind::Corrupt
     );
+}
+
+#[test]
+fn resumes_within_a_member() {
+    // One member of 12 MiB, deflated as stored blocks, so packed as long.
+    let data: Vec<u8> = (0..12 << 20)
+        .map(|n: u32| (n % 251) as u8 ^ (n >> 20) as u8)
+        .collect();
+    let mut stream = Member::default().header();
+    stream.extend(miniz_oxide::deflate::compress_to_vec(&data, 0));
+    stream.extend(filer_api::checksum::crc32(&data).to_le_bytes());
+    stream.extend((data.len() as u32).to_le_bytes());
+    let len = stream.len() as u64;
+    let source = filer_spec::Counted::new(stream);
+    let reads = source.reads();
+    let codec = With(|| Box::new(Gzip::new()));
+    let unpacked = block_on(Unpacked::measured(source, 0..len, codec, 12 << 20)).unwrap();
+    // Reading back near the end reads on from the checkpoint before, at
+    // most 4 MiB back, as do reads back from there.
+    let all = reads.load(Ordering::Relaxed);
+    for at in [(12 << 20) - 1000, (6 << 20) + 7, (11 << 20) + 3] {
+        let before = reads.load(Ordering::Relaxed);
+        let read = unpacked.read_exact_at(Vec::with_capacity(100), at);
+        let BufResult(result, bytes) = block_on(read);
+        result.unwrap();
+        assert_eq!(bytes, data[at as usize..at as usize + 100]);
+        let resumed = reads.load(Ordering::Relaxed) - before;
+        assert!(
+            resumed <= 66,
+            "{resumed} reads at {at}, of {all} for the whole"
+        );
+    }
 }

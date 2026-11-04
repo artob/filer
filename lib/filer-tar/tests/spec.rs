@@ -49,7 +49,7 @@ fn passes_the_specification() {
 fn passes_the_specification_compressed() {
     // Read through the decoded stream, back and forth as the cases go.
     let report = filer_spec::run_blocking(Profile::default().with_xattrs(false), |tree| {
-        filer_spec::block_on(Tar::open(common::gzip(&write(tree)))).unwrap()
+        filer_spec::block_on(Tar::open(common::gzip(&write(tree), 6))).unwrap()
     });
     println!("{report}");
     report.assert_passed();

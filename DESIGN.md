@@ -2409,7 +2409,12 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   which a `Stream` records at most every 4 MiB it decodes, and which
   `Streams` resumes a read from when it lies nearer than any kept
   stream, as `Unpacked::measured`'s first decode records them for every
-  later read; zstd offers a fresh decoder between frames; bzip2 done,
+  later read; zstd offers a fresh decoder between frames, and Deflate
+  and gzip a copy of `miniz_oxide`'s state anywhere (PACK-17), as does
+  `Verified`, with its digest so far, for ZIP's members: reading the
+  member before the last of a 12 MiB `.tar.gz`, after the last, takes 82
+  reads of 64 KiB rather than 177; past 256 checkpoints, every other one
+  is dropped, which bounds gzip's to about 11 MB; bzip2 done,
   2026-11-03: `Bzip2`, behind
   `bzip2`, written here from Joe Tsai's description, which gathers each
   block whole, trying again only once its input has doubled, so that

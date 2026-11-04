@@ -287,3 +287,29 @@ fn reads_plain_archives_whose_names_begin_as_compressed_streams() {
         assert_eq!(root.driver().compression(), None);
     }
 }
+
+#[cfg(feature = "gzip")]
+#[test]
+fn reads_back_from_checkpoints() {
+    // Twelve members of 1 MiB, deflated as stored blocks, so packed as
+    // long: reading the one before the last, after the last, reads on
+    // from the checkpoint before it rather than from the start.
+    let member = |i: u8| -> Vec<u8> { (0..1 << 20).map(|n: u32| (n % 251) as u8 ^ i).collect() };
+    let mut writer = Writer::default();
+    for i in 0..12 {
+        writer.file(format!("m{i:02}").as_bytes(), &member(i));
+    }
+    let source = filer_spec::Counted::new(common::gzip(&writer.finish(), 0));
+    let reads = source.reads();
+    let root = block_on(Tar::open(source)).unwrap();
+    let read = |path: &str| {
+        let file = block_on(root.open_file(path)).unwrap();
+        block_on(file.read_to_end()).unwrap()
+    };
+    assert_eq!(read("m11"), member(11));
+    let before = reads.load(std::sync::atomic::Ordering::Relaxed);
+    assert_eq!(read("m10"), member(10));
+    let after = reads.load(std::sync::atomic::Ordering::Relaxed);
+    // At most 4 MiB back, and the member: 80 reads of 64 KiB, not 176.
+    assert!(after - before <= 82, "{} reads", after - before);
+}

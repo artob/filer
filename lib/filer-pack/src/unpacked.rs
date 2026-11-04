@@ -267,6 +267,24 @@ mod tests {
     }
 
     #[test]
+    fn keeps_checkpoints_bounded() {
+        // 300 intervals of 64 KiB, and some.
+        let len = 300 * (64 << 10) / 2 + 1000;
+        let source: Vec<u8> = (0..len).map(|n| n as u8).collect();
+        let decoded: Vec<u8> = source.iter().flat_map(|&b| [b, b]).collect();
+        let (size, codec) = (decoded.len() as u64, Doubled { sum: sum(&decoded) });
+        let range = 0..len as u64;
+        let unpacked = block_on(Unpacked::measured(source, range, codec, size)).unwrap();
+        let kept = unpacked.streams.checkpoints();
+        assert!((128..=256).contains(&kept), "{kept} checkpoints");
+        let off = decoded.len() - 5000;
+        assert_eq!(
+            read_at(&unpacked, off as u64, 100).unwrap(),
+            decoded[off..off + 100]
+        );
+    }
+
+    #[test]
     fn decodes_once_when_read_sequentially() {
         let (source, decoded) = packed(0);
         let codec = Counted(Doubled { sum: sum(&decoded) });

@@ -27,8 +27,10 @@ so any release may break compatibility.
   size declared or, with `Unpacked::measured`, learned by decoding it;
   `Compression` tells by its first bytes what a stream is compressed
   with, and decodes it. `Decoder::checkpoint` offers where decoding may
-  go on from, as `Zstd` does between frames, which `Streams` and
-  `Unpacked` record and resume from, rather than from the start.
+  go on from, as `Zstd` does between frames and `Deflate` and `Gzip`
+  anywhere, which `Streams` and `Unpacked` record and resume from, rather
+  than from the start; `Verified` passes them on with its `Digest`, which
+  is now `Clone`.
   `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
   own, over `miniz_oxide`; `Gzip`, with `gzip`, decodes gzip streams over
   it; `Zstd`, with `zstd`, zstd streams over `ruzstd`; `Lzma` and

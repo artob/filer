@@ -23,6 +23,7 @@ use miniz_oxide::{
 /// assert_eq!(&output, b"hello");
 /// # Ok::<(), filer_api::Error>(())
 /// ```
+#[derive(Clone)]
 pub struct Deflate {
     state: Box<InflateState>,
     /// Whether the last block is decoded and all of it produced.
@@ -77,6 +78,11 @@ impl Decoder for Deflate {
             Ok(_) | Err(MZError::Buf) => Ok((result.bytes_consumed, result.bytes_written)),
             Err(_) => Err(Error::new(ErrorKind::Corrupt, OpKind::Read)),
         }
+    }
+
+    /// Anywhere: a copy of its state, about 43 KiB with its window.
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        Some(Box::new(self.clone()))
     }
 }
 

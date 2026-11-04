@@ -19,6 +19,10 @@ pub(crate) const OUTPUT_CHUNK: usize = 32 * 1024;
 /// once it can resume from the last.
 pub(crate) const INTERVAL: u64 = if cfg!(test) { 64 * 1024 } else { 4 << 20 };
 
+/// The most checkpoints kept, past which every other one is dropped, as
+/// those of gzip each hold a copy of its state, of about 43 KiB.
+const MAX_CHECKPOINTS: usize = 256;
+
 /// Identifies what a [`Stream`] decodes, among those [`Streams`] keeps:
 /// such as a member, by its inode, or a solid block, by its number.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -145,7 +149,21 @@ impl Streams {
             for (decoded, checkpoint) in recorded {
                 checkpoints.entry((id, decoded)).or_insert(checkpoint);
             }
+            // Twice as far apart, rather than ever more of them.
+            if checkpoints.len() > MAX_CHECKPOINTS {
+                let mut kept = false;
+                checkpoints.retain(|_, _| {
+                    kept = !kept;
+                    kept
+                });
+            }
         });
+    }
+
+    /// Returns how many checkpoints it keeps.
+    #[cfg(test)]
+    pub(crate) fn checkpoints(&self) -> usize {
+        self.checkpoints.with(|checkpoints| checkpoints.len())
     }
 
     /// Reads the decoded bytes within `wanted` of `id`, whose packed bytes

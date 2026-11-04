@@ -1,6 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::Decoder;
+use alloc::boxed::Box;
 use filer_api::{Error, ErrorKind, OpKind, checksum::Crc32};
 
 /// A checksum computed over a member's bytes as they are decoded, which a
@@ -19,9 +20,9 @@ use filer_api::{Error, ErrorKind, OpKind, checksum::Crc32};
 /// Digest::update(&mut crc, b"56789");
 /// assert_eq!(Digest::finish(&crc), 0xCBF4_3926);
 /// ```
-pub trait Digest: Send {
+pub trait Digest: Clone + Send + 'static {
     /// The checksum's value, such as a `u32` for CRC-32.
-    type Output: PartialEq + Send;
+    type Output: Clone + PartialEq + Send + 'static;
 
     /// Feeds the next decoded `bytes`.
     fn update(&mut self, bytes: &[u8]);
@@ -101,6 +102,17 @@ impl<D: Decoder, H: Digest> Decoder for Verified<D, H> {
             Err(Error::new(ErrorKind::Corrupt, OpKind::Read))
         }
     }
+
+    /// Where the decoder offers one, with the digest so far.
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        let decoder = self.decoder.checkpoint()?;
+        let expected = self.expected.clone();
+        Some(Box::new(Verified::new(
+            decoder,
+            self.digest.clone(),
+            expected,
+        )))
+    }
 }
 
 /// A decoder that copies its input: for members stored as is whose format
@@ -116,6 +128,10 @@ impl Decoder for Passthrough {
         };
         to.copy_from_slice(from);
         Ok((n, n))
+    }
+
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        Some(Box::new(Self))
     }
 }
 
@@ -166,6 +182,19 @@ mod tests {
         assert_eq!(short.finish().unwrap_err().kind(), ErrorKind::Corrupt);
         let mut failing = Verified::new(Doubled { fail: true }, Crc32::new(), crc32(b""));
         assert_eq!(failing.finish().unwrap_err().kind(), ErrorKind::Unsupported);
+    }
+
+    #[test]
+    fn checkpoints_carry_the_digest_so_far() {
+        let expected = crc32(b"first, then second");
+        let mut verified = Verified::new(Passthrough, Crc32::new(), expected);
+        let mut output = [0; 32];
+        verified.decode(b"first, ", &mut output).unwrap();
+        let mut resumed = verified.checkpoint().unwrap();
+        for decoder in [&mut verified as &mut dyn Decoder, &mut *resumed] {
+            decoder.decode(b"then second", &mut output).unwrap();
+            decoder.finish().unwrap();
+        }
     }
 
     #[test]
