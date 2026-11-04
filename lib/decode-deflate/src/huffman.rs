@@ -164,6 +164,25 @@ impl Table {
         })
     }
 
+    /// Returns the symbol and code length that `value`, the next bits of the
+    /// stream, holding at least `MAX_BITS`, begin with, as
+    /// `(symbol, length)`, or `None` if they begin no code.
+    #[inline]
+    pub(crate) fn decode(&self, value: u64) -> Option<(u32, u32)> {
+        let index = usize::try_from(value & self.mask).unwrap_or_default();
+        let mut entry = self.entries.get(index).copied().unwrap_or(INVALID);
+        if entry & LINK != 0 {
+            let link = entry & !LINK & 0xFF;
+            let sub = 1_u64.wrapping_shl(link).wrapping_sub(1);
+            let index = usize::try_from(value.wrapping_shr(self.bits) & sub).unwrap_or_default();
+            let offset = usize::try_from(entry >> 16).unwrap_or_default();
+            let index = offset.saturating_add(index);
+            entry = self.entries.get(index).copied().unwrap_or(INVALID);
+        }
+        let len = entry & 0xFF;
+        (len <= MAX_BITS).then_some((entry >> 16, len))
+    }
+
     /// Decodes the code that `value`, the next `count` bits of the stream,
     /// begins with, the first in its lowest bit.
     #[inline]

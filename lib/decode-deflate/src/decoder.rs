@@ -674,6 +674,13 @@ fn codes(
     limit: usize,
     input: &[u8],
 ) -> (Result<Stop, Error>, Cursor) {
+    if at.length.is_none() {
+        match fast(&mut at, (literals, distances), buf, limit, input) {
+            Ok(None) => {},
+            Ok(Some(stop)) => return (Ok(stop), at),
+            Err(error) => return (Err(error), at),
+        }
+    }
     let stop = loop {
         if at.end >= limit {
             break Ok(Stop::Full);
@@ -738,6 +745,50 @@ fn codes(
         }
     };
     (stop, at)
+}
+
+/// Decodes codes as `codes` does, while the input holds a word past what
+/// is taken, so that every refill leaves at least 56 bits: enough for a
+/// literal/length code, its extra bits, and a distance code and its own,
+/// so that no code can find too few. It returns why it stopped, or
+/// nothing once the input runs short, for `codes` to go on carefully.
+#[inline]
+fn fast(
+    at: &mut Cursor,
+    (literals, distances): (&Table, &Table),
+    buf: &mut [u8],
+    limit: usize,
+    input: &[u8],
+) -> Result<Option<Stop>, Error> {
+    while at.end < limit {
+        let rest = input.get(at.taken..).unwrap_or_default();
+        if rest.len() < 8 {
+            return Ok(None);
+        }
+        at.bits.refill_from(input, &mut at.taken);
+        let (symbol, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
+        at.bits.consume(n);
+        if let Ok(literal) = u8::try_from(symbol) {
+            *buf.get_mut(at.end).ok_or_else(corrupt)? = literal;
+            at.end = at.end.saturating_add(1);
+            continue;
+        }
+        if symbol == 256 {
+            return Ok(Some(Stop::End));
+        }
+        let code = usize::try_from(symbol.saturating_sub(257)).unwrap_or(usize::MAX);
+        let &(base, extra) = LENGTHS.get(code).ok_or_else(corrupt)?;
+        let length = base.saturating_add(at.bits.take(extra));
+        let (symbol, n) = distances.decode(at.bits.value).ok_or_else(corrupt)?;
+        at.bits.consume(n);
+        let code = usize::try_from(symbol).unwrap_or(usize::MAX);
+        let &(base, extra) = DISTANCES.get(code).ok_or_else(corrupt)?;
+        let distance = base.saturating_add(at.bits.take(extra));
+        let distance = usize::try_from(distance).map_err(|_| corrupt())?;
+        let length = usize::try_from(length).map_err(|_| corrupt())?;
+        at.end = copy(buf, at.end, distance, length)?;
+    }
+    Ok(Some(Stop::Full))
 }
 
 /// Copies to `buf` past `end` `length` bytes from `distance` back, which

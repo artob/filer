@@ -556,10 +556,9 @@ crate's name until its first code, which moves it to `lib/`.
 
 - [ ] **DEC-02: `decode-deflate` in place of `miniz_oxide`.** It
   decodes Deflate as zlib does, and copies for checkpoints. What remains:
-  decoding at least as fast as `miniz_oxide` (on Apple M4, 20% slower on
-  executables, as fast on text, and half as fast as `zlib-rs`, whose
-  `inflate_fast` loop is the model: no checks of input or room while
-  both suffice, and wide copies); Deflate64 (ZIP's method 9, 7z), behind
+  decoding at least as fast as `miniz_oxide` (as fast on Apple M4, 11%
+  slower on a Zen 1 VM, and on both two thirds as fast as `zlib-rs`);
+  Deflate64 (ZIP's method 9, 7z), behind
   an additive `deflate64` feature, as a variant chosen per stream that
   never changes what plain Deflate decodes (a 64 KiB window, length code
   285 as 3 plus 16 extra bits, and distance codes 30 and 31); and
