@@ -2195,7 +2195,12 @@ Reads go through a bounded intermediate buffer so a source never reads
 past a member into the next header; a `Slice` buffer (CORE-06) would
 remove that copy. The full `filer-spec` passes, with nothing skipped, on
 archives written from its tree; a doc example reads a bsdtar archive, and
-a test reads an archive stored as a `File` in `filer-heap`.
+a test reads an archive stored as a `File` in `filer-heap`. Since
+2026-11-03, `tests/fuzz.rs` mutates headers and the records of PAX and
+GNU extended headers, mostly resealing a mutated header's checksum so
+that the mutation reaches what parses it; `fuzz/` has a `cargo-fuzz`
+target over the same walk, which reseals each header with the `ustar`
+magic.
 
 **`filer-zip` as built** (2026-11-01, stored members): an own parser
 too (answering Q7 for ZIP), reading the end of central directory record,

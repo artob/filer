@@ -551,10 +551,6 @@ Created with `publish = false` (D16).
   listings are tested.
 - [ ] **OVL-02: `filer-overlay` writes.** Copy-up, whiteouts, opaque
   directories. Done when `filer-spec` passes.
-- [ ] **TAR-01: Fuzzing `filer-tar`.** The driver passes `filer-spec` and
-  hostile-archive tests. Still missing: a fuzz target over `header.rs`
-  and indexing, on `filer_spec::fuzz` and `exercise`, as ar's and cpio's
-  are. Done when it builds in CI.
 - [ ] **TAR-02: Compressed TAR.** gzip, zstd, xz from `filer-pack`
   (`Unpacked`; `miniz_oxide`, `ruzstd`, and `lzma-rust2`, as `LEGAL.md`
   chose) behind features, indexed on open with checkpoints or cached
