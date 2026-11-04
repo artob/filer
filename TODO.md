@@ -553,9 +553,6 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D62), which `filer-pack` adapts, in place of the interim codec crates
 (D61), from the sources `LEGAL.md` names.
 
-- [ ] **DEC-01: `decode-bzip2`.** `filer-pack`'s `Bzip2`, written from
-  Joe Tsai's description, spun out as `decode-zstd` was. Done when
-  `filer-pack` decodes bzip2 through it, with its tests and fuzzers.
 - [ ] **DEC-02: `decode-deflate`.** Deflate (RFC 1951) in place of
   `miniz_oxide`, with a state that copies for checkpoints. Done when ZIP
   members and gzip streams decode as `miniz_oxide` decodes them, and

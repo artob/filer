@@ -34,8 +34,8 @@
 //! `miniz_oxide`, behind `deflate`; [`Gzip`] over it, behind `gzip`;
 //! [`Lzma`], [`Lzma2`], and [`Xz`], over `lzma-rust2`, behind `lzma` and
 //! `xz`; [`Zstd`], over `decode-zstd`, behind `zstd`; and [`Bzip2`],
-//! written here, behind `bzip2`. The decoders written for Filer are
-//! spun out as `decode-*` crates, clean room and public domain (D62).
+//! over `decode-bzip2`, behind `bzip2`: the decoders written for Filer,
+//! as crates of their own, clean room and public domain (D62).
 //!
 //! **Read-only, permanently.** Filer reads archives as directories; it
 //! never creates or modifies them, and never will: nothing here will

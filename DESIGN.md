@@ -153,7 +153,7 @@ windows; this section holds the rationale.
   and Windows code pages, used by `filer-fat` and later `filer-zip`) will
   move to <https://github.com/it-is-known/known-codepages> (D49); and
   the `decode-*` crates, our clean-room, public-domain decoders, such as
-  `decode-zstd` (D62).
+  `decode-zstd` and `decode-bzip2` (D62).
 - Root files: `AGENTS.md`, `README.md`, `CHANGES.md` (Keep a Changelog,
   Semantic Versioning, **Breaking** markers), `TODO.md`, `DESIGN.md`,
   `VERSION`, `UNLICENSE`, `AUTHORS`, `CREDITS.md`, `.rustfmt.toml` (same
@@ -396,8 +396,8 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`,
-`filer-msft`, `known-codepages`, `decode-zstd`, `filer-pack`, the
-read-only
+`filer-msft`, `known-codepages`, `decode-bzip2`, `decode-zstd`,
+`filer-pack`, the read-only
 `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
 over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
 `filer-volume` over them, and as empty skeletons `filer-wasi`,
@@ -2502,7 +2502,8 @@ as `decode-zstd` (D62).
 
 **Our decoders are `decode-*` crates (D62, 2026-11-04).** Each decoder
 written for Filer (D61) is a crate of its own, `decode-<codec>`, a
-namespace otherwise free on crates.io: `decode-zstd` so far. Like
+namespace otherwise free on crates.io: `decode-zstd` and `decode-bzip2`
+so far. Like
 `known-codepages` (D49), they are generic, not Filer-specific, and
 written to be spun out: no Filer dependency (`filer-spec` only to test),
 and no dependency at all. Each is written clean room from its format's
@@ -2512,10 +2513,10 @@ its memory. All share one sans-I/O shape: a `Decoder` with `new`,
 `decode(input, output)` returning what it consumed and produced,
 `finish`, `checkpoint`, and `buffered`, and an `Error` that is `Corrupt`
 or `Unsupported`. `filer-pack` adapts each to its `Decoder` trait behind
-a feature named for the codec, keeping its own types (`Zstd`). A side
-effect of Filer is thus a family of clean-room, public-domain decoders
-of every codec it reads: bzip2 next, then Deflate, gzip, LZMA and LZMA2,
-and xz, in place of the interim crates (TODO DEC-01 to 05).
+a feature named for the codec, keeping its own types (`Zstd`, `Bzip2`).
+A side effect of Filer is thus a family of clean-room, public-domain
+decoders of every codec it reads: Deflate, gzip, LZMA and LZMA2, and xz
+next, in place of the interim crates (TODO DEC-02 to 05).
 
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and

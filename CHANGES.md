@@ -37,11 +37,15 @@ so any release may break compatibility.
   it; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2 streams, and
   `Xz`, with `xz`, xz streams, over `lzma-rust2`; `Zstd`, with `zstd`,
   zstd streams, over `decode-zstd`; and `Bzip2`, with `bzip2`, bzip2
-  streams, written here. A decoder now reads the packed bytes after the
+  streams, over `decode-bzip2`. A decoder now reads the packed bytes after the
   declared size, such as gzip's trailer, before it finishes. `Reader`
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than
   one or two per member.
+- `decode-bzip2`: New crate: a bzip2 decoder, written clean room from Joe
+  Tsai's description of the format and dedicated to the public domain,
+  without dependencies, for `no_std` with an allocator. Its `Decoder` is
+  sans-I/O, as `decode-zstd`'s is, and offers checkpoints between blocks.
 - `decode-zstd`: New crate: a zstd decoder, written clean room from RFC
   8878 and dedicated to the public domain, without dependencies, for
   `no_std` with an allocator. `Decoder` is sans-I/O: `decode` takes what

@@ -82,6 +82,7 @@ Decoders, written clean room and dedicated to the public domain:
 
 | Crate | Summary |
 | --- | --- |
+| `decode-bzip2` | bzip2 |
 | `decode-zstd` | zstd |
 
 Only `filer-windows` contains `unsafe`: the system calls the standard

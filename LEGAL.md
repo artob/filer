@@ -370,8 +370,9 @@ its replacement.
   pointers would take `unsafe` code that `filer-pack` forbids; and
   `bzip2-rs` 0.1 (MIT or Apache-2.0) is std only and unmaintained since
   2021. A decoder is small (Huffman tables, move-to-front, the inverse
-  Burrows–Wheeler transform, and CRC-32s per block and stream): `Bzip2`
-  is written from Joe Tsai's *bzip2 format* (2016), an independent
+  Burrows–Wheeler transform, and CRC-32s per block and stream):
+  `decode-bzip2` (D62), which `filer-pack`'s `Bzip2` adapts, is written
+  from Joe Tsai's *bzip2 format* (2016), an independent
   description reverse-engineered from bzip2 1.0.6, as no official one
   exists, with bzip2's own source (BSD-style, notice required) and Wuffs'
   decoder (Apache-2.0) read for facts only. No patent applies: the

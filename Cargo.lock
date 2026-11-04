@@ -54,6 +54,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "decode-bzip2"
+version = "0.0.2"
+dependencies = [
+ "filer-spec",
+]
+
+[[package]]
 name = "decode-zstd"
 version = "0.0.2"
 dependencies = [
@@ -239,6 +246,7 @@ dependencies = [
 name = "filer-pack"
 version = "0.0.2"
 dependencies = [
+ "decode-bzip2",
  "decode-zstd",
  "filer-api",
  "filer-spec",

@@ -85,9 +85,10 @@
   driver reading them, file system, archive, or `filer-windows`;
   `known-codepages` decodes DOS code pages for FAT and ZIP names (generic,
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
-  `decode-<codec>` crates (`decode-zstd`) are our clean-room decoders
-  (D62): generic, no dependencies, each a `Decoder` with `decode`,
-  `finish`, `checkpoint`, and `buffered`, which `filer-pack` adapts;
+  `decode-<codec>` crates (`decode-bzip2`, `decode-zstd`) are our
+  clean-room decoders (D62): generic, no dependencies, each a `Decoder`
+  with `decode`, `finish`, `checkpoint`, and `buffered`, which
+  `filer-pack` adapts;
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.
