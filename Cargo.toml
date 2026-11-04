@@ -31,6 +31,7 @@ must_use_candidate = "warn"
 undocumented_unsafe_blocks = "deny"
 
 [workspace.dependencies]
+compute-adler32 = { version = "0.0.2", path = "lib/compute-adler32", default-features = false }
 compute-crc = { version = "0.0.2", path = "lib/compute-crc", default-features = false }
 compute-sha256 = { version = "0.0.2", path = "lib/compute-sha256", default-features = false }
 compute-xxhash = { version = "0.0.2", path = "lib/compute-xxhash", default-features = false }
@@ -85,6 +86,7 @@ zlib-rs = { version = "0.6", default-features = false }
 windows-sys = { version = "0.61", default-features = false }
 
 [patch.crates-io]
+compute-adler32 = { path = "lib/compute-adler32" }
 compute-crc = { path = "lib/compute-crc" }
 compute-sha256 = { path = "lib/compute-sha256" }
 compute-xxhash = { path = "lib/compute-xxhash" }

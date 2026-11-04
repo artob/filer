@@ -93,13 +93,13 @@
   dependencies but each other and `compute-*`, each a `Decoder` with
   `decode`, `finish`, `checkpoint`, and `buffered`, which `filer-pack`
   adapts; `compute-<algorithm>` crates (`compute-crc`, every CRC a type
-  and a feature, `compute-sha256`, `compute-xxhash`) are our clean-room
-  checksums and hashes (D64): generic, no dependencies, each with `new`,
-  `update`, and `finish`; `filer_api::checksum` re-exports
-  `compute-crc`'s. Generic checksum and hash algorithms go into a
-  `compute-*` crate, never into a decoder or a driver; a format's own
-  name hashes and sums (ext4's and XFS's directory hashes, tar's header
-  sum) stay in its driver;
+  and a feature, `compute-adler32`, `compute-sha256`, `compute-xxhash`)
+  are our clean-room checksums and hashes (D64): generic, no
+  dependencies, each with `new`, `update`, and `finish`;
+  `filer_api::checksum` re-exports `compute-crc`'s. Generic checksum and
+  hash algorithms go into a `compute-*` crate, never into a decoder or a
+  driver; a format's own name hashes and sums (ext4's and XFS's
+  directory hashes, tar's header sum) stay in its driver;
   `filer-system` re-exports `filer-api` plus `System`, the target's native
   driver (the one dependency for users); `filer-cli` builds the `filer`
   binary over `filer-system`.
@@ -107,8 +107,8 @@
   `tmp/<crate>/` (archives: `filer-rar`, `filer-7z`; file systems, each
   depending on `filer-fs`: `filer-udf`, `filer-exfat`, `filer-btrfs`,
   `filer-zfs`, ...; codecs: `decode-zlib`, `decode-lz4`, ...;
-  checksums: `compute-adler32`, `compute-blake2`, `compute-blake3`,
-  `compute-fletcher`, `compute-sha512`). A
+  checksums: `compute-blake2`, `compute-blake3`, `compute-fletcher`,
+  `compute-sha512`). A
   stub's crate docs list what its format needs. It
   moves to `lib/` with its first implementation, and joins its umbrella
   then (`filer-rar`, `filer-7z`, and `filer-udf` already have).

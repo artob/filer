@@ -51,18 +51,19 @@ so any release may break compatibility.
   over `decode-lzma`, for `no_std` with an allocator: streams, padding,
   every filter xz writes, CRC-32, CRC-64, and SHA-256 checks, and the
   index; it offers checkpoints between blocks.
-- `compute-crc`, `compute-sha256`, and `compute-xxhash`: New crates,
-  clean room and dedicated to the public domain, without dependencies,
-  for `no_std` without an allocator (D64): `compute-crc`'s CRC-16/MODBUS,
-  CRC-32, CRC-32C, CRC-32/BZIP2, and CRC-64/XZ, a type and a feature
-  each; `compute-sha256`'s SHA-256; and `compute-xxhash`'s XXH64, from any
-  seed. The `decode-*` crates compute their checks with them, and
-  `filer_api::checksum` re-exports `compute-crc`'s CRCs, whose every type
-  now has `from_state`, `state`, and `CHECK`.
-- `compute-adler32`, `compute-blake2`, `compute-blake3`,
-  `compute-fletcher`, and `compute-sha512`: New crates, with no items
-  yet, reserving the names of checksums and hashes to come (D64): for
-  zlib, btrfs, RAR 5, ZFS, and APFS.
+- `compute-adler32`, `compute-crc`, `compute-sha256`, and
+  `compute-xxhash`: New crates, clean room and dedicated to the public
+  domain, without dependencies, for `no_std` without an allocator (D64):
+  `compute-crc`'s CRC-16/MODBUS, CRC-32, CRC-32C, CRC-32/BZIP2, and
+  CRC-64/XZ, a type and a feature each; `compute-adler32`'s Adler-32, in
+  16 lanes; `compute-sha256`'s SHA-256; and `compute-xxhash`'s XXH64,
+  from any seed. The `decode-*` crates compute their checks with them,
+  and `filer_api::checksum` re-exports `compute-crc`'s CRCs, whose every
+  type now has `from_state`, `state`, and `CHECK`.
+- `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
+  `compute-sha512`: New crates, with no items yet, reserving the names
+  of checksums and hashes to come (D64): for btrfs, RAR 5, ZFS, and
+  APFS.
 - `decode-lzma`: New crate: an LZMA and LZMA2 decoder, ported from the
   LZMA SDK and dedicated to the public domain, without dependencies, for
   `no_std` with an allocator. `Decoder::lzma` decodes LZMA with the
