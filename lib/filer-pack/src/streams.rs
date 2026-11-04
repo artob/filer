@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{Decoder, lock::Lock};
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, vec, vec::Vec};
 use core::ops::Range;
 use filer_api::{BufResult, Error, ErrorKind, OpKind, ReadAt};
 
@@ -13,6 +13,11 @@ const INPUT_CHUNK: usize = 64 * 1024;
 
 /// How much a stream decodes at once.
 pub(crate) const OUTPUT_CHUNK: usize = 32 * 1024;
+
+/// How far apart, in decoded bytes, a stream records checkpoints at the
+/// closest: what a read decodes at most before reaching what it wants,
+/// once it can resume from the last.
+pub(crate) const INTERVAL: u64 = if cfg!(test) { 64 * 1024 } else { 4 << 20 };
 
 /// Identifies what a [`Stream`] decodes, among those [`Streams`] keeps:
 /// such as a member, by its inode, or a solid block, by its number.
@@ -28,13 +33,17 @@ impl StreamId {
 }
 
 /// Streams kept part way through what they decode, so that a sequential
-/// reader decodes once rather than from the start at every read.
+/// reader decodes once rather than from the start at every read, and the
+/// checkpoints they passed, so that one reading back decodes again only
+/// from the nearest.
 ///
 /// A read [`take`](Self::take)s the stream furthest along that has not
 /// passed its offset, or starts a new one, and [`keep`](Self::keep)s it
-/// again after; seeking backwards then starts over. Up to four streams are
-/// kept, the least recently kept dropped first. The kept streams are
-/// behind a lock, held only while taking or keeping one.
+/// again after. Up to four streams are kept, the least recently kept
+/// dropped first. A read that no kept stream is near starts from the
+/// nearest checkpoint before its offset, where a decoder offered one (see
+/// [`Decoder::checkpoint`]), or else from the start. The kept streams and
+/// checkpoints are behind locks, held only while taking or keeping one.
 ///
 /// # Examples
 ///
@@ -57,6 +66,15 @@ impl StreamId {
 /// ```
 pub struct Streams {
     kept: Lock<Vec<(StreamId, Stream)>>,
+    /// Each stream's checkpoints, by where they lie in what it decodes.
+    checkpoints: Lock<BTreeMap<(StreamId, u64), Checkpoint>>,
+}
+
+/// Where a stream may be decoded on from: the packed bytes consumed by
+/// then, and a decoder that goes on from there.
+struct Checkpoint {
+    packed: u64,
+    decoder: Box<dyn Decoder>,
 }
 
 impl Default for Streams {
@@ -77,6 +95,7 @@ impl Streams {
     pub fn new() -> Self {
         Self {
             kept: Lock::new(Vec::new()),
+            checkpoints: Lock::new(BTreeMap::new()),
         }
     }
 
@@ -106,11 +125,34 @@ impl Streams {
         });
     }
 
+    /// Returns a stream of `id` resumed from its checkpoint nearest before
+    /// `off`, if it has one past `from`.
+    fn resume(&self, id: StreamId, off: u64, from: u64) -> Option<Stream> {
+        self.checkpoints.with(|checkpoints| {
+            let ((_, decoded), checkpoint) = checkpoints.range((id, 0)..=(id, off)).next_back()?;
+            (*decoded > from).then(|| Stream::resume(*decoded, checkpoint))?
+        })
+    }
+
+    /// Keeps the checkpoints `stream` of `id` recorded, but for those it
+    /// has already.
+    pub(crate) fn record(&self, id: StreamId, stream: &mut Stream) {
+        let recorded = core::mem::take(&mut stream.recorded);
+        if recorded.is_empty() {
+            return;
+        }
+        self.checkpoints.with(|checkpoints| {
+            for (decoded, checkpoint) in recorded {
+                checkpoints.entry((id, decoded)).or_insert(checkpoint);
+            }
+        });
+    }
+
     /// Reads the decoded bytes within `wanted` of `id`, whose packed bytes
     /// lie at `packed` in `source` and which decodes to `size` bytes, as
     /// [`Stream::read`] does: on the kept stream that [`take`](Self::take)
-    /// finds, or on a new one decoding with what `decoder` returns, which
-    /// is then kept unless it reached the end.
+    /// finds, from a checkpoint nearer, or on a new one decoding with what
+    /// `decoder` returns, which is then kept unless it reached the end.
     ///
     /// # Errors
     ///
@@ -125,11 +167,20 @@ impl Streams {
         wanted: Range<u64>,
         decoder: impl FnOnce() -> Result<Box<dyn Decoder>, Error> + Send,
     ) -> Result<Vec<u8>, Error> {
-        let mut stream = match self.take(id, wanted.start) {
-            Some(stream) => stream,
-            None => Stream::new(decoder()?),
+        let kept = self.take(id, wanted.start);
+        let from = kept.as_ref().map_or(0, |stream| stream.decoded);
+        let mut stream = match (self.resume(id, wanted.start, from), kept) {
+            (Some(resumed), kept) => {
+                if let Some(kept) = kept {
+                    self.keep(id, kept);
+                }
+                resumed
+            },
+            (None, Some(kept)) => kept,
+            (None, None) => Stream::new(decoder()?),
         };
         let data = stream.read(source, packed, size, wanted).await?;
+        self.record(id, &mut stream);
         if stream.decoded < size {
             self.keep(id, stream);
         }
@@ -149,6 +200,10 @@ pub struct Stream {
     input: Vec<u8>,
     used: usize,
     decoder: Box<dyn Decoder>,
+    /// Where it last recorded a checkpoint, or started.
+    since: u64,
+    /// The checkpoints it recorded, by where they lie, for [`Streams`].
+    recorded: Vec<(u64, Checkpoint)>,
 }
 
 impl core::fmt::Debug for Stream {
@@ -170,6 +225,37 @@ impl Stream {
             input: Vec::new(),
             used: 0,
             decoder,
+            since: 0,
+            recorded: Vec::new(),
+        }
+    }
+
+    /// Returns a stream at `checkpoint`, which lies at `decoded`, if its
+    /// decoder offers a copy of itself, as it must.
+    fn resume(decoded: u64, checkpoint: &Checkpoint) -> Option<Self> {
+        Some(Self {
+            decoded,
+            fetched: checkpoint.packed,
+            input: Vec::new(),
+            used: 0,
+            decoder: checkpoint.decoder.checkpoint()?,
+            since: decoded,
+            recorded: Vec::new(),
+        })
+    }
+
+    /// Records a checkpoint where it is, if its decoder offers one and it
+    /// has decoded far enough since the last.
+    fn offer(&mut self) {
+        if self.decoded.saturating_sub(self.since) < INTERVAL {
+            return;
+        }
+        if let Some(decoder) = self.decoder.checkpoint() {
+            let pending = to_u64(self.input.len().saturating_sub(self.used));
+            let packed = self.fetched.saturating_sub(pending);
+            self.recorded
+                .push((self.decoded, Checkpoint { packed, decoder }));
+            self.since = self.decoded;
         }
     }
 
@@ -229,6 +315,7 @@ impl Stream {
             let start = self.decoded;
             let produced = to_u64(produced);
             self.decoded = self.decoded.saturating_add(produced);
+            self.offer();
             // Keep what falls within `off..end`, which is below `produced`.
             let within = |at: u64| usize::try_from(at.saturating_sub(start).min(produced));
             let (Ok(from), Ok(to)) = (within(off), within(end)) else {
@@ -274,6 +361,7 @@ impl Stream {
             }
             self.used = self.used.saturating_add(consumed);
             self.decoded = self.decoded.saturating_add(to_u64(produced));
+            self.offer();
             if self.decoded > max {
                 return Err(Error::new(ErrorKind::LimitExceeded, OpKind::Read));
             }

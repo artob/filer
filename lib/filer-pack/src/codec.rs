@@ -92,6 +92,20 @@ pub trait Decoder: Send {
     fn finish(&mut self) -> Result<(), Error> {
         Ok(())
     }
+
+    /// Returns a decoder that goes on from where this one is, if it can do
+    /// so cheaply here, as a checkpoint that a stream may be read on from
+    /// rather than from its start: as a fresh decoder does between zstd
+    /// frames, which decode alone.
+    ///
+    /// It is asked between calls to [`decode`](Self::decode), and only
+    /// once a few MiB have been decoded since the last checkpoint. The
+    /// decoder it returns, given the packed bytes from where this one has
+    /// consumed to, must decode what this one would, and offer a copy of
+    /// itself in turn until it decodes. The default offers none.
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        None
+    }
 }
 
 impl<D: Decoder + ?Sized> Decoder for Box<D> {
@@ -101,6 +115,10 @@ impl<D: Decoder + ?Sized> Decoder for Box<D> {
 
     fn finish(&mut self) -> Result<(), Error> {
         (**self).finish()
+    }
+
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        (**self).checkpoint()
     }
 }
 

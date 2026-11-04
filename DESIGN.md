@@ -2206,8 +2206,8 @@ the first block is a valid header, through `filer-pack`'s decoders and an
 `Unpacked` source: opening decodes the stream once to learn its size,
 bounded by `Limits::max_total_size` against bombs, and again as it
 indexes; reading on from the last read decodes no more, while reading
-back decodes again from the start, which checkpoints are to spare
-(PACK-16). The full `filer-spec` passes over gzip-compressed archives too.
+back decodes again from the start, or from a checkpoint, where the
+codec offers them (PACK-16 to 20). The full `filer-spec` passes over gzip-compressed archives too.
 `filer-archive` names compressed tarballs by their two-part extensions,
 and since ARC-01 (2026-11-03) tells every format by its content first:
 magic numbers at the start, those of the first bytes decoded from a
@@ -2302,7 +2302,11 @@ archive and a zstd one, reads whole as its `unmkinitramfs` extracts it:
 1,805 files of 302 MB, 480 directories, 183 symlinks, and 5 devices.
 Reading every file in the order of a directory walk took 73 s in a
 release build, as each read before the last decodes again from the
-start: what checkpoints are to spare (PACK-16).
+start. Measured there, opening decodes the 97 MB of its zstd part twice
+in 1.6 s; reading every file in the archive's order takes 6.4 s, and in
+reverse 383 s. Its zstd part is one frame, with a 4 MiB window, so the
+checkpoints at frame boundaries of PACK-16 cannot spare those restarts:
+within a frame, they need a copy of `ruzstd`'s decoder (PACK-20).
 
 **Shared structure.** An archive index is an immutable tree like
 `filer-heap`'s, with leaves pointing at (offset, size, codec) instead of
@@ -2400,7 +2404,13 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   streams with the properties their container gives, and `Xz`, behind
   `xz`, over `lzma-rust2`'s sans-I/O streams, each told that the input
   is exhausted by an empty slice; dictionaries over 128 MiB, as zstd's
-  windows, are `Unsupported`; bzip2 done, 2026-11-03: `Bzip2`, behind
+  windows, are `Unsupported`; checkpoints done, 2026-11-04 (PACK-16):
+  `Decoder::checkpoint` offers a decoder that goes on from where one is,
+  which a `Stream` records at most every 4 MiB it decodes, and which
+  `Streams` resumes a read from when it lies nearer than any kept
+  stream, as `Unpacked::measured`'s first decode records them for every
+  later read; zstd offers a fresh decoder between frames; bzip2 done,
+  2026-11-03: `Bzip2`, behind
   `bzip2`, written here from Joe Tsai's description, which gathers each
   block whole, trying again only once its input has doubled, so that
   parsing stays linear, and undoes the Burrows–Wheeler transform and the

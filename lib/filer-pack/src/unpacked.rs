@@ -94,7 +94,10 @@ impl<S: ReadAt, C: Codec> Unpacked<S, C> {
     ) -> Result<Self, Error> {
         let mut stream = Stream::new(codec.decoder()?);
         let size = stream.measure(&source, packed.clone(), max).await?;
-        Ok(Self::new(source, packed, size, codec))
+        let unpacked = Self::new(source, packed, size, codec);
+        // What reads come back to, if the decoder offered any.
+        unpacked.streams.record(WHOLE, &mut stream);
+        Ok(unpacked)
     }
 
     /// Returns the source of the packed bytes.
@@ -236,6 +239,31 @@ mod tests {
         let error =
             block_on(Unpacked::measured(source, range, Doubled { sum: 0 }, len)).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Corrupt);
+    }
+
+    #[test]
+    fn resumes_from_checkpoints_when_reading_back() {
+        // A MiB packed, 16 reads of the source, decoding to 32 intervals.
+        let mut rng = Rng::new(0xC4EC);
+        let source: Vec<u8> = (0..1 << 20).map(|_| rng.below(256) as u8).collect();
+        let decoded: Vec<u8> = source.iter().flat_map(|&b| [b, b]).collect();
+        let source = filer_spec::Counted::new(source);
+        let reads = source.reads();
+        let (range, len) = (0..1 << 20, decoded.len() as u64);
+        let codec = Doubled { sum: sum(&decoded) };
+        let unpacked = block_on(Unpacked::measured(source, range, codec, len)).unwrap();
+        // Near the end, back to the middle, and back to the start, each
+        // from the checkpoint before it: a read of the source or two.
+        let n = decoded.len();
+        for off in [n - 100, n / 2 + 12_345, 1_000, n - 50_000] {
+            let before = reads.load(Ordering::Relaxed);
+            assert_eq!(
+                read_at(&unpacked, off as u64, 100).unwrap(),
+                decoded[off..off + 100]
+            );
+            let reads = reads.load(Ordering::Relaxed) - before;
+            assert!(reads <= 2, "{reads} reads at {off}");
+        }
     }
 
     #[test]

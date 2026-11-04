@@ -560,14 +560,6 @@ Created with `publish = false` (D16).
   The backslash check in `index.rs` must then apply to decoded names, as
   Shift-JIS trail bytes may be 0x5C. Done when CP437 and CP866 archives
   list correctly.
-- [ ] **PACK-16: Checkpoints in `Streams`, at zstd frames.** Let a
-  decoder offer a copy of itself where decoding may go on from, recorded
-  every few MiB as a stream is first decoded, so that a read behind the
-  last resumes from the nearest, not the start, for compressed tarballs,
-  initramfs images, and members alike. zstd offers one between frames, a
-  fresh decoder, as frames decode alone: Ubuntu 26.04's 61 MB initrd has
-  370. Done when reading every file of that image in directory order,
-  73 s in a release build from restarts, takes a few.
 - [ ] **PACK-17: gzip checkpoints.** Offer a copy of `Deflate`'s state
   (`miniz_oxide`'s `InflateState` is `Clone`, about 43 KiB with its
   window) inside a member, and a fresh decoder between members. Done
@@ -580,6 +572,14 @@ Created with `publish = false` (D16).
   writes several by default, but `lzma-rust2`'s `XzStream` starts only at
   a stream header: resuming at a block means reading the block format
   here, over its raw `Lzma2Stream`. Done as PACK-17's, for `.tar.xz`.
+- [ ] **PACK-20: Checkpoints within zstd frames.** Ubuntu 26.04's 61 MB
+  initrd is one zstd frame with a 4 MiB window: reading its files in
+  archive order takes 6.4 s in a release build, and in reverse 383 s,
+  from restarts that frame checkpoints cannot spare. Within a frame, a
+  checkpoint needs a copy of `ruzstd`'s `FrameDecoder`, which is not
+  `Clone`: propose that upstream (its window, Huffman and FSE tables, and
+  offset history), then offer one every interval. Done when that image
+  reads in reverse in a few seconds.
 - [ ] **7Z-01: `filer-7z` (on demand).** A reader of the format the LZMA
   SDK documents (§17.7), with `filer-pack`'s LZMA and LZMA2 decoders
   (PACK-14), which TAR-02's `xz` shares, and

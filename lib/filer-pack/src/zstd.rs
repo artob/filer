@@ -229,6 +229,11 @@ impl Zstd {
         Ok((0, produced))
     }
 
+    /// Returns whether it is between frames, past at least one.
+    fn between(&self) -> bool {
+        self.frames > 0 && self.state == State::Frame && self.unit.is_empty()
+    }
+
     /// Ends the frame in progress.
     fn ended(&mut self) {
         self.frames = self.frames.saturating_add(1);
@@ -254,6 +259,7 @@ impl core::fmt::Debug for Zstd {
 impl Decoder for Zstd {
     fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
         let (mut consumed, mut produced) = (0_usize, 0_usize);
+        let frames = self.frames;
         loop {
             let input = input.get(consumed..).unwrap_or_default();
             let output = output.get_mut(produced..).unwrap_or_default();
@@ -262,16 +268,32 @@ impl Decoder for Zstd {
             };
             consumed = consumed.saturating_add(c);
             produced = produced.saturating_add(p);
+            // Stop between frames, where a checkpoint may be, once there
+            // is progress to report.
+            if self.frames != frames && (consumed > 0 || produced > 0) {
+                return Ok((consumed, produced));
+            }
         }
     }
 
     fn finish(&mut self) -> Result<(), Error> {
-        // Between frames.
-        if self.frames > 0 && self.state == State::Frame && self.unit.is_empty() {
+        if self.between() {
             Ok(())
         } else {
             Err(corrupt())
         }
+    }
+
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        if !self.between() {
+            return None;
+        }
+        // Frames decode alone, so a fresh decoder goes on from here.
+        let fresh: Box<dyn Decoder> = Box::new(Self {
+            frames: self.frames,
+            ..Self::new()
+        });
+        Some(fresh)
     }
 }
 

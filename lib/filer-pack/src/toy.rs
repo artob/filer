@@ -18,6 +18,7 @@ pub(crate) struct Doubled {
     pub(crate) sum: u64,
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct Doubler {
     pending: Option<u8>,
     sum: u64,
@@ -52,6 +53,11 @@ impl Decoder for Doubler {
         } else {
             Err(Error::new(ErrorKind::Corrupt, OpKind::Read))
         }
+    }
+
+    /// Anywhere, a copy.
+    fn checkpoint(&self) -> Option<Box<dyn Decoder>> {
+        Some(Box::new(*self))
     }
 }
 

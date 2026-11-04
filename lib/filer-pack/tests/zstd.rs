@@ -7,8 +7,10 @@
 mod common;
 
 use common::{Block, With, agree, numbers, skippable, unpack, zstd};
-use filer_api::{Error, ErrorKind};
-use filer_pack::Zstd;
+use core::sync::atomic::Ordering;
+use filer_api::{BufResult, Error, ErrorKind, ReadAt};
+use filer_pack::{Unpacked, Zstd};
+use filer_spec::block_on;
 
 fn decode(stream: &[u8]) -> Result<Vec<u8>, Error> {
     let whole = agree(Zstd::new, stream, 1);
@@ -115,4 +117,30 @@ fn checks_the_checksum_after_the_declared_size() {
     bad[5815] ^= 1;
     let error = read(bad, numbers.len()).unwrap_err();
     assert_eq!(error.kind(), ErrorKind::Corrupt);
+}
+
+#[test]
+fn resumes_between_frames() {
+    // Twelve frames of 1 MiB, stored as they are, so packed as long.
+    let frame = |i: u8| -> Vec<u8> { (0..1 << 20).map(|n| (n % 251) as u8 ^ i).collect() };
+    let level = ruzstd::encoding::CompressionLevel::Uncompressed;
+    let mut stream = Vec::new();
+    for i in 0..12 {
+        stream.extend(ruzstd::encoding::compress_to_vec(&frame(i)[..], level));
+    }
+    let len = stream.len() as u64;
+    let source = filer_spec::Counted::new(stream);
+    let reads = source.reads();
+    let codec = With(|| Box::new(Zstd::new()));
+    let unpacked = block_on(Unpacked::measured(source, 0..len, codec, 12 << 20)).unwrap();
+    // The measuring read every 64 KiB of it; reading back near the end
+    // reads on from the checkpoint before, at most 4 MiB back.
+    let all = reads.load(Ordering::Relaxed);
+    let at = (11 << 20) + 1000;
+    let read = unpacked.read_exact_at(Vec::with_capacity(100), at);
+    let BufResult(result, data) = block_on(read);
+    result.unwrap();
+    assert_eq!(data, frame(11)[1000..1100]);
+    let resumed = reads.load(Ordering::Relaxed) - all;
+    assert!(resumed <= 66, "{resumed} reads, of {all} for the whole");
 }
