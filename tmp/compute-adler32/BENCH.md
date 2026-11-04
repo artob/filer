@@ -6,7 +6,7 @@ alternatives, measured by the protocol of this repository's
 and builds for every implementation, each figure a median with its 95%
 confidence interval, and every result checked against the others'.
 
-**No results yet**: the checksum is still to be written.
+**No results yet**: it is still to be written.
 
 ## Counterparts
 

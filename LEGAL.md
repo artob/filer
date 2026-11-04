@@ -332,10 +332,12 @@ format specification, both public domain, for LZMA, LZMA2, and xz; and
 Joe Tsai's description for bzip2, as `Bzip2` already is. The checksums
 and hashes, `compute-*` crates (D64), come likewise from their
 definitions: each CRC's parameters, facts as the catalogue of CRCs lists
-them, and RFC 3720's test vectors; FIPS 180-4 for SHA-256, a United
-States government work; the xxHash specification for XXH64; and RFC 1950
-for Adler-32. A crate's code is never read as the source of its
-replacement.
+them, and RFC 3720's test vectors; FIPS 180-4 for SHA-256 and SHA-512, a
+United States government work; RFC 7693 and the BLAKE2 specification for
+BLAKE2, and the BLAKE3 specification, the reference code of neither
+read; Fletcher's checksums as ZFS's and APFS's documentation define
+their variants; the xxHash specification for XXH64; and RFC 1950 for
+Adler-32. A crate's code is never read as the source of its replacement.
 
 - **Deflate and gzip: written here.** `decode-deflate` (D62), written
   from RFC 1951 alone, decodes ZIP's raw Deflate, behind `deflate`, in

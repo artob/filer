@@ -45,11 +45,27 @@ name = "compute-adler32"
 version = "0.0.2"
 
 [[package]]
+name = "compute-blake2"
+version = "0.0.2"
+
+[[package]]
+name = "compute-blake3"
+version = "0.0.2"
+
+[[package]]
 name = "compute-crc"
 version = "0.0.2"
 
 [[package]]
+name = "compute-fletcher"
+version = "0.0.2"
+
+[[package]]
 name = "compute-sha256"
+version = "0.0.2"
+
+[[package]]
+name = "compute-sha512"
 version = "0.0.2"
 
 [[package]]

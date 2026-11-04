@@ -407,8 +407,9 @@ over them, and as empty skeletons `filer-wasi`, `filer-whatwg`, and
 `filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`, `filer-refs`,
 `filer-squashfs`, `filer-udf`, `filer-ufs`, and `filer-zfs`; the
 decoders `decode-zlib`, `decode-lz4`, and `decode-lzo` (D62); and
-`compute-adler32` (D64). The rest are created when their first `TODO.md`
-item starts.
+`compute-adler32`, `compute-blake2`, `compute-blake3`,
+`compute-fletcher`, and `compute-sha512` (D64). The rest are created
+when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
 that perform no I/O and hold no filesystem state (`DynDriver`, `Hybrid`,
@@ -2603,19 +2604,24 @@ CRC, `decode-xz`'s CRC-64 and SHA-256, and `decode-zstd`'s XXH64 were
 each private to one decoder, and Adler-32 (zlib) and XXH32 (LZ4) were to
 come. `compute-crc` holds every CRC, each a type and a feature, over one
 engine of eight tables built at compile time: CRC-16/MODBUS, CRC-32,
-CRC-32C, CRC-32/BZIP2, and CRC-64/XZ, each a `Copy` value whose
-`update` returns the next, with its register exposed for formats that
-chain it, as ext4 does. `compute-sha256` (FIPS 180-4) and
-`compute-xxhash` (XXH64, from any seed; XXH32 to follow) are crates of
-their own, as their algorithms share nothing; `compute-adler32` is
-reserved for `decode-zlib`. Each is clean room, public domain, pure safe
-Rust, `no_std` without an allocator, and dependency-free; the
-`decode-*` crates depend on them, and `filer_api::checksum` re-exports
-`compute-crc`'s, which keeps D53. Their ceiling is portable code: the
-fastest CRCs and SHA-256 use carry-less multiplication or SHA
-instructions, chosen at run time, which takes `unsafe` code and `std`'s
-detection, so their `BENCH.md` (D63) compares them with both kinds of
-counterparts.
+CRC-32C, CRC-32/BZIP2, and CRC-64/XZ, each a `Copy` value whose `update`
+returns the next, with its register exposed for formats that chain it,
+as ext4 does. `compute-sha256` (FIPS 180-4) and `compute-xxhash` (XXH64,
+from any seed; XXH32 to follow) are crates of their own, as their
+algorithms share nothing. Reserved, each for the reader that needs it:
+`compute-adler32` for `decode-zlib`; `compute-fletcher` for ZFS's
+Fletcher-4 and Fletcher-2 and APFS's Fletcher-64; `compute-blake2` for
+btrfs's BLAKE2b and RAR 5's BLAKE2sp; `compute-sha512` for ZFS's
+SHA-512/256; and `compute-blake3` for ZFS's BLAKE3. ZFS's Skein and
+Edon-R wait for a ZFS driver that needs them; a format's own name hashes
+and sums, such as ext4's and XFS's directory hashes, stay in its driver.
+Each is clean room, public domain, pure safe Rust, `no_std` without an
+allocator, and dependency-free; the `decode-*` crates depend on them,
+and `filer_api::checksum` re-exports `compute-crc`'s, which keeps D53.
+Their ceiling is portable code: the fastest CRCs and SHA-256 use
+carry-less multiplication or SHA instructions, chosen at run time, which
+takes `unsafe` code and `std`'s detection, so their `BENCH.md` (D63)
+compares them with both kinds of counterparts.
 
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and

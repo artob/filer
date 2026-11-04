@@ -59,8 +59,10 @@ so any release may break compatibility.
   seed. The `decode-*` crates compute their checks with them, and
   `filer_api::checksum` re-exports `compute-crc`'s CRCs, whose every type
   now has `from_state`, `state`, and `CHECK`.
-- `compute-adler32`: New crate, with no items yet, reserving the name of
-  Adler-32, for `decode-zlib` (D64).
+- `compute-adler32`, `compute-blake2`, `compute-blake3`,
+  `compute-fletcher`, and `compute-sha512`: New crates, with no items
+  yet, reserving the names of checksums and hashes to come (D64): for
+  zlib, btrfs, RAR 5, ZFS, and APFS.
 - `decode-lzma`: New crate: an LZMA and LZMA2 decoder, ported from the
   LZMA SDK and dedicated to the public domain, without dependencies, for
   `no_std` with an allocator. `Decoder::lzma` decodes LZMA with the
