@@ -19,7 +19,7 @@ confidence interval, and every result checked against the others'.
 ## Inputs
 
 Buffers of 16 B, 256 B, 4 KiB, 64 KiB, and 1 MiB, whole and fed in
-pieces of 7 bytes, for XXH64.
+pieces of 7 bytes, for XXH32 and XXH64.
 
 ## Machines
 

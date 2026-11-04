@@ -568,8 +568,8 @@ crate's name until its first code, which moves it to `lib/`.
   SquashFS, ZFS, zisofs, and Apple's compressed files. Done when the
   first driver to need it reads through it.
 - [ ] **DEC-07: `decode-lz4` (on demand).** LZ4's blocks and frames, for
-  SquashFS, EROFS, ZFS, F2FS, ReFS, and initramfs images, with XXH32 in
-  `compute-xxhash` (D64). Done when the first driver to need it reads
+  SquashFS, EROFS, ZFS, F2FS, ReFS, and initramfs images, its XXH32
+  `compute-xxhash`'s (D64). Done when the first driver to need it reads
   through it.
 - [ ] **DEC-08: `decode-lzo` (on demand).** LZO1X, for btrfs, SquashFS,
   F2FS, and initramfs images, written as `LEGAL.md` requires. Done when

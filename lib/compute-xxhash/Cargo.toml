@@ -4,12 +4,12 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Clean-room, public-domain xxHash hashes: XXH64, in safe Rust."
+description = "Clean-room, public-domain xxHash hashes: XXH32 and XXH64, in safe Rust."
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["xxhash", "xxh64", "hash", "checksum", "no-std"]
+keywords = ["xxhash", "xxh32", "xxh64", "hash", "no-std"]
 categories = ["algorithms", "no-std", "no-std::no-alloc"]
 publish.workspace = true
 
@@ -22,8 +22,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = ["xxh64"]
+all = ["xxh32", "xxh64"]
 std = []
+xxh32 = []
 xxh64 = []
 
 [dev-dependencies]

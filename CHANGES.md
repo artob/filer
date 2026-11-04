@@ -56,10 +56,10 @@ so any release may break compatibility.
   domain, without dependencies, for `no_std` without an allocator (D64):
   `compute-crc`'s CRC-16/MODBUS, CRC-32, CRC-32C, CRC-32/BZIP2, and
   CRC-64/XZ, a type and a feature each; `compute-adler32`'s Adler-32, in
-  16 lanes; `compute-sha256`'s SHA-256; and `compute-xxhash`'s XXH64,
-  from any seed. The `decode-*` crates compute their checks with them,
-  and `filer_api::checksum` re-exports `compute-crc`'s CRCs, whose every
-  type now has `from_state`, `state`, and `CHECK`.
+  16 lanes; `compute-sha256`'s SHA-256; and `compute-xxhash`'s XXH32 and
+  XXH64, from any seed. The `decode-*` crates compute their checks with
+  them, and `filer_api::checksum` re-exports `compute-crc`'s CRCs, whose
+  every type now has `from_state`, `state`, and `CHECK`.
 - `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
   `compute-sha512`: New crates, with no items yet, reserving the names
   of checksums and hashes to come (D64): for btrfs, RAR 5, ZFS, and
