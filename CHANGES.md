@@ -23,6 +23,8 @@ so any release may break compatibility.
   block after it, refusing a valid stream as `Corrupt`.
 - `decode-deflate`: `Decoder::decode` produces what it decoded before
   its input ran short in that call, rather than the next.
+- `decode-zstd`: four Huffman streams of fewer than six literals are
+  `Corrupt`, as zstd refuses them.
 
 ## 0.0.3 - 2026-11-04
 Our own decoders and checksums, written clean room and dedicated to the

@@ -8,6 +8,10 @@ use super::{corrupt, huffman::Huffman};
 use crate::Error;
 use alloc::vec::Vec;
 
+/// The fewest literals four streams may decode to, as zstd refuses fewer:
+/// below it, a quarter each would leave the last streams none.
+const MIN_FOUR_STREAMS: usize = 6;
+
 /// Reads the literals section that `block` begins with, of at most `max`
 /// literals, and returns them and the section's length: as they lie in
 /// `block` if stored as they are, or else decoded into `buffer`. A Huffman
@@ -62,6 +66,9 @@ pub(super) fn read<'a>(
     let sizes = field(header)?;
     let mask = 1_u64.wrapping_shl(width).wrapping_sub(1);
     let regenerated = size(sizes & mask).ok_or_else(corrupt)?;
+    if format != 0 && regenerated < MIN_FOUR_STREAMS {
+        return Err(corrupt());
+    }
     let compressed = usize::try_from((sizes >> width) & mask).map_err(|_| corrupt())?;
     let end = header.saturating_add(compressed);
     let mut streams = block.get(header..end).ok_or_else(corrupt)?;

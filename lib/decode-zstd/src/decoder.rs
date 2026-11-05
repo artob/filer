@@ -623,6 +623,30 @@ mod tests {
         assert_eq!(kind(&large), Error::Corrupt);
     }
 
+    /// Four Huffman streams of a code of one bit, each stream a byte with
+    /// its marker and `n` bits of symbol 0: the jump table, the streams,
+    /// and no sequences, in a compressed block alone in its frame.
+    fn four_streams(regenerated: u32, n: u32) -> Vec<u8> {
+        // One weight, of symbol 0, so that symbol 1 has the other code.
+        let tree = [0x80, 0x10];
+        let stream = 1 << n;
+        let compressed = (tree.len() + 6 + 4) as u32;
+        let header = (2 | 1 << 2 | regenerated << 4 | compressed << 14).to_le_bytes();
+        let content = [&header[..3], &tree, &[1, 0, 1, 0, 1, 0], &[stream; 4], &[0]].concat();
+        let mut frame = zstd(&[Block::Raw(&content)]);
+        frame[6] |= 2 << 1;
+        frame
+    }
+
+    #[test]
+    fn needs_six_literals_for_four_streams() {
+        assert_eq!(decode(&four_streams(8, 2)).unwrap(), [0; 8]);
+        // Fewer than six, which zstd refuses, as the streams cannot split.
+        for regenerated in [0, 4] {
+            assert_eq!(kind(&four_streams(regenerated, 1)), Error::Corrupt);
+        }
+    }
+
     #[test]
     fn decodes_rle_blocks_checked() {
         for single in [false, true] {
