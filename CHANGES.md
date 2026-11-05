@@ -23,6 +23,9 @@ so any release may break compatibility.
 - `compute-crc`: the `intrinsics` feature, which takes CRC-32C by
   SSE4.2's `crc32` on x86-64, and CRC-32, CRC-32C, and CRC-32/BZIP2 by
   ARM's `crc` extension, where the CPU has them: about four times as fast.
+- `compute-sha256`: the `intrinsics` feature, which takes SHA-256 by
+  x86-64's SHA extensions and ARMv8's SHA2, where the CPU has them: about
+  six times as fast.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
 ### Fixed

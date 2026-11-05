@@ -66,6 +66,9 @@ dependencies = [
 [[package]]
 name = "compute-sha256"
 version = "0.0.4"
+dependencies = [
+ "compute-multiversion",
+]
 
 [[package]]
 name = "const-oid"

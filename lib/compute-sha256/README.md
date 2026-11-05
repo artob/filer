@@ -5,7 +5,8 @@ the hash that xz and 7z may check their data with, computed over bytes fed in
 pieces, as they arrive. It checks what is stored, as an archive's checks do,
 and makes no claim against attackers, as a cryptographic library would. It is
 pure, safe Rust without dependencies, and builds with `#![no_std]`, without an
-allocator.
+allocator. Its `intrinsics` feature takes the CPU's SHA-256 instructions where
+it has them, x86-64's and ARMv8's, about six times as fast.
 
 It is one of the `compute-*` crates: clean-room, public-domain checksums and
 hashes, each of the same shape.

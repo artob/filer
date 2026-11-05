@@ -23,4 +23,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = []
+std = ["compute-multiversion?/std"]
+# SHA-256's instructions, x86-64's SHA extensions and ARMv8's SHA2, where the
+# CPU has them: chosen at run time with `std`, else where the build enables
+# them.
+intrinsics = ["dep:compute-multiversion"]
+
+[dependencies]
+compute-multiversion = { workspace = true, optional = true }
