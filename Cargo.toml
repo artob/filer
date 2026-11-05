@@ -79,7 +79,7 @@ filer-zfs = { version = "0.0.3", path = "tmp/filer-zfs", default-features = fals
 filer-zip = { version = "0.0.3", path = "lib/filer-zip", default-features = false }
 known-codepages = { version = "0.0.3", path = "lib/known-codepages", default-features = false }
 bitflags = { version = "2.13", default-features = false }
-deflate64 = "0.1"
+deflate64 = "0.1.12"
 lz4_flex = { version = "0.14", default-features = false }
 lzokay-native = { version = "0.1", default-features = false }
 lzma-rust2 = { version = "0.25", default-features = false }
