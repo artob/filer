@@ -29,38 +29,34 @@ pub(crate) struct Listed {
     pub(crate) number: u32,
 }
 
-/// Walks the listing of directory `dir`, giving each entry to `found`,
-/// until it returns `true`; returns that entry, if any.
-pub(crate) async fn walk<S: ReadAt>(
+/// Returns every entry of the listing of directory `dir`.
+pub(crate) async fn entries<S: ReadAt>(
     meta: &Metadata<S>,
     dir: &Inode,
-    mut found: impl FnMut(&Listed) -> bool,
     op: OpKind,
-) -> Result<Option<Listed>, Error> {
+) -> Result<Vec<Listed>, Error> {
     let bad = || SquashfsError::BadDirectory { inode: dir.number }.into_error(op);
     let Body::Dir { listing, len } = &dir.body else {
         return Err(Error::new(filer_api::ErrorKind::NotADirectory, op));
     };
-    let (mut at, mut left) = (*listing, *len);
+    let (mut at, mut left) = (meta.reader(*listing), *len);
+    let mut entries = Vec::new();
     while left > 0 {
         // The header: how many entries, less one; the metadata block of
         // their inodes; and the number theirs are relative to.
-        let header = meta.read(&mut at, 12, op).await?;
-        let field = |at| filer_fs::le::u32_at(&header, at).unwrap_or(0);
-        let (count, block, base) = (field(0), field(4), field(8));
+        let (count, block, base) = (at.u32(op).await?, at.u32(op).await?, at.u32(op).await?);
         if count >= RUN {
             return Err(bad());
         }
         left = left.checked_sub(12).ok_or_else(bad)?;
         for _ in 0..=count {
-            let entry = meta.read(&mut at, 8, op).await?;
-            let u16_at = |at| filer_fs::le::u16_at(&entry, at).unwrap_or(0);
-            let (offset, delta, kind, size) = (u16_at(0), u16_at(2), u16_at(4), u16_at(6));
+            let (offset, delta) = (at.u16(op).await?, at.u16(op).await?);
+            let (kind, size) = (at.u16(op).await?, at.u16(op).await?);
             let len = usize::from(size).saturating_add(1);
             if len > MAX_NAME {
                 return Err(bad());
             }
-            let name = meta.read(&mut at, len, op).await?;
+            let name = at.read(len, op).await?;
             let used = u32::try_from(len).ok().and_then(|len| len.checked_add(8));
             left = used
                 .and_then(|used| left.checked_sub(used))
@@ -79,30 +75,8 @@ pub(crate) async fn walk<S: ReadAt>(
                 reference: u64::from(block) << 16 | u64::from(offset),
                 number,
             };
-            if found(&listed) {
-                return Ok(Some(listed));
-            }
+            entries.push(listed);
         }
     }
-    Ok(None)
-}
-
-/// Returns every entry of the listing of directory `dir`.
-pub(crate) async fn entries<S: ReadAt>(
-    meta: &Metadata<S>,
-    dir: &Inode,
-    op: OpKind,
-) -> Result<Vec<Listed>, Error> {
-    let mut entries = Vec::new();
-    walk(
-        meta,
-        dir,
-        |listed| {
-            entries.push(listed.clone());
-            false
-        },
-        op,
-    )
-    .await?;
     Ok(entries)
 }

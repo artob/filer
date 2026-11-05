@@ -48,12 +48,13 @@ struct Decoded {
 }
 
 /// What reads metadata blocks: the image, its size and compressor, and the
-/// blocks most recently decoded.
+/// blocks most recently read: what they decode to, or `None` for those
+/// that do not, which a corrupt image may point to again and again.
 pub(crate) struct Metadata<S> {
     pub(crate) source: S,
     pub(crate) end: u64,
     pub(crate) compressor: Compressor,
-    cache: Lock<Vec<Decoded>>,
+    cache: Lock<Vec<(u64, Option<Decoded>)>>,
 }
 
 impl<S: ReadAt> Metadata<S> {
@@ -70,92 +71,167 @@ impl<S: ReadAt> Metadata<S> {
     /// begins.
     async fn block(&self, at: u64, op: OpKind) -> Result<Decoded, Error> {
         let hit = self.cache.with(|cache| {
-            let found = cache.iter().position(|block| block.at == at)?;
+            let found = cache.iter().position(|cached| cached.0 == at)?;
             // The most recent first.
-            let block = cache.remove(found);
-            cache.insert(0, block.clone());
-            Some(block)
+            let cached = cache.remove(found);
+            cache.insert(0, cached.clone());
+            Some(cached.1)
         });
-        if let Some(block) = hit {
-            return Ok(block);
-        }
-        let bad = || SquashfsError::BadMetadataBlock { at }.into_error(op);
-        let body = at
-            .checked_add(2)
-            .filter(|&body| body <= self.end)
-            .ok_or_else(bad)?;
+        let block = match hit {
+            Some(block) => block,
+            None => {
+                let block = self.decode(at, op).await?;
+                self.cache.with(|cache| {
+                    cache.truncate(CACHED.saturating_sub(1));
+                    cache.insert(0, (at, block.clone()));
+                });
+                block
+            },
+        };
+        block.ok_or_else(|| SquashfsError::BadMetadataBlock { at }.into_error(op))
+    }
+
+    /// Decodes the block at `at`, or returns `None` if it does not.
+    async fn decode(&self, at: u64, op: OpKind) -> Result<Option<Decoded>, Error> {
+        let Some(body) = at.checked_add(2).filter(|&body| body <= self.end) else {
+            return Ok(None);
+        };
         let header = filer_fs::read_exact(&self.source, at, 2, op).await?;
-        let header = filer_fs::le::u16_at(&header, 0).ok_or_else(bad)?;
+        let Some(header) = filer_fs::le::u16_at(&header, 0) else {
+            return Ok(None);
+        };
         let size = usize::from(header & !STORED);
         let next = body
             .checked_add(u64::from(header & !STORED))
-            .filter(|&next| next <= self.end && size > 0 && size <= BLOCK)
-            .ok_or_else(bad)?;
+            .filter(|&next| next <= self.end && size > 0 && size <= BLOCK);
+        let Some(next) = next else {
+            return Ok(None);
+        };
         let raw = filer_fs::read_exact(&self.source, body, size, op).await?;
         let bytes: Arc<[u8]> = if header & STORED != 0 {
             raw.into()
         } else {
             let mut decoded = vec![0; BLOCK];
-            let len = self
-                .compressor
-                .decompress(&raw, &mut decoded)
-                .ok_or_else(bad)?;
+            let Some(len) = self.compressor.decompress(&raw, &mut decoded) else {
+                return Ok(None);
+            };
             decoded.truncate(len);
             decoded.into()
         };
-        let block = Decoded { at, bytes, next };
-        self.cache.with(|cache| {
-            cache.truncate(CACHED.saturating_sub(1));
-            cache.insert(0, block.clone());
-        });
-        Ok(block)
+        Ok(Some(Decoded { at, bytes, next }))
     }
 
-    /// Reads `len` bytes from `cursor` on, across blocks, and moves it past
-    /// them. Callers bound `len`.
-    pub(crate) async fn read(
-        &self,
-        cursor: &mut Cursor,
+    /// Returns a reader of the stream from `cursor` on.
+    pub(crate) const fn reader(&self, cursor: Cursor) -> Reader<'_, S> {
+        Reader {
+            meta: self,
+            cursor,
+            held: None,
+        }
+    }
+}
+
+/// Reads a stream of metadata blocks from a cursor on, holding the block
+/// it is in: reads in a row, of a listing's entries, say, decode and look
+/// up each block once.
+pub(crate) struct Reader<'a, S> {
+    meta: &'a Metadata<S>,
+    cursor: Cursor,
+    held: Option<Decoded>,
+}
+
+impl<S: ReadAt> Reader<'_, S> {
+    /// Returns where it is.
+    pub(crate) const fn cursor(&self) -> Cursor {
+        self.cursor
+    }
+
+    /// Gives the next `len` bytes to `each`, a run at a time, across
+    /// blocks, and moves past them.
+    async fn take(
+        &mut self,
         len: usize,
+        mut each: impl FnMut(&[u8]),
         op: OpKind,
-    ) -> Result<Vec<u8>, Error> {
-        let mut bytes = Vec::with_capacity(len);
-        while bytes.len() < len {
-            let block = self.block(cursor.block, op).await?;
-            let Some(available) = block.bytes.get(cursor.offset..) else {
+    ) -> Result<(), Error> {
+        let mut left = len;
+        while left > 0 {
+            let block = match &self.held {
+                Some(block) if block.at == self.cursor.block => block,
+                _ => self
+                    .held
+                    .insert(self.meta.block(self.cursor.block, op).await?),
+            };
+            let Some(available) = block.bytes.get(self.cursor.offset..) else {
                 return Err(SquashfsError::BadMetadataBlock { at: block.at }.into_error(op));
             };
             if available.is_empty() {
                 // On to the next block, which lies further on, so that
                 // this ends.
-                *cursor = Cursor {
+                self.cursor = Cursor {
                     block: block.next,
                     offset: 0,
                 };
                 continue;
             }
-            let n = available.len().min(len.saturating_sub(bytes.len()));
-            bytes.extend_from_slice(available.get(..n).unwrap_or_default());
-            cursor.offset = cursor.offset.saturating_add(n);
+            let n = available.len().min(left);
+            each(available.get(..n).unwrap_or_default());
+            self.cursor.offset = self.cursor.offset.saturating_add(n);
+            left = left.saturating_sub(n);
         }
+        Ok(())
+    }
+
+    /// Fills `out` from where it is on, and moves past it.
+    pub(crate) async fn fill(&mut self, out: &mut [u8], op: OpKind) -> Result<(), Error> {
+        let mut filled = 0;
+        let len = out.len();
+        self.take(
+            len,
+            |run| {
+                let to = out
+                    .get_mut(filled..)
+                    .and_then(|rest| rest.get_mut(..run.len()));
+                if let Some(to) = to {
+                    to.copy_from_slice(run);
+                }
+                filled = filled.saturating_add(run.len());
+            },
+            op,
+        )
+        .await
+    }
+
+    /// Moves past the next `len` bytes.
+    pub(crate) async fn skip(&mut self, len: usize, op: OpKind) -> Result<(), Error> {
+        self.take(len, |_| {}, op).await
+    }
+
+    /// Reads `len` bytes from where it is on. Callers bound `len`.
+    pub(crate) async fn read(&mut self, len: usize, op: OpKind) -> Result<Vec<u8>, Error> {
+        let mut bytes = vec![0; len];
+        self.fill(&mut bytes, op).await?;
         Ok(bytes)
     }
 
-    /// Reads a little-endian `u16` from `cursor` on.
-    pub(crate) async fn u16(&self, cursor: &mut Cursor, op: OpKind) -> Result<u16, Error> {
-        let bytes = self.read(cursor, 2, op).await?;
-        Ok(filer_fs::le::u16_at(&bytes, 0).unwrap_or(0))
+    /// Reads a little-endian `u16`.
+    pub(crate) async fn u16(&mut self, op: OpKind) -> Result<u16, Error> {
+        let mut bytes = [0; 2];
+        self.fill(&mut bytes, op).await?;
+        Ok(u16::from_le_bytes(bytes))
     }
 
-    /// Reads a little-endian `u32` from `cursor` on.
-    pub(crate) async fn u32(&self, cursor: &mut Cursor, op: OpKind) -> Result<u32, Error> {
-        let bytes = self.read(cursor, 4, op).await?;
-        Ok(filer_fs::le::u32_at(&bytes, 0).unwrap_or(0))
+    /// Reads a little-endian `u32`.
+    pub(crate) async fn u32(&mut self, op: OpKind) -> Result<u32, Error> {
+        let mut bytes = [0; 4];
+        self.fill(&mut bytes, op).await?;
+        Ok(u32::from_le_bytes(bytes))
     }
 
-    /// Reads a little-endian `u64` from `cursor` on.
-    pub(crate) async fn u64(&self, cursor: &mut Cursor, op: OpKind) -> Result<u64, Error> {
-        let bytes = self.read(cursor, 8, op).await?;
-        Ok(filer_fs::le::u64_at(&bytes, 0).unwrap_or(0))
+    /// Reads a little-endian `u64`.
+    pub(crate) async fn u64(&mut self, op: OpKind) -> Result<u64, Error> {
+        let mut bytes = [0; 8];
+        self.fill(&mut bytes, op).await?;
+        Ok(u64::from_le_bytes(bytes))
     }
 }

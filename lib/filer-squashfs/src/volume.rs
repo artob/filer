@@ -8,7 +8,7 @@ use crate::{
     dir::{self, Listed},
     file::File,
     inode::{self, Body, Inode},
-    meta::Metadata,
+    meta::{Cursor, Metadata},
     superblock::{self, Superblock},
     xattr,
 };
@@ -20,6 +20,13 @@ use filer_api::{
 };
 use filer_fs::{FileSystem, Lock, Opened};
 
+/// How many bytes of the directory table the listings cached may span in
+/// all, those read most recently first.
+const LISTED: u32 = 1 << 20;
+
+/// How many listings the cache keeps.
+const LISTINGS: usize = 16;
+
 /// An image: what every operation reads from.
 pub(crate) struct Volume<S> {
     pub(crate) key: DriverKey,
@@ -27,8 +34,18 @@ pub(crate) struct Volume<S> {
     pub(crate) meta: Metadata<S>,
     /// The fragment blocks most recently decoded, by index.
     pub(crate) fragments: Lock<Vec<(u32, Arc<[u8]>)>>,
+    /// The listings most recently read, by where they are and their
+    /// lengths: a lookup scans its directory's listing, so paths through
+    /// a directory of many entries would decode it again and again.
+    listings: Lock<Vec<(Cursor, u32, Listing)>>,
     pub(crate) xattr_table: Option<xattr::Table>,
+    /// The names of extended attributes most recently read, by their
+    /// index: each is looked up among them.
+    pub(crate) named: Lock<Option<(u32, Arc<[xattr::Xattr]>)>>,
 }
+
+/// A directory's entries, as its listing gives them.
+pub(crate) type Listing = Arc<[Listed]>;
 
 /// An inode that a path resolved to.
 pub(crate) type Node = Arc<Inode>;
@@ -47,7 +64,9 @@ impl<S: ReadAt> Volume<S> {
             meta: Metadata::new(source, sb.bytes_used, sb.compressor),
             sb,
             fragments: Lock::new(Vec::new()),
+            listings: Lock::new(Vec::new()),
             xattr_table,
+            named: Lock::new(None),
         })
     }
 
@@ -76,12 +95,46 @@ impl<S: ReadAt> Volume<S> {
         Ok(node)
     }
 
+    /// Returns the entries of directory `dir`, from the cache if it holds
+    /// them.
+    async fn listing(&self, dir: &Node, op: OpKind) -> Result<Listing, Error> {
+        let Body::Dir { listing, len } = dir.body else {
+            return Err(Error::new(ErrorKind::NotADirectory, op));
+        };
+        let hit = self.listings.with(|cache| {
+            let found = cache
+                .iter()
+                .position(|cached| (cached.0, cached.1) == (listing, len))?;
+            // The most recent first.
+            let cached = cache.remove(found);
+            cache.insert(0, cached.clone());
+            Some(cached.2)
+        });
+        if let Some(entries) = hit {
+            return Ok(entries);
+        }
+        let entries: Listing = dir::entries(&self.meta, dir, op).await?.into();
+        if len <= LISTED {
+            self.listings.with(|cache| {
+                // Within the bounds, those read most recently.
+                let mut spanned = len;
+                cache.truncate(LISTINGS.saturating_sub(1));
+                cache.retain(|cached| {
+                    spanned = spanned.saturating_add(cached.1);
+                    spanned <= LISTED
+                });
+                cache.insert(0, (listing, len, entries.clone()));
+            });
+        }
+        Ok(entries)
+    }
+
     /// Finds the entry `name` of directory `dir`, matching bytes exactly.
     /// The entry repeats its inode's number and kind, and must agree, so
     /// that listings and lookups do.
     async fn find(&self, dir: &Node, name: &[u8], op: OpKind) -> Result<Node, Error> {
-        let Some(listed) = dir::walk(&self.meta, dir, |listed| listed.name == name, op).await?
-        else {
+        let entries = self.listing(dir, op).await?;
+        let Some(listed) = entries.iter().find(|listed| listed.name == name) else {
             return Err(Error::new(ErrorKind::NotFound, op));
         };
         let node = self.node(listed.reference, op).await?;
@@ -99,7 +152,7 @@ impl<S: ReadAt> Volume<S> {
 
 impl<S: ReadAt + 'static> FileSystem for Volume<S> {
     type Node = Node;
-    type Dir = Vec<Listed>;
+    type Dir = Listing;
     type File = File;
 
     fn key(&self) -> &DriverKey {
@@ -130,8 +183,12 @@ impl<S: ReadAt + 'static> FileSystem for Volume<S> {
         }
     }
 
-    async fn open_dir(&self, dir: &Node, op: OpKind) -> Result<Vec<Listed>, Error> {
-        dir::entries(&self.meta, dir, op).await
+    fn open_dir(
+        &self,
+        dir: &Node,
+        op: OpKind,
+    ) -> impl Future<Output = Result<Listing, Error>> + Send {
+        self.listing(dir, op)
     }
 
     async fn open_file(&self, file: &Node, op: OpKind) -> Result<File, Error> {
@@ -174,7 +231,7 @@ impl<S: ReadAt + 'static> FileSystem for Volume<S> {
     async fn read_dir(
         &self,
         node: &Node,
-        dir: &Vec<Listed>,
+        dir: &Listing,
         cookie: Option<DirCookie>,
         max: usize,
         op: OpKind,
@@ -223,12 +280,14 @@ impl<S: ReadAt + 'static> FileSystem for Volume<S> {
         op: OpKind,
     ) -> Result<Option<(Vec<u8>, u64)>, Error> {
         let xattrs = self.xattrs(node.number, node.xattr, op).await?;
-        Ok(xattrs
-            .into_iter()
+        let Some(found) = xattrs
+            .iter()
             .find(|xattr| xattr.ns == ns && xattr.name == name)
-            .map(|found| {
-                let len = u64::try_from(found.value.len()).unwrap_or(u64::MAX);
-                (found.value, len)
-            }))
+        else {
+            return Ok(None);
+        };
+        let value = self.xattr_value(node.number, found, op).await?;
+        let len = u64::try_from(value.len()).unwrap_or(u64::MAX);
+        Ok(Some((value, len)))
     }
 }

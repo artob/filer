@@ -140,7 +140,7 @@ impl<S: ReadAt> Volume<S> {
         let mark = index.checked_div(MARK).unwrap_or(0);
         let mark = usize::try_from(mark).unwrap_or(usize::MAX);
         // The nearest mark, and how far the marks reach.
-        let (known, (mut at, mut list)) = file.state.with(|state| {
+        let (known, (mut at, list)) = file.state.with(|state| {
             let last = state.marks.len().saturating_sub(1).min(mark);
             let nearest = state.marks.get(last).copied();
             (
@@ -148,12 +148,13 @@ impl<S: ReadAt> Volume<S> {
                 nearest.unwrap_or((file.layout.start, file.layout.list)),
             )
         });
+        let mut list = self.meta.reader(list);
         let mut position = u64::try_from(known)
             .unwrap_or(u64::MAX)
             .saturating_mul(MARK);
         // Sum the sizes of the blocks before it, marking every `MARK`th.
         while position < index {
-            let word = self.meta.u32(&mut list, op).await?;
+            let word = list.u32(op).await?;
             at = at.checked_add(u64::from(word & SIZE)).ok_or_else(|| {
                 SquashfsError::BadDataBlock {
                     inode: inode.number,
@@ -166,12 +167,12 @@ impl<S: ReadAt> Volume<S> {
                 let mark = usize::try_from(position.checked_div(MARK).unwrap_or(0)).ok();
                 file.state.with(|state| {
                     if mark == Some(state.marks.len()) {
-                        state.marks.push((at, list));
+                        state.marks.push((at, list.cursor()));
                     }
                 });
             }
         }
-        let word = self.meta.u32(&mut list, op).await?;
+        let word = list.u32(op).await?;
         Ok((at, word))
     }
 
@@ -222,9 +223,9 @@ impl<S: ReadAt> Volume<S> {
         let offset = usize::try_from(index % 512)
             .map_err(|_| bad())?
             .saturating_mul(16);
-        let mut entry = Cursor { block, offset };
-        let start = self.meta.u64(&mut entry, op).await?;
-        let word = self.meta.u32(&mut entry, op).await?;
+        let mut entry = self.meta.reader(Cursor { block, offset });
+        let start = entry.u64(op).await?;
+        let word = entry.u32(op).await?;
         let room = usize::try_from(self.sb.block_size).map_err(|_| bad())?;
         let data = self.block(start, word, room, false, op, bad).await?;
         self.fragments.with(|cache| {

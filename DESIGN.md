@@ -3747,9 +3747,16 @@ header, and checks the tables' order. A file keeps a mark every 256
 blocks of where its block is and where its size is listed, so that a
 read sums at most 256 sizes, and never more of a list than a read's
 offset reaches; a corrupt inode claiming billions of blocks costs
-nothing until read. Decoded metadata blocks (32), fragment blocks (4),
-and each open file's last block are cached, behind `filer_fs::Lock`.
-Directory handles hold their listing, decoded whole. `mksquashfs` 4.7.5's
+nothing until read. Metadata blocks (32, and those that do not decode,
+which a corrupt image may point to again and again), fragment blocks (4),
+listings (16, spanning at most 1 MiB of the directory table), the
+attribute names last read, and each open file's last block are cached,
+behind `filer_fs::Lock`. A lookup scans its directory's listing, decoded
+whole and shared with handles, so paths through a directory of many
+entries decode it once, not once each. Attribute values are read only
+as asked for, since pairs may share one: a value of 64 KiB that 65,536
+pairs share would be 4 GiB read whole. A file's attribute names may
+total 64 KiB, as Linux's list of them holds. `mksquashfs` 4.7.5's
 images of every compressor, of 4 KiB and 1 MiB blocks, stored, without
 fragments, and with every tail in one read exactly as the Linux kernel
 mounts them, LZMA's as `unsquashfs` extracts them; the structure-aware

@@ -84,10 +84,11 @@ pub(crate) async fn read<S: ReadAt>(
     op: OpKind,
 ) -> Result<Inode, Error> {
     let bad = || SquashfsError::BadInode { reference }.into_error(op);
-    let mut at = Cursor::of(sb.inode_table, reference)
+    let at = Cursor::of(sb.inode_table, reference)
         .filter(|at| at.block < sb.dir_table)
         .ok_or_else(bad)?;
-    let header = meta.read(&mut at, 16, op).await?;
+    let mut at = meta.reader(at);
+    let header = at.read(16, op).await?;
     let u16_at = |at| filer_fs::le::u16_at(&header, at).unwrap_or(0);
     let u32_at = |at| filer_fs::le::u32_at(&header, at).unwrap_or(0);
     let (kind_id, mtime, number) = (u16_at(0), u32_at(8), u32_at(12));
@@ -96,7 +97,7 @@ pub(crate) async fn read<S: ReadAt>(
     // Each kind's fields, after the link count where it has one.
     let (body, xattr) = match kind {
         FileKind::Dir if extended => {
-            let fields = meta.read(&mut at, 24, op).await?;
+            let fields = at.read(24, op).await?;
             let field = |at| filer_fs::le::u32_at(&fields, at).unwrap_or(0);
             let offset = filer_fs::le::u16_at(&fields, 18).unwrap_or(0);
             let listing = listing(sb, field(8), offset).ok_or_else(bad)?;
@@ -104,7 +105,7 @@ pub(crate) async fn read<S: ReadAt>(
             (Body::Dir { listing, len }, field(20))
         },
         FileKind::Dir => {
-            let fields = meta.read(&mut at, 16, op).await?;
+            let fields = at.read(16, op).await?;
             let size = filer_fs::le::u16_at(&fields, 8).unwrap_or(0);
             let offset = filer_fs::le::u16_at(&fields, 10).unwrap_or(0);
             let block = filer_fs::le::u32_at(&fields, 0).unwrap_or(0);
@@ -113,46 +114,40 @@ pub(crate) async fn read<S: ReadAt>(
             (Body::Dir { listing, len }, NONE)
         },
         FileKind::File if extended => {
-            let fields = meta.read(&mut at, 40, op).await?;
+            let fields = at.read(40, op).await?;
             let u32_at = |at| filer_fs::le::u32_at(&fields, at).unwrap_or(0);
             let u64_at = |at| filer_fs::le::u64_at(&fields, at).unwrap_or(0);
             let (start, size) = (u64_at(0), u64_at(8));
-            let layout = layout(sb, start, size, u32_at(28), u32_at(32), at).ok_or_else(bad)?;
+            let layout =
+                layout(sb, start, size, u32_at(28), u32_at(32), at.cursor()).ok_or_else(bad)?;
             (Body::File(layout), u32_at(36))
         },
         FileKind::File => {
-            let fields = meta.read(&mut at, 16, op).await?;
+            let fields = at.read(16, op).await?;
             let u32_at = |at| filer_fs::le::u32_at(&fields, at).unwrap_or(0);
             let (start, size) = (u64::from(u32_at(0)), u64::from(u32_at(12)));
-            let layout = layout(sb, start, size, u32_at(4), u32_at(8), at).ok_or_else(bad)?;
+            let layout =
+                layout(sb, start, size, u32_at(4), u32_at(8), at.cursor()).ok_or_else(bad)?;
             (Body::File(layout), NONE)
         },
         FileKind::Symlink => {
-            let fields = meta.read(&mut at, 8, op).await?;
+            let fields = at.read(8, op).await?;
             let len = filer_fs::le::u32_at(&fields, 4).unwrap_or(0);
             if len == 0 || len > MAX_TARGET {
                 return Err(SquashfsError::BadSymlink { inode: number }.into_error(op));
             }
-            let target = meta
-                .read(&mut at, usize::try_from(len).unwrap_or(0), op)
-                .await?;
-            let xattr = if extended {
-                meta.u32(&mut at, op).await?
-            } else {
-                NONE
-            };
+            let target = at.read(usize::try_from(len).unwrap_or(0), op).await?;
+            let xattr = if extended { at.u32(op).await? } else { NONE };
             (Body::Symlink(target), xattr)
         },
         // Devices, after their numbers; FIFOs and sockets.
         FileKind::BlockDevice | FileKind::CharDevice => {
-            let fields = meta
-                .read(&mut at, if extended { 12 } else { 8 }, op)
-                .await?;
+            let fields = at.read(if extended { 12 } else { 8 }, op).await?;
             let xattr = filer_fs::le::u32_at(&fields, 8).unwrap_or(NONE);
             (Body::Special, xattr)
         },
         _ => {
-            let fields = meta.read(&mut at, if extended { 8 } else { 4 }, op).await?;
+            let fields = at.read(if extended { 8 } else { 4 }, op).await?;
             let xattr = filer_fs::le::u32_at(&fields, 4).unwrap_or(NONE);
             (Body::Special, xattr)
         },
