@@ -4,7 +4,8 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Error {
-    /// The stream is malformed: not bzip2, damaged, or cut short.
+    /// The stream is malformed: not bzip2, damaged, or cut short, or a
+    /// block of it would take more packed bytes than any.
     Corrupt,
     /// The stream is well formed, but needs what this decoder does not
     /// do: a randomized block.

@@ -19,6 +19,11 @@ const MAX_SELECTORS: usize = 18_002;
 /// The longest a Huffman code may be.
 const MAX_CODE: u8 = 20;
 
+/// The most packed bytes held toward a block: more than any block takes,
+/// of 900,000 symbols at 20 bits at most, and the selectors and tables
+/// that go with them.
+const MAX_PACKED: usize = 4 << 20;
+
 /// Why a unit of a stream did not parse.
 enum Fail {
     /// The input ends before it does.
@@ -371,10 +376,10 @@ enum State {
 /// A decoder of a bzip2 stream: streams, one after another, each of blocks
 /// checked against their CRCs, and their CRCs against the stream's.
 ///
-/// Each block is gathered whole before it is decoded, so it holds at most a
-/// block of packed bytes, up to about 900 KiB, and of links between the
-/// block's bytes, four bytes each. What a block decodes to, up to 50 times
-/// larger, is produced as it is read. After the first stream, bytes that
+/// Each block is gathered whole before it is decoded, so it holds at most
+/// 4 MiB of packed bytes, more than any block takes, and of links between
+/// the block's bytes, four bytes each. What a block decodes to, up to 50
+/// times larger, is produced as it is read. After the first stream, bytes that
 /// do not start one end the input, unread, as bzip2 ignores trailing
 /// garbage. Randomized blocks, which bzip2 stopped writing in 1999, are
 /// [`Unsupported`](Error::Unsupported).
@@ -469,12 +474,14 @@ impl Decoder {
                 }
             }
             // Parsing takes input only once the last block is written, so
-            // that it holds no more than the next block's, and none past
-            // the last stream.
+            // that it holds no more than the next block's, up to the most
+            // one takes, and none past the last stream.
             if self.state != State::Ended && consumed < input.len() {
+                let room = MAX_PACKED.saturating_sub(self.input.len());
+                let end = consumed.saturating_add(room).min(input.len());
                 self.input
-                    .extend_from_slice(input.get(consumed..).unwrap_or_default());
-                consumed = input.len();
+                    .extend_from_slice(input.get(consumed..end).unwrap_or_default());
+                consumed = end;
             }
             if !self.parse(exhausted)? {
                 return Ok((consumed, produced));
@@ -528,8 +535,9 @@ impl Decoder {
     /// Parses what the input holds next, if it holds it whole, or all of it
     /// if `exhausted`, and returns whether it did.
     fn parse(&mut self, exhausted: bool) -> Result<bool, Error> {
+        let full = self.input.len() >= MAX_PACKED;
         if self.state == State::Ended
-            || (!exhausted && self.input.len() < self.tried.saturating_mul(2))
+            || (!exhausted && !full && self.input.len() < self.tried.saturating_mul(2))
         {
             return Ok(false);
         }
@@ -554,6 +562,10 @@ impl Decoder {
         let (unit, mut at) = match parsed {
             Ok(parsed) => parsed,
             Err(Fail::More) => {
+                // No block takes this much: one that would is malformed.
+                if full {
+                    return Err(corrupt());
+                }
                 self.tried = self.input.len();
                 return Ok(false);
             },

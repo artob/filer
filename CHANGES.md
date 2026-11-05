@@ -28,6 +28,9 @@ so any release may break compatibility.
 - `decode-lzo`: a block that names a version in its second byte, after
   a first of 17, as the Linux kernel's `lzo-rle` blocks do, is
   `Unsupported` rather than misread as an instruction.
+- `decode-bzip2`: `Decoder` gathers at most 4 MiB of packed bytes toward
+  a block, more than any takes, rather than all the input offered; a
+  block that would take more is `Corrupt`.
 
 ## 0.0.3 - 2026-11-04
 Our own decoders and checksums, written clean room and dedicated to the

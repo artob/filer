@@ -20,11 +20,12 @@
 //! Streams are untrusted input. Nothing in this crate may panic, loop
 //! without end, or allocate without bound on any input, which its root
 //! denies by lint: it gathers each block whole before it decodes it, so it
-//! holds at most a block of packed bytes, about 900 KiB, and four bytes of
-//! links per byte of the block; what a block decodes to, up to 50 times
-//! larger, is produced as it is read. Randomized blocks, which bzip2
-//! stopped writing in 1999, are [`Unsupported`](Error::Unsupported);
-//! anything malformed is [`Corrupt`](Error::Corrupt).
+//! holds at most 4 MiB of packed bytes, more than any block takes, and
+//! four bytes of links per byte of the block; what a block decodes to, up
+//! to 50 times larger, is produced as it is read. Randomized blocks, which
+//! bzip2 stopped writing in 1999, are [`Unsupported`](Error::Unsupported);
+//! anything malformed, or a block that would take more packed bytes than
+//! any, is [`Corrupt`](Error::Corrupt).
 //!
 //! Its source is Joe Tsai's *bzip2 format* (2016), an independent
 //! description of what bzip2 1.0.6 writes, with bzip2's own source and

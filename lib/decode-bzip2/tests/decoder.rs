@@ -81,6 +81,64 @@ fn refuses_malformed_streams() {
     }
 }
 
+/// Bits written most significant first, as bzip2 packs them.
+struct Bits(Vec<u8>, usize);
+
+impl Bits {
+    fn push(&mut self, value: u64, n: u32) {
+        for i in (0..n).rev() {
+            if self.1.is_multiple_of(8) {
+                self.0.push(0);
+            }
+            *self.0.last_mut().unwrap() |= (((value >> i) & 1) as u8) << (7 - self.1 % 8);
+            self.1 += 1;
+        }
+    }
+}
+
+/// Returns a stream of `len` bytes: a block whose first table's code
+/// lengths never end, the first stepping up and down forever, two bits a
+/// step, which bzip2 would read on without end.
+fn endless_lengths(len: usize) -> Vec<u8> {
+    let mut bits = Bits(Vec::new(), 0);
+    bits.push(u64::from_be_bytes(*b"\0\0\0\0BZh1"), 32);
+    bits.push(0x3141_5926_5359, 48);
+    // The CRC, no randomization, the origin, byte 0 in use, two tables, one
+    // selector, of the first, and its first length, 1.
+    bits.push(0, 32);
+    bits.push(0, 1);
+    bits.push(0, 24);
+    bits.push(0x8000, 16);
+    bits.push(0x8000, 16);
+    bits.push(2, 3);
+    bits.push(1, 15);
+    bits.push(0, 1);
+    bits.push(1, 5);
+    // Up, then down, forever: to the byte's end, then by whole bytes, as
+    // the pattern's eight bits repeat from any offset.
+    let pattern = [1, 0, 1, 1];
+    let mut i = 0;
+    while !bits.1.is_multiple_of(8) {
+        bits.push(pattern[i % 4], 1);
+        i += 1;
+    }
+    let byte = (0..8).fold(0, |byte, k| byte << 1 | pattern[(i + k) % 4] as u8);
+    let mut stream = bits.0;
+    stream.resize(len, byte);
+    stream
+}
+
+/// It gathers at most 4 MiB toward a block, more than any takes, and
+/// refuses one that needs more rather than gather without bound.
+#[test]
+fn bounds_what_it_gathers_toward_a_block() {
+    let stream = endless_lengths(5 << 20);
+    let mut decoder = Decoder::new();
+    let mut output = [0; 64];
+    assert_eq!(decoder.decode(&stream, &mut output), Err(Error::Corrupt));
+    assert_eq!(agree(&stream, 1 << 16).unwrap_err(), Error::Corrupt);
+}
+
 #[test]
 fn offers_checkpoints_between_blocks() {
     // Two streams, of a block each: a checkpoint follows each block.
