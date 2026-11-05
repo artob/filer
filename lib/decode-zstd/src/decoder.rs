@@ -264,8 +264,7 @@ impl Decoder {
     /// Decodes what it can of `input` into `output`, and returns how many
     /// bytes of each it consumed and produced.
     ///
-    /// Given an empty `input`, it takes the input to have ended. It returns
-    /// neither consumed nor produced once it can go no further: needing
+    /// It returns neither consumed nor produced once it can go no further: needing
     /// more input, or more room, or past the end of the stream, which
     /// [`finish`](Self::finish) then tells apart. It returns at the end of
     /// each frame, where a [`checkpoint`](Self::checkpoint) costs nothing.
