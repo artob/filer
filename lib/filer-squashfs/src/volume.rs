@@ -5,7 +5,7 @@
 
 use crate::{
     SquashfsError,
-    dir::{self, Listed},
+    dir::{self, Listing},
     file::File,
     inode::{self, Body, Inode},
     meta::{Cursor, Metadata},
@@ -35,7 +35,7 @@ pub(crate) struct Volume<S> {
     /// The fragment blocks most recently decoded, by index.
     pub(crate) fragments: Lock<Vec<(u32, Arc<[u8]>)>>,
     /// The listings most recently read, by where they are and their
-    /// lengths: a lookup scans its directory's listing, so paths through
+    /// lengths: a lookup searches its directory's listing, so paths through
     /// a directory of many entries would decode it again and again.
     listings: Lock<Vec<(Cursor, u32, Listing)>>,
     pub(crate) xattr_table: Option<xattr::Table>,
@@ -43,9 +43,6 @@ pub(crate) struct Volume<S> {
     /// index: each is looked up among them.
     pub(crate) named: Lock<Option<(u32, Arc<[xattr::Xattr]>)>>,
 }
-
-/// A directory's entries, as its listing gives them.
-pub(crate) type Listing = Arc<[Listed]>;
 
 /// An inode that a path resolved to.
 pub(crate) type Node = Arc<Inode>;
@@ -113,7 +110,7 @@ impl<S: ReadAt> Volume<S> {
         if let Some(entries) = hit {
             return Ok(entries);
         }
-        let entries: Listing = dir::entries(&self.meta, dir, op).await?.into();
+        let entries = dir::entries(&self.meta, dir, op).await?;
         if len <= LISTED {
             self.listings.with(|cache| {
                 // Within the bounds, those read most recently.
@@ -134,7 +131,7 @@ impl<S: ReadAt> Volume<S> {
     /// that listings and lookups do.
     async fn find(&self, dir: &Node, name: &[u8], op: OpKind) -> Result<Node, Error> {
         let entries = self.listing(dir, op).await?;
-        let Some(listed) = entries.iter().find(|listed| listed.name == name) else {
+        let Some(listed) = entries.find(name) else {
             return Err(Error::new(ErrorKind::NotFound, op));
         };
         let node = self.node(listed.reference, op).await?;
@@ -240,7 +237,7 @@ impl<S: ReadAt + 'static> FileSystem for Volume<S> {
         let first = cookie.map_or(0, DirCookie::get);
         let first = usize::try_from(first).unwrap_or(usize::MAX);
         let mut entries = Vec::new();
-        for listed in dir.iter().skip(first).take(max) {
+        for listed in dir.entries.iter().skip(first).take(max) {
             let name = self
                 .key
                 .entry_name(&listed.name)
@@ -251,7 +248,7 @@ impl<S: ReadAt + 'static> FileSystem for Volume<S> {
             entries.push(entry);
         }
         let next = first.saturating_add(entries.len());
-        let more = next < dir.len();
+        let more = next < dir.entries.len();
         let cookie = u64::try_from(next)
             .ok()
             .filter(|_| more)

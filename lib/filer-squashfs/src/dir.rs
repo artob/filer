@@ -9,7 +9,7 @@ use crate::{
     inode::{self, Body, Inode},
     meta::Metadata,
 };
-use alloc::vec::Vec;
+use alloc::{sync::Arc, vec::Vec};
 use filer_api::{Error, FileKind, OpKind, ReadAt};
 
 /// The most entries a header covers.
@@ -29,12 +29,35 @@ pub(crate) struct Listed {
     pub(crate) number: u32,
 }
 
+/// A directory's entries, as its listing gives them.
+#[derive(Clone, Debug)]
+pub(crate) struct Listing {
+    pub(crate) entries: Arc<[Listed]>,
+    /// Whether their names ascend, as `mksquashfs` sorts them, so that a
+    /// lookup may search them by halves; a corrupt listing's may not.
+    sorted: bool,
+}
+
+impl Listing {
+    /// Finds the entry `name`, matching bytes exactly.
+    pub(crate) fn find(&self, name: &[u8]) -> Option<&Listed> {
+        if self.sorted {
+            let found = self
+                .entries
+                .binary_search_by(|listed| listed.name.as_slice().cmp(name));
+            found.ok().and_then(|at| self.entries.get(at))
+        } else {
+            self.entries.iter().find(|listed| listed.name == name)
+        }
+    }
+}
+
 /// Returns every entry of the listing of directory `dir`.
 pub(crate) async fn entries<S: ReadAt>(
     meta: &Metadata<S>,
     dir: &Inode,
     op: OpKind,
-) -> Result<Vec<Listed>, Error> {
+) -> Result<Listing, Error> {
     let bad = || SquashfsError::BadDirectory { inode: dir.number }.into_error(op);
     let Body::Dir { listing, len } = &dir.body else {
         return Err(Error::new(filer_api::ErrorKind::NotADirectory, op));
@@ -78,5 +101,8 @@ pub(crate) async fn entries<S: ReadAt>(
             entries.push(listed);
         }
     }
-    Ok(entries)
+    Ok(Listing {
+        sorted: entries.is_sorted_by(|a, b| a.name < b.name),
+        entries: entries.into(),
+    })
 }
