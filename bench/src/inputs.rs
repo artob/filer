@@ -13,11 +13,43 @@ pub struct Input {
     pub data: Vec<u8>,
 }
 
-/// An input encoded at a level.
-pub struct Packed {
-    pub level: u32,
-    pub bytes: Vec<u8>,
+/// A level of a codec's reference encoder, and for zstd, whether it
+/// matches across a 128 MiB window (`--long=27`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Level {
+    pub number: u32,
+    pub long: bool,
 }
+
+impl Level {
+    const fn new(number: u32) -> Self {
+        Self {
+            number,
+            long: false,
+        }
+    }
+
+    /// Its name in paths and in `packed.toml`.
+    pub fn label(self) -> String {
+        match self.long {
+            true => format!("{}-long", self.number),
+            false => self.number.to_string(),
+        }
+    }
+}
+
+impl std::fmt::Display for Level {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.long {
+            true => write!(f, "{} --long=27", self.number),
+            false => write!(f, "{}", self.number),
+        }
+    }
+}
+
+/// The least size of the large inputs, which zstd also encodes with
+/// `--long=27`.
+const LARGE: usize = 32 << 20;
 
 /// The size of each synthetic input.
 const SIZE: usize = 8 << 20;
@@ -64,25 +96,50 @@ impl SplitMix {
 }
 
 impl Codec {
-    /// The levels its `BENCH.md` names.
-    pub fn levels(self) -> &'static [u32] {
+    /// The levels its `BENCH.md` names, for an input of `size` bytes.
+    pub fn levels(self, size: usize) -> Vec<Level> {
         match self {
-            Self::Bzip2 => &[1, 9],
-            Self::Zstd => &[1, 3, 9, 19, 22],
+            Self::Bzip2 => vec![Level::new(1), Level::new(9)],
+            Self::Zstd => {
+                let mut levels = [1, 3, 9, 19, 22].map(Level::new).to_vec();
+                if size >= LARGE {
+                    levels.push(Level {
+                        number: 19,
+                        long: true,
+                    });
+                }
+                levels
+            },
+        }
+    }
+
+    /// The extension of its files.
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Bzip2 => "bz2",
+            Self::Zstd => "zst",
         }
     }
 
     /// Encodes `data` at `level` with the reference encoder: bzip2 1.0.8
-    /// or zstd 1.5.7, as their `-sys` crates build them.
-    pub fn encode(self, data: &[u8], level: u32) -> std::io::Result<Vec<u8>> {
+    /// or zstd 1.5.7, as their `-sys` crates build them, on one thread.
+    pub fn encode(self, data: &[u8], level: Level) -> std::io::Result<Vec<u8>> {
         match self {
             Self::Bzip2 => {
-                let level = bzip2_c::Compression::new(level);
+                let level = bzip2_c::Compression::new(level.number);
                 let mut encoder = bzip2_c::write::BzEncoder::new(Vec::new(), level);
                 encoder.write_all(data)?;
                 encoder.finish()
             },
-            Self::Zstd => zstd::bulk::compress(data, level as i32),
+            Self::Zstd => {
+                use zstd::zstd_safe::CParameter;
+                let mut encoder = zstd::bulk::Compressor::new(level.number as i32)?;
+                if level.long {
+                    encoder.set_parameter(CParameter::WindowLog(27))?;
+                    encoder.set_parameter(CParameter::EnableLongDistanceMatching(true))?;
+                }
+                encoder.compress(data)
+            },
         }
     }
 }

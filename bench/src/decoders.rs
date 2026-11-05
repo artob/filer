@@ -205,8 +205,9 @@ fn bzip2_rs(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Fail
     // It fails if asked to read into no room: once the output is full,
     // it reads into a byte of its own, which must stay empty. Version
     // 0.1.2 also refuses, as a truncated Huffman bitstream, streams of
-    // random bytes that libbzip2 encodes and decodes, from about 100 KB:
-    // so it is disqualified on them.
+    // random bytes that libbzip2 encodes and decodes, from about 100 KB,
+    // and some others at level 1, such as Silesia's `mozilla`: so it is
+    // disqualified on them.
     let mut past = [0];
     loop {
         let room = output.len().min(written.saturating_add(piece));
@@ -259,9 +260,15 @@ fn libzstd(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failu
     }
 }
 
+/// The largest window zstd decodes by default, and so `--long=27`.
+const WINDOW: u64 = 128 << 20;
+
 fn ruzstd(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    use ruzstd::decoding::{FrameDecoder, StreamingDecoder};
+    // Its default is 100 MiB.
+    let mut decoder = FrameDecoder::new();
+    decoder.set_max_window_size(WINDOW);
     if piece == usize::MAX {
-        let mut decoder = ruzstd::decoding::FrameDecoder::new();
         return decoder
             .decode_all(input, output)
             .map_err(|error| error.to_string());
@@ -270,6 +277,6 @@ fn ruzstd(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failur
         bytes: input,
         piece,
     };
-    let decoder = ruzstd::decoding::StreamingDecoder::new(source).map_err(|e| e.to_string())?;
+    let decoder = StreamingDecoder::new_with_decoder(source, decoder).map_err(|e| e.to_string())?;
     read_into(decoder, output, piece)
 }

@@ -44,8 +44,11 @@ against the SHA-256 that `bench/corpus.toml` records for each file:
 - **enwik8**: 100 MB of Wikipedia's XML, large and regular.
 - **Canterbury**, large and small sets: classic small files.
 - **A Linux kernel source tarball** of a pinned release: what archives of
-  source code hold.
-- **Executables**: the binaries of a pinned Rust release, as they ship.
+  source code hold. Its first 100 MB, of Linux 6.12, an LTS release: the
+  whole, 1.5 GB, would take hours at bzip2's speed.
+- **Executables**: the binaries of a pinned Rust release, as they ship:
+  `rustc`, `librustc_driver`, and `cargo` of Rust 1.97.0 for x86-64
+  Linux.
 
 And synthetic edge cases, generated from a fixed seed: bytes that do not
 compress (stored blocks); zeros (runs); a short pattern repeated
@@ -53,10 +56,13 @@ compress (stored blocks); zeros (runs); a short pattern repeated
 
 Each is encoded by its codec's reference encoder, at a pinned version, at
 levels spanning its range (each `BENCH.md` names them). Encoding happens
-once, on one machine; the packed files' SHA-256 go in the manifest, so
-that every machine decodes the same bytes. After every timed run, the
-decoded output's SHA-256 is checked against the original's: a run that
-decodes wrongly is discarded, and its decoder disqualified on that input.
+once, on one machine, which records the packed files' SHA-256 in
+`bench/packed.toml`, beside the manifest; other machines encode again,
+on one thread, as deterministically, and check that their bytes match,
+so that every machine decodes the same bytes. After every timed run, the
+decoded output is checked against the original, verified by its SHA-256:
+a run that decodes wrongly is discarded, and its decoder disqualified on
+that input.
 
 ## Counterparts
 

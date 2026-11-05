@@ -9,8 +9,10 @@ edition = "2024"
 publish = false
 
 [dependencies]
-# Ours.
+# Ours: the decoders measured; and the corpus's SHA-256 and xz.
+compute-sha256 = { path = "../lib/compute-sha256" }
 decode-bzip2 = { path = "../lib/decode-bzip2" }
+decode-xz = { path = "../lib/decode-xz" }
 decode-zstd = { path = "../lib/decode-zstd" }
 # bzip2's counterparts: libbzip2, the reference, in C, through `bzip2`
 # 0.5, whose defaults build it; `libbz2-rs-sys`, its port to Rust, through
@@ -22,6 +24,9 @@ libbz2-rs = { package = "bzip2", version = "0.6" }
 # zstd's: libzstd, the reference, in C, which also encodes; and `ruzstd`.
 ruzstd = "0.9"
 zstd = "0.13"
+# `corpus.toml` and `packed.toml`.
+serde = { version = "1", features = ["derive"] }
+toml = "0.9"
 
 [profile.release]
 codegen-units = 1
