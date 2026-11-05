@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog], and this project adheres to
 so any release may break compatibility.
 
 ## Unreleased
+### Added
+- `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
+  a user leniently, with `Separators` and `NormalizeError`.
 
 ## 0.0.4 - 2026-11-05
 A SquashFS driver, `filer-squashfs`, reading images of every compressor

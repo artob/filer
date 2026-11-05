@@ -29,6 +29,9 @@ pub use name_buf::*;
 mod name_error;
 pub use name_error::*;
 
+mod normalize_error;
+pub use normalize_error::*;
+
 mod rel_path;
 pub use rel_path::*;
 
@@ -37,3 +40,6 @@ pub use rel_path_buf::*;
 
 mod rel_path_error;
 pub use rel_path_error::*;
+
+mod separators;
+pub use separators::*;

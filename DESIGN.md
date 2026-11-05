@@ -498,9 +498,13 @@ A `RelPath` is zero or more `Name`s joined by single `/` characters:
 
 Banning `..` is deliberate. In a capability world the way up is a handle
 you already hold. Symlinks containing `..` are still followed during
-resolution, under kernel-enforced confinement where available. A separate
-`RelPathBuf::normalize_lexically(&str)` may accept `.` components and
-redundant separators for convenience, but must still reject `..` and roots.
+resolution, under kernel-enforced confinement where available.
+`RelPathBuf::normalize_lexically(s, separators)` reads strings typed by
+users leniently: it drops `.` components and redundant separators, and
+with `Separators::SlashOrBackslash` reads `\` as one too, but refuses
+`..`, roots (`/`, `\`, `\\server`), and drive prefixes (`C:`), as
+`NormalizeError`: drive prefixes even with `Separators::Slash`, since
+`C:` names a drive on Windows.
 
 The separator in `RelPath` is always `/`, on every platform. Drivers
 translate.

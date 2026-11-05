@@ -102,11 +102,6 @@ at low priority, as our own decoders replace the crates when they block.
 All in the self-contained `filer_api::path` module (D3), using `ref-cast`
 with `#[derive(RefCast, RefCastCustom)]` (D4, verified in §5.3).
 
-- [ ] **PATH-04: `RelPathBuf::normalize_lexically`.**
-  Accepts `.` components, redundant separators, and (when asked) `\`;
-  rejects `..`, roots, and drive prefixes. Done when tests cover POSIX- and
-  Windows-style inputs.
-
 - [ ] **PATH-05: Serde.**
   Add the `serde` feature. Paths as strings on the wire, validated on
   input; `Rights` via `bitflags/serde`. Done when `serde_test` covers

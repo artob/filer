@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use super::{Name, NameBuf, RelPath, RelPathError};
+use super::{Name, NameBuf, NormalizeError, RelPath, RelPathError, Separators, name};
 use alloc::string::String;
 
 /// Zero or more [`Name`]s joined by `/`; owned form of [`RelPath`].
@@ -53,6 +53,61 @@ impl RelPathBuf {
             self.0.push('/');
         }
         self.0.push_str(path);
+    }
+
+    /// Reads `s` as a relative path, leniently: drops `.` components and
+    /// the empty ones that doubled, leading `./`, or trailing separators
+    /// make, and joins what remains with `/`. `separators` says whether
+    /// `\` separates components too, as on Windows.
+    ///
+    /// This is for paths typed by users or taken from elsewhere; a string
+    /// that is already a valid [`RelPath`] reads as itself. Nothing is
+    /// resolved: `..` is refused, not applied, since a path must not
+    /// leave its directory, and so are roots and drive prefixes, even
+    /// with `/` alone separating, since `C:` names a drive on Windows. A
+    /// file named `C:` stays reachable through [`RelPath::new`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`NormalizeError::Root`] if `s` starts with a separator,
+    /// [`NormalizeError::DrivePrefix`] if it starts with a letter and a
+    /// colon, and [`NormalizeError::Component`] for the first component
+    /// that is `..` or contains NUL.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use filer_api::path::{NormalizeError, RelPathBuf, Separators};
+    ///
+    /// let path = RelPathBuf::normalize_lexically("./config//app.toml/", Separators::Slash);
+    /// assert_eq!(path.unwrap().as_str(), "config/app.toml");
+    ///
+    /// let path = RelPathBuf::normalize_lexically(r"config\.\app.toml", Separators::SlashOrBackslash);
+    /// assert_eq!(path.unwrap().as_str(), "config/app.toml");
+    ///
+    /// let error = RelPathBuf::normalize_lexically("/etc", Separators::Slash);
+    /// assert_eq!(error, Err(NormalizeError::Root));
+    /// ```
+    pub fn normalize_lexically(s: &str, separators: Separators) -> Result<Self, NormalizeError> {
+        if s.starts_with(|c| separators.contains(c)) {
+            return Err(NormalizeError::Root);
+        }
+        if matches!(s.as_bytes(), [letter, b':', ..] if letter.is_ascii_alphabetic()) {
+            return Err(NormalizeError::DrivePrefix);
+        }
+        let mut path = String::with_capacity(s.len());
+        for (index, component) in s.split(|c| separators.contains(c)).enumerate() {
+            if component.is_empty() || component == "." {
+                continue;
+            }
+            name::validate(component.as_bytes())
+                .map_err(|reason| RelPathError::new(index, reason))?;
+            if !path.is_empty() {
+                path.push('/');
+            }
+            path.push_str(component);
+        }
+        Ok(Self(path))
     }
 
     /// Removes the last component. Returns `false`, changing nothing, if the
@@ -220,6 +275,98 @@ mod tests {
         let error = RelPathBuf::try_from("a//b".to_string()).unwrap_err();
         assert_eq!((error.index(), error.reason()), (1, NameError::Empty));
         assert!("..".parse::<RelPathBuf>().is_err());
+    }
+
+    fn normalize(s: &str, separators: Separators) -> Result<String, NormalizeError> {
+        RelPathBuf::normalize_lexically(s, separators).map(RelPathBuf::into_string)
+    }
+
+    fn component(index: usize, reason: NameError) -> Result<String, NormalizeError> {
+        Err(NormalizeError::Component(RelPathError::new(index, reason)))
+    }
+
+    #[test]
+    fn normalizes_posix_style() {
+        let posix = |s| normalize(s, Separators::Slash);
+        for (s, normal) in [
+            ("", ""),
+            (".", ""),
+            ("./", ""),
+            ("././/.", ""),
+            ("a", "a"),
+            ("a/b", "a/b"),
+            ("./a", "a"),
+            ("a/", "a"),
+            ("a//b", "a/b"),
+            ("a/./b/.", "a/b"),
+            ("a/.b/..c/...", "a/.b/..c/..."),
+            // A backslash is part of a name.
+            (r"a\b", r"a\b"),
+            (r"a\..\b", r"a\..\b"),
+            (r"\a", r"\a"),
+            // A colon after more than one letter, or later, is too.
+            ("ab:c", "ab:c"),
+            ("a/C:", "a/C:"),
+        ] {
+            assert_eq!(posix(s).as_deref(), Ok(normal), "{s:?}");
+            assert_eq!(RelPath::new(normal).map(|_| ()), Ok(()), "{s:?}");
+        }
+        assert_eq!(posix("/"), Err(NormalizeError::Root));
+        assert_eq!(posix("/a"), Err(NormalizeError::Root));
+        assert_eq!(posix("//a"), Err(NormalizeError::Root));
+        assert_eq!(posix("C:/a"), Err(NormalizeError::DrivePrefix));
+        assert_eq!(posix("c:"), Err(NormalizeError::DrivePrefix));
+        assert_eq!(posix(".."), component(0, NameError::DotOrDotDot));
+        assert_eq!(posix("a/../b"), component(1, NameError::DotOrDotDot));
+        assert_eq!(posix("./a//.."), component(3, NameError::DotOrDotDot));
+        assert_eq!(posix("a/b\0c"), component(1, NameError::ContainsNul));
+    }
+
+    #[test]
+    fn normalizes_windows_style() {
+        let windows = |s| normalize(s, Separators::SlashOrBackslash);
+        for (s, normal) in [
+            ("", ""),
+            (r".\", ""),
+            (r"a\b", "a/b"),
+            (r"a/b\c", "a/b/c"),
+            (r".\a\.\b\", "a/b"),
+            (r"a\\\b", "a/b"),
+            ("ab:c", "ab:c"),
+        ] {
+            assert_eq!(windows(s).as_deref(), Ok(normal), "{s:?}");
+        }
+        for root in [
+            r"\",
+            r"\a",
+            r"\\server\share",
+            r"\\?\C:\a",
+            r"\\.\COM1",
+            "/a",
+        ] {
+            assert_eq!(windows(root), Err(NormalizeError::Root), "{root:?}");
+        }
+        for drive in [r"C:\a", "C:/a", "C:a", "z:", r"c:\"] {
+            assert_eq!(
+                windows(drive),
+                Err(NormalizeError::DrivePrefix),
+                "{drive:?}"
+            );
+        }
+        assert_eq!(windows(r"a\..\b"), component(1, NameError::DotOrDotDot));
+        assert_eq!(windows(r"a\.\..\b"), component(2, NameError::DotOrDotDot));
+    }
+
+    #[test]
+    fn reports_its_errors() {
+        let error = RelPathBuf::normalize_lexically("a/..", Separators::Slash).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "invalid path component 1: name is '.' or '..'"
+        );
+        assert!(core::error::Error::source(&error).is_some());
+        assert_eq!(NormalizeError::Root.to_string(), "path starts at a root");
+        assert!(core::error::Error::source(&NormalizeError::DrivePrefix).is_none());
     }
 
     #[test]
