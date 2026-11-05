@@ -17,8 +17,11 @@ fuzz_target!(|stream: &[u8]| {
     let ours = common::decode(stream, piece).ok();
     let theirs = common::lz4_flex(stream);
     let cut = || common::unfinished(stream, piece).ok().map(|(data, _)| data);
+    // `lz4_flex` takes four bytes alone, whatever they are, to hold
+    // nothing; `lz4` refuses four that begin no frame, as this crate does.
+    let four = stream.len() == 4 && theirs.as_ref().is_some_and(Vec::is_empty);
     assert!(
-        ours == theirs || (ours.is_none() && cut() == theirs),
+        ours == theirs || (ours.is_none() && (four || cut() == theirs)),
         "disagrees with lz4_flex"
     );
 });

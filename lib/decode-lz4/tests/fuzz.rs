@@ -94,11 +94,16 @@ fn decodes_mutations_as_lz4_flex_does() {
                 };
                 // `lz4_flex` takes a stream cut short between blocks to end
                 // there, as `lz4` does not: this decoder decodes as much,
-                // short of finishing.
+                // short of finishing. It takes four bytes alone, whatever
+                // they are, to hold nothing; `lz4` refuses four that begin
+                // no frame, as this decoder does.
                 let cut = || common::unfinished(&stream, stream.len().max(1)).ok();
+                let four = stream.len() == 4 && theirs.as_ref().is_some_and(Vec::is_empty);
                 assert!(
                     ours == theirs
-                        || (!is_block && ours.is_none() && cut().map(|(data, _)| data) == theirs),
+                        || (!is_block
+                            && ours.is_none()
+                            && (four || cut().map(|(data, _)| data) == theirs)),
                     "ours: {:?}; lz4_flex's: {:?}",
                     ours.as_ref().map(Vec::len),
                     theirs.as_ref().map(Vec::len),
