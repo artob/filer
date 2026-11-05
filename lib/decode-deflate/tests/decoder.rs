@@ -232,6 +232,73 @@ fn refuses_malformed_streams() {
     }
 }
 
+/// Returns a stream of three blocks: one of dynamic codes, `a` A's then
+/// the end, each a code of one bit; `stored` as it is; and "hi" in fixed
+/// codes, last.
+fn short_end_then_stored(a: usize, stored: &[u8]) -> Vec<u8> {
+    // The code length code: 0 as `0`, 1 as `10`, and 18 as `11`.
+    let length = |bits: Bits, symbol: u32| match symbol {
+        0 => bits.code(0, 1),
+        1 => bits.code(2, 2),
+        _ => bits.code(3, 2),
+    };
+    // Not last, dynamic: 257 literal/length codes, 1 distance code, and
+    // the 18 code length code lengths, in their order, up to symbol 1's.
+    let mut bits = Bits::default()
+        .field(0, 1)
+        .field(2, 2)
+        .field(0, 5)
+        .field(0, 5)
+        .field(14, 4);
+    for len in [0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2] {
+        bits = bits.field(len, 3);
+    }
+    // 65 zeros, A of one bit, 190 zeros, the end of one bit, and no
+    // distance code.
+    bits = length(bits, 18).field(65 - 11, 7);
+    bits = length(bits, 1);
+    bits = length(bits, 18).field(138 - 11, 7);
+    bits = length(bits, 18).field(52 - 11, 7);
+    bits = length(bits, 1);
+    bits = length(bits, 0);
+    bits = (0..a).fold(bits, |bits, _| bits.code(0, 1)).code(1, 1);
+    // Not last, stored: the rest of the byte, the length and its
+    // complement, and the bytes.
+    bits = bits.field(0, 1).field(0, 2);
+    while !bits.count.is_multiple_of(8) {
+        bits = bits.bit(0);
+    }
+    let len = stored.len() as u32;
+    bits = bits.field(len, 16).field(!len & 0xFFFF, 16);
+    bits = stored
+        .iter()
+        .fold(bits, |bits, &byte| bits.field(u32::from(byte), 8));
+    // Last, fixed.
+    bits.field(1, 1)
+        .field(1, 2)
+        .literal(b'h')
+        .literal(b'i')
+        .code(0, 7)
+        .bytes
+}
+
+/// A stored block after a short end code, with the input well ahead, once
+/// decoded otherwise than in pieces: the fast path left the next byte's
+/// bits above those held, the stored block copied it straight from the
+/// input, and the block after it read its header with them.
+#[test]
+fn reads_stored_blocks_after_short_end_codes() {
+    let stored = [&[1, 2, 3, 0xFF][..], &[0x55; 60]].concat();
+    for a in 0..64 {
+        let stream = short_end_then_stored(a, &stored);
+        let expected = [&b"A".repeat(a)[..], &stored, b"hi"].concat();
+        let (data, consumed) = agree(&stream, 1).unwrap();
+        assert!(data == expected, "{a} A's");
+        assert_eq!(consumed, stream.len(), "{a} A's");
+        assert_eq!(zlib(&stream), Some((expected, stream.len())), "{a} A's");
+    }
+}
+
 #[test]
 fn offers_checkpoints_anywhere() {
     let (_, stream, len, _) = FIXTURES[2];

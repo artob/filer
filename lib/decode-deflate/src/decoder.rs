@@ -209,9 +209,13 @@ impl Bits {
         self.refill_from(input.bytes, &mut input.taken);
     }
 
-    /// Takes whole bytes from `bytes` past `taken`, as `refill` does.
+    /// Takes whole bytes from `bytes` past `taken`, as `refill` does, first
+    /// dropping the bits above `count` that `refill_word` leaves: the next
+    /// byte's, which a stored block, copying it straight from the input,
+    /// would leave stale, to be read into the block after it.
     #[inline]
     fn refill_from(&mut self, bytes: &[u8], taken: &mut usize) {
+        self.value &= mask(self.count);
         if self.count > 55 {
             return;
         }

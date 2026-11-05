@@ -17,6 +17,10 @@ so any release may break compatibility.
 - `filer-volume`: SquashFS images, detected by `hsqs`, with the
   `squashfs` feature, `VolumeDriver::Squashfs`, `VolumeFormat::Squashfs`,
   and the compressor features, forwarded.
+### Fixed
+- `decode-deflate`: a stored block after a block whose end code is short,
+  decoded with the input well ahead, could corrupt the header of the
+  block after it, refusing a valid stream as `Corrupt`.
 
 ## 0.0.3 - 2026-11-04
 Our own decoders and checksums, written clean room and dedicated to the
