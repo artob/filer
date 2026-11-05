@@ -4,12 +4,16 @@
 
 mod common;
 
-use common::{Block, agree, numbers, skippable, zstd};
+use common::{Block, agree, agrees_with_ruzstd, numbers, skippable, zstd};
 use decode_zstd::{Decoder, Error};
 
+/// Decodes `stream` whole and in pieces, and checks that `ruzstd` decodes
+/// it alike, or refuses it too.
 fn decode(stream: &[u8]) -> Result<Vec<u8>, Error> {
     let whole = agree(stream, 1);
     assert_eq!(whole.as_ref().ok(), agree(stream, 7).as_ref().ok());
+    let ours = whole.as_deref().ok();
+    assert!(agrees_with_ruzstd(stream, ours), "disagrees with ruzstd");
     whole
 }
 
@@ -144,6 +148,23 @@ fn refuses_malformed_streams() {
     let mut large = zstd(&[Block::Raw(&[0; 128 * 1024])]);
     large[8] += 1;
     assert_eq!(kind(&large), Error::Corrupt);
+    // What `ruzstd` lets pass, checksums and all: a content size of five
+    // bytes, of a frame of four; and a block of 2000 literals, all `z`, in
+    // a 1 KiB window.
+    let checked = |frame: &[u8], data: &[u8]| {
+        let sum = compute_xxhash::xxh64(data, 0) as u32;
+        let mut frame = [frame, &sum.to_le_bytes()].concat();
+        frame[4] |= 0x04;
+        frame
+    };
+    let sized = [
+        0x28, 0xB5, 0x2F, 0xFD, 0x20, 5, 0x21, 0, 0, b'f', b'o', b'u', b'r',
+    ];
+    assert_eq!(kind(&checked(&sized, b"four")), Error::Corrupt);
+    let literals = [
+        0x28, 0xB5, 0x2F, 0xFD, 0, 0, 0x25, 0, 0, 0x05, 0x7D, b'z', 0,
+    ];
+    assert_eq!(kind(&checked(&literals, &[b'z'; 2000])), Error::Corrupt);
     // What follows the last frame must be one.
     let stream = [&good[..], b"garbage"].concat();
     assert_eq!(kind(&stream), Error::Corrupt);

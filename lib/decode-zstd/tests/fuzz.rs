@@ -2,17 +2,19 @@
 
 //! A structure-aware fuzzer of the decoder: it mutates streams where their
 //! headers and checksums are, with values chosen to hit boundaries, and
-//! checks that each decodes the same in pieces of a random size as whole.
+//! checks that each decodes the same in pieces of a random size as whole,
+//! and as `ruzstd` decodes it: to the same bytes, or not at all, but where
+//! it decodes what zstd refuses (`common::agrees_with_ruzstd`).
 //!
 //! Each `cargo test` runs a few hundred inputs. For longer runs, set
 //! `DECODE_ZSTD_FUZZ_ITERATIONS`; `DECODE_ZSTD_FUZZ_SEED` picks another
 //! sequence, and a failure prints the seed and iteration that reproduce
-//! it. `fuzz/` has a coverage-guided `cargo-fuzz` target over the same
-//! check.
+//! it. `fuzz/` has coverage-guided `cargo-fuzz` targets over the same
+//! checks.
 
 mod common;
 
-use common::{Block, agree, skippable, zstd};
+use common::{Block, agree, agrees_with_ruzstd, skippable, zstd};
 use filer_spec::{
     Image, Outcome,
     fuzz::{Fuzz, Mutations},
@@ -36,7 +38,7 @@ impl Seed {
 }
 
 /// Mutates streams of `corpus` with `mutations`, from `seed`, and checks
-/// that each decodes alike in pieces and whole.
+/// that each decodes alike in pieces and whole, and as `ruzstd` does.
 fn run(seed: u64, corpus: &[Seed], mutations: Mutations) {
     Fuzz::new("DECODE_ZSTD_FUZZ", seed).iterations(400).run(
         corpus.len(),
@@ -47,17 +49,21 @@ fn run(seed: u64, corpus: &[Seed], mutations: Mutations) {
             input.copy(0, &mut bytes);
             (bytes, 1 + rng.below(64) as usize)
         },
-        |(stream, piece)| match agree(&stream, piece) {
-            Ok(data) => Outcome {
-                opened: true,
+        |(stream, piece)| {
+            let ours = agree(&stream, piece).ok();
+            assert!(
+                agrees_with_ruzstd(&stream, ours.as_deref()),
+                "ours: {:?}; ruzstd's: {:?}",
+                ours.as_ref().map(Vec::len),
+                common::ruzstd(&stream).map(|(data, _)| data.len()),
+            );
+            Outcome {
+                opened: ours.is_some(),
                 entries: 1,
-                bytes: data.len() as u64,
+                bytes: ours.as_ref().map_or(0, |data| data.len() as u64),
+                errors: usize::from(ours.is_none()),
                 ..Outcome::default()
-            },
-            Err(_) => Outcome {
-                errors: 1,
-                ..Outcome::default()
-            },
+            }
         },
     );
 }
@@ -149,7 +155,7 @@ fn seed(stream: &[u8], checked: bool) -> Seed {
 /// mutations decode to, not just whether, is compared; and blocks of
 /// each kind built by hand.
 #[test]
-fn survives_mutated_zstd_streams() {
+fn decodes_mutations_as_ruzstd_does() {
     let built = [
         skippable(b"skipped"),
         zstd(&[Block::Raw(b"raw"), Block::Rle(b'r', 300), Block::Raw(b"")]),

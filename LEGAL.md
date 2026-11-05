@@ -367,8 +367,10 @@ replacement.
   decoded zstd here before it, and which had `unsafe` code and internal
   panics, and a decoder state that could not be copied for checkpoints
   within frames. It was checked against `ruzstd` on zstd's own output
-  and mutations of it until then, and is now checked by the frames'
-  checksums and its fuzzers. zstd 1.0 came with an explicit patent
+  and mutations of it until then, and is again since 2026-11-05
+  (DEC-10): `ruzstd` is its tests' oracle, run, never read, which its
+  fuzzers compare every stream with, beside the frames' checksums.
+  zstd 1.0 came with an explicit patent
   grant, dropped in 1.3.1 (2017) when the license became BSD and GPLv2;
   no patent is known to be asserted against implementations, nor to
   cover XXH64.

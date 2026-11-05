@@ -34,3 +34,5 @@ compute-xxhash = { workspace = true, features = ["xxh64"] }
 # that publishing strips it, and the crate depends on nothing; the fuzzer
 # stays out of the package with it.
 filer-spec = { path = "../filer-spec", default-features = false, features = ["std"] }
+# Another decoder, which the tests check this one against.
+ruzstd = { workspace = true, features = ["hash", "std"] }

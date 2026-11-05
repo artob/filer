@@ -1,7 +1,8 @@
 # Coverage-guided fuzzing of `decode-zstd` with `cargo-fuzz` (nightly):
-# `cargo fuzz run decode`, from `lib/decode-zstd`. libFuzzer is C++, so this
-# crate stays outside the workspace and is never a dependency of a
-# published crate (DESIGN.md D50); `tests/fuzz.rs` is the pure-Rust fuzzer.
+# `cargo fuzz run decode` or `differential`, from `lib/decode-zstd`.
+# libFuzzer is C++, so this crate stays outside the workspace and is never
+# a dependency of a published crate (DESIGN.md D50); `tests/fuzz.rs` is the
+# pure-Rust fuzzer.
 
 [package]
 name = "decode-zstd-fuzz"
@@ -15,6 +16,7 @@ cargo-fuzz = true
 [dependencies]
 decode-zstd = { path = ".." }
 libfuzzer-sys = "0.4"
+ruzstd = { version = "0.9", default-features = false, features = ["hash", "std"] }
 
 # Its own workspace, apart from the repository's.
 [workspace]
@@ -23,6 +25,13 @@ members = ["."]
 [[bin]]
 name = "decode"
 path = "fuzz_targets/decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "differential"
+path = "fuzz_targets/differential.rs"
 test = false
 doc = false
 bench = false
