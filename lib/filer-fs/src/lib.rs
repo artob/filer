@@ -63,6 +63,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod be;
+pub mod date;
 pub mod le;
 
 mod lock;

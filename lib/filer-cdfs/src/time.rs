@@ -56,43 +56,15 @@ pub(crate) fn long(bytes: &[u8]) -> Option<Timestamp> {
 /// Returns the seconds since the Unix epoch of `year` and `[month, day,
 /// hour, minute, second]` at `offset`, or `None` if a field is out of
 /// range.
-#[allow(
-    clippy::arithmetic_side_effects,
-    reason = "the fields are bounded, so the sums are far from overflowing"
-)]
 fn seconds(year: i64, [month, day, hour, minute, second]: [u8; 5], offset: u8) -> Option<i64> {
-    let valid = (1..=12).contains(&month)
-        && (1..=31).contains(&day)
-        && hour < 24
-        && minute < 60
-        && second < 60;
-    if !valid || !(0..=9999).contains(&year) {
-        return None;
-    }
     let quarters = i64::from(i8::from_le_bytes([offset]));
     let offset = if (-48..=52).contains(&quarters) {
-        quarters * 900
+        quarters.saturating_mul(900)
     } else {
         0
     };
-    let days = days_from_civil(year, i64::from(month), i64::from(day));
-    let time = i64::from(hour) * 3600 + i64::from(minute) * 60 + i64::from(second);
-    Some(days * 86_400 + time - offset)
-}
-
-/// Returns the days since 1970-01-01 of a date in the proleptic Gregorian
-/// calendar, counting years from March so that leap days come last.
-#[allow(
-    clippy::arithmetic_side_effects,
-    reason = "years from 0 to 9999, months, and days are far from overflowing"
-)]
-const fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let year = if month <= 2 { year - 1 } else { year };
-    let era = year.div_euclid(400);
-    let of_era = year - era * 400;
-    let of_year = (153 * ((month + 9) % 12) + 2) / 5 + day - 1;
-    let of_era_days = of_era * 365 + of_era / 4 - of_era / 100 + of_year;
-    era * 146_097 + of_era_days - 719_468
+    filer_fs::date::unix_seconds(year, month, day, hour, minute, second)
+        .map(|secs| secs.saturating_sub(offset))
 }
 
 #[cfg(test)]

@@ -401,12 +401,13 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`, `decode-zlib`,
 `decode-zstd`, `filer-pack`, the read-only `filer-tar`, `filer-zip`,
 `filer-ar`, `filer-cpio`, and `filer-archive` over them, `filer-cdfs`,
-`filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-squashfs`, `filer-xfs`,
-and `filer-volume` over them, and as empty skeletons `filer-wasi`,
+`filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-squashfs`, `filer-udf`,
+`filer-xfs`, and `filer-volume` over them, and as empty skeletons
+`filer-wasi`,
 `filer-whatwg`, and `filer-cli` (D30, D38, D41). Stubs reserving names
 live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
 `filer-apfs`, `filer-btrfs`, `filer-exfat`, `filer-minix`, `filer-refs`,
-`filer-udf`, `filer-ufs`, and `filer-zfs`; and
+`filer-ufs`, and `filer-zfs`; and
 `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
 `compute-sha512` (D64). The rest are created when their first `TODO.md`
 item starts.
@@ -2842,10 +2843,10 @@ Recorded 2026-11-01 (D40); none exists yet:
   block device, for embedded and `no_std` use and for reading disk images.
 - **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4;
   §17.15), `filer-ntfs` (§17.14), `filer-xfs` (§17.16), and
-  `filer-squashfs` and `filer-cdfs` (ISO 9660; read-only by design;
-  §17.19, §17.20), first published as stubs to reserve their names; and
-  as stubs still, in `tmp/` (D58, 2026-11-03), `filer-apfs`,
-  `filer-btrfs`, `filer-minix`, `filer-refs`, `filer-udf`, `filer-ufs`
+  `filer-squashfs`, `filer-cdfs` (ISO 9660), and `filer-udf` (read-only
+  by design or for now; §17.19 to §17.21), first published as stubs to
+  reserve their names; and as stubs still, in `tmp/` (D58, 2026-11-03),
+  `filer-apfs`, `filer-btrfs`, `filer-minix`, `filer-refs`, `filer-ufs`
   (BSD's FFS), and
   `filer-zfs`, with
   `filer-exfat`. `LEGAL.md` governs them all: exFAT is not to be
@@ -3671,15 +3672,16 @@ driver is a feature re-exporting its crate as a module, `code-pages`
 forwards `filer-fat`'s (not in `all`, as in `filer-fat`), `gzip`,
 `lz4`, `lzma`, `lzo`, `xz`, and `zstd` forward `filer-squashfs`'s
 compressors, and `zisofs` `filer-cdfs`'s (in `all`, as `filer-archive`
-forwards its codecs), `udf`
-enables the empty `filer-udf`, and opening a volume with a disabled driver is
+forwards its codecs), and opening a volume with a disabled driver is
 `Unsupported` with a `VolumeError`. `VolumeFormat` is the format in
 detail: ext2, ext3 (a journal), or ext4 (any feature flag past ext3's),
 and FAT12, FAT16, or FAT32 (by the count of clusters, as Microsoft's
 specification and `filer-fat` decide), with `Iso9660` (`CD001` at
 sector 16, after ext's superblock and before FAT's boot sector, as an
 ISO 9660 image's first sectors may hold a hybrid image's partition
-table), `Ntfs`, `Squashfs`, and `Xfs`; detection
+table), `Udf` (`NSR02` or `NSR03` after `BEA01` in the volume
+recognition sequence, before ISO 9660, so that a bridge disc is UDF's),
+`Ntfs`, `Squashfs`, and `Xfs`; detection
 lives there, `VolumeDriver::detect` is its `driver`, and
 `Volume::format` gives an open volume's, or `None` if `open_as` opened
 it with a driver its first bytes do not name. `blkid` agrees with it on
@@ -3857,7 +3859,88 @@ associated files, interleaving, sparseness, and continuation areas. All
 read as the Linux kernel mounts them, and the structure-aware fuzzer
 walked 200,000 mutated images clean.
 
-### 17.21 Later
+### 17.21 `filer-udf`
+
+A read-only driver for UDF volumes (FMT-06, 2026-11-05), of DVDs,
+Blu-ray discs, and rewritable media, following `filer-cdfs`'s model
+(§17.20): a lazy driver over any `ReadAt` source, panic-free by lint
+(D47), pure Rust (D45), fixtures from the real tools, and a
+differential test against the Linux kernel's `udf` driver.
+`filer-volume` detects UDF before ISO 9660, so that a bridge disc, of
+both, is read as UDF, whose names and sizes are whole: for a DVD, UDF
+is the file system that counts.
+
+**Sources (D52, `LEGAL.md`).** ECMA-167 and OSTA's UDF 2.60
+specification, free, and read for facts; and what `mkudffs` makes, and
+the Linux kernel writes into it.
+
+**On-disk facts the parser relies on:**
+
+- Every descriptor begins with a 16-byte tag: its identifier, version,
+  a checksum of the tag's other bytes, a serial number, a CRC-16 (the
+  CCITT polynomial, from 0) of what follows, its length, and the block
+  the descriptor says it is at. Checksums, identifiers, and every
+  field's bounds are checked; CRCs are not, as `compute-crc` has no
+  CRC-16 of that kind yet.
+- The anchor volume descriptor pointer (2) is at sector 256, 256 before
+  the last, or the last, of a block size no volume states before it:
+  512 bytes to 4 KiB are tried, and its tag's location must be the
+  sector it is at. It gives the main and the reserve volume descriptor
+  sequences, of partition descriptors (5: a number, a start, a length),
+  a logical volume descriptor (6: the block size, the file set's long
+  allocation descriptor, the partition maps), pointers onward (3), and
+  a terminator (8).
+- Partition maps: type 1, physical; type 2, named by an identifier
+  after a flags byte: `*UDF Sparable Partition` (a packet length and
+  sparing tables, each an entry per moved packet: its first block in
+  the partition, and the sector it moved to), `*UDF Virtual Partition`
+  (a virtual allocation table, the file at the volume's last block, of
+  type 248 in UDF 2.00 and later, a header then a block per entry, or in
+  1.50 entries then `*UDF Virtual Alloc Tbl`), and `*UDF Metadata
+  Partition` (a metadata file, of type 250, or its mirror, 251, whose
+  extents are the partition's blocks).
+- The file set descriptor (256) gives the root's entry. File entries
+  (261) and extended ones (266): an ICB tag (strategy 4 or 4096, file
+  type, and in its flags how data is allocated), the information length,
+  times of twelve bytes (a type and a time zone in minutes, then the
+  date, and hundredths, hundreds of microseconds, and microseconds),
+  extended attributes, then allocation descriptors (short, 8 bytes;
+  long, 16; extended, 20; their top two bits recorded, allocated, not
+  allocated, or continued in an allocation extent descriptor, 258), or
+  the data itself.
+- A directory's data is file identifier descriptors (257): flags
+  (hidden, directory, deleted, parent), the name's length, the entry's
+  long allocation descriptor, implementation use, and the name in
+  OSTA's compressed Unicode (a byte 8 or 16, then 8- or 16-bit
+  characters), padded to four bytes. A symlink's data is path
+  components: the root, `..`, `.`, or a name.
+
+**Reading.** Opening finds the anchor, reads the sequences (the reserve
+one if the main one fails), and resolves every partition map into a
+translation from a partition's blocks to the volume's: physical,
+through the sparing table, through the virtual allocation table, or
+through the metadata file's extents. A listing reads every entry's file
+entry, as listed kinds are stats' kinds, and a symlink's target; data is
+read through runs of blocks adjacent in the volume. Files' ids are their
+entries' addresses, which hard links share. Hidden files are shown,
+with `FileAttrs::HIDDEN`; deleted ones, the parent, and repeated names
+are not. Named streams and extended attributes are not read.
+
+Fixtures are `mkudffs` 2.3's, filled by Linux: revisions 1.02 (short
+allocation descriptors) and 2.01 (long, as Linux's `longad` writes
+them, and extended entries), of 512-byte blocks, with small files
+embedded and a deleted file's identifier; 2.50, a BD-R's, of a virtual
+partition, empty, as `mkudffs` makes 2.50 only for write-once media,
+which Linux does not write. The differential test also makes volumes of
+2 KiB blocks, a CD-RW's sparable partition, and a CD-R's virtual one,
+which all read as Linux mounts them. Volumes made here, descriptor by
+descriptor, cover metadata partitions, a moved packet, and continued
+allocation descriptors; no tool here writes the first two, so they are
+read as the specification is read here, untested against another
+reader. The structure-aware fuzzer walked 200,000 mutated volumes
+clean.
+
+### 17.22 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,
@@ -4146,7 +4229,7 @@ filer/
     filer-tx/  filer-tokio/  filer-spec/  filer-fuse/
     <umbrella>/
   tmp/                  stubs reserving names, until they read (D58)
-    filer-rar/  filer-7z/  filer-udf/  filer-exfat/  ...
+    filer-rar/  filer-7z/  filer-exfat/  filer-btrfs/  ...
 ```
 
 ### 22.2 Features

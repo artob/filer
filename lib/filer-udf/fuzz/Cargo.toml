@@ -1,0 +1,45 @@
+# Coverage-guided fuzzing of `filer-udf` with `cargo-fuzz` (nightly):
+# `cargo fuzz run descriptors`, `partition`, or `virtual`, from
+# `lib/filer-udf`. libFuzzer is C++, so this crate stays outside the
+# workspace and is never a dependency of a published crate (DESIGN.md
+# D50); `tests/fuzz.rs` is the pure-Rust fuzzer.
+
+[package]
+name = "filer-udf-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+filer-api = { path = "../../filer-api" }
+filer-spec = { path = "../../filer-spec" }
+filer-udf = { path = ".." }
+libfuzzer-sys = "0.4"
+
+# Its own workspace, apart from the repository's.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "descriptors"
+path = "fuzz_targets/descriptors.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "partition"
+path = "fuzz_targets/partition.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "virtual"
+path = "fuzz_targets/virtual.rs"
+test = false
+doc = false
+bench = false

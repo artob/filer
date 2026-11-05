@@ -12,6 +12,8 @@ license.workspace = true
 keywords = ["udf", "dvd", "blu-ray", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
+# The fixtures are images; tests run from the repository.
+exclude = ["tests/fixtures/*.sparse"]
 
 [lints]
 workspace = true
@@ -23,8 +25,17 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = ["filer-api/std", "filer-fs/std"]
+std = ["filer-api/std", "filer-fs/std", "filer-msft/std"]
 
 [dependencies]
 filer-api.workspace = true
 filer-fs.workspace = true
+filer-msft.workspace = true
+
+[dev-dependencies]
+filer-spec = { workspace = true, features = ["std"] }
+filer-system = { workspace = true, features = ["std"] }
+
+[[example]]
+name = "udf-manifest"
+required-features = ["std"]

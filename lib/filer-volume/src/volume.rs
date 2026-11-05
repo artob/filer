@@ -187,6 +187,8 @@ async fn open<S: ReadAt + 'static>(
             driver,
             format,
         ),
+        #[cfg(feature = "udf")]
+        VolumeDriver::Udf => wrap(filer_udf::Udf::open(source).await?, driver, format),
         #[cfg(feature = "xfs")]
         VolumeDriver::Xfs => wrap(
             filer_xfs::Xfs::open_with(source, options.xfs).await?,
@@ -225,6 +227,7 @@ fn unsupported(error: VolumeError) -> Error {
         feature = "fat",
         feature = "ntfs",
         feature = "squashfs",
+        feature = "udf",
         feature = "xfs"
     )),
     allow(dead_code)

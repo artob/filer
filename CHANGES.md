@@ -11,9 +11,15 @@ so any release may break compatibility.
 - `filer-cdfs`: `Cdfs`, the read-only ISO 9660 driver, with `CdfsError`:
   Rock Ridge, Joliet, and ISO 9660:1999 names; files of several
   extents, and those zisofs compresses, with the `zisofs` feature.
+- `filer-fs`: `date::unix_seconds`, for formats that record dates.
+- `filer-udf`: `Udf`, the read-only UDF driver, with `UdfError`:
+  revisions 1.02 to 2.60, of physical, sparable, virtual, and metadata
+  partitions.
 - `filer-volume`: ISO 9660 images, detected by `CD001` at sector 16,
   with the `cdfs` and `zisofs` features, `VolumeDriver::Cdfs`, and
-  `VolumeFormat::Iso9660`.
+  `VolumeFormat::Iso9660`; UDF volumes, detected by their volume
+  recognition sequence, before ISO 9660, with `VolumeDriver::Udf` and
+  `VolumeFormat::Udf`.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
 ### Fixed

@@ -43,6 +43,8 @@ pub enum VolumeFormat {
     Ntfs,
     /// SquashFS, version 4.0.
     Squashfs,
+    /// UDF, of any revision.
+    Udf,
     /// XFS, version 4 or 5.
     Xfs,
 }
@@ -64,7 +66,7 @@ const MAX_FAT16_CLUSTERS: u64 = 65524;
 
 impl VolumeFormat {
     /// Every format, in order.
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Ext2,
         Self::Ext3,
         Self::Ext4,
@@ -74,20 +76,25 @@ impl VolumeFormat {
         Self::Iso9660,
         Self::Ntfs,
         Self::Squashfs,
+        Self::Udf,
         Self::Xfs,
     ];
 
     /// How many of a volume's first bytes [`detect`](Self::detect) reads:
-    /// enough to reach ISO 9660's first volume descriptor, at sector 16,
-    /// the last of the structures it looks at.
-    pub const DETECT_LEN: usize = 17 * 2048;
+    /// enough to reach the volume recognition sequence, from sector 16,
+    /// ISO 9660's and UDF's, the last of the structures it looks at.
+    pub const DETECT_LEN: usize = 48 * 2048;
 
     /// Returns the format whose signature `head`, a volume's first bytes,
     /// holds, if any: XFS's, SquashFS's, and NTFS's magic numbers, ext's
     /// in its superblock at offset 1024, whose feature flags tell ext2,
-    /// ext3, and ext4 apart, ISO 9660's volume descriptor at sector 16,
-    /// identified by `CD001`, or a FAT boot sector as `filer-fat` accepts
-    /// it, whose count of clusters tells FAT12, FAT16, and FAT32 apart.
+    /// ext3, and ext4 apart, UDF's `NSR02` or `NSR03` after `BEA01` in the
+    /// volume recognition sequence, from sector 16, ISO 9660's volume
+    /// descriptor at sector 16, identified by `CD001`, or a FAT boot sector
+    /// as `filer-fat` accepts it, whose count of clusters tells FAT12,
+    /// FAT16, and FAT32 apart. A disc's image may carry both UDF and
+    /// ISO 9660, as a bridge: it is UDF's, whose names and sizes are
+    /// whole, as for DVDs it is the file system that counts.
     /// A FAT boot sector may be left in a volume formatted since, so it is
     /// tried last; an ISO 9660 image's first sectors are free for any
     /// use, as hybrid images' partition tables. An ext journal's own
@@ -109,6 +116,9 @@ impl VolumeFormat {
         if let Some(superblock) = head.get(1024..).filter(|sb| is_ext(sb)) {
             return ext(superblock);
         }
+        if is_udf(head) {
+            return Some(Self::Udf);
+        }
         if head.get(16 * 2048 + 1..16 * 2048 + 6) == Some(b"CD001") {
             return Some(Self::Iso9660);
         }
@@ -124,6 +134,7 @@ impl VolumeFormat {
             Self::Iso9660 => VolumeDriver::Cdfs,
             Self::Ntfs => VolumeDriver::Ntfs,
             Self::Squashfs => VolumeDriver::Squashfs,
+            Self::Udf => VolumeDriver::Udf,
             Self::Xfs => VolumeDriver::Xfs,
         }
     }
@@ -149,6 +160,7 @@ impl VolumeFormat {
             Self::Iso9660 => "iso9660",
             Self::Ntfs => "ntfs",
             Self::Squashfs => "squashfs",
+            Self::Udf => "udf",
             Self::Xfs => "xfs",
         }
     }
@@ -158,6 +170,24 @@ impl core::fmt::Display for VolumeFormat {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.name())
     }
+}
+
+/// Returns whether `head` holds UDF's volume recognition sequence: from
+/// sector 16, descriptors of 2 KiB, or of whole sectors larger, each an
+/// identifier at offset 1, where `BEA01` begins an extended area that
+/// holds `NSR02` or `NSR03`.
+fn is_udf(head: &[u8]) -> bool {
+    let mut extended = false;
+    for sector in 16..48_usize {
+        let at = sector.saturating_mul(2048);
+        match head.get(at.saturating_add(1)..at.saturating_add(6)) {
+            Some(b"BEA01") => extended = true,
+            Some(b"NSR02" | b"NSR03") if extended => return true,
+            Some(b"TEA01") => extended = false,
+            _ => {},
+        }
+    }
+    false
 }
 
 /// Returns whether `superblock` is ext's: its magic number, a block size
@@ -329,6 +359,18 @@ mod tests {
         iso[16 * 2048..16 * 2048 + 6].copy_from_slice(b"\x01CD001");
         assert_eq!(VolumeFormat::detect(&iso), Some(VolumeFormat::Iso9660));
         assert_eq!(VolumeFormat::detect(&iso[..16 * 2048 + 5]), None);
+        // UDF, alone and as a bridge with ISO 9660; not without `BEA01`.
+        let mut udf = vec![0; 20 * 2048];
+        udf[16 * 2048..16 * 2048 + 6].copy_from_slice(b"\0BEA01");
+        udf[17 * 2048..17 * 2048 + 6].copy_from_slice(b"\0NSR03");
+        assert_eq!(VolumeFormat::detect(&udf), Some(VolumeFormat::Udf));
+        let mut bridge = iso.clone();
+        bridge.resize(20 * 2048, 0);
+        bridge[18 * 2048..18 * 2048 + 6].copy_from_slice(b"\0BEA01");
+        bridge[19 * 2048..19 * 2048 + 6].copy_from_slice(b"\0NSR02");
+        assert_eq!(VolumeFormat::detect(&bridge), Some(VolumeFormat::Udf));
+        udf[16 * 2048 + 1] = b'X';
+        assert_eq!(VolumeFormat::detect(&udf), None);
         let mut ntfs = vec![0; VolumeFormat::DETECT_LEN];
         ntfs[3..11].copy_from_slice(b"NTFS    ");
         ntfs[510..512].copy_from_slice(&[0x55, 0xAA]);
@@ -357,5 +399,6 @@ mod tests {
         assert_eq!(VolumeFormat::Fat32.to_string(), "fat32");
         assert_eq!(VolumeFormat::Iso9660.to_string(), "iso9660");
         assert_eq!(VolumeFormat::Iso9660.driver().name(), "cdfs");
+        assert_eq!(VolumeFormat::Udf.to_string(), "udf");
     }
 }

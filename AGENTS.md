@@ -72,7 +72,7 @@
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
   planned); `filer-cdfs` (ISO 9660), `filer-ext4`, `filer-ntfs`,
   `filer-squashfs` (a feature per compressor, each over its `decode-*`
-  crate), and `filer-xfs` are
+  crate), `filer-udf`, and `filer-xfs` are
   read-only file system drivers; `filer-volume` opens any of
   them, detected by content (add every new file system crate to it as an
   optional dependency, feature, and re-export); `filer-fs` holds what they
@@ -107,12 +107,12 @@
   binary over `filer-system`.
 - Stubs that reserve a crate name but read nothing yet live in
   `tmp/<crate>/` (archives: `filer-rar`, `filer-7z`; file systems, each
-  depending on `filer-fs`: `filer-udf`, `filer-exfat`, `filer-btrfs`,
-  `filer-zfs`, ...; checksums: `compute-blake2`, `compute-blake3`,
+  depending on `filer-fs`: `filer-exfat`, `filer-btrfs`, `filer-zfs`,
+  ...; checksums: `compute-blake2`, `compute-blake3`,
   `compute-fletcher`, `compute-sha512`). A stub's crate docs list what
   its format needs. It
   moves to `lib/` with its first implementation, and joins its umbrella
-  then (`filer-rar`, `filer-7z`, and `filer-udf` already have).
+  then (`filer-rar` and `filer-7z` already have).
 - New crates must also be added to the README crate table. CI derives its
   package lists from `cargo metadata` and builds every `lib/*/fuzz/`.
 - `filer-cli` is binary-only: its `[[bin]]` has `required-features = ["std"]`,

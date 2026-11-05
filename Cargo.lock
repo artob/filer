@@ -469,6 +469,9 @@ version = "0.0.4"
 dependencies = [
  "filer-api",
  "filer-fs",
+ "filer-msft",
+ "filer-spec",
+ "filer-system",
 ]
 
 [[package]]

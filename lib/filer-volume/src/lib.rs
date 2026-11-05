@@ -16,6 +16,7 @@
 //! | FAT12, FAT16, FAT32 | boot sector, as `filer-fat` checks it | `fat`, `code-pages` | `filer-fat` |
 //! | NTFS | `NTFS` at offset 3 | `ntfs` | `filer-ntfs` |
 //! | SquashFS | `hsqs` at offset 0 | `squashfs`, and a compressor's | `filer-squashfs` |
+//! | UDF | `NSR02` or `NSR03` after `BEA01`, from offset 32768 | `udf` | `filer-udf` |
 //! | XFS | `XFSB` at offset 0 | `xfs` | `filer-xfs` |
 //!
 //! Each driver's feature, named as its [`VolumeDriver`] is, enables it,
@@ -26,11 +27,8 @@
 //! short names; `gzip`, `lz4`, `lzma`, `lzo`, `xz`, and `zstd` forward
 //! `filer-squashfs`'s, each reading SquashFS images of that compressor;
 //! `zisofs` forwards `filer-cdfs`'s, reading the files it compresses in
-//! ISO 9660 images.
-//! `udf` enables `filer-udf`, which reads nothing yet, so
-//! [`VolumeDriver`] has no UDF until it does. `all`, enabled by default,
-//! enables every driver and compressor, but not `code-pages`, as
-//! `filer-fat`'s does not.
+//! ISO 9660 images. `all`, enabled by default, enables every driver and
+//! compressor, but not `code-pages`, as `filer-fat`'s does not.
 //! Without a driver's feature, [`VolumeDriver`] still names it, and
 //! opening a volume with it fails with
 //! [`Unsupported`](filer_api::ErrorKind::Unsupported).

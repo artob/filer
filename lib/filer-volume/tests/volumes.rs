@@ -11,7 +11,7 @@ use filer_spec::{Sparse, block_on};
 use filer_volume::{Volume, VolumeDriver, VolumeError, VolumeFormat, VolumeOptions};
 
 /// A volume of each format, as the path of a fixture in the workspace.
-const VOLUMES: [(VolumeFormat, &str); 10] = [
+const VOLUMES: [(VolumeFormat, &str); 11] = [
     (
         VolumeFormat::Ext2,
         "filer-ext4/tests/fixtures/ext2-attrs.sparse",
@@ -36,6 +36,7 @@ const VOLUMES: [(VolumeFormat, &str); 10] = [
         VolumeFormat::Squashfs,
         "filer-squashfs/tests/fixtures/spec.sqfs",
     ),
+    (VolumeFormat::Udf, "filer-udf/tests/fixtures/spec.sparse"),
     (VolumeFormat::Xfs, "filer-xfs/tests/fixtures/spec.sparse"),
 ];
 
@@ -81,6 +82,8 @@ fn listed_by_its_driver(driver: VolumeDriver, image: Vec<u8>) -> Vec<String> {
         VolumeDriver::Squashfs => {
             names(&block_on(filer_volume::squashfs::Squashfs::open(image)).unwrap())
         },
+        #[cfg(feature = "udf")]
+        VolumeDriver::Udf => names(&block_on(filer_volume::udf::Udf::open(image)).unwrap()),
         #[cfg(feature = "xfs")]
         VolumeDriver::Xfs => names(&block_on(filer_volume::xfs::Xfs::open(image)).unwrap()),
         _ => unreachable!("{driver} is disabled, so {} bytes went unread", image.len()),
