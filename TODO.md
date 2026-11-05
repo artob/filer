@@ -545,20 +545,18 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **BENCH-05: The procedure.** `bench/` fetches and verifies the
-  corpus, encodes it once, and decodes it with every zstd and bzip2
-  decoder, whole or in pieces, checking each output, and prints each
-  one's median MB/s in one process (2026-11-05). Next, independent
-  processes, decoders interleaved in a random order, warm-ups, the
-  median of medians with a 95% bootstrap interval run until it is within
-  1% or a budget is spent, paired ratios, and the machine's state
-  recorded; baseline and `target-cpu=native` builds; every sample as
-  JSON lines under `bench/results/`. Done when two runs on one machine
-  agree within their intervals.
+- [ ] **BENCH-05: The procedure's check.** `bench/`'s `run` follows
+  `METHOD.md`'s procedure, over whole streams or one piece size, and
+  writes every sample to `bench/results/` (2026-11-05). Done when two
+  runs on one idle machine, pinned (`--cpu`), agree within their
+  intervals: one run over zstd's synthetic inputs, on Linux in a VM,
+  gave intervals of 0.1 to 1.5%; the second, and bzip2's, were stopped.
+  Rsyncing `bench/` with `--delete` removes `bench/results/` elsewhere.
 - [ ] **BENCH-06: The other measures.** Streaming in pieces of 4 and 64
-  KiB, small streams, memory by a counting allocator, the decoder's
-  size, checkpoints, `perf stat` counters on Linux, and code size, as
-  `bench/METHOD.md` lists them. Done when the raw data holds each.
+  KiB in one run, small streams, memory by a counting allocator, the
+  decoder's size, checkpoints, `perf stat` counters on Linux, and code
+  size, as `bench/METHOD.md` lists them. Done when the raw data holds
+  each.
 - [ ] **BENCH-07: Tables.** The harness generates each `BENCH.md`'s
   tables from `bench/results/`, never edited by hand. Done when it
   fills `decode-zstd`'s and `decode-bzip2`'s on an x86 machine and on

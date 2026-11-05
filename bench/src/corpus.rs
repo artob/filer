@@ -45,7 +45,7 @@ struct Entry {
 }
 
 /// The directory of `corpus.toml`, `packed.toml`, and the corpus itself.
-fn bench() -> &'static Path {
+pub fn bench() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
 }
 

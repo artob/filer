@@ -3,63 +3,79 @@
 //! The harness that measures the `decode-*` crates against their
 //! counterparts, as `bench/METHOD.md` lays out.
 //!
-//! So far it fetches and verifies the corpus `corpus.toml` names, encodes
-//! it and the synthetic inputs once with the reference encoders at their
-//! codecs' levels, recording each in `packed.toml`, and decodes each with
-//! every decoder of its codec, whole or in pieces, checking every output
-//! against the original, and prints the median MB/s of decoded output of
-//! each. The procedure's processes and statistics, the other measures, and
-//! the generated tables are to follow (`TODO.md`, BENCH-05 to 07).
+//! It fetches and verifies the corpus `corpus.toml` names, encodes it and
+//! the synthetic inputs once with the reference encoders at their codecs'
+//! levels, recording each in `packed.toml`, and decodes each with every
+//! decoder of its codec, whole or in pieces, by the procedure of
+//! `procedure`, checking every output against the original. The other
+//! measures and the generated tables are to follow (`TODO.md`, BENCH-06
+//! and 07).
 //!
 //! From `bench/`, `cargo run --release --`, then:
 //!
 //! - `fetch`: fetches the corpus into `bench/corpus/`, and verifies it.
 //! - `encode [<codec>...] [--only <prefix>]`: encodes the inputs, or those
 //!   whose names begin with the prefix, such as `synthetic` or `silesia`.
-//! - `run [<codec>...] [--only <prefix>] [--piece <bytes>] [--quick]`:
-//!   decodes them, whole unless a piece size is given, and with `--quick`,
-//!   once each, untimed but for itself, to check every output.
+//! - `check [<codec>...] [--only <prefix>] [--piece <bytes>]`: decodes
+//!   them once each with every decoder, whole unless a piece size is
+//!   given, checking every output, and prints how fast each went.
+//! - `run [<codec>...] [--only <prefix>] [--piece <bytes>] [--cpu <n>]`:
+//!   the procedure, its samples written to `bench/results/`; on Linux,
+//!   pinned to CPU `n` by `taskset`, if given.
 //!
-//! Every codec, `bzip2` and `zstd`, unless some are named.
+//! Every codec, `bzip2` and `zstd`, unless some are named. For the
+//! ceiling, build with `RUSTFLAGS="-C target-cpu=native"` into another
+//! `--target-dir`: the results record the flags, and name their file so.
 
 mod corpus;
 mod decoders;
 mod inputs;
+mod machine;
 mod measure;
+mod procedure;
 
 use decoders::Codec;
-use measure::Budget;
+use inputs::Level;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 /// What a command is given.
-struct Options {
-    codecs: Vec<Codec>,
-    only: String,
-    piece: usize,
-    budget: Budget,
+pub struct Options {
+    pub codecs: Vec<Codec>,
+    pub only: String,
+    pub piece: usize,
+    pub cpu: Option<String>,
 }
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let command = args.next().unwrap_or_default();
+    let codec = |name: &str| {
+        Codec::ALL
+            .into_iter()
+            .find(|codec| codec.name() == name)
+            .ok_or_else(|| format!("no codec {name}"))
+    };
+    if command == "sample" {
+        // `sample <codec> <input> <level> <piece> <seed>`, from `run`.
+        let mut next = || args.next().ok_or("sample: too few arguments");
+        let (codec, input) = (codec(&next()?)?, next()?);
+        let level = Level::parse(&next()?).ok_or("sample: no such level")?;
+        let (piece, seed) = (next()?.parse()?, next()?.parse()?);
+        return procedure::sample(codec, &input, level, piece, seed);
+    }
     let mut options = Options {
         codecs: Vec::new(),
         only: String::new(),
         piece: usize::MAX,
-        budget: Budget::FULL,
+        cpu: None,
     };
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--only" => options.only = args.next().ok_or("--only needs a prefix")?,
             "--piece" => options.piece = args.next().ok_or("--piece needs a size")?.parse()?,
-            "--quick" => options.budget = Budget::QUICK,
-            name => options.codecs.push(
-                *Codec::ALL
-                    .iter()
-                    .find(|codec| codec.name() == name)
-                    .ok_or_else(|| format!("no codec {name}"))?,
-            ),
+            "--cpu" => options.cpu = Some(args.next().ok_or("--cpu needs a CPU")?),
+            name => options.codecs.push(codec(name)?),
         }
     }
     if options.codecs.is_empty() {
@@ -74,14 +90,15 @@ fn main() -> Result<()> {
             }
             Ok(())
         },
-        "run" => run(&options),
-        _ => Err("commands: fetch, encode, run".into()),
+        "check" => check(&options),
+        "run" => procedure::run(&options, corpus::bench()),
+        _ => Err("commands: fetch, encode, check, run".into()),
     }
 }
 
-/// Decodes every input with every decoder of each codec, and prints a
-/// table of their median MB/s.
-fn run(options: &Options) -> Result<()> {
+/// Decodes every input once with every decoder of each codec, checking
+/// each output, and prints a table of how fast each went.
+fn check(options: &Options) -> Result<()> {
     let inputs = corpus::inputs(&options.only)?;
     for &codec in &options.codecs {
         let decoders = codec.decoders();
@@ -101,8 +118,7 @@ fn run(options: &Options) -> Result<()> {
                 let ratio = original.len() as f64 / packed.len() as f64;
                 print!("{:<32} {:>8} {ratio:>8.2}", input.name, level.label());
                 for decoder in decoders {
-                    let (piece, budget) = (options.piece, &options.budget);
-                    match measure::throughput(decoder, &packed, &original, piece, budget) {
+                    match measure::once(decoder, &packed, &original, options.piece) {
                         Ok(rate) => print!(" {rate:>13.1}"),
                         Err(failure) => print!(" {:>13}", format!("({failure})")),
                     }

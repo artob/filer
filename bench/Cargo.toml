@@ -24,8 +24,9 @@ libbz2-rs = { package = "bzip2", version = "0.6" }
 # zstd's: libzstd, the reference, in C, which also encodes; and `ruzstd`.
 ruzstd = "0.9"
 zstd = "0.13"
-# `corpus.toml` and `packed.toml`.
+# `corpus.toml` and `packed.toml`, and the results' JSON lines.
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 toml = "0.9"
 
 [profile.release]

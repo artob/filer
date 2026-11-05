@@ -29,6 +29,18 @@ impl Level {
         }
     }
 
+    /// Reads what [`label`](Self::label) writes.
+    pub fn parse(label: &str) -> Option<Self> {
+        let (number, long) = match label.strip_suffix("-long") {
+            Some(number) => (number, true),
+            None => (label, false),
+        };
+        Some(Self {
+            number: number.parse().ok()?,
+            long,
+        })
+    }
+
     /// Its name in paths and in `packed.toml`.
     pub fn label(self) -> String {
         match self.long {
@@ -83,15 +95,22 @@ pub fn synthetic() -> Vec<Input> {
 }
 
 /// SplitMix64, a fixed sequence from a seed.
-struct SplitMix(u64);
+pub struct SplitMix(pub u64);
 
 impl SplitMix {
-    fn next(&mut self) -> u64 {
+    pub fn next(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
         let mut z = self.0;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
         z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
         z ^ (z >> 31)
+    }
+
+    /// Shuffles `items`, by Fisher and Yates.
+    pub fn shuffle<T>(&mut self, items: &mut [T]) {
+        for i in (1..items.len()).rev() {
+            items.swap(i, (self.next() % (i as u64 + 1)) as usize);
+        }
     }
 }
 
