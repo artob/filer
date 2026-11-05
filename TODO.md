@@ -563,6 +563,12 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **BENCH-03: The `compute-*` crates.** The harness measures their
   throughput over buffers from 16 B to 1 MiB, against portable and SIMD
   counterparts (D64). Done when each one's `BENCH.md` holds its figures.
+- [ ] **DEC-09: LZO1X version 1.** `decode-lzo` refuses, as
+  `Unsupported`, a block that names a version in its second byte, after
+  a first of 17: the Linux kernel's `lzo-rle`, which F2FS and zram may
+  use, whose version 1 adds an instruction for runs of zeros. Done when
+  `decode_block` decodes them, from the kernel's description, checked
+  against blocks the kernel's `lzo-rle` writes.
 
 ## Virtual drivers
 

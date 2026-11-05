@@ -23,7 +23,8 @@
 //! denies by lint: it holds at most a block of packed bytes and a block
 //! of what they decode to, 64 MiB each at most, as lzop allows, and
 //! 256 KiB as it writes them. A file filtered, part of a multipart
-//! archive, or compressed otherwise than by LZO1X is
+//! archive, or compressed otherwise than by LZO1X, and a block that names
+//! a version past 0, as the Linux kernel's `lzo-rle` blocks do, are
 //! [`Unsupported`](Error::Unsupported); anything malformed is
 //! [`Corrupt`](Error::Corrupt).
 //!

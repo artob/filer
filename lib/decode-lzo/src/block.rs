@@ -3,7 +3,7 @@
 //! LZO1X blocks: instructions, each a match or a run of literals, every
 //! match followed by up to three literals more, and a mark at the end.
 
-use crate::{Error, corrupt};
+use crate::{Error, corrupt, unsupported};
 
 /// Decodes `input`, a whole LZO1X block, as btrfs, SquashFS, and F2FS
 /// store them and lzop's blocks hold them, into `output`, and returns how
@@ -13,12 +13,16 @@ use crate::{Error, corrupt};
 /// It refuses what is malformed: a match from before the block's start,
 /// and a block that ends anywhere but at its end mark, a match of 3 bytes
 /// from 16 KiB back. As the Linux kernel does, and lzokay does not, it
-/// refuses bytes after the mark too.
+/// refuses bytes after the mark too. A block that begins with 17, and
+/// holds five bytes or more, names its version in its second byte, as
+/// the Linux kernel's `lzo-rle` blocks do, whose version 1 adds an
+/// instruction for runs of zeros; this decoder reads version 0 only.
 ///
 /// # Errors
 ///
 /// [`Corrupt`](Error::Corrupt) if it is malformed, or decodes to more than
-/// `output` holds.
+/// `output` holds; [`Unsupported`](Error::Unsupported) if it names a
+/// version.
 ///
 /// # Examples
 ///
@@ -53,6 +57,12 @@ struct Block<'a> {
 
 impl Block<'_> {
     fn decode(&mut self) -> Result<usize, Error> {
+        // A first byte of 17, with four or more after it, names the
+        // block's version in the next; no version 0 block is decodable
+        // from one, as the match it would be has nothing to copy.
+        if self.input.len() >= 5 && self.input.first() == Some(&17) {
+            return Err(unsupported());
+        }
         // How many literals the last instruction copied, 0 to 3, or 4 for
         // more, which tells what an instruction below 16 means.
         let mut state = 0;

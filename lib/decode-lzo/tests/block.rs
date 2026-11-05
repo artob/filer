@@ -136,6 +136,19 @@ fn ends_at_the_end_mark() {
 }
 
 #[test]
+fn refuses_blocks_that_name_a_version() {
+    // A first byte of 17 names the version in the next, given five bytes
+    // or more: version 1, the Linux kernel's `lzo-rle`, with a run of
+    // zeros; or version 0, which only such a block begins so.
+    for version in [1, 0] {
+        let block = [17, version, 0x11, 0, 0];
+        assert_eq!(decode(&block, 10).unwrap_err(), Error::Unsupported);
+    }
+    // Shorter, it is an instruction, which has nothing to copy.
+    assert_eq!(decode(&[17, 1, 0, 0], 10).unwrap_err(), Error::Corrupt);
+}
+
+#[test]
 fn refuses_malformed_blocks() {
     for block in [
         // Nothing, not even the end mark.
@@ -147,7 +160,7 @@ fn refuses_malformed_blocks() {
         &[22, b'h', b'e', b'l'],
         // A match from before the start.
         &[18, b'a', 0x90, 0, 0x11, 0, 0],
-        &[0x11, 0x82, 0x38, 0x11, 0, 0],
+        &[0x12, 0x82, 0x38, 0x11, 0, 0],
         // A length cut short.
         &[18, b'a', 0x20, 0, 0],
     ] {

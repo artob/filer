@@ -8,8 +8,8 @@ pub enum Error {
     /// or its checksums or sizes not those of what it decodes to.
     Corrupt,
     /// The stream is well formed, but needs what this decoder does not
-    /// do: a method other than LZO1X's, a filter, or parts of a
-    /// multipart archive.
+    /// do: a method other than LZO1X's, a filter, parts of a multipart
+    /// archive, or a block of a version past 0, as `lzo-rle`'s are.
     Unsupported,
 }
 
