@@ -35,11 +35,13 @@
 //! # Examples
 //!
 //! ```
+//! # #[cfg(feature = "crc32")] {
 //! use compute_crc::{Crc32, crc32};
 //!
 //! assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
 //! let crc = Crc32::new().update(b"1234").update(b"56789");
 //! assert_eq!(crc.finish(), 0xCBF4_3926);
+//! # }
 //! ```
 
 #![no_std]
@@ -424,12 +426,22 @@ pub fn crc32_bzip2(bytes: &[u8]) -> u32 {
     Crc32Bzip2::new().update(bytes).finish()
 }
 
-// The README's example runs as a doctest.
-#[cfg(doctest)]
+// The README's example runs as a doctest, with the CRCs it uses.
+#[cfg(all(doctest, feature = "crc32", feature = "crc32c"))]
 #[doc = include_str!("../README.md")]
 struct ReadmeDoctests;
 
-#[cfg(test)]
+// The tests need at least one CRC; each checks the ones in the build.
+#[cfg(all(
+    test,
+    any(
+        feature = "crc16-modbus",
+        feature = "crc32",
+        feature = "crc32-bzip2",
+        feature = "crc32c",
+        feature = "crc64-xz"
+    )
+))]
 mod tests {
     use super::*;
 
@@ -478,53 +490,78 @@ mod tests {
     #[test]
     fn matches_the_bitwise_definitions() {
         each(|bytes, piece| {
-            let crc = pieces(Crc16Modbus::new(), bytes, piece, Crc16Modbus::update);
-            let poly = 0x8005;
-            assert_eq!(
-                u64::from(crc.finish()),
-                bitwise(16, poly, true, false, bytes)
-            );
-            let crc = pieces(Crc32::new(), bytes, piece, Crc32::update);
-            let poly = 0x04C1_1DB7;
-            assert_eq!(
-                u64::from(crc.finish()),
-                bitwise(32, poly, true, true, bytes)
-            );
-            let crc = pieces(Crc32c::new(), bytes, piece, Crc32c::update);
-            let poly = 0x1EDC_6F41;
-            assert_eq!(
-                u64::from(crc.finish()),
-                bitwise(32, poly, true, true, bytes)
-            );
-            let crc = pieces(Crc32Bzip2::new(), bytes, piece, Crc32Bzip2::update);
-            let poly = 0x04C1_1DB7;
-            assert_eq!(
-                u64::from(crc.finish()),
-                bitwise(32, poly, false, true, bytes)
-            );
-            let crc = pieces(Crc64Xz::new(), bytes, piece, Crc64Xz::update);
-            let poly = 0x42F0_E1EB_A9EA_3693;
-            assert_eq!(crc.finish(), bitwise(64, poly, true, true, bytes));
+            #[cfg(feature = "crc16-modbus")]
+            {
+                let crc = pieces(Crc16Modbus::new(), bytes, piece, Crc16Modbus::update);
+                let poly = 0x8005;
+                assert_eq!(
+                    u64::from(crc.finish()),
+                    bitwise(16, poly, true, false, bytes)
+                );
+            }
+            #[cfg(feature = "crc32")]
+            {
+                let crc = pieces(Crc32::new(), bytes, piece, Crc32::update);
+                let poly = 0x04C1_1DB7;
+                assert_eq!(
+                    u64::from(crc.finish()),
+                    bitwise(32, poly, true, true, bytes)
+                );
+            }
+            #[cfg(feature = "crc32c")]
+            {
+                let crc = pieces(Crc32c::new(), bytes, piece, Crc32c::update);
+                let poly = 0x1EDC_6F41;
+                assert_eq!(
+                    u64::from(crc.finish()),
+                    bitwise(32, poly, true, true, bytes)
+                );
+            }
+            #[cfg(feature = "crc32-bzip2")]
+            {
+                let crc = pieces(Crc32Bzip2::new(), bytes, piece, Crc32Bzip2::update);
+                let poly = 0x04C1_1DB7;
+                assert_eq!(
+                    u64::from(crc.finish()),
+                    bitwise(32, poly, false, true, bytes)
+                );
+            }
+            #[cfg(feature = "crc64-xz")]
+            {
+                let crc = pieces(Crc64Xz::new(), bytes, piece, Crc64Xz::update);
+                let poly = 0x42F0_E1EB_A9EA_3693;
+                assert_eq!(crc.finish(), bitwise(64, poly, true, true, bytes));
+            }
         });
     }
 
     #[test]
     fn matches_the_check_values() {
         let check = b"123456789";
-        assert_eq!(crc16_modbus(check), Crc16Modbus::CHECK);
-        assert_eq!(crc32(check), Crc32::CHECK);
-        assert_eq!(crc32c(check), Crc32c::CHECK);
+        #[cfg(feature = "crc16-modbus")]
+        {
+            assert_eq!(crc16_modbus(check), Crc16Modbus::CHECK);
+            assert_eq!(crc16_modbus(b""), 0xFFFF);
+        }
+        #[cfg(feature = "crc32")]
+        {
+            assert_eq!(crc32(check), Crc32::CHECK);
+            assert_eq!(crc32(b""), 0);
+        }
+        #[cfg(feature = "crc32c")]
+        {
+            assert_eq!(crc32c(check), Crc32c::CHECK);
+            // RFC 3720's, for iSCSI.
+            assert_eq!(crc32c(&[0; 32]), 0x8A91_36AA);
+            assert_eq!(crc32c(&[0xFF; 32]), 0x62A8_AB43);
+            let ascending: [u8; 32] = core::array::from_fn(|n| n as u8);
+            assert_eq!(crc32c(&ascending), 0x46DD_794E);
+            let descending: [u8; 32] = core::array::from_fn(|n| 31 - n as u8);
+            assert_eq!(crc32c(&descending), 0x113F_DB5C);
+        }
+        #[cfg(feature = "crc32-bzip2")]
         assert_eq!(crc32_bzip2(check), Crc32Bzip2::CHECK);
+        #[cfg(feature = "crc64-xz")]
         assert_eq!(crc64_xz(check), Crc64Xz::CHECK);
-        // RFC 3720's, for iSCSI.
-        assert_eq!(crc32c(&[0; 32]), 0x8A91_36AA);
-        assert_eq!(crc32c(&[0xFF; 32]), 0x62A8_AB43);
-        let ascending: [u8; 32] = core::array::from_fn(|n| n as u8);
-        assert_eq!(crc32c(&ascending), 0x46DD_794E);
-        let descending: [u8; 32] = core::array::from_fn(|n| 31 - n as u8);
-        assert_eq!(crc32c(&descending), 0x113F_DB5C);
-        // Of nothing.
-        assert_eq!(crc32(b""), 0);
-        assert_eq!(crc16_modbus(b""), 0xFFFF);
     }
 }

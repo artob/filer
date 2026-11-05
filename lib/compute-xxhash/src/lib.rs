@@ -58,7 +58,7 @@ mod xxh64;
 #[cfg(feature = "xxh64")]
 pub use xxh64::*;
 
-// The README's example runs as a doctest.
-#[cfg(doctest)]
+// The README's example runs as a doctest, with the hashes it uses.
+#[cfg(all(doctest, feature = "xxh32", feature = "xxh64"))]
 #[doc = include_str!("../README.md")]
 struct ReadmeDoctests;

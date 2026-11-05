@@ -3,9 +3,16 @@
 //! XXH32 and XXH64 of bytes of every length to 1,000 and seeds at the
 //! edges, checked against `twox-hash`'s.
 
-use compute_xxhash::{Xxh32, Xxh64, xxh32, xxh64};
-use twox_hash::{XxHash32, XxHash64};
+#[cfg(feature = "xxh32")]
+use compute_xxhash::{Xxh32, xxh32};
+#[cfg(feature = "xxh64")]
+use compute_xxhash::{Xxh64, xxh64};
+#[cfg(feature = "xxh32")]
+use twox_hash::XxHash32;
+#[cfg(feature = "xxh64")]
+use twox_hash::XxHash64;
 
+#[cfg(feature = "xxh64")]
 #[test]
 fn hashes_as_twox_hash_does() {
     let bytes: Vec<u8> = (0..1000_u32)
@@ -28,6 +35,7 @@ fn hashes_as_twox_hash_does() {
     }
 }
 
+#[cfg(feature = "xxh32")]
 #[test]
 fn hashes_xxh32_as_twox_hash_does() {
     let bytes: Vec<u8> = (0..1000_u32)
