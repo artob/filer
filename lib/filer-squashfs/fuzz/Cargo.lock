@@ -34,38 +34,38 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "compute-adler32"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "compute-crc"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "compute-sha256"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "compute-xxhash"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "decode-deflate"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "decode-lz4"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-xxhash",
 ]
 
 [[package]]
 name = "decode-lzma"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "decode-lzo"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-adler32",
  "compute-crc",
@@ -73,7 +73,7 @@ dependencies = [
 
 [[package]]
 name = "decode-xz"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-crc",
  "compute-sha256",
@@ -82,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "decode-zlib"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-adler32",
  "decode-deflate",
@@ -90,14 +90,14 @@ dependencies = [
 
 [[package]]
 name = "decode-zstd"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-xxhash",
 ]
 
 [[package]]
 name = "filer-api"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "bitflags",
  "compute-crc",
@@ -106,7 +106,7 @@ dependencies = [
 
 [[package]]
 name = "filer-fs"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "filer-api",
  "spin",
@@ -114,14 +114,14 @@ dependencies = [
 
 [[package]]
 name = "filer-spec"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-squashfs"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "decode-lz4",
  "decode-lzma",

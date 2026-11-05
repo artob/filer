@@ -40,34 +40,34 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "compute-crc"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "compute-sha256"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "compute-xxhash"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "decode-bzip2"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-crc",
 ]
 
 [[package]]
 name = "decode-deflate"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "decode-lzma"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "decode-xz"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-crc",
  "compute-sha256",
@@ -76,14 +76,14 @@ dependencies = [
 
 [[package]]
 name = "decode-zstd"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-xxhash",
 ]
 
 [[package]]
 name = "filer-api"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "bitflags",
  "compute-crc",
@@ -92,14 +92,14 @@ dependencies = [
 
 [[package]]
 name = "filer-msft"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-pack"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "decode-bzip2",
  "decode-deflate",
@@ -112,14 +112,14 @@ dependencies = [
 
 [[package]]
 name = "filer-spec"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-zip"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "filer-api",
  "filer-msft",
@@ -167,7 +167,7 @@ dependencies = [
 
 [[package]]
 name = "known-codepages"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "libc"

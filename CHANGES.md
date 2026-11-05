@@ -7,11 +7,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 so any release may break compatibility.
 
 ## Unreleased
-### Changed
-- `compute-crc`, `compute-adler32`: `update` feeds bytes in place, and
-  `finish` and `state` take a reference, as `compute-sha256`'s and
-  `compute-xxhash`'s do; `chain` feeds them by value and returns the
-  next, as `update` did.
+
+## 0.0.4 - 2026-11-05
+A SquashFS driver, `filer-squashfs`, reading images of every compressor
+`mksquashfs` offers through our own decoders; fixes to four of those
+decoders; and one shape for the `compute-*` crates: `new`, `update`,
+`chain`, and `finish`.
 ### Added
 - `compute-adler32`, `compute-crc`, `compute-sha256`, `compute-xxhash`:
   `chain`, so that the five share one shape: `new`, `update`, `chain`,
@@ -25,6 +26,11 @@ so any release may break compatibility.
 - `filer-volume`: SquashFS images, detected by `hsqs`, with the
   `squashfs` feature, `VolumeDriver::Squashfs`, `VolumeFormat::Squashfs`,
   and the compressor features, forwarded.
+### Changed
+- `compute-crc`, `compute-adler32`: `update` feeds bytes in place, and
+  `finish` and `state` take a reference, as `compute-sha256`'s and
+  `compute-xxhash`'s do; `chain` feeds them by value and returns the
+  next, as `update` did.
 ### Fixed
 - `decode-deflate`: a stored block after a block whose end code is short,
   decoded with the input well ahead, could corrupt the header of the

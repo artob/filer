@@ -34,11 +34,11 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "compute-crc"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "filer-api"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "bitflags",
  "compute-crc",
@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "filer-ar"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "filer-api",
  "filer-pack",
@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "filer-pack"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "filer-api",
  "spin",
@@ -73,7 +73,7 @@ dependencies = [
 
 [[package]]
 name = "filer-spec"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "filer-api",
 ]

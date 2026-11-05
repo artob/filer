@@ -28,11 +28,11 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "compute-xxhash"
-version = "0.0.3"
+version = "0.0.4"
 
 [[package]]
 name = "decode-lz4"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "compute-xxhash",
 ]
