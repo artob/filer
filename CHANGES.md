@@ -20,6 +20,9 @@ so any release may break compatibility.
   `VolumeFormat::Iso9660`; UDF volumes, detected by their volume
   recognition sequence, before ISO 9660, with `VolumeDriver::Udf` and
   `VolumeFormat::Udf`.
+- `compute-crc`: the `intrinsics` feature, which takes CRC-32C by
+  SSE4.2's `crc32` on x86-64, and CRC-32, CRC-32C, and CRC-32/BZIP2 by
+  ARM's `crc` extension, where the CPU has them: about four times as fast.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
 ### Fixed

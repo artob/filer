@@ -28,7 +28,18 @@
 //! values, which are facts, as the catalogue of CRCs lists them; no
 //! other implementation's code is copied. It is pure, safe Rust without
 //! dependencies, and builds with `#![no_std]`, without an allocator. The
-//! `std` feature, enabled by default, currently adds nothing.
+//! `std` feature, enabled by default, adds nothing by itself.
+//!
+//! The `intrinsics` feature, not enabled by default, takes eight bytes an
+//! instruction where the CPU has one: CRC-32C by SSE4.2's `crc32` on
+//! x86-64, and CRC-32, CRC-32C, and CRC-32/BZIP2 by ARM's `crc` extension,
+//! from any register, as the tables do. With `std`, the instructions are
+//! chosen at run time; without it, only where the build enables them. It
+//! depends on `compute-multiversion`, a fork of `multiversion` that lets
+//! their intrinsics be called without `unsafe` code here. They are about
+//! four times as fast: 3.8 times on x86-64 (Zen 1), and 4.7 times on Apple
+//! M4. Each runs as one stream; none splits the bytes into streams to
+//! combine.
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
@@ -87,13 +98,15 @@
 /// its type, and its function. A reflected CRC reads each byte from its
 /// least significant bit, and shifts its register down; one that is not
 /// reads from the most significant, and shifts up. `$invert` is whether
-/// the final value is inverted.
+/// the final value is inverted. `$instructions`, if given, is a function of
+/// the `intrinsics` module that feeds the register by the CPU's
+/// instructions, if it has them.
 macro_rules! crc {
     (
         $(#[$meta:meta])*
         $name:ident, $function:ident, $feature:literal, $reg:ty, $poly:expr, $tables:ident,
         reflected: $reflected:literal, invert: $invert:literal, check: $check:expr,
-        label: $label:literal
+        label: $label:literal $(, instructions: $instructions:path)?
     ) => {
         /// The tables for taking eight bytes at a time: `TABLES[0][b]` is
         /// the CRC of byte `b`, in the register's byte that shifts out
@@ -171,6 +184,19 @@ macro_rules! crc {
 
             /// Feeds `bytes`.
             pub fn update(&mut self, bytes: &[u8]) {
+                $(
+                    #[cfg(feature = "intrinsics")]
+                    if let Some(state) = $instructions(self.state, bytes) {
+                        self.state = state;
+                        return;
+                    }
+                )?
+                self.state = Self::tables(self.state, bytes);
+            }
+
+            /// Feeds `bytes` to the register `crc` by the tables, and
+            /// returns what it comes to.
+            fn tables(mut crc: $reg, bytes: &[u8]) -> $reg {
                 // Always found: `k` is below 8, and a byte below 256.
                 let table = |k: usize, byte: u8| {
                     $tables
@@ -179,7 +205,6 @@ macro_rules! crc {
                         .copied()
                         .unwrap_or(0)
                 };
-                let mut crc = self.state;
                 let (groups, rest) = bytes.as_chunks::<8>();
                 for group in groups {
                     // The register's bytes go into the group's first, the
@@ -208,7 +233,7 @@ macro_rules! crc {
                         table(0, top ^ byte) ^ (crc << 8)
                     };
                 }
-                self.state = crc;
+                crc
             }
 
             /// Feeds `bytes`, and returns the CRC that goes on from there,
@@ -259,6 +284,13 @@ macro_rules! crc {
     };
 }
 
+// Detecting the CPU's instructions at run time takes `std`.
+#[cfg(all(feature = "intrinsics", feature = "std"))]
+extern crate std;
+
+#[cfg(feature = "intrinsics")]
+mod intrinsics;
+
 crc! {
     /// CRC-16/MODBUS: the polynomial 0x8005, each byte read from its least
     /// significant bit, from `0xFFFF`, and not inverted at the end; which
@@ -288,7 +320,8 @@ crc! {
     /// assert_eq!(crc.finish(), Crc32::CHECK);
     /// ```
     Crc32, crc32, "crc32", u32, 0xEDB8_8320, CRC32,
-    reflected: true, invert: true, check: 0xCBF4_3926, label: "CRC-32"
+    reflected: true, invert: true, check: 0xCBF4_3926, label: "CRC-32",
+    instructions: intrinsics::crc32
 }
 
 crc! {
@@ -310,7 +343,8 @@ crc! {
     /// assert_eq!(crc.state(), !0xE306_9283);
     /// ```
     Crc32c, crc32c, "crc32c", u32, 0x82F6_3B78, CRC32C,
-    reflected: true, invert: true, check: 0xE306_9283, label: "CRC-32C"
+    reflected: true, invert: true, check: 0xE306_9283, label: "CRC-32C",
+    instructions: intrinsics::crc32c
 }
 
 crc! {
@@ -342,7 +376,8 @@ crc! {
     /// assert_eq!(crc.finish(), Crc32Bzip2::CHECK);
     /// ```
     Crc32Bzip2, crc32_bzip2, "crc32-bzip2", u32, 0x04C1_1DB7, CRC32_BZIP2,
-    reflected: false, invert: true, check: 0xFC89_1918, label: "CRC-32/BZIP2"
+    reflected: false, invert: true, check: 0xFC89_1918, label: "CRC-32/BZIP2",
+    instructions: intrinsics::crc32_bzip2
 }
 
 // The README's example runs as a doctest, with the CRCs it uses.
@@ -404,6 +439,37 @@ mod tests {
     /// Returns what `start` comes to, fed `bytes` in pieces of `piece`.
     fn pieces<T>(start: T, bytes: &[u8], piece: usize, update: impl Fn(T, &[u8]) -> T) -> T {
         bytes.chunks(piece).fold(start, update)
+    }
+
+    /// The CPU's instructions, where it has them, come to what the tables
+    /// do, from any register.
+    #[cfg(all(
+        feature = "intrinsics",
+        any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
+    ))]
+    #[test]
+    fn instructions_match_the_tables() {
+        let bytes: [u8; 1000] = core::array::from_fn(|n| (n * 131 % 251) as u8);
+        for state in [0, !0, 0x1234_5678, 0xDEAD_BEEF] {
+            for len in (0..=64).chain([100, 999, 1000]) {
+                let bytes = &bytes[..len];
+                #[cfg(feature = "crc32")]
+                assert_eq!(
+                    Crc32::from_state(state).chain(bytes).state(),
+                    Crc32::tables(state, bytes)
+                );
+                #[cfg(feature = "crc32c")]
+                assert_eq!(
+                    Crc32c::from_state(state).chain(bytes).state(),
+                    Crc32c::tables(state, bytes)
+                );
+                #[cfg(feature = "crc32-bzip2")]
+                assert_eq!(
+                    Crc32Bzip2::from_state(state).chain(bytes).state(),
+                    Crc32Bzip2::tables(state, bytes)
+                );
+            }
+        }
     }
 
     #[test]

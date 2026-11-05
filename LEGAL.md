@@ -343,7 +343,9 @@ BLAKE2, and the BLAKE3 specification, the reference code of neither
 read; Fletcher's checksums as ZFS's and APFS's documentation define
 their variants; the xxHash specification for XXH32 and XXH64; and RFC
 1950 for Adler-32. A crate's code is never read as the source of its
-replacement.
+replacement. Under their `intrinsics` feature (D65), the CPU's
+instructions are used as Intel's and Arm's architecture manuals define
+them, facts.
 
 - **Deflate and gzip: written here.** `decode-deflate` (D62), written
   from RFC 1951 alone, decodes ZIP's raw Deflate, behind `deflate`, in

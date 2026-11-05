@@ -79,6 +79,9 @@ filer-zfs = { version = "0.0.4", path = "tmp/filer-zfs", default-features = fals
 filer-zip = { version = "0.0.4", path = "lib/filer-zip", default-features = false }
 known-codepages = { version = "0.0.4", path = "lib/known-codepages", default-features = false }
 bitflags = { version = "2.13", default-features = false }
+# A fork of `multiversion` 0.9.2 with its fix for statically enabled target
+# features, until upstream releases it; its library is still `multiversion`.
+compute-multiversion = { version = "0.9.2", default-features = false }
 # Its defaults select its pure-Rust backend, `libbz2-rs-sys`, not C.
 bzip2 = "0.6"
 deflate64 = "0.1.12"

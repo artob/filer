@@ -2668,10 +2668,29 @@ and sums, such as ext4's and XFS's directory hashes, stay in its driver.
 Each is clean room, public domain, pure safe Rust, `no_std` without an
 allocator, and dependency-free; the `decode-*` crates depend on them,
 and `filer_api::checksum` re-exports `compute-crc`'s, which keeps D53.
-Their ceiling is portable code: the fastest CRCs and SHA-256 use
-carry-less multiplication or SHA instructions, chosen at run time, which
-takes `unsafe` code and `std`'s detection, so their `BENCH.md` (D63)
-compares them with both kinds of counterparts.
+Their ceiling by default is portable code; the CPU's own instructions
+are behind a feature (D65), and their `BENCH.md` (D63) compares them with
+both kinds of counterparts.
+
+**The CPU's instructions, behind `intrinsics` (D65, 2026-11-05).** A
+`compute-*` crate may take the CPU's dedicated instructions behind an
+`intrinsics` feature, never enabled by default, so that by default it
+stays dependency-free (D64). It depends then on `compute-multiversion`,
+our fork of `multiversion` 0.9.2 with the fix of its pull request 67,
+until upstream releases it: chosen at run time with `std`, and without
+it, where the build enables them. The intrinsics are called from
+functions given the instructions' target features, which makes them
+safe, so the crate keeps `#![forbid(unsafe_code)]`; the dispatch's own
+`unsafe` code is the macro's. Upstream's 0.9.2 cannot: where the build
+enables a feature, as AArch64 does NEON and Apple's targets `crc` and
+`sha2`, or `-C target-cpu=x86-64-v2` SSE4.2, its functions lacked it and
+the intrinsics did not compile. Measured 2026-11-05: portable SIMD and
+whole-crate multiversioning gained nothing, within 5% on Zen 1 built
+for its own CPU, and `fearless_simd` reaches SHA-NI only with AVX-512
+and ARM's SHA2 and CRC instructions not at all; the dedicated
+instructions are what pay. `compute-crc` takes CRC-32C by SSE4.2's
+`crc32`, and CRC-32, CRC-32C, and CRC-32/BZIP2 by ARM's `crc`
+extension: 3.8 times on Zen 1, 4.7 times on Apple M4.
 
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and
@@ -4517,6 +4536,7 @@ Record changes here with a date and one line of rationale.
 | D62 | Our decoders are `decode-<codec>` crates, generic, dependency-free, one sans-I/O shape | Accepted |
 | D63 | Decoders are benchmarked by `bench/METHOD.md`; its harness, apart, may build C counterparts | Accepted |
 | D64 | Our checksums and hashes are `compute-<algorithm>` crates, generic and dependency-free | Accepted |
+| D65 | `compute-*` crates may take CPU instructions behind `intrinsics`, through `compute-multiversion` | Accepted |
 
 Notes on the 2026-10-31 decisions:
 
