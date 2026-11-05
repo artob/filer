@@ -32,7 +32,12 @@
 //! from RFC 1951 alone, and computes CRC-32 with `compute-crc`. It is pure,
 //! safe Rust, and builds with
 //! `#![no_std]`, with an allocator. The `std` feature, enabled by
-//! default, currently adds nothing.
+//! default, adds nothing by itself.
+//!
+//! The `intrinsics` feature, not enabled by default, computes CRC-32 by
+//! the CPU's instructions where it has them, ARM's `crc` extension, as
+//! `compute-crc`'s feature of that name does: chosen at run time with
+//! `std`. It decodes a quarter faster on Apple M4.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

@@ -25,6 +25,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std"]
 all = []
 std = ["compute-crc/std", "decode-deflate/std"]
+# CRC-32 by the CPU's instructions, where it has them (`compute-crc`'s).
+intrinsics = ["compute-crc/intrinsics"]
 
 [dependencies]
 compute-crc = { workspace = true, features = ["crc32"] }

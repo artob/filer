@@ -25,6 +25,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std"]
 all = []
 std = ["compute-crc/std", "compute-sha256/std", "decode-lzma/std"]
+# The CRC-32 and SHA-256 checks by the CPU's instructions, where it has them
+# (`compute-crc`'s and `compute-sha256`'s).
+intrinsics = ["compute-crc/intrinsics", "compute-sha256/intrinsics"]
 
 [dependencies]
 compute-crc = { workspace = true, features = ["crc32", "crc64-xz"] }

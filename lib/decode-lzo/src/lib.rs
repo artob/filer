@@ -34,7 +34,13 @@
 //! read, nor any other decoder's. It is pure, safe Rust, its Adler-32
 //! `compute-adler32`'s and its CRC-32 `compute-crc`'s, written likewise,
 //! and builds with `#![no_std]`, with an allocator. The `std` feature,
-//! enabled by default, currently adds nothing.
+//! enabled by default, adds nothing by itself.
+//!
+//! The `intrinsics` feature, not enabled by default, computes lzop's
+//! CRC-32s by the CPU's instructions where it has them, ARM's `crc`
+//! extension, as `compute-crc`'s feature of that name does: chosen at
+//! run time with `std`. Files checked by CRC-32 decode an eighth faster
+//! on Apple M4.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

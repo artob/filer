@@ -26,6 +26,10 @@ so any release may break compatibility.
 - `compute-sha256`: the `intrinsics` feature, which takes SHA-256 by
   x86-64's SHA extensions and ARMv8's SHA2, where the CPU has them: about
   six times as fast.
+- `decode-gzip`, `decode-lzo`, and `decode-xz`: the `intrinsics` feature,
+  which computes their CRC-32 and SHA-256 checks by the CPU's
+  instructions, through `compute-crc`'s and `compute-sha256`'s: gzip
+  decodes a quarter faster on Apple M4, and xz checked by SHA-256 too.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
 ### Fixed
