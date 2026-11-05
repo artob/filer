@@ -21,6 +21,8 @@ so any release may break compatibility.
 - `decode-deflate`: a stored block after a block whose end code is short,
   decoded with the input well ahead, could corrupt the header of the
   block after it, refusing a valid stream as `Corrupt`.
+- `decode-deflate`: `Decoder::decode` produces what it decoded before
+  its input ran short in that call, rather than the next.
 
 ## 0.0.3 - 2026-11-04
 Our own decoders and checksums, written clean room and dedicated to the

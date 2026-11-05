@@ -126,6 +126,20 @@ fn consumes_the_stream_and_no_more() {
     }
 }
 
+/// What a call decodes before its input runs short goes out in that
+/// call, not the next.
+#[test]
+fn produces_before_it_waits_for_input() {
+    let (_, stream, len, _) = FIXTURES[0];
+    let expected = agree(stream, 1).unwrap().0;
+    let mut output = vec![0; len];
+    let (consumed, produced) = Decoder::new()
+        .decode(&stream[..stream.len() / 2], &mut output)
+        .unwrap();
+    assert!(consumed > 0 && produced > 0, "{consumed}, {produced}");
+    assert!(output[..produced] == expected[..produced]);
+}
+
 #[test]
 fn decodes_what_miniz_oxide_writes() {
     let mut data: Vec<u8> = (0..50_000_u32)

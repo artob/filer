@@ -577,7 +577,10 @@ impl Decoder {
             }
             self.window.prepare();
             if let Flow::More = self.run(&mut input)? {
-                // Every bit it holds is part of what it needs next.
+                // Every bit it holds is part of what it needs next; what it
+                // decoded before it ran short goes out all the same.
+                let room = output.get_mut(produced..).unwrap_or_default();
+                produced = produced.saturating_add(self.window.produce(room));
                 return Ok((input.taken, produced));
             }
         }
