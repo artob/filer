@@ -545,13 +545,30 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **BENCH-01: The benchmark harness.** `bench/` as `bench/METHOD.md`
-  describes it (D63): its own workspace; `corpus.toml` with each file's
-  source and SHA-256; encoding once at each codec's levels; every
-  decoder, ours and its counterparts, behind one interface; the
-  procedure, statistics, raw data, and generated tables. Done when it
-  fills `decode-zstd`'s and `decode-bzip2`'s `BENCH.md` on an x86 machine
-  and on Apple M4, its tables generated, not edited.
+- [ ] **BENCH-04: The corpus.** `bench/` drives every zstd and bzip2
+  decoder through one interface, whole or in pieces, over the synthetic
+  inputs encoded at each level, and checks every output (2026-11-05);
+  `cargo run --release` prints each one's median MB/s. Next, the
+  protocol's corpus: `bench/corpus.toml` with each file's source and
+  SHA-256, fetched into an ignored `bench/corpus/` and verified, encoded
+  once at each level, the packed files' SHA-256 recorded too, and each
+  output checked by its SHA-256. Done when it decodes the whole corpus
+  on Linux.
+- [ ] **BENCH-05: The procedure.** Independent processes, decoders
+  interleaved in a random order, warm-ups, the median of medians with a
+  95% bootstrap interval run until it is within 1% or a budget is spent,
+  paired ratios, and the machine's state recorded; baseline and
+  `target-cpu=native` builds; every sample as JSON lines under
+  `bench/results/`. Done when two runs on one machine agree within
+  their intervals.
+- [ ] **BENCH-06: The other measures.** Streaming in pieces of 4 and 64
+  KiB, small streams, memory by a counting allocator, the decoder's
+  size, checkpoints, `perf stat` counters on Linux, and code size, as
+  `bench/METHOD.md` lists them. Done when the raw data holds each.
+- [ ] **BENCH-07: Tables.** The harness generates each `BENCH.md`'s
+  tables from `bench/results/`, never edited by hand. Done when it
+  fills `decode-zstd`'s and `decode-bzip2`'s on an x86 machine and on
+  Apple M4.
 - [ ] **BENCH-02: Every machine.** The rest of the protocol's machines:
   current AMD and Intel on bare metal, and a Neoverse server. Done when
   each `BENCH.md` of a written decoder holds them all.
@@ -564,6 +581,11 @@ crate's name until its first code, which moves it to `lib/`.
   use, whose version 1 adds an instruction for runs of zeros. Done when
   `decode_block` decodes them, from the kernel's description, checked
   against blocks the kernel's `lzo-rle` writes.
+- [ ] **DEC-15: `decode-bzip2` in small pieces.** Given and taking 1
+  KiB at a time, it decodes random bytes at 7.6 MB/s, where whole it
+  does 12.8 and libbzip2 13.5 either way (`bench/`, Linux, Zen 1 VM,
+  2026-11-05). Done when, in pieces of 1 KiB or more, it is within 10%
+  of itself whole.
 - [ ] **DEC-12: Long fuzz runs.** Each `lib/decode-*/fuzz` target has run
   two minutes from its corpus (2026-11-05), which found only a quirk of
   `lz4_flex`, and `decode-zstd`'s and `decode-bzip2`'s `differential`,

@@ -7,8 +7,9 @@ reference C implementation and the leading pure-Rust decoders, on the same
 inputs, machines, and builds. A figure is reported with its machine, its
 build, and its confidence interval, or not at all.
 
-The harness that applies this protocol is to live beside this file (see
-"Harness"); until it does, no `BENCH.md` holds results.
+The harness that applies this protocol lives beside this file (see
+"Harness"), and so far applies only part of it (`TODO.md`, BENCH-04 to
+07); until it applies all of it, no `BENCH.md` holds results.
 
 ## What is measured
 

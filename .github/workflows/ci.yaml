@@ -123,6 +123,10 @@ jobs:
           for manifest in lib/*/fuzz/Cargo.toml; do
             cargo build --manifest-path "$manifest" --locked
           done
+      - name: Build the benchmark harness
+        # Outside the workspace, as it builds C counterparts (DESIGN.md
+        # D63); shared runners are too noisy to time anything.
+        run: cargo build --manifest-path bench/Cargo.toml --locked
       - name: Check for C code in dependencies
         run: |
           # 100% Rust (DESIGN.md D45): these build tools mean C is compiled.

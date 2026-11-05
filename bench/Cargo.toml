@@ -1,0 +1,33 @@
+# The harness that measures the `decode-*` crates, as `METHOD.md` lays out.
+# It builds their C counterparts, so it stays outside the workspace and is
+# never published nor a dependency of a published crate (DESIGN.md D63).
+
+[package]
+name = "filer-bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+# Ours.
+decode-bzip2 = { path = "../lib/decode-bzip2" }
+decode-zstd = { path = "../lib/decode-zstd" }
+# bzip2's counterparts: libbzip2, the reference, in C, through `bzip2`
+# 0.5, whose defaults build it; `libbz2-rs-sys`, its port to Rust, through
+# `bzip2` 0.6, whose defaults select it; and `bzip2-rs`.
+bzip2-c = { package = "bzip2", version = "0.5" }
+# Its fastest configuration, on any compiler since Rust 1.37.
+bzip2-rs = { version = "0.1", features = ["rustc_1_37"] }
+libbz2-rs = { package = "bzip2", version = "0.6" }
+# zstd's: libzstd, the reference, in C, which also encodes; and `ruzstd`.
+ruzstd = "0.9"
+zstd = "0.13"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+
+# Its own workspace, apart from the repository's.
+[workspace]
+members = ["."]
