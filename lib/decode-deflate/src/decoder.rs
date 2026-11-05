@@ -53,11 +53,16 @@ impl Format {
     }
 
     /// What a window's buffer holds at most: the window, and room to
-    /// decode three chunks before it must move the window to its start.
+    /// decode three chunks before it must move the window to its start,
+    /// or two and the longest match, if that is more, as it is for
+    /// Deflate64, whose longest match is longer than a chunk.
     const fn buffer(self) -> usize {
+        let longest = self.longest();
+        let more = if longest > CHUNK { longest } else { CHUNK };
         self.window()
-            .saturating_add(CHUNK.saturating_mul(3))
-            .saturating_add(self.longest())
+            .saturating_add(CHUNK.saturating_mul(2))
+            .saturating_add(more)
+            .saturating_add(longest)
             .saturating_add(SLACK)
     }
 
@@ -1018,5 +1023,26 @@ impl core::fmt::Debug for Decoder {
             .field("state", &self.state)
             .field("last", &self.last)
             .finish_non_exhaustive()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The most a run decodes past the window, once compacted: a chunk
+    /// and the longest match, less one; and then room for as much again.
+    #[test]
+    fn bounds_the_buffer() {
+        let formats = [
+            Format::Deflate,
+            #[cfg(feature = "deflate64")]
+            Format::Deflate64,
+        ];
+        for format in formats {
+            let held = CHUNK + format.longest() - 1;
+            let want = format.window() + held + CHUNK + format.longest() + SLACK;
+            assert!(want <= format.buffer(), "{format:?}");
+        }
     }
 }
