@@ -61,7 +61,7 @@ pub(crate) fn is_valid(bytes: &[u8], at: usize) -> bool {
     ) else {
         return false;
     };
-    let crc = Crc32c::new().update(head).update(&[0; 4]).update(tail);
+    let crc = Crc32c::new().chain(head).chain(&[0; 4]).chain(tail);
     stored == crc.finish().to_le_bytes()
 }
 
@@ -71,9 +71,9 @@ pub(crate) fn seal(bytes: &mut [u8], at: usize) {
         return;
     };
     let crc = Crc32c::new()
-        .update(head)
-        .update(&[0; 4])
-        .update(tail)
+        .chain(head)
+        .chain(&[0; 4])
+        .chain(tail)
         .finish();
     if let Some(field) = bytes.get_mut(at..at.saturating_add(4)) {
         field.copy_from_slice(&crc.to_le_bytes());

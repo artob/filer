@@ -2642,9 +2642,13 @@ CRC, `decode-xz`'s CRC-64 and SHA-256, and `decode-zstd`'s XXH64 were
 each private to one decoder, and Adler-32 (zlib) and XXH32 (LZ4) were to
 come. `compute-crc` holds every CRC, each a type and a feature, over one
 engine of eight tables built at compile time: CRC-16/MODBUS, CRC-32,
-CRC-32C, CRC-32/BZIP2, and CRC-64/XZ, each a `Copy` value whose `update`
-returns the next, with its register exposed for formats that chain it,
-as ext4 does. `compute-sha256` (FIPS 180-4) and `compute-xxhash` (XXH32
+CRC-32C, CRC-32/BZIP2, and CRC-64/XZ, each a `Copy` value, with its
+register exposed for formats that chain it, as ext4 does. Since
+2026-11-05 the five crates share one shape, as `filer-pack`'s `Digest`
+and the hashes already had it: `update` feeds bytes in place, `chain`
+feeds them by value and returns the next, and `finish` takes a
+reference; before, the CRCs' and Adler-32's `update` returned the next.
+`compute-sha256` (FIPS 180-4) and `compute-xxhash` (XXH32
 and XXH64, from any seed) are crates of their own, as their algorithms
 share nothing, and `compute-adler32` (RFC 1950) for `decode-zlib`,
 written ahead of it, which sums 16 lanes, vectorized, and combines them

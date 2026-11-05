@@ -75,7 +75,7 @@ pub(crate) fn superblock_ok(bytes: &[u8]) -> bool {
     let (Some(body), Some(stored)) = (bytes.get(..0x3FC), le::u32_at(bytes, 0x3FC)) else {
         return false;
     };
-    register(Crc32c::new().update(body)) == stored
+    register(Crc32c::new().chain(body)) == stored
 }
 
 impl Checksums {
@@ -93,18 +93,18 @@ impl Checksums {
             Self::None => true,
             Self::Descriptors { uuid } => {
                 let crc = Crc16Modbus::new()
-                    .update(&uuid)
-                    .update(&group.to_le_bytes())
-                    .update(head)
-                    .update(tail);
+                    .chain(&uuid)
+                    .chain(&group.to_le_bytes())
+                    .chain(head)
+                    .chain(tail);
                 crc.finish() == stored
             },
             Self::Metadata { seed } => {
                 let crc = Crc32c::from_state(seed)
-                    .update(&group.to_le_bytes())
-                    .update(head)
-                    .update(&[0; 2])
-                    .update(tail);
+                    .chain(&group.to_le_bytes())
+                    .chain(head)
+                    .chain(&[0; 2])
+                    .chain(tail);
                 let [c0, c1, ..] = register(crc).to_le_bytes();
                 u16::from_le_bytes([c0, c1]) == stored
             },
@@ -117,8 +117,8 @@ impl Checksums {
         match *self {
             Self::Metadata { seed } => Some(
                 Crc32c::from_state(seed)
-                    .update(&number.to_le_bytes())
-                    .update(&generation.to_le_bytes()),
+                    .chain(&number.to_le_bytes())
+                    .chain(&generation.to_le_bytes()),
             ),
             _ => None,
         }
@@ -134,8 +134,8 @@ impl Checksums {
             return false;
         };
         let crc = Crc32c::from_state(seed)
-            .update(&block.to_le_bytes())
-            .update(&zeroed(bytes, XATTR_CHECKSUM, 4));
+            .chain(&block.to_le_bytes())
+            .chain(&zeroed(bytes, XATTR_CHECKSUM, 4));
         register(crc) == stored
     }
 }
@@ -158,7 +158,7 @@ pub(crate) fn inode_ok(seed: Crc32c, bytes: &[u8]) -> bool {
     {
         field.fill(0);
     }
-    let [c0, c1, c2, c3] = register(seed.update(&record)).to_le_bytes();
+    let [c0, c1, c2, c3] = register(seed.chain(&record)).to_le_bytes();
     match high {
         Some(high) => {
             let ([l0, l1], [h0, h1]) = (low.to_le_bytes(), high.to_le_bytes());
@@ -171,7 +171,7 @@ pub(crate) fn inode_ok(seed: Crc32c, bytes: &[u8]) -> bool {
 /// Returns `true` if `covered`, then the bytes of `then`, match `stored`
 /// from an inode's seed.
 pub(crate) fn chained_ok(seed: Crc32c, covered: &[u8], then: &[u8], stored: u32) -> bool {
-    register(seed.update(covered).update(then)) == stored
+    register(seed.chain(covered).chain(then)) == stored
 }
 
 /// Returns `true` if directory block `block` ends in the unused entry
@@ -216,9 +216,9 @@ pub(crate) fn dx_ok(seed: Crc32c, block: &[u8], root: bool) -> bool {
         let reserved = block.get(tail..tail.checked_add(4)?)?;
         let stored = le::u32_at(block, tail.checked_add(4)?)?;
         let crc = seed
-            .update(block.get(..used)?)
-            .update(reserved)
-            .update(&[0; 4]);
+            .chain(block.get(..used)?)
+            .chain(reserved)
+            .chain(&[0; 4]);
         Some(register(crc) == stored)
     };
     checked().unwrap_or(false)
@@ -233,7 +233,7 @@ mod tests {
     /// the checksum's low half.
     #[test]
     fn checks_inodes_by_one_half_or_both() {
-        let seed = Crc32c::new().update(b"seed");
+        let seed = Crc32c::new().chain(b"seed");
         for (len, extra, halves) in [(128, 0, 1), (256, 2, 1), (256, 4, 2), (256, 32, 2)] {
             let mut record = vec![0x5A; len];
             if len > 128 {
@@ -243,7 +243,7 @@ mod tests {
             if halves == 2 {
                 record[0x82..0x84].fill(0);
             }
-            let [c0, c1, c2, c3] = register(seed.update(&record)).to_le_bytes();
+            let [c0, c1, c2, c3] = register(seed.chain(&record)).to_le_bytes();
             record[0x7C..0x7E].copy_from_slice(&[c0, c1]);
             if halves == 2 {
                 record[0x82..0x84].copy_from_slice(&[c2, c3]);

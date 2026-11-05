@@ -316,7 +316,7 @@ impl Block {
             *slot = byte;
             written = written.saturating_add(1);
         }
-        self.crc = self.crc.update(output.get(..written).unwrap_or_default());
+        self.crc.update(output.get(..written).unwrap_or_default());
         Ok(written)
     }
 

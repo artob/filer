@@ -96,7 +96,7 @@
   adapts; `compute-<algorithm>` crates (`compute-crc`, every CRC a type
   and a feature, `compute-adler32`, `compute-sha256`, `compute-xxhash`)
   are our clean-room checksums and hashes (D64): generic, no
-  dependencies, each with `new`, `update`, and `finish`;
+  dependencies, each with `new`, `update`, `chain`, and `finish`;
   `filer_api::checksum` re-exports `compute-crc`'s. Generic checksum and
   hash algorithms go into a `compute-*` crate, never into a decoder or a
   driver; a format's own name hashes and sums (ext4's and XFS's

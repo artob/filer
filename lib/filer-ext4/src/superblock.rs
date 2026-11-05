@@ -304,7 +304,7 @@ impl Superblock {
             let seed = if features.incompat & feature::INCOMPAT_CSUM_SEED != 0 {
                 u32_at(bytes, 0x270)?
             } else {
-                Crc32c::new().update(&uuid).state()
+                Crc32c::new().chain(&uuid).state()
             };
             Checksums::Metadata { seed }
         } else if features.ro_compat & feature::RO_COMPAT_GDT_CSUM != 0 {

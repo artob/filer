@@ -7,9 +7,10 @@
 //!
 //! Adler-32 is two sums modulo 65,521, the largest prime below 2^16: of
 //! the bytes, plus one, and of each successive value of that first sum,
-//! the second in the high half of the result. [`Adler32`] is a `Copy`
-//! value whose [`update`](Adler32::update) returns the next, so that a
-//! copy taken anywhere goes on from there, as [`compute-crc`'s CRCs] do.
+//! the second in the high half of the result. [`Adler32`] is fed by
+//! [`update`](Adler32::update), or by [`chain`](Adler32::chain), which
+//! returns the sum that goes on from there; it is a `Copy` value, so that
+//! a copy taken anywhere goes on from there, as [`compute-crc`'s CRCs] are.
 //! It sums the bytes in 16 lanes, every 16th byte each, which compilers
 //! vectorize, and combines the lanes and reduces the sums every 64 KiB.
 //!
@@ -19,7 +20,8 @@
 //! adds nothing.
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
-//! checksums and hashes, each of the same shape.
+//! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
+//! and `finish`.
 //!
 //! [`compute-crc`'s CRCs]: https://docs.rs/compute-crc
 //!
@@ -29,8 +31,11 @@
 //! use compute_adler32::{Adler32, adler32};
 //!
 //! assert_eq!(adler32(b"123456789"), 0x091E_01DE);
-//! let sum = Adler32::new().update(b"1234").update(b"56789");
+//! let mut sum = Adler32::new();
+//! sum.update(b"1234");
+//! sum.update(b"56789");
 //! assert_eq!(sum.finish(), Adler32::CHECK);
+//! assert_eq!(Adler32::new().chain(b"1234").chain(b"56789"), sum);
 //! ```
 
 #![no_std]
@@ -86,9 +91,9 @@ const BLOCK: usize = LANES * 4096;
 /// use compute_adler32::Adler32;
 ///
 /// // From where a zlib stream's dictionary left it, say.
-/// let start = Adler32::new().update(b"dictionary").state();
-/// let sum = Adler32::from_state(start).update(b"data");
-/// assert_eq!(sum.finish(), Adler32::new().update(b"dictionarydata").finish());
+/// let start = Adler32::new().chain(b"dictionary").state();
+/// let sum = Adler32::from_state(start).chain(b"data");
+/// assert_eq!(sum.finish(), Adler32::new().chain(b"dictionarydata").finish());
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Adler32 {
@@ -105,9 +110,8 @@ impl Adler32 {
         Self { a: 1, b: 0 }
     }
 
-    /// Feeds `bytes`, and returns the sum that goes on from there.
-    #[must_use]
-    pub fn update(self, bytes: &[u8]) -> Self {
+    /// Feeds `bytes`.
+    pub fn update(&mut self, bytes: &[u8]) {
         let (mut a, mut b) = (self.a, self.b);
         for block in bytes.chunks(BLOCK) {
             // Each lane sums every 16th byte, as Adler-32 sums them all,
@@ -151,13 +155,21 @@ impl Adler32 {
             a = a.wrapping_rem(BASE);
             b = b.wrapping_rem(BASE);
         }
-        Self { a, b }
+        (self.a, self.b) = (a, b);
+    }
+
+    /// Feeds `bytes`, and returns the sum that goes on from there, so that
+    /// calls chain.
+    #[must_use]
+    pub fn chain(mut self, bytes: &[u8]) -> Self {
+        self.update(bytes);
+        self
     }
 
     /// Returns the Adler-32 of the bytes fed: the second sum above the
     /// first.
     #[must_use]
-    pub const fn finish(self) -> u32 {
+    pub const fn finish(&self) -> u32 {
         (self.b << 16) | self.a
     }
 
@@ -174,7 +186,7 @@ impl Adler32 {
     /// Returns its state: the Adler-32 of the bytes fed, as nothing is
     /// inverted at the end.
     #[must_use]
-    pub const fn state(self) -> u32 {
+    pub const fn state(&self) -> u32 {
         self.finish()
     }
 
@@ -191,7 +203,7 @@ impl Default for Adler32 {
 /// Returns the Adler-32 of `bytes`.
 #[must_use]
 pub fn adler32(bytes: &[u8]) -> u32 {
-    Adler32::new().update(bytes).finish()
+    Adler32::new().chain(bytes).finish()
 }
 
 // The README's example runs as a doctest.
@@ -239,10 +251,10 @@ mod tests {
             }
             // In pieces, from any state.
             for piece in [1, 7, 16, 17, 5552, BLOCK - 1, BLOCK, BLOCK + 1] {
-                let sum = bytes.chunks(piece).fold(Adler32::new(), Adler32::update);
+                let sum = bytes.chunks(piece).fold(Adler32::new(), Adler32::chain);
                 assert_eq!(sum.finish(), defined(bytes), "{piece}");
                 let resumed = bytes.chunks(piece).fold(Adler32::new(), |sum, chunk| {
-                    Adler32::from_state(sum.state()).update(chunk)
+                    Adler32::from_state(sum.state()).chain(chunk)
                 });
                 assert_eq!(resumed, sum, "{piece}");
             }

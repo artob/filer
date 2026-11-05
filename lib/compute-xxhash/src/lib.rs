@@ -13,7 +13,8 @@
 //! nothing.
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
-//! checksums and hashes, each of the same shape.
+//! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
+//! and `finish`.
 
 #![no_std]
 #![forbid(unsafe_code)]

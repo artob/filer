@@ -16,13 +16,16 @@ hashes, each of the same shape.
 use compute_crc::{Crc32, Crc32c, crc32};
 
 fn main() {
-    // At once, or in pieces.
+    // At once, or in pieces, in place or chained.
     assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
-    let crc = Crc32::new().update(b"1234").update(b"56789");
+    let mut crc = Crc32::new();
+    crc.update(b"1234");
+    crc.update(b"56789");
     assert_eq!(crc.finish(), 0xCBF4_3926);
+    assert_eq!(Crc32::new().chain(b"1234").chain(b"56789"), crc);
     // ext4 chains CRC-32C registers from a seed.
-    let seed = Crc32c::new().update(b"volume UUID").state();
-    let checksum = Crc32c::from_state(seed).update(b"inode").state();
+    let seed = Crc32c::new().chain(b"volume UUID").state();
+    let checksum = Crc32c::from_state(seed).chain(b"inode").state();
     assert_ne!(checksum, seed);
 }
 ```

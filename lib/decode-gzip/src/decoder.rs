@@ -166,7 +166,7 @@ impl Decoder {
             State::Body => {
                 let (consumed, produced) =
                     self.deflate.decode(input, output).map_err(|_| corrupt())?;
-                self.crc = self.crc.update(output.get(..produced).unwrap_or_default());
+                self.crc.update(output.get(..produced).unwrap_or_default());
                 let produced64 = u64::try_from(produced).unwrap_or(u64::MAX);
                 self.len = self.len.wrapping_add(produced64);
                 if self.deflate.finish().is_ok() {
@@ -176,7 +176,7 @@ impl Decoder {
             },
             State::Extra(left) => {
                 let n = input.len().min(usize::from(left));
-                self.header_crc = self.header_crc.update(input.get(..n).unwrap_or_default());
+                self.header_crc.update(input.get(..n).unwrap_or_default());
                 let left = left.saturating_sub(u16::try_from(n).unwrap_or(u16::MAX));
                 self.state = match left {
                     0 => self.after(FEXTRA),
@@ -189,7 +189,7 @@ impl Decoder {
                     Some(at) => (at.saturating_add(1), true),
                     None => (input.len(), false),
                 };
-                self.header_crc = self.header_crc.update(input.get(..n).unwrap_or_default());
+                self.header_crc.update(input.get(..n).unwrap_or_default());
                 if whole {
                     let done = if self.state == State::Name {
                         FNAME
@@ -234,14 +234,14 @@ impl Decoder {
                 } else if seen == 3 {
                     self.flags = byte;
                 }
-                self.header_crc = self.header_crc.update(&[byte]);
+                self.header_crc.update(&[byte]);
                 self.state = match seen {
                     9 => self.after(0),
                     seen => State::Fixed(seen.saturating_add(1)),
                 };
             },
             State::ExtraLen(seen) => {
-                self.header_crc = self.header_crc.update(&[byte]);
+                self.header_crc.update(&[byte]);
                 self.state = match self.field(seen, byte) {
                     Some([a, b, ..]) => match u16::from_le_bytes([a, b]) {
                         0 => self.after(FEXTRA),

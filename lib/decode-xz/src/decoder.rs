@@ -64,8 +64,8 @@ impl Check {
     fn update(&mut self, bytes: &[u8]) {
         match self {
             Self::None | Self::Unknown(_) => {},
-            Self::Crc32(crc) => *crc = crc.update(bytes),
-            Self::Crc64(crc) => *crc = crc.update(bytes),
+            Self::Crc32(crc) => crc.update(bytes),
+            Self::Crc64(crc) => crc.update(bytes),
             Self::Sha256(sha) => sha.update(bytes),
         }
     }
@@ -548,7 +548,7 @@ impl Decoder {
             },
             State::BlockHeader if self.field.is_empty() && byte == 0 => {
                 // The index's indicator, past the last block.
-                self.index = (1, Crc32::new().update(&[0]), Varint::default());
+                self.index = (1, Crc32::new().chain(&[0]), Varint::default());
                 State::Index(Index::Count)
             },
             State::BlockHeader => {
@@ -742,7 +742,7 @@ impl Decoder {
         let (size, crc, mut varint) = self.index;
         let (size, crc) = match index {
             Index::Crc(_) => (size, crc),
-            _ => (size.saturating_add(1), crc.update(&[byte])),
+            _ => (size.saturating_add(1), crc.chain(&[byte])),
         };
         let next = match index {
             Index::Count => match varint.read(byte)? {
@@ -820,7 +820,7 @@ impl Decoder {
         let Some((flags, magic)) = rest.split_first_chunk::<2>() else {
             return Err(corrupt());
         };
-        let crc = Crc32::new().update(backward).update(flags).finish();
+        let crc = Crc32::new().chain(backward).chain(flags).finish();
         let (index, _, _) = self.index;
         // The index's size, its CRC32 included.
         let index = index.saturating_add(4);

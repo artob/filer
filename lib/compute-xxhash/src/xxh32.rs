@@ -82,6 +82,14 @@ impl Xxh32 {
         self.tailed = rest.len();
     }
 
+    /// Feeds `bytes`, and returns the hash that goes on from there, so
+    /// that calls chain.
+    #[must_use]
+    pub fn chain(mut self, bytes: &[u8]) -> Self {
+        self.update(bytes);
+        self
+    }
+
     /// Takes a stripe, a lane into each accumulator.
     fn stripe(&mut self, stripe: &[u8; STRIPE]) {
         let (lanes, _) = stripe.as_chunks::<4>();
@@ -140,9 +148,7 @@ impl Default for Xxh32 {
 /// Returns the XXH32 of `bytes`, from `seed`.
 #[must_use]
 pub fn xxh32(bytes: &[u8], seed: u32) -> u32 {
-    let mut hash = Xxh32::new(seed);
-    hash.update(bytes);
-    hash.finish()
+    Xxh32::new(seed).chain(bytes).finish()
 }
 
 #[cfg(test)]

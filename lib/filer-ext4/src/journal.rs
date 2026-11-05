@@ -144,11 +144,11 @@ impl Header {
             let tail = bytes
                 .get(SUPERBLOCK_CHECKSUM.saturating_add(4)..SUPERBLOCK_LEN)
                 .ok_or(bad)?;
-            let crc = Crc32c::new().update(head).update(&[0; 4]).update(tail);
+            let crc = Crc32c::new().chain(head).chain(&[0; 4]).chain(tail);
             if bytes.get(0x50) != Some(&CRC32C) || raw(crc) != u32_at(SUPERBLOCK_CHECKSUM)? {
                 return Err(bad);
             }
-            seed = Some(Crc32c::new().update(bytes.get(0x30..0x40).ok_or(bad)?));
+            seed = Some(Crc32c::new().chain(bytes.get(0x30..0x40).ok_or(bad)?));
         }
         Ok(Self {
             block_size,
@@ -179,7 +179,7 @@ impl Header {
         let (Some(body), Some(stored)) = (bytes.get(..at), be::u32_at(bytes, at)) else {
             return false;
         };
-        raw(seed.update(body).update(&[0; TAIL])) == stored
+        raw(seed.chain(body).chain(&[0; TAIL])) == stored
     }
 
     /// Returns `true` if a commit block's checksum matches, or there is
@@ -196,14 +196,14 @@ impl Header {
         ) else {
             return false;
         };
-        raw(seed.update(head).update(&[0; 4]).update(tail)) == stored
+        raw(seed.chain(head).chain(&[0; 4]).chain(tail)) == stored
     }
 
     /// Returns `true` if a data block's checksum matches its tag's, or
     /// there is none.
     fn data_ok(&self, sequence: u32, bytes: &[u8], checksum: u32) -> bool {
         self.seed
-            .is_none_or(|seed| raw(seed.update(&sequence.to_be_bytes()).update(bytes)) == checksum)
+            .is_none_or(|seed| raw(seed.chain(&sequence.to_be_bytes()).chain(bytes)) == checksum)
     }
 
     /// Returns where a descriptor or revoke block's entries end: before
@@ -518,7 +518,7 @@ mod tests {
         }
 
         fn seed(&self) -> Option<Crc32c> {
-            (self.incompat & INCOMPAT_CSUM_V3 != 0).then(|| Crc32c::new().update(&[0xAB; 16]))
+            (self.incompat & INCOMPAT_CSUM_V3 != 0).then(|| Crc32c::new().chain(&[0xAB; 16]))
         }
 
         fn header(kind: u32, sequence: u32) -> Vec<u8> {
@@ -532,7 +532,7 @@ mod tests {
         /// Seals a descriptor or revoke block's checksum.
         fn seal(&self, b: &mut [u8]) {
             if let Some(seed) = self.seed() {
-                let crc = raw(seed.update(&b[..SIZE - TAIL]).update(&[0; 4]));
+                let crc = raw(seed.chain(&b[..SIZE - TAIL]).chain(&[0; 4]));
                 b[SIZE - TAIL..].copy_from_slice(&crc.to_be_bytes());
             }
         }
@@ -572,7 +572,7 @@ mod tests {
                 if let Some(seed) = self.seed() {
                     tag[4..8].copy_from_slice(&flags.to_be_bytes());
                     tag[8..12].copy_from_slice(&[h0, h1, h2, h3]);
-                    let crc = raw(seed.update(&sequence.to_be_bytes()).update(&data));
+                    let crc = raw(seed.chain(&sequence.to_be_bytes()).chain(&data));
                     tag[12..16].copy_from_slice(&crc.to_be_bytes());
                     pos += 16;
                 } else {
@@ -605,7 +605,7 @@ mod tests {
             if commit {
                 let mut b = Self::header(COMMIT, sequence);
                 if let Some(seed) = self.seed() {
-                    let crc = raw(seed.update(&b));
+                    let crc = raw(seed.chain(&b));
                     b[16..20].copy_from_slice(&crc.to_be_bytes());
                 }
                 blocks.push(b);
@@ -629,7 +629,7 @@ mod tests {
             sb[0x30..0x40].fill(0xAB);
             if self.incompat & INCOMPAT_CSUM_V3 != 0 {
                 sb[0x50] = CRC32C;
-                let crc = raw(Crc32c::new().update(&sb));
+                let crc = raw(Crc32c::new().chain(&sb));
                 sb[0xFC..0x100].copy_from_slice(&crc.to_be_bytes());
             }
             let mut bytes = sb;

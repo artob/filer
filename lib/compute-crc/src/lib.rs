@@ -13,9 +13,10 @@
 //! | [`Crc32Bzip2`] | CRC-32/BZIP2 | `crc32-bzip2` | bzip2 |
 //! | [`Crc64Xz`] | CRC-64/XZ | `crc64-xz` | xz |
 //!
-//! Each computes over bytes fed in pieces, as they arrive: a value, `Copy`,
-//! whose [`update`](Crc32::update) returns the next, so that a copy taken
-//! anywhere goes on from there. [`state`](Crc32::state) and
+//! Each computes over bytes fed in pieces, as they arrive, by
+//! [`update`](Crc32::update), or by [`chain`](Crc32::chain), which returns
+//! the CRC that goes on from there; each is a `Copy` value, so that a copy
+//! taken anywhere goes on from there. [`state`](Crc32::state) and
 //! [`from_state`](Crc32::from_state) expose the register, before the final
 //! inversion, which formats that chain checksums store, as ext4 does.
 //! A function of each, such as [`crc32`], computes it over one slice.
@@ -30,7 +31,8 @@
 //! `std` feature, enabled by default, currently adds nothing.
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
-//! checksums and hashes, each of the same shape.
+//! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
+//! and `finish`.
 //!
 //! # Examples
 //!
@@ -39,8 +41,11 @@
 //! use compute_crc::{Crc32, crc32};
 //!
 //! assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
-//! let crc = Crc32::new().update(b"1234").update(b"56789");
+//! let mut crc = Crc32::new();
+//! crc.update(b"1234");
+//! crc.update(b"56789");
 //! assert_eq!(crc.finish(), 0xCBF4_3926);
+//! assert_eq!(Crc32::new().chain(b"1234").chain(b"56789"), crc);
 //! # }
 //! ```
 
@@ -164,9 +169,8 @@ macro_rules! crc {
                 Self { state: !0 }
             }
 
-            /// Feeds `bytes`, and returns the CRC that goes on from there.
-            #[must_use]
-            pub fn update(self, bytes: &[u8]) -> Self {
+            /// Feeds `bytes`.
+            pub fn update(&mut self, bytes: &[u8]) {
                 // Always found: `k` is below 8, and a byte below 256.
                 let table = |k: usize, byte: u8| {
                     $tables
@@ -204,12 +208,20 @@ macro_rules! crc {
                         table(0, top ^ byte) ^ (crc << 8)
                     };
                 }
-                Self { state: crc }
+                self.state = crc;
+            }
+
+            /// Feeds `bytes`, and returns the CRC that goes on from there,
+            /// so that calls chain.
+            #[must_use]
+            pub fn chain(mut self, bytes: &[u8]) -> Self {
+                self.update(bytes);
+                self
             }
 
             #[doc = concat!("Returns the ", $label, " of the bytes fed.")]
             #[must_use]
-            pub const fn finish(self) -> $reg {
+            pub const fn finish(&self) -> $reg {
                 if $invert { !self.state } else { self.state }
             }
 
@@ -223,7 +235,7 @@ macro_rules! crc {
             /// Returns the register: the CRC of the bytes fed, before any
             /// final inversion.
             #[must_use]
-            pub const fn state(self) -> $reg {
+            pub const fn state(&self) -> $reg {
                 self.state
             }
 
@@ -242,7 +254,7 @@ macro_rules! crc {
         #[cfg(feature = $feature)]
         #[must_use]
         pub fn $function(bytes: &[u8]) -> $reg {
-            $name::new().update(bytes).finish()
+            $name::new().chain(bytes).finish()
         }
     };
 }
@@ -256,7 +268,7 @@ crc! {
     /// use compute_crc::{Crc16Modbus, crc16_modbus};
     ///
     /// assert_eq!(crc16_modbus(b"123456789"), 0x4B37);
-    /// let crc = Crc16Modbus::new().update(b"1234").update(b"56789");
+    /// let crc = Crc16Modbus::new().chain(b"1234").chain(b"56789");
     /// assert_eq!(crc.finish(), Crc16Modbus::CHECK);
     /// ```
     Crc16Modbus, crc16_modbus, "crc16-modbus", u16, 0xA001, CRC16_MODBUS,
@@ -272,7 +284,7 @@ crc! {
     /// use compute_crc::{Crc32, crc32};
     ///
     /// assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
-    /// let crc = Crc32::new().update(b"1234").update(b"56789");
+    /// let crc = Crc32::new().chain(b"1234").chain(b"56789");
     /// assert_eq!(crc.finish(), Crc32::CHECK);
     /// ```
     Crc32, crc32, "crc32", u32, 0xEDB8_8320, CRC32,
@@ -292,8 +304,8 @@ crc! {
     /// use compute_crc::{Crc32c, crc32c};
     ///
     /// assert_eq!(crc32c(b"123456789"), 0xE306_9283);
-    /// let seed = Crc32c::new().update(b"1234").state();
-    /// let crc = Crc32c::from_state(seed).update(b"56789");
+    /// let seed = Crc32c::new().chain(b"1234").state();
+    /// let crc = Crc32c::from_state(seed).chain(b"56789");
     /// assert_eq!(crc.finish(), Crc32c::CHECK);
     /// assert_eq!(crc.state(), !0xE306_9283);
     /// ```
@@ -310,7 +322,7 @@ crc! {
     /// use compute_crc::{Crc64Xz, crc64_xz};
     ///
     /// assert_eq!(crc64_xz(b"123456789"), 0x995D_C9BB_DF19_39FA);
-    /// let crc = Crc64Xz::new().update(b"1234").update(b"56789");
+    /// let crc = Crc64Xz::new().chain(b"1234").chain(b"56789");
     /// assert_eq!(crc.finish(), Crc64Xz::CHECK);
     /// ```
     Crc64Xz, crc64_xz, "crc64-xz", u64, 0xC96C_5795_D787_0F42, CRC64_XZ,
@@ -326,7 +338,7 @@ crc! {
     /// use compute_crc::{Crc32Bzip2, crc32_bzip2};
     ///
     /// assert_eq!(crc32_bzip2(b"123456789"), 0xFC89_1918);
-    /// let crc = Crc32Bzip2::new().update(b"1234").update(b"56789");
+    /// let crc = Crc32Bzip2::new().chain(b"1234").chain(b"56789");
     /// assert_eq!(crc.finish(), Crc32Bzip2::CHECK);
     /// ```
     Crc32Bzip2, crc32_bzip2, "crc32-bzip2", u32, 0x04C1_1DB7, CRC32_BZIP2,
@@ -399,7 +411,7 @@ mod tests {
         each(|bytes, piece| {
             #[cfg(feature = "crc16-modbus")]
             {
-                let crc = pieces(Crc16Modbus::new(), bytes, piece, Crc16Modbus::update);
+                let crc = pieces(Crc16Modbus::new(), bytes, piece, Crc16Modbus::chain);
                 let poly = 0x8005;
                 assert_eq!(
                     u64::from(crc.finish()),
@@ -408,7 +420,7 @@ mod tests {
             }
             #[cfg(feature = "crc32")]
             {
-                let crc = pieces(Crc32::new(), bytes, piece, Crc32::update);
+                let crc = pieces(Crc32::new(), bytes, piece, Crc32::chain);
                 let poly = 0x04C1_1DB7;
                 assert_eq!(
                     u64::from(crc.finish()),
@@ -417,7 +429,7 @@ mod tests {
             }
             #[cfg(feature = "crc32c")]
             {
-                let crc = pieces(Crc32c::new(), bytes, piece, Crc32c::update);
+                let crc = pieces(Crc32c::new(), bytes, piece, Crc32c::chain);
                 let poly = 0x1EDC_6F41;
                 assert_eq!(
                     u64::from(crc.finish()),
@@ -426,7 +438,7 @@ mod tests {
             }
             #[cfg(feature = "crc32-bzip2")]
             {
-                let crc = pieces(Crc32Bzip2::new(), bytes, piece, Crc32Bzip2::update);
+                let crc = pieces(Crc32Bzip2::new(), bytes, piece, Crc32Bzip2::chain);
                 let poly = 0x04C1_1DB7;
                 assert_eq!(
                     u64::from(crc.finish()),
@@ -435,7 +447,7 @@ mod tests {
             }
             #[cfg(feature = "crc64-xz")]
             {
-                let crc = pieces(Crc64Xz::new(), bytes, piece, Crc64Xz::update);
+                let crc = pieces(Crc64Xz::new(), bytes, piece, Crc64Xz::chain);
                 let poly = 0x42F0_E1EB_A9EA_3693;
                 assert_eq!(crc.finish(), bitwise(64, poly, true, true, bytes));
             }

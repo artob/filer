@@ -14,10 +14,13 @@ hashes, each of the same shape.
 use compute_adler32::{Adler32, adler32};
 
 fn main() {
-    // At once, or in pieces.
+    // At once, or in pieces, in place or chained.
     assert_eq!(adler32(b"Wikipedia"), 0x11E6_0398);
-    let sum = Adler32::new().update(b"Wiki").update(b"pedia");
+    let mut sum = Adler32::new();
+    sum.update(b"Wiki");
+    sum.update(b"pedia");
     assert_eq!(sum.finish(), 0x11E6_0398);
+    assert_eq!(Adler32::new().chain(b"Wiki").chain(b"pedia"), sum);
 }
 ```
 

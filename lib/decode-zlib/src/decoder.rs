@@ -141,7 +141,7 @@ impl Decoder {
             State::Body => {
                 let (consumed, produced) =
                     self.deflate.decode(input, output).map_err(|_| corrupt())?;
-                self.sum = self.sum.update(output.get(..produced).unwrap_or_default());
+                self.sum.update(output.get(..produced).unwrap_or_default());
                 if self.deflate.finish().is_ok() {
                     self.state = State::Trailer(0);
                 }

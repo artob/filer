@@ -35,11 +35,11 @@ impl Digest for Crc32 {
     type Output = u32;
 
     fn update(&mut self, bytes: &[u8]) {
-        *self = Crc32::update(*self, bytes);
+        Crc32::update(self, bytes);
     }
 
     fn finish(&self) -> u32 {
-        Crc32::finish(*self)
+        Crc32::finish(self)
     }
 }
 

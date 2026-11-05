@@ -82,6 +82,14 @@ impl Xxh64 {
         self.tailed = rest.len();
     }
 
+    /// Feeds `bytes`, and returns the hash that goes on from there, so
+    /// that calls chain.
+    #[must_use]
+    pub fn chain(mut self, bytes: &[u8]) -> Self {
+        self.update(bytes);
+        self
+    }
+
     fn stripe(&mut self, stripe: &[u8; STRIPE]) {
         let (lanes, _) = stripe.as_chunks::<8>();
         for (acc, lane) in self.acc.iter_mut().zip(lanes) {
@@ -146,9 +154,7 @@ impl Default for Xxh64 {
 /// Returns the XXH64 of `bytes`, from `seed`.
 #[must_use]
 pub fn xxh64(bytes: &[u8], seed: u64) -> u64 {
-    let mut hash = Xxh64::new(seed);
-    hash.update(bytes);
-    hash.finish()
+    Xxh64::new(seed).chain(bytes).finish()
 }
 
 #[cfg(test)]

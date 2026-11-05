@@ -7,7 +7,15 @@ The format is based on [Keep a Changelog], and this project adheres to
 so any release may break compatibility.
 
 ## Unreleased
+### Changed
+- `compute-crc`, `compute-adler32`: `update` feeds bytes in place, and
+  `finish` and `state` take a reference, as `compute-sha256`'s and
+  `compute-xxhash`'s do; `chain` feeds them by value and returns the
+  next, as `update` did.
 ### Added
+- `compute-adler32`, `compute-crc`, `compute-sha256`, `compute-xxhash`:
+  `chain`, so that the five share one shape: `new`, `update`, `chain`,
+  and `finish`.
 - `filer-fs`: `Lock`, for what a driver caches.
 - `filer-squashfs`: `Squashfs`, the read-only SquashFS 4.0 driver, with
   `SquashfsError`: images of every compressor `mksquashfs` offers, each

@@ -11,7 +11,8 @@
 //! would. The `std` feature, enabled by default, currently adds nothing.
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
-//! checksums and hashes, each of the same shape.
+//! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
+//! and `finish`.
 //!
 //! # Examples
 //!
@@ -193,6 +194,14 @@ impl Sha256 {
         self.held = rest.len();
     }
 
+    /// Feeds `bytes`, and returns the hash that goes on from there, so
+    /// that calls chain.
+    #[must_use]
+    pub fn chain(mut self, bytes: &[u8]) -> Self {
+        self.update(bytes);
+        self
+    }
+
     /// Returns the SHA-256 of the bytes fed, which it may go on from.
     #[must_use]
     pub fn finish(&self) -> [u8; 32] {
@@ -261,9 +270,7 @@ impl Default for Sha256 {
 /// Returns the SHA-256 of `bytes`.
 #[must_use]
 pub fn sha256(bytes: &[u8]) -> [u8; 32] {
-    let mut sha = Sha256::new();
-    sha.update(bytes);
-    sha.finish()
+    Sha256::new().chain(bytes).finish()
 }
 
 // The README's example runs as a doctest.
