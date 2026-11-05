@@ -10,6 +10,10 @@ so any release may break compatibility.
 ### Added
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
+### Fixed
+- `decode-xz`: through a filter chain, each call moved a stage's whole
+  buffer and zeroed it again, so that a caller giving or taking a byte at
+  a time decoded ten times slower; each now happens once a stage fills.
 
 ## 0.0.4 - 2026-11-05
 A SquashFS driver, `filer-squashfs`, reading images of every compressor

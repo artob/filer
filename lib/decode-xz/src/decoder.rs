@@ -120,15 +120,87 @@ fn varint(bytes: &[u8], at: &mut usize) -> Result<u64, Error> {
     }
 }
 
-/// A filter of a block's chain, with the data it holds: converted up to
-/// `done`, and after that, what it may convert once more follows.
+/// A filter of a block's chain, with the data it holds in `buf`, of
+/// [`STAGE`] bytes once it holds any: converted, and yet to go on, from
+/// `start` to `done`; then what it may convert once more follows, up to
+/// `len`.
 #[derive(Clone, Debug)]
 struct Stage {
     filter: Filter,
     buf: Vec<u8>,
+    start: usize,
     done: usize,
+    len: usize,
     /// Whether all of its input has come.
     ended: bool,
+}
+
+impl Stage {
+    /// Returns a stage of `filter`, holding nothing.
+    const fn new(filter: Filter) -> Self {
+        Self {
+            filter,
+            buf: Vec::new(),
+            start: 0,
+            done: 0,
+            len: 0,
+            ended: false,
+        }
+    }
+
+    /// Returns what it has converted that is yet to go on.
+    fn pending(&self) -> &[u8] {
+        self.buf.get(self.start..self.done).unwrap_or_default()
+    }
+
+    /// Passes on the first `n` bytes of that; and once none is left, moves
+    /// what follows to the buffer's start, so that a byte moves once at
+    /// most, however few a call takes.
+    fn took(&mut self, n: usize) {
+        self.start = self.start.saturating_add(n).min(self.done);
+        if self.start == self.done && self.start > 0 {
+            let len = self.len.min(self.buf.len());
+            let start = self.start.min(len);
+            self.buf.copy_within(start..len, 0);
+            self.len = len.saturating_sub(start);
+            self.done = 0;
+            self.start = 0;
+        }
+    }
+
+    /// Returns the room after what it holds, for more to convert.
+    fn room(&mut self) -> &mut [u8] {
+        if self.buf.len() < STAGE {
+            self.buf.resize(STAGE, 0);
+        }
+        self.buf.get_mut(self.len..).unwrap_or_default()
+    }
+
+    /// Takes in the first `n` bytes put in that room.
+    fn filled(&mut self, n: usize) {
+        self.len = self.len.saturating_add(n).min(self.buf.len());
+    }
+
+    /// Converts what it can of what it holds.
+    fn convert(&mut self) {
+        let rest = self.buf.get_mut(self.done..self.len).unwrap_or_default();
+        let converted = self.filter.convert(rest, self.ended);
+        self.done = self.done.saturating_add(converted).min(self.len);
+    }
+
+    /// Returns whether it has converted all it will, and passed it on.
+    fn drained(&self) -> bool {
+        self.ended && self.done == self.len && self.start == self.done
+    }
+}
+
+/// Copies what fits of `from` into `to`, and returns how much.
+fn copy(from: &[u8], to: &mut [u8]) -> usize {
+    let n = from.len().min(to.len());
+    if let (Some(from), Some(to)) = (from.get(..n), to.get_mut(..n)) {
+        to.copy_from_slice(from);
+    }
+    n
 }
 
 /// A block being decoded.
@@ -168,11 +240,7 @@ impl Block {
         {
             return Err(corrupt());
         }
-        let ended = self.lzma2.finish().is_ok()
-            && self
-                .stages
-                .last()
-                .is_none_or(|stage| stage.ended && stage.buf.is_empty());
+        let ended = self.lzma2.finish().is_ok() && self.stages.last().is_none_or(Stage::drained);
         Ok((consumed, produced, ended))
     }
 
@@ -189,21 +257,19 @@ impl Block {
         }
     }
 
-    /// Decodes through the filters, as `decode` does.
+    /// Decodes through the filters, as `decode` does: each stage converts
+    /// what LZMA2, or the stage before it, gives it, and passes on what it
+    /// has converted, the last to `output`.
     fn filtered(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Error> {
         let (mut consumed, mut produced) = (0_usize, 0_usize);
         loop {
             // What the last stage has converted goes out first.
             if let Some(last) = self.stages.last_mut() {
                 let room = output.get_mut(produced..).unwrap_or_default();
-                let n = last.done.min(room.len());
-                if let (Some(to), Some(from)) = (room.get_mut(..n), last.buf.get(..n)) {
-                    to.copy_from_slice(from);
-                }
-                last.buf.drain(..n);
-                last.done = last.done.saturating_sub(n);
+                let n = copy(last.pending(), room);
+                last.took(n);
                 produced = produced.saturating_add(n);
-                if last.done > 0 || (last.ended && last.buf.is_empty()) {
+                if !last.pending().is_empty() || last.drained() {
                     return Ok((consumed, produced));
                 }
             }
@@ -213,44 +279,35 @@ impl Block {
             if let Some(first) = self.stages.first_mut()
                 && !first.ended
             {
-                let len = first.buf.len();
-                let room = STAGE.saturating_sub(len);
-                first.buf.resize(len.saturating_add(room), 0);
-                let to = first.buf.get_mut(len..).unwrap_or_default();
-                let (c, p) = self.lzma2.decode(rest, to).map_err(lzma)?;
-                first.buf.truncate(len.saturating_add(p));
+                let (c, p) = self.lzma2.decode(rest, first.room()).map_err(lzma)?;
+                first.filled(p);
                 pulled = c.saturating_add(p);
                 consumed = consumed.saturating_add(c);
                 self.compressed = self.compressed.saturating_add(to_u64(c));
                 first.ended = self.lzma2.finish().is_ok();
             }
-            // And on through each stage, as far as it can convert.
+            // And on through each stage, as far as it can convert and the
+            // next has room.
             let mut moved = false;
-            let mut ended = true;
-            let stages = self.stages.len();
-            for i in 0..stages {
+            let mut drained = true;
+            for i in 0..self.stages.len() {
                 let Some(stage) = self.stages.get_mut(i) else {
                     break;
                 };
-                stage.ended = stage.ended || (i > 0 && ended);
-                let end = stage.ended;
-                let rest = stage.buf.get_mut(stage.done..).unwrap_or_default();
-                let converted = stage.filter.convert(rest, end);
-                stage.done = stage.done.saturating_add(converted);
-                ended = end && stage.done == stage.buf.len();
-                if i.saturating_add(1) < stages && stage.done > 0 {
-                    let done: Vec<u8> = stage.buf.drain(..stage.done).collect();
-                    stage.done = 0;
-                    if let Some(next) = self.stages.get_mut(i.saturating_add(1)) {
-                        next.buf.extend_from_slice(&done);
-                        moved = true;
-                    }
+                stage.ended = stage.ended || (i > 0 && drained);
+                stage.convert();
+                if let Some([stage, next]) = self.stages.get_mut(i..i.saturating_add(2)) {
+                    let n = copy(stage.pending(), next.room());
+                    next.filled(n);
+                    stage.took(n);
+                    moved = moved || n > 0;
                 }
+                drained = self.stages.get(i).is_some_and(Stage::drained);
             }
             let ready = self
                 .stages
                 .last()
-                .is_some_and(|last| last.done > 0 || last.ended);
+                .is_some_and(|last| !last.pending().is_empty() || last.ended);
             if pulled == 0 && !moved && !ready {
                 // It needs more input, or LZMA2 more room, which a stage
                 // that converts nothing yet cannot give.
@@ -714,16 +771,7 @@ impl Decoder {
         {
             return Err(corrupt());
         }
-        let stages = kinds
-            .into_iter()
-            .rev()
-            .map(|filter| Stage {
-                filter,
-                buf: Vec::new(),
-                done: 0,
-                ended: false,
-            })
-            .collect();
+        let stages = kinds.into_iter().rev().map(Stage::new).collect();
         let [_, check] = self.flags;
         Ok(Block {
             lzma2: lzma2.ok_or_else(corrupt)?,

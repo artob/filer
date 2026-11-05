@@ -61,8 +61,19 @@ fn xz(
     check: CheckType,
     block: Option<u64>,
 ) -> Vec<u8> {
+    chained(data, filter.as_slice(), check, block)
+}
+
+/// Returns `data` as xz by `lzma-rust2`'s encoder, through `filters`, each
+/// with its property, in the order the encoder applies them.
+fn chained(
+    data: &[u8],
+    filters: &[(FilterType, u32)],
+    check: CheckType,
+    block: Option<u64>,
+) -> Vec<u8> {
     let mut options = XzOptions::with_preset(6);
-    if let Some((filter, property)) = filter {
+    for &(filter, property) in filters.iter().rev() {
         options.prepend_pre_filter(filter, property);
     }
     options.set_check_sum_type(check);
@@ -106,6 +117,30 @@ fn decodes_every_filter_and_check() {
             assert!(decoded == data, "{name}");
             assert_eq!(consumed, stream.len(), "{name}");
             assert!(theirs(&stream).as_ref() == Some(&data), "{name}");
+        }
+    }
+}
+
+/// A stage of the filter chain holds 64 KiB: past that, what a filter has
+/// yet to convert stays while what it has converted moves on, however few
+/// bytes a call takes.
+#[test]
+fn converts_more_than_a_stage_holds() {
+    let code = include_bytes!("data/code.bin");
+    let data: Vec<u8> = (0..60)
+        .flat_map(|n| [&code[n * 61..], &code[..n * 61]].concat())
+        .collect();
+    assert!(data.len() > 3 * 64 * 1024);
+    for filters in [
+        &[(FilterType::BcjX86, 0)][..],
+        &[(FilterType::Delta, 1), (FilterType::BcjX86, 0)],
+        &[(FilterType::BcjArm, 0), (FilterType::Delta, 3)],
+    ] {
+        let stream = chained(&data, filters, CheckType::Crc32, None);
+        for piece in [1, 7, 4093] {
+            let (decoded, consumed) = agree(&stream, piece).unwrap();
+            assert!(decoded == data, "{filters:?} in pieces of {piece}");
+            assert_eq!(consumed, stream.len(), "{filters:?}");
         }
     }
 }
