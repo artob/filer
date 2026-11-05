@@ -12,6 +12,8 @@ license.workspace = true
 keywords = ["iso9660", "iso", "cdrom", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
+# The fixtures are images; tests run from the repository.
+exclude = ["tests/fixtures/*.iso"]
 
 [lints]
 workspace = true
@@ -22,9 +24,21 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = []
-std = ["filer-api/std", "filer-fs/std"]
+all = ["zisofs"]
+std = ["filer-api/std", "filer-fs/std", "filer-msft/std", "decode-zlib?/std"]
+# Files that zisofs compresses, block by block, as zlib streams.
+zisofs = ["dep:decode-zlib"]
 
 [dependencies]
+decode-zlib = { workspace = true, optional = true }
 filer-api.workspace = true
 filer-fs.workspace = true
+filer-msft.workspace = true
+
+[dev-dependencies]
+filer-spec = { workspace = true, features = ["std"] }
+filer-system = { workspace = true, features = ["std"] }
+
+[[example]]
+name = "cdfs-manifest"
+required-features = ["std"]

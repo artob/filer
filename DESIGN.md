@@ -400,13 +400,13 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `compute-xxhash`, `decode-bzip2`, `decode-deflate`, `decode-gzip`,
 `decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`, `decode-zlib`,
 `decode-zstd`, `filer-pack`, the read-only `filer-tar`, `filer-zip`,
-`filer-ar`, `filer-cpio`, and `filer-archive` over them, `filer-ext4`,
-`filer-fat`, `filer-ntfs`, `filer-squashfs`, `filer-xfs`, and
-`filer-volume` over them, and as empty skeletons `filer-wasi`,
+`filer-ar`, `filer-cpio`, and `filer-archive` over them, `filer-cdfs`,
+`filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-squashfs`, `filer-xfs`,
+and `filer-volume` over them, and as empty skeletons `filer-wasi`,
 `filer-whatwg`, and `filer-cli` (D30, D38, D41). Stubs reserving names
 live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
-`filer-apfs`, `filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`,
-`filer-refs`, `filer-udf`, `filer-ufs`, and `filer-zfs`; and
+`filer-apfs`, `filer-btrfs`, `filer-exfat`, `filer-minix`, `filer-refs`,
+`filer-udf`, `filer-ufs`, and `filer-zfs`; and
 `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
 `compute-sha512` (D64). The rest are created when their first `TODO.md`
 item starts.
@@ -2568,7 +2568,8 @@ zlib's gzip decoding, member by member, through `zlib-rs`. `decode-zlib`
 `compute-adler32`'s, and is checked against zlib likewise; as zlib does
 by default, it checks the header's window size but does not impose it,
 and a stream needing a preset dictionary is `Unsupported`.
-`filer-squashfs` reads through it (FMT-08); btrfs, ZFS, and zisofs will.
+`filer-squashfs` reads through it (FMT-08), as `filer-cdfs` does for
+zisofs (FMT-07); btrfs and ZFS will.
 `decode-lz4` (DEC-07, 2026-11-04) is written from LZ4's block and frame
 format descriptions: `decode_block` decodes a raw block whole, as
 SquashFS, EROFS, ZFS, F2FS, and ReFS store them, and `Decoder` decodes
@@ -2841,10 +2842,11 @@ Recorded 2026-11-01 (D40); none exists yet:
   block device, for embedded and `no_std` use and for reading disk images.
 - **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4;
   §17.15), `filer-ntfs` (§17.14), `filer-xfs` (§17.16), and
-  `filer-squashfs` (read-only by design; §17.19), first published as
-  stubs to reserve their names; and as stubs still, in `tmp/` (D58,
-  2026-11-03), `filer-apfs`, `filer-btrfs`, `filer-cdfs` (ISO 9660),
-  `filer-minix`, `filer-refs`, `filer-udf`, `filer-ufs` (BSD's FFS), and
+  `filer-squashfs` and `filer-cdfs` (ISO 9660; read-only by design;
+  §17.19, §17.20), first published as stubs to reserve their names; and
+  as stubs still, in `tmp/` (D58, 2026-11-03), `filer-apfs`,
+  `filer-btrfs`, `filer-minix`, `filer-refs`, `filer-udf`, `filer-ufs`
+  (BSD's FFS), and
   `filer-zfs`, with
   `filer-exfat`. `LEGAL.md` governs them all: exFAT is not to be
   released before its patents expire (mid-2028); ReFS and APFS are
@@ -3601,9 +3603,9 @@ and asked whether archive crates may depend on this crate for them. They
 are a family's conventions rather than file systems': `filer-windows`,
 an OS driver, already depended on this crate for them alone, and
 `filer-7z` (NT times, UTF-16 names), `filer-rar` (DOS and NT times),
-`filer-cdfs` (Joliet's UTF-16 names), `filer-exfat` (FAT-style times
-and attributes), and `filer-refs` (NT times, reparse points) would have
-too. Every reader of the names module, built or planned, reads names a
+`filer-cdfs` (Joliet's UTF-16 names, FMT-07), `filer-exfat` (FAT-style
+times and attributes), and `filer-refs` (NT times, reparse points) do or
+would too. Every reader of the names module, built or planned, reads names a
 Microsoft format wrote, so UTF-16 goes with the family; UDF has its own
 character set. Unix modes are the other family's, read by ext4, XFS,
 and `filer-posix` today and by cpio, ZIP, 7z, RAR, and most planned
@@ -3668,13 +3670,16 @@ partition through `filer_fs::partition`'s `Window`. As in
 driver is a feature re-exporting its crate as a module, `code-pages`
 forwards `filer-fat`'s (not in `all`, as in `filer-fat`), `gzip`,
 `lz4`, `lzma`, `lzo`, `xz`, and `zstd` forward `filer-squashfs`'s
-compressors (in `all`, as `filer-archive` forwards its codecs), `udf`
+compressors, and `zisofs` `filer-cdfs`'s (in `all`, as `filer-archive`
+forwards its codecs), `udf`
 enables the empty `filer-udf`, and opening a volume with a disabled driver is
 `Unsupported` with a `VolumeError`. `VolumeFormat` is the format in
 detail: ext2, ext3 (a journal), or ext4 (any feature flag past ext3's),
 and FAT12, FAT16, or FAT32 (by the count of clusters, as Microsoft's
-specification and `filer-fat` decide), with `Ntfs`, `Squashfs`, and
-`Xfs`; detection
+specification and `filer-fat` decide), with `Iso9660` (`CD001` at
+sector 16, after ext's superblock and before FAT's boot sector, as an
+ISO 9660 image's first sectors may hold a hybrid image's partition
+table), `Ntfs`, `Squashfs`, and `Xfs`; detection
 lives there, `VolumeDriver::detect` is its `driver`, and
 `Volume::format` gives an open volume's, or `None` if `open_as` opened
 it with a driver its first bytes do not name. `blkid` agrees with it on
@@ -3767,7 +3772,92 @@ without fragments, and with every tail in one read exactly as the Linux
 kernel mounts them, LZMA's as `unsquashfs` extracts them; the
 structure-aware fuzzer walked 60,000 mutated images clean.
 
-### 17.20 Later
+### 17.20 `filer-cdfs`
+
+A read-only driver for ISO 9660 images (FMT-07, 2026-11-05), of
+installers, live systems, and archived discs, following
+`filer-squashfs`'s model (§17.19): a lazy driver over any `ReadAt`
+source, panic-free by lint (D47), pure Rust (D45), fixtures from the
+real tools, and a differential test against the Linux kernel's `isofs`
+driver. Named as Windows names its driver, CDFS; `filer-volume` names
+the format `iso9660`, as `blkid` does. It reads one tree of an image, as
+Linux does: Rock Ridge's if the root's `.` record begins with an `SP`
+entry, else Joliet's (its highest level), else ISO 9660:1999's, else
+the primary one's. Linux reads the primary tree where Filer reads the
+1999 one, whose names are whole; the differential test skips such
+images. zisofs is the `zisofs` feature, over `decode-zlib`.
+
+**Sources (D52, `LEGAL.md`).** ECMA-119, the System Use Sharing Protocol
+and Rock Ridge (IEEE P1281 and P1282, as drafted), Joliet, and zisofs's
+published description: free, unpatented, and read for facts; and what
+`xorriso` and `genisoimage` make of known trees.
+
+**On-disk facts the parser relies on:**
+
+- The volume descriptor set starts at sector 16 (of 2048 bytes), each
+  descriptor with `CD001` at offset 1, its type at 0 (1 primary, 2
+  supplementary, 255 the terminator), its version at 6 (2 for
+  ISO 9660:1999's enhanced one); Joliet's has the escape sequence `%/@`,
+  `%/C`, or `%/E` at offset 88. Each holds the logical block size at 128
+  (512, 1024, or 2048) and its root's directory record at 156. Numbers
+  are recorded both little- and big-endian; only the first is read, as
+  the second is often wrong in practice.
+- A directory record: its length, its extended attribute record's (in
+  blocks, before the data), its extent, its data's length, a seven-byte
+  date (years since 1900 to seconds, and the offset from Greenwich in
+  quarters of an hour), flags (hidden 0x01, directory 0x02, associated
+  0x04, more extents follow 0x80), the interleaving unit and gap, the
+  name's length, the name, a padding byte after a name of even length,
+  and System Use entries. Records end in the sector they begin in; a
+  zero byte ends a sector's. `.` and `..` (names 0 and 1) come first.
+  Plain names end in their version, `;1`, after a `.` even without an
+  extension; Joliet's are UTF-16, big-endian.
+- System Use entries: a signature of two letters, a length, a version,
+  data. The root's `.` begins with `SP`, which says how many bytes to
+  skip in every other record's; `CE` continues them in a block area;
+  `ST` ends them. Rock Ridge's: `NM` names (in parts), `PX` modes and,
+  in 1.12 (44 bytes), serial numbers; `SL` symlink components, with
+  flags for continuation, `.`, `..`, and the root; `TF` times, short or
+  long (seventeen digits) by its flags, in the order of their bits
+  (creation, modification, access, attributes); `CL` a relocated
+  directory's place, which the record stands for, and `RE` the relocated
+  one, not shown where it is; `SF` sparse files; `ZF` zisofs (`pz`, the
+  header's size, the block size's logarithm, the size).
+- zisofs: a file begins with a magic number, its size, the header's
+  size, and the block size's logarithm (15 to 17); then a pointer per
+  block, and one past the last; each block is a zlib stream, or none for
+  zeros.
+
+**Reading.** Opening reads the descriptors and the root's `.` record. A
+listing holds every entry's node, built from its records, since they
+hold all that is reported; a file of several extents (beyond 4 GiB)
+reads them in order; of several versions of a name, the first, the
+latest, is shown; associated files are not. Lookups search a listing as
+`filer-squashfs`'s do (§17.19), by halves when its names ascend. A
+directory's id is its extent's place, so a relocated one has one id
+however it is reached; a file's is its Rock Ridge 1.12 serial number,
+which hard links share, or its record's place. Times are Rock Ridge's,
+else the record's date as the modification time. Hidden files are shown,
+with `FileAttrs::HIDDEN`, as Linux shows them; zisofs's files read
+uncompressed, with `FileAttrs::COMPRESSED`. Interleaved files, sparse
+ones, and zisofs's without the feature are `Unsupported`: no current
+tool writes the first two. A read past the image's end, where only a
+corrupt pointer leads, is `Corrupt`. Linux takes a directory's time from
+its own `.` record, Filer from its record in its parent: they differ only
+where a tool writes them apart, as `genisoimage` does in directories it
+cuts off for depth. Linux looks Joliet's names up regardless of case;
+Filer matches them exactly.
+
+Fixtures are `xorriso` 1.5.6's, fixed in time: Rock Ridge 1.12; 1.10
+with Joliet, a directory relocated; Joliet alone; plain names;
+ISO 9660:1999's; and zisofs's; and `genisoimage`'s with a hidden file,
+made fresh by the differential test, as it writes the time it runs.
+Images made record by record cover files of several extents, versions,
+associated files, interleaving, sparseness, and continuation areas. All
+read as the Linux kernel mounts them, and the structure-aware fuzzer
+walked 200,000 mutated images clean.
+
+### 17.21 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,

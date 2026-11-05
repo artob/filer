@@ -11,7 +11,7 @@ use filer_spec::{Sparse, block_on};
 use filer_volume::{Volume, VolumeDriver, VolumeError, VolumeFormat, VolumeOptions};
 
 /// A volume of each format, as the path of a fixture in the workspace.
-const VOLUMES: [(VolumeFormat, &str); 9] = [
+const VOLUMES: [(VolumeFormat, &str); 10] = [
     (
         VolumeFormat::Ext2,
         "filer-ext4/tests/fixtures/ext2-attrs.sparse",
@@ -27,6 +27,7 @@ const VOLUMES: [(VolumeFormat, &str); 9] = [
     (VolumeFormat::Fat12, "filer-fat/tests/fixtures/fat12.sparse"),
     (VolumeFormat::Fat16, "filer-fat/tests/fixtures/fat16.sparse"),
     (VolumeFormat::Fat32, "filer-fat/tests/fixtures/fat32.sparse"),
+    (VolumeFormat::Iso9660, "filer-cdfs/tests/fixtures/spec.iso"),
     (
         VolumeFormat::Ntfs,
         "filer-ntfs/tests/fixtures/ntfs-links.sparse",
@@ -40,8 +41,8 @@ const VOLUMES: [(VolumeFormat, &str); 9] = [
 
 fn fixture(path: &str) -> Vec<u8> {
     let bytes = std::fs::read(format!("{}/../{path}", env!("CARGO_MANIFEST_DIR"))).unwrap();
-    // SquashFS images are small, and stored as they are.
-    if path.ends_with(".sqfs") {
+    // SquashFS and ISO 9660 images are small, and stored as they are.
+    if path.ends_with(".sqfs") || path.ends_with(".iso") {
         return bytes;
     }
     Sparse::new(&bytes).to_vec()
@@ -68,6 +69,8 @@ fn names<D: Driver>(root: &Dir<D>) -> Vec<String> {
 /// Returns what `driver` itself lists at the root of `image`.
 fn listed_by_its_driver(driver: VolumeDriver, image: Vec<u8>) -> Vec<String> {
     match driver {
+        #[cfg(feature = "cdfs")]
+        VolumeDriver::Cdfs => names(&block_on(filer_volume::cdfs::Cdfs::open(image)).unwrap()),
         #[cfg(feature = "ext4")]
         VolumeDriver::Ext4 => names(&block_on(filer_volume::ext4::Ext4::open(image)).unwrap()),
         #[cfg(feature = "fat")]

@@ -279,8 +279,12 @@ dependencies = [
 name = "filer-cdfs"
 version = "0.0.4"
 dependencies = [
+ "decode-zlib",
  "filer-api",
  "filer-fs",
+ "filer-msft",
+ "filer-spec",
+ "filer-system",
 ]
 
 [[package]]
@@ -480,6 +484,7 @@ name = "filer-volume"
 version = "0.0.4"
 dependencies = [
  "filer-api",
+ "filer-cdfs",
  "filer-ext4",
  "filer-fat",
  "filer-fs",

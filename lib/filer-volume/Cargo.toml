@@ -23,6 +23,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = [
+  "cdfs",
   "ext4",
   "fat",
   "gzip",
@@ -34,11 +35,13 @@ all = [
   "udf",
   "xfs",
   "xz",
+  "zisofs",
   "zstd",
 ]
 std = [
   "filer-api/std",
   "filer-fs/std",
+  "filer-cdfs?/std",
   "filer-ext4?/std",
   "filer-fat?/std",
   "filer-ntfs?/std",
@@ -46,6 +49,9 @@ std = [
   "filer-udf?/std",
   "filer-xfs?/std",
 ]
+cdfs = ["dep:filer-cdfs"]
+# Files that zisofs compresses in ISO 9660 images, `filer-cdfs`'s.
+zisofs = ["filer-cdfs?/zisofs"]
 code-pages = ["fat", "filer-fat/code-pages"]
 ext4 = ["dep:filer-ext4"]
 fat = ["dep:filer-fat"]
@@ -64,6 +70,7 @@ xfs = ["dep:filer-xfs"]
 [dependencies]
 filer-api.workspace = true
 filer-fs.workspace = true
+filer-cdfs = { workspace = true, optional = true }
 filer-ext4 = { workspace = true, optional = true }
 filer-fat = { workspace = true, optional = true }
 filer-ntfs = { workspace = true, optional = true }

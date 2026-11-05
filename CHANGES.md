@@ -8,6 +8,12 @@ so any release may break compatibility.
 
 ## Unreleased
 ### Added
+- `filer-cdfs`: `Cdfs`, the read-only ISO 9660 driver, with `CdfsError`:
+  Rock Ridge, Joliet, and ISO 9660:1999 names; files of several
+  extents, and those zisofs compresses, with the `zisofs` feature.
+- `filer-volume`: ISO 9660 images, detected by `CD001` at sector 16,
+  with the `cdfs` and `zisofs` features, `VolumeDriver::Cdfs`, and
+  `VolumeFormat::Iso9660`.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
 ### Fixed

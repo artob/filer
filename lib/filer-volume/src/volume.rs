@@ -161,6 +161,8 @@ async fn open<S: ReadAt + 'static>(
     options: VolumeOptions,
 ) -> Result<Dir<Volume>, Error> {
     match driver {
+        #[cfg(feature = "cdfs")]
+        VolumeDriver::Cdfs => wrap(filer_cdfs::Cdfs::open(source).await?, driver, format),
         #[cfg(feature = "ext4")]
         VolumeDriver::Ext4 => wrap(
             filer_ext4::Ext4::open_with(source, options.ext4).await?,
@@ -218,6 +220,7 @@ fn unsupported(error: VolumeError) -> Error {
 /// the same rights.
 #[cfg_attr(
     not(any(
+        feature = "cdfs",
         feature = "ext4",
         feature = "fat",
         feature = "ntfs",

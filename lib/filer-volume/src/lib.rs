@@ -12,6 +12,7 @@
 //! | Formats | Detected by | Feature | Driver |
 //! | --- | --- | --- | --- |
 //! | ext2, ext3, ext4 | superblock magic number, at offset 1080 | `ext4` | `filer-ext4` |
+//! | ISO 9660 | `CD001` at offset 32769 | `cdfs`, `zisofs` | `filer-cdfs` |
 //! | FAT12, FAT16, FAT32 | boot sector, as `filer-fat` checks it | `fat`, `code-pages` | `filer-fat` |
 //! | NTFS | `NTFS` at offset 3 | `ntfs` | `filer-ntfs` |
 //! | SquashFS | `hsqs` at offset 0 | `squashfs`, and a compressor's | `filer-squashfs` |
@@ -23,7 +24,9 @@
 //! [`VolumeOptions`]; `code-pages`
 //! forwards `filer-fat`'s, making every DOS code page available for FAT's
 //! short names; `gzip`, `lz4`, `lzma`, `lzo`, `xz`, and `zstd` forward
-//! `filer-squashfs`'s, each reading SquashFS images of that compressor.
+//! `filer-squashfs`'s, each reading SquashFS images of that compressor;
+//! `zisofs` forwards `filer-cdfs`'s, reading the files it compresses in
+//! ISO 9660 images.
 //! `udf` enables `filer-udf`, which reads nothing yet, so
 //! [`VolumeDriver`] has no UDF until it does. `all`, enabled by default,
 //! enables every driver and compressor, but not `code-pages`, as
@@ -138,6 +141,10 @@ pub use volume_format::*;
 
 mod volume;
 pub use volume::*;
+
+#[cfg(feature = "cdfs")]
+#[doc(no_inline)]
+pub use filer_cdfs as cdfs;
 
 #[cfg(feature = "ext4")]
 #[doc(no_inline)]

@@ -22,6 +22,8 @@ use crate::VolumeFormat;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub enum VolumeDriver {
+    /// ISO 9660, read by `filer-cdfs`.
+    Cdfs,
     /// ext2, ext3, and ext4, read by `filer-ext4`.
     Ext4,
     /// FAT12, FAT16, and FAT32, read by `filer-fat`.
@@ -36,7 +38,14 @@ pub enum VolumeDriver {
 
 impl VolumeDriver {
     /// Every driver, in order.
-    pub const ALL: [Self; 5] = [Self::Ext4, Self::Fat, Self::Ntfs, Self::Squashfs, Self::Xfs];
+    pub const ALL: [Self; 6] = [
+        Self::Cdfs,
+        Self::Ext4,
+        Self::Fat,
+        Self::Ntfs,
+        Self::Squashfs,
+        Self::Xfs,
+    ];
 
     /// How many of a volume's first bytes [`detect`](Self::detect) reads,
     /// as [`VolumeFormat::DETECT_LEN`].
@@ -51,12 +60,12 @@ impl VolumeDriver {
     }
 
     /// Returns whether this build has the driver: whether its feature,
-    /// named as the driver is (`ext4`, `fat`, `ntfs`, `squashfs`, or
-    /// `xfs`), is
-    /// enabled.
+    /// named as the driver is (`cdfs`, `ext4`, `fat`, `ntfs`, `squashfs`,
+    /// or `xfs`), is enabled.
     #[must_use]
     pub const fn is_enabled(self) -> bool {
         match self {
+            Self::Cdfs => cfg!(feature = "cdfs"),
             Self::Ext4 => cfg!(feature = "ext4"),
             Self::Fat => cfg!(feature = "fat"),
             Self::Ntfs => cfg!(feature = "ntfs"),
@@ -69,6 +78,7 @@ impl VolumeDriver {
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
+            Self::Cdfs => "cdfs",
             Self::Ext4 => "ext4",
             Self::Fat => "fat",
             Self::Ntfs => "ntfs",

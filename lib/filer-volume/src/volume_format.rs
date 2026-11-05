@@ -37,6 +37,8 @@ pub enum VolumeFormat {
     Fat16,
     /// FAT32: 65,525 clusters or more.
     Fat32,
+    /// ISO 9660, with any of its extensions.
+    Iso9660,
     /// NTFS.
     Ntfs,
     /// SquashFS, version 4.0.
@@ -62,30 +64,34 @@ const MAX_FAT16_CLUSTERS: u64 = 65524;
 
 impl VolumeFormat {
     /// Every format, in order.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Ext2,
         Self::Ext3,
         Self::Ext4,
         Self::Fat12,
         Self::Fat16,
         Self::Fat32,
+        Self::Iso9660,
         Self::Ntfs,
         Self::Squashfs,
         Self::Xfs,
     ];
 
     /// How many of a volume's first bytes [`detect`](Self::detect) reads:
-    /// enough to reach ext's superblock, the last of the structures it
-    /// looks at.
-    pub const DETECT_LEN: usize = 2048;
+    /// enough to reach ISO 9660's first volume descriptor, at sector 16,
+    /// the last of the structures it looks at.
+    pub const DETECT_LEN: usize = 17 * 2048;
 
     /// Returns the format whose signature `head`, a volume's first bytes,
     /// holds, if any: XFS's, SquashFS's, and NTFS's magic numbers, ext's
     /// in its superblock at offset 1024, whose feature flags tell ext2,
-    /// ext3, and ext4 apart, or a FAT boot sector as `filer-fat` accepts
-    /// it, whose count of clusters tells FAT12, FAT16, and FAT32 apart. A FAT boot
-    /// sector may be left in a volume formatted since, so it is tried
-    /// last. An ext journal's own device is no volume.
+    /// ext3, and ext4 apart, ISO 9660's volume descriptor at sector 16,
+    /// identified by `CD001`, or a FAT boot sector as `filer-fat` accepts
+    /// it, whose count of clusters tells FAT12, FAT16, and FAT32 apart.
+    /// A FAT boot sector may be left in a volume formatted since, so it is
+    /// tried last; an ISO 9660 image's first sectors are free for any
+    /// use, as hybrid images' partition tables. An ext journal's own
+    /// device is no volume.
     ///
     /// [`DETECT_LEN`](Self::DETECT_LEN) bytes suffice; fewer, as of a
     /// smaller volume, may still name one.
@@ -103,6 +109,9 @@ impl VolumeFormat {
         if let Some(superblock) = head.get(1024..).filter(|sb| is_ext(sb)) {
             return ext(superblock);
         }
+        if head.get(16 * 2048 + 1..16 * 2048 + 6) == Some(b"CD001") {
+            return Some(Self::Iso9660);
+        }
         fat(head)
     }
 
@@ -112,6 +121,7 @@ impl VolumeFormat {
         match self {
             Self::Ext2 | Self::Ext3 | Self::Ext4 => VolumeDriver::Ext4,
             Self::Fat12 | Self::Fat16 | Self::Fat32 => VolumeDriver::Fat,
+            Self::Iso9660 => VolumeDriver::Cdfs,
             Self::Ntfs => VolumeDriver::Ntfs,
             Self::Squashfs => VolumeDriver::Squashfs,
             Self::Xfs => VolumeDriver::Xfs,
@@ -136,6 +146,7 @@ impl VolumeFormat {
             Self::Fat12 => "fat12",
             Self::Fat16 => "fat16",
             Self::Fat32 => "fat32",
+            Self::Iso9660 => "iso9660",
             Self::Ntfs => "ntfs",
             Self::Squashfs => "squashfs",
             Self::Xfs => "xfs",
@@ -314,6 +325,10 @@ mod tests {
         let mut xfs = vec![0; VolumeFormat::DETECT_LEN];
         xfs[..4].copy_from_slice(b"XFSB");
         assert_eq!(VolumeFormat::detect(b"hsqs"), Some(VolumeFormat::Squashfs));
+        let mut iso = vec![0; 17 * 2048];
+        iso[16 * 2048..16 * 2048 + 6].copy_from_slice(b"\x01CD001");
+        assert_eq!(VolumeFormat::detect(&iso), Some(VolumeFormat::Iso9660));
+        assert_eq!(VolumeFormat::detect(&iso[..16 * 2048 + 5]), None);
         let mut ntfs = vec![0; VolumeFormat::DETECT_LEN];
         ntfs[3..11].copy_from_slice(b"NTFS    ");
         ntfs[510..512].copy_from_slice(&[0x55, 0xAA]);
@@ -331,12 +346,16 @@ mod tests {
     fn names_each_format_and_its_driver() {
         for format in VolumeFormat::ALL {
             assert_eq!(format.is_enabled(), format.driver().is_enabled());
+            // ISO 9660's driver is named as Windows names it, CDFS.
             assert!(
-                format
-                    .name()
-                    .starts_with(format.driver().name().trim_end_matches('4'))
+                format == VolumeFormat::Iso9660
+                    || format
+                        .name()
+                        .starts_with(format.driver().name().trim_end_matches('4'))
             );
         }
         assert_eq!(VolumeFormat::Fat32.to_string(), "fat32");
+        assert_eq!(VolumeFormat::Iso9660.to_string(), "iso9660");
+        assert_eq!(VolumeFormat::Iso9660.driver().name(), "cdfs");
     }
 }

@@ -44,6 +44,7 @@ File systems and archives, all read-only and on every platform:
 
 | Crate | Summary |
 | --- | --- |
+| `filer-cdfs` | ISO 9660, with Rock Ridge and Joliet |
 | `filer-ext4` | ext2, ext3, and ext4 |
 | `filer-fat` | FAT12, FAT16, and FAT32 |
 | `filer-ntfs` | NTFS |
@@ -51,7 +52,6 @@ File systems and archives, all read-only and on every platform:
 | `filer-xfs` | XFS |
 | `filer-apfs` | APFS (planned) |
 | `filer-btrfs` | btrfs (planned) |
-| `filer-cdfs` | ISO 9660 (planned) |
 | `filer-exfat` | exFAT (planned) |
 | `filer-minix` | Minix (planned) |
 | `filer-refs` | ReFS (planned) |
