@@ -56,6 +56,25 @@ pub fn agree(input: &[u8], piece: usize) -> Decoded {
     agree_with(Decoder::new, input, piece)
 }
 
+/// Decodes `input` whole into room for exactly `len` bytes, what it
+/// decodes to, and then [`finish`](Decoder::finish)es it: a stream must end
+/// though its last byte fills the room, and what follows, such as a check
+/// or a count of none more, is still to be read.
+pub fn exactly(new: fn() -> Decoder, input: &[u8], len: usize) -> Decoded {
+    let (mut decoder, mut output) = (new(), vec![0; len]);
+    let (mut at, mut written) = (0, 0);
+    loop {
+        let (consumed, produced) = decoder.decode(&input[at..], &mut output[written..])?;
+        (at, written) = (at + consumed, written + produced);
+        if (consumed, produced) == (0, 0) {
+            break;
+        }
+    }
+    decoder.finish()?;
+    output.truncate(written);
+    Ok((output, at))
+}
+
 /// Checks `input` as [`agree`] does, with decoders from `new`.
 pub fn agree_with(new: fn() -> Decoder, input: &[u8], piece: usize) -> Decoded {
     let whole = decode_with(new, input, input.len().max(64 * 1024));
@@ -66,6 +85,15 @@ pub fn agree_with(new: fn() -> Decoder, input: &[u8], piece: usize) -> Decoded {
         },
         (Err(whole), Err(pieces)) => assert_eq!(whole, pieces, "in pieces of {piece}"),
         _ => panic!("decoded whole: {whole:?}; in pieces of {piece}: {pieces:?}"),
+    }
+    if let Ok((data, _)) = &whole {
+        let exact = exactly(new, input, data.len());
+        assert!(
+            exact.as_ref() == whole.as_ref(),
+            "decoded otherwise into room for exactly {} bytes: {:?}",
+            data.len(),
+            exact.as_ref().map(|_| ()),
+        );
     }
     whole
 }
