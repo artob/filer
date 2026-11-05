@@ -131,6 +131,11 @@ dependencies = [
 [[package]]
 name = "decode-lz4"
 version = "0.0.2"
+dependencies = [
+ "compute-xxhash",
+ "filer-spec",
+ "lz4_flex",
+]
 
 [[package]]
 name = "decode-lzma"
@@ -555,6 +560,15 @@ name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
+
+[[package]]
+name = "lz4_flex"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
+dependencies = [
+ "twox-hash",
+]
 
 [[package]]
 name = "lzma-rust2"

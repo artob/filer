@@ -336,8 +336,9 @@ them, and RFC 3720's test vectors; FIPS 180-4 for SHA-256 and SHA-512, a
 United States government work; RFC 7693 and the BLAKE2 specification for
 BLAKE2, and the BLAKE3 specification, the reference code of neither
 read; Fletcher's checksums as ZFS's and APFS's documentation define
-their variants; the xxHash specification for XXH64; and RFC 1950 for
-Adler-32. A crate's code is never read as the source of its replacement.
+their variants; the xxHash specification for XXH32 and XXH64; and RFC
+1950 for Adler-32. A crate's code is never read as the source of its
+replacement.
 
 - **Deflate and gzip: written here.** `decode-deflate` (D62), written
   from RFC 1951 alone, decodes ZIP's raw Deflate, behind `deflate`, in
@@ -366,6 +367,11 @@ Adler-32. A crate's code is never read as the source of its replacement.
   grant, dropped in 1.3.1 (2017) when the license became BSD and GPLv2;
   no patent is known to be asserted against implementations, nor to
   cover XXH64.
+- **LZ4: written here.** `decode-lz4` (D62) is written from LZ4's block
+  and frame format descriptions (BSD-2-Clause), and its XXH32 checksums
+  from the xxHash specification, since 2026-11-04 (DEC-07); LZ4's own
+  code is not copied. `lz4_flex` (MIT) is its tests' oracle and source
+  of blocks, run, never read. No patent is known.
 - **LZMA, LZMA2, and xz: written here.** `decode-lzma` (D62) ports the
   LZMA SDK's specification, reference decoder, and LZMA2 decoder (public
   domain, see 7z), since 2026-11-04 (DEC-04); `decode-xz` is written from

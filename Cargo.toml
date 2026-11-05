@@ -37,6 +37,7 @@ compute-sha256 = { version = "0.0.2", path = "lib/compute-sha256", default-featu
 compute-xxhash = { version = "0.0.2", path = "lib/compute-xxhash", default-features = false }
 decode-deflate = { version = "0.0.2", path = "lib/decode-deflate", default-features = false }
 decode-gzip = { version = "0.0.2", path = "lib/decode-gzip", default-features = false }
+decode-lz4 = { version = "0.0.2", path = "lib/decode-lz4", default-features = false }
 decode-lzma = { version = "0.0.2", path = "lib/decode-lzma", default-features = false }
 decode-xz = { version = "0.0.2", path = "lib/decode-xz", default-features = false }
 decode-bzip2 = { version = "0.0.2", path = "lib/decode-bzip2", default-features = false }
@@ -78,6 +79,7 @@ filer-zip = { version = "0.0.2", path = "lib/filer-zip", default-features = fals
 known-codepages = { version = "0.0.2", path = "lib/known-codepages", default-features = false }
 bitflags = { version = "2.13", default-features = false }
 deflate64 = "0.1"
+lz4_flex = { version = "0.14", default-features = false }
 lzma-rust2 = { version = "0.25", default-features = false }
 miniz_oxide = { version = "0.9", default-features = false }
 ref-cast = { version = "1.0.27", default-features = false }
@@ -93,6 +95,7 @@ compute-sha256 = { path = "lib/compute-sha256" }
 compute-xxhash = { path = "lib/compute-xxhash" }
 decode-deflate = { path = "lib/decode-deflate" }
 decode-gzip = { path = "lib/decode-gzip" }
+decode-lz4 = { path = "lib/decode-lz4" }
 decode-lzma = { path = "lib/decode-lzma" }
 decode-xz = { path = "lib/decode-xz" }
 decode-bzip2 = { path = "lib/decode-bzip2" }

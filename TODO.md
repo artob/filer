@@ -563,10 +563,6 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **BENCH-03: The `compute-*` crates.** The harness measures their
   throughput over buffers from 16 B to 1 MiB, against portable and SIMD
   counterparts (D64). Done when each one's `BENCH.md` holds its figures.
-- [ ] **DEC-07: `decode-lz4` (on demand).** LZ4's blocks and frames, for
-  SquashFS, EROFS, ZFS, F2FS, ReFS, and initramfs images, its XXH32
-  `compute-xxhash`'s (D64). Done when the first driver to need it reads
-  through it.
 - [ ] **DEC-08: `decode-lzo` (on demand).** LZO1X, for btrfs, SquashFS,
   F2FS, and initramfs images, written as `LEGAL.md` requires. Done when
   the first driver to need it reads through it.

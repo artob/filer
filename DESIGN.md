@@ -398,7 +398,8 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`, `filer-msft`,
 `known-codepages`, `compute-adler32`, `compute-crc`, `compute-sha256`,
 `compute-xxhash`, `decode-bzip2`, `decode-deflate`, `decode-gzip`,
-`decode-lzma`, `decode-xz`, `decode-zlib`, `decode-zstd`, `filer-pack`,
+`decode-lz4`, `decode-lzma`, `decode-xz`, `decode-zlib`, `decode-zstd`,
+`filer-pack`,
 the read-only
 `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
 over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
@@ -407,7 +408,7 @@ over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
 live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
 `filer-apfs`, `filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`,
 `filer-refs`, `filer-squashfs`, `filer-udf`, `filer-ufs`, and
-`filer-zfs`; the decoders `decode-lz4` and `decode-lzo` (D62); and `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
+`filer-zfs`; the decoder `decode-lzo` (D62); and `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
 `compute-sha512` (D64). The rest are created when their first `TODO.md`
 item starts.
 
@@ -2564,7 +2565,18 @@ zlib's gzip decoding, member by member, through `zlib-rs`. `decode-zlib`
 `compute-adler32`'s, and is checked against zlib likewise; as zlib does
 by default, it checks the header's window size but does not impose it,
 and a stream needing a preset dictionary is `Unsupported`. No driver
-reads through it yet: btrfs, SquashFS, ZFS, and zisofs will. `decode-lzma`
+reads through it yet: btrfs, SquashFS, ZFS, and zisofs will.
+`decode-lz4` (DEC-07, 2026-11-04) is written from LZ4's block and frame
+format descriptions: `decode_block` decodes a raw block whole, as
+SquashFS, EROFS, ZFS, F2FS, and ReFS store them, and `Decoder` decodes
+frames, linked or independent, checked by XXH32 where they say,
+skippable frames, and legacy frames, as the Linux kernel reads them from
+initramfs images, ended by the input's end, a frame, or four zero bytes.
+As `lz4` does, and `lz4_flex`, its tests' oracle, does not, it refuses
+what follows the last frame and a frame cut short between blocks; it
+accepts blocks that break the end conditions encoders keep (the last
+five bytes literals, no match within the last 12), as both do. No
+driver reads through it yet. `decode-lzma`
 (DEC-04, 2026-11-04) is ported from the LZMA SDK's specification, its
 reference decoder, and its LZMA2 decoder, and refuses what they refuse:
 data that ends otherwise than its size or end marker says, or with the
