@@ -159,6 +159,9 @@ impl Header {
         let mut header = b"\x89LZO\0\r\n\x1A\n".to_vec();
         header.extend_from_slice(&fields);
         header.extend_from_slice(&sum(&fields).to_be_bytes());
+        // The extra field's checksum covers its length and what it holds,
+        // afresh: lzop 1.04 reads such a file, and refuses one whose
+        // checksum carries on from the header's, or covers less.
         if let Some(extra) = &self.extra {
             let mut field = (extra.len() as u32).to_be_bytes().to_vec();
             field.extend_from_slice(extra);

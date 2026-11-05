@@ -136,7 +136,8 @@ fn parse_header(header: &[u8]) -> Result<u32, Error> {
         return Err(corrupt());
     }
     if flags & EXTRA_FIELD != 0 {
-        // Its length and what it holds, and then their checksum.
+        // Its length and what it holds, and then their checksum, afresh,
+        // as lzop reads it; lzop writes none.
         let start = end.saturating_add(4);
         let extra = header.len().saturating_sub(4);
         let checked = header.get(start..extra).ok_or_else(corrupt)?;
