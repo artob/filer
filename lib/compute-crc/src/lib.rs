@@ -77,20 +77,24 @@
     )
 )]
 
-/// Defines a CRC whose bits are read from each byte's least significant
-/// first, of the register type `$reg`, with the polynomial `$poly`, its
-/// bits reversed, starting from all ones: its tables, its type, and its
-/// function. `$finish` is the final value's inversion, if any.
-macro_rules! reflected {
+/// Defines a CRC of the register type `$reg`, with the polynomial `$poly`,
+/// its bits reversed if `reflected`, starting from all ones: its tables,
+/// its type, and its function. A reflected CRC reads each byte from its
+/// least significant bit, and shifts its register down; one that is not
+/// reads from the most significant, and shifts up. `$invert` is whether
+/// the final value is inverted.
+macro_rules! crc {
     (
         $(#[$meta:meta])*
         $name:ident, $function:ident, $feature:literal, $reg:ty, $poly:expr, $tables:ident,
-        invert: $invert:literal, check: $check:expr, label: $label:literal
+        reflected: $reflected:literal, invert: $invert:literal, check: $check:expr,
+        label: $label:literal
     ) => {
         /// The tables for taking eight bytes at a time: `TABLES[0][b]` is
-        /// the CRC of byte `b`, and `TABLES[k][b]` that of `b` followed by
-        /// `k` zero bytes. A `static`, as a `const` would be copied
-        /// wherever it is used, unless optimized away.
+        /// the CRC of byte `b`, in the register's byte that shifts out
+        /// first, and `TABLES[k][b]` that of `b` followed by `k` zero
+        /// bytes. A `static`, as a `const` would be copied wherever it is
+        /// used, unless optimized away.
         #[cfg(feature = $feature)]
         static $tables: [[$reg; 256]; 8] = {
             // Evaluated at compile time, where any overflow or index out
@@ -102,13 +106,24 @@ macro_rules! reflected {
                 reason = "evaluated at compile time"
             )]
             const fn build() -> [[$reg; 256]; 8] {
+                const TOP: u32 = <$reg>::BITS - 8;
                 let mut tables = [[0; 256]; 8];
                 let mut byte = 0;
                 while byte < 256 {
-                    let mut crc = byte as $reg;
+                    let mut crc = if $reflected {
+                        byte as $reg
+                    } else {
+                        (byte as $reg) << TOP
+                    };
                     let mut bit = 0;
                     while bit < 8 {
-                        crc = if crc & 1 == 0 { crc >> 1 } else { (crc >> 1) ^ $poly };
+                        crc = if $reflected {
+                            if crc & 1 == 0 { crc >> 1 } else { (crc >> 1) ^ $poly }
+                        } else if crc >> (TOP + 7) == 0 {
+                            crc << 1
+                        } else {
+                            (crc << 1) ^ $poly
+                        };
                         bit += 1;
                     }
                     tables[0][byte] = crc;
@@ -119,7 +134,11 @@ macro_rules! reflected {
                     let mut byte = 0;
                     while byte < 256 {
                         let previous = tables[k - 1][byte];
-                        tables[k][byte] = (previous >> 8) ^ tables[0][(previous & 0xFF) as usize];
+                        tables[k][byte] = if $reflected {
+                            (previous >> 8) ^ tables[0][(previous & 0xFF) as usize]
+                        } else {
+                            (previous << 8) ^ tables[0][(previous >> TOP) as usize]
+                        };
                         byte += 1;
                     }
                     k += 1;
@@ -159,10 +178,16 @@ macro_rules! reflected {
                 let mut crc = self.state;
                 let (groups, rest) = bytes.as_chunks::<8>();
                 for group in groups {
-                    // The register's bytes go into the group's first, and
-                    // each byte of the group out by its table.
+                    // The register's bytes go into the group's first, the
+                    // one that shifts out first into the first, and each
+                    // byte of the group out by its table.
                     let mut group = *group;
-                    for (byte, reg) in group.iter_mut().zip(crc.to_le_bytes()) {
+                    let register = if $reflected {
+                        crc.to_le_bytes()
+                    } else {
+                        crc.to_be_bytes()
+                    };
+                    for (byte, reg) in group.iter_mut().zip(register) {
                         *byte ^= reg;
                     }
                     crc = 0;
@@ -171,8 +196,13 @@ macro_rules! reflected {
                     }
                 }
                 for &byte in rest {
-                    let [low, ..] = crc.to_le_bytes();
-                    crc = table(0, low ^ byte) ^ (crc >> 8);
+                    crc = if $reflected {
+                        let [low, ..] = crc.to_le_bytes();
+                        table(0, low ^ byte) ^ (crc >> 8)
+                    } else {
+                        let [top, ..] = crc.to_be_bytes();
+                        table(0, top ^ byte) ^ (crc << 8)
+                    };
                 }
                 Self { state: crc }
             }
@@ -217,7 +247,7 @@ macro_rules! reflected {
     };
 }
 
-reflected! {
+crc! {
     /// CRC-16/MODBUS: the polynomial 0x8005, each byte read from its least
     /// significant bit, from `0xFFFF`, and not inverted at the end; which
     /// ext4 stamps on its group descriptors without `metadata_csum`.
@@ -230,10 +260,10 @@ reflected! {
     /// assert_eq!(crc.finish(), Crc16Modbus::CHECK);
     /// ```
     Crc16Modbus, crc16_modbus, "crc16-modbus", u16, 0xA001, CRC16_MODBUS,
-    invert: false, check: 0x4B37, label: "CRC-16/MODBUS"
+    reflected: true, invert: false, check: 0x4B37, label: "CRC-16/MODBUS"
 }
 
-reflected! {
+crc! {
     /// CRC-32 (CRC-32/ISO-HDLC): the polynomial 0x04C11DB7, each byte read
     /// from its least significant bit, from all ones, and inverted at the
     /// end; which gzip, PNG, ZIP, xz, and GPT stamp.
@@ -246,10 +276,10 @@ reflected! {
     /// assert_eq!(crc.finish(), Crc32::CHECK);
     /// ```
     Crc32, crc32, "crc32", u32, 0xEDB8_8320, CRC32,
-    invert: true, check: 0xCBF4_3926, label: "CRC-32"
+    reflected: true, invert: true, check: 0xCBF4_3926, label: "CRC-32"
 }
 
-reflected! {
+crc! {
     /// CRC-32C (CRC-32/ISCSI), Castagnoli's: the polynomial 0x1EDC6F41, as
     /// CRC-32 is otherwise; which ext4, XFS, and Btrfs stamp on their
     /// metadata, and iSCSI on its frames.
@@ -268,10 +298,10 @@ reflected! {
     /// assert_eq!(crc.state(), !0xE306_9283);
     /// ```
     Crc32c, crc32c, "crc32c", u32, 0x82F6_3B78, CRC32C,
-    invert: true, check: 0xE306_9283, label: "CRC-32C"
+    reflected: true, invert: true, check: 0xE306_9283, label: "CRC-32C"
 }
 
-reflected! {
+crc! {
     /// CRC-64/XZ: the polynomial 0x42F0E1EBA9EA3693 of ECMA-182, each byte
     /// read from its least significant bit, from all ones, and inverted at
     /// the end; which xz stamps on blocks.
@@ -284,146 +314,23 @@ reflected! {
     /// assert_eq!(crc.finish(), Crc64Xz::CHECK);
     /// ```
     Crc64Xz, crc64_xz, "crc64-xz", u64, 0xC96C_5795_D787_0F42, CRC64_XZ,
-    invert: true, check: 0x995D_C9BB_DF19_39FA, label: "CRC-64/XZ"
+    reflected: true, invert: true, check: 0x995D_C9BB_DF19_39FA, label: "CRC-64/XZ"
 }
 
-/// The tables of CRC-32/BZIP2, as `reflected!`'s, for bits read from each
-/// byte's most significant first: `TABLES[k][b]` is the CRC of byte `b`,
-/// in the register's top byte, followed by `k` zero bytes.
-#[cfg(feature = "crc32-bzip2")]
-static CRC32_BZIP2: [[u32; 256]; 8] = {
-    #[allow(
-        clippy::arithmetic_side_effects,
-        clippy::as_conversions,
-        clippy::indexing_slicing,
-        reason = "evaluated at compile time"
-    )]
-    const fn build() -> [[u32; 256]; 8] {
-        let mut tables = [[0; 256]; 8];
-        let mut byte = 0;
-        while byte < 256 {
-            let mut crc = (byte as u32) << 24;
-            let mut bit = 0;
-            while bit < 8 {
-                crc = if crc & 0x8000_0000 == 0 {
-                    crc << 1
-                } else {
-                    (crc << 1) ^ 0x04C1_1DB7
-                };
-                bit += 1;
-            }
-            tables[0][byte] = crc;
-            byte += 1;
-        }
-        let mut k = 1;
-        while k < 8 {
-            let mut byte = 0;
-            while byte < 256 {
-                let previous = tables[k - 1][byte];
-                tables[k][byte] = (previous << 8) ^ tables[0][(previous >> 24) as usize];
-                byte += 1;
-            }
-            k += 1;
-        }
-        tables
-    }
-    build()
-};
-
-/// CRC-32/BZIP2: CRC-32's polynomial, 0x04C11DB7, but each byte read from
-/// its most significant bit; from all ones, and inverted at the end;
-/// which bzip2 stamps on blocks.
-///
-/// ```
-/// use compute_crc::{Crc32Bzip2, crc32_bzip2};
-///
-/// assert_eq!(crc32_bzip2(b"123456789"), 0xFC89_1918);
-/// let crc = Crc32Bzip2::new().update(b"1234").update(b"56789");
-/// assert_eq!(crc.finish(), Crc32Bzip2::CHECK);
-/// ```
-#[cfg(feature = "crc32-bzip2")]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Crc32Bzip2 {
-    /// The register, which starts as all ones.
-    state: u32,
-}
-
-#[cfg(feature = "crc32-bzip2")]
-impl Crc32Bzip2 {
-    /// Starts a CRC-32/BZIP2 over no bytes.
-    #[must_use]
-    pub const fn new() -> Self {
-        Self { state: !0 }
-    }
-
-    /// Feeds `bytes`, and returns the CRC that goes on from there.
-    #[must_use]
-    pub fn update(self, bytes: &[u8]) -> Self {
-        // Always found: `k` is below 8, and a byte below 256.
-        let table = |k: usize, byte: u8| {
-            CRC32_BZIP2
-                .get(k)
-                .and_then(|table| table.get(usize::from(byte)))
-                .copied()
-                .unwrap_or(0)
-        };
-        let mut crc = self.state;
-        let (groups, rest) = bytes.as_chunks::<8>();
-        for group in groups {
-            // The register's bytes go into the group's first, the highest
-            // first, and each byte of the group out by its table.
-            let mut group = *group;
-            for (byte, reg) in group.iter_mut().zip(crc.to_be_bytes()) {
-                *byte ^= reg;
-            }
-            crc = 0;
-            for (k, &byte) in group.iter().enumerate() {
-                crc ^= table(7_usize.wrapping_sub(k), byte);
-            }
-        }
-        for &byte in rest {
-            let [top, ..] = crc.to_be_bytes();
-            crc = table(0, top ^ byte) ^ (crc << 8);
-        }
-        Self { state: crc }
-    }
-
-    /// Returns the CRC-32/BZIP2 of the bytes fed.
-    #[must_use]
-    pub const fn finish(self) -> u32 {
-        !self.state
-    }
-
-    /// Resumes a CRC-32/BZIP2 from `state`, a register as
-    /// [`state`](Self::state) returns it.
-    #[must_use]
-    pub const fn from_state(state: u32) -> Self {
-        Self { state }
-    }
-
-    /// Returns the register: the CRC of the bytes fed, before the final
-    /// inversion.
-    #[must_use]
-    pub const fn state(self) -> u32 {
-        self.state
-    }
-
-    /// The CRC of the nine bytes `123456789`, which identifies it.
-    pub const CHECK: u32 = 0xFC89_1918;
-}
-
-#[cfg(feature = "crc32-bzip2")]
-impl Default for Crc32Bzip2 {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Returns the CRC-32/BZIP2 of `bytes`.
-#[cfg(feature = "crc32-bzip2")]
-#[must_use]
-pub fn crc32_bzip2(bytes: &[u8]) -> u32 {
-    Crc32Bzip2::new().update(bytes).finish()
+crc! {
+    /// CRC-32/BZIP2: CRC-32's polynomial, 0x04C11DB7, but each byte read from
+    /// its most significant bit; from all ones, and inverted at the end;
+    /// which bzip2 stamps on blocks.
+    ///
+    /// ```
+    /// use compute_crc::{Crc32Bzip2, crc32_bzip2};
+    ///
+    /// assert_eq!(crc32_bzip2(b"123456789"), 0xFC89_1918);
+    /// let crc = Crc32Bzip2::new().update(b"1234").update(b"56789");
+    /// assert_eq!(crc.finish(), Crc32Bzip2::CHECK);
+    /// ```
+    Crc32Bzip2, crc32_bzip2, "crc32-bzip2", u32, 0x04C1_1DB7, CRC32_BZIP2,
+    reflected: false, invert: true, check: 0xFC89_1918, label: "CRC-32/BZIP2"
 }
 
 // The README's example runs as a doctest, with the CRCs it uses.
