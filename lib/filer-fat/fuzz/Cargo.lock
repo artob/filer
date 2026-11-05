@@ -34,11 +34,11 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "compute-crc"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "filer-api"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "bitflags",
  "compute-crc",
@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "filer-fat"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -67,21 +67,21 @@ dependencies = [
 
 [[package]]
 name = "filer-fs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-msft"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-spec"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
 ]
@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "known-codepages"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "libc"

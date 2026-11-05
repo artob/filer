@@ -7,136 +7,64 @@ The format is based on [Keep a Changelog], and this project adheres to
 so any release may break compatibility.
 
 ## Unreleased
+
+## 0.0.3 - 2026-11-04
+Our own decoders and checksums, written clean room and dedicated to the
+public domain, each a crate: bzip2, Deflate and Deflate64, gzip, LZ4,
+LZMA and LZMA2, LZO, xz, zlib, and zstd, each a sans-I/O `Decoder` that
+offers checkpoints to resume from, over Adler-32, CRCs, SHA-256, and
+xxHash; compressed tarballs, ZIP members, and initramfs images, read
+through them; and archives told by their content.
 ### Added
-- `filer-apfs`, `filer-btrfs`, `filer-cdfs` (ISO 9660), `filer-exfat`,
-  `filer-minix`, `filer-refs`, `filer-squashfs`, `filer-ufs`, and
-  `filer-zfs`: New crates, with no items yet, published at 0.0.2 to
-  reserve their names.
-- `filer-msft`: New crate: Microsoft's on-disk conventions, shared by
-  the drivers reading them: `nt`, `wtf8`, and `reparse`, moved from
-  `filer-fs`, and `dos`, FAT's local dates and times from `filer-fat`,
-  with `UtcOffset`, which `filer-fat` re-exports.
-- `filer-pack`: New crate: the archive drivers' shared machinery,
-  `filer_api::archive` moved whole to its root, with `spin`. `Index`
-  now applies `Limits` itself, taking them in `Index::new` with a
-  `Parser`, which reads a format's headers and names it in errors.
-  `Verified` checks a `Digest`, such as `Crc32`, of what a `Decoder`
-  produced, over another decoder or `Passthrough`. `Streams` keeps
-  decoding `Stream`s part way, by `StreamId`, and `Unpacked` reads a
-  packed range of a source decoded, as a `ReadAt` source itself, of a
-  size declared or, with `Unpacked::measured`, learned by decoding it;
-  `Compression` tells by its first bytes what a stream is compressed
-  with, and decodes it. `Decoder::checkpoint` offers where decoding may
-  go on from, as `Bzip2` does between blocks, and `Deflate`, `Gzip`, and
-  `Zstd` anywhere, which `Streams` and `Unpacked` record and resume
-  from, rather than from the start, given again what
-  `Decoder::buffered` says the decoder held, and keep within 64 MiB by
-  what `Decoder::footprint` says each holds; `Verified` passes them on
-  with its `Digest`, which is now `Clone`. Each kept `Stream` holds the
-  last 4 MiB or so it decoded, from which `Streams::take` serves reads a
-  little behind it.
-  `Deflate`, with the `deflate` feature, decodes what was `filer-zip`'s
-  own, over `decode-deflate`, and `Deflate::deflate64`, with
-  `deflate64`, Deflate64; `Gzip`, with `gzip`, decodes gzip streams over
-  `decode-gzip`; `Lzma` and `Lzma2`, with `lzma`, raw LZMA and LZMA2
-  streams, over `decode-lzma`; `Xz`, with `xz`, xz streams, over
-  `decode-xz`, with checkpoints between blocks; `Zstd`, with `zstd`,
-  zstd streams, over `decode-zstd`; and `Bzip2`, with `bzip2`, bzip2
-  streams, over `decode-bzip2`. A decoder now reads the packed bytes after the
-  declared size, such as gzip's trailer, before it finishes. `Reader`
-  reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
-  parsers open archives of many small members in a few reads rather than
-  one or two per member.
-- `decode-lzo`: New crate: an LZO decoder, written clean room from a
-  description of the LZO1X stream format and dedicated to the public
-  domain, its Adler-32 `compute-adler32`'s and its CRC-32
-  `compute-crc`'s, for `no_std` with an allocator. `decode_block`
-  decodes a raw LZO1X block; `Decoder` decodes lzop files, checked where
-  they say, one after another, and offers checkpoints anywhere. A file
-  filtered, multipart, or by another method is `Unsupported`.
-- `decode-lz4`: New crate: an LZ4 decoder, written clean room from LZ4's
-  block and frame format descriptions and dedicated to the public
-  domain, its XXH32 `compute-xxhash`'s, for `no_std` with an allocator.
-  `decode_block` decodes a raw block; `Decoder` decodes frames, checked
-  where they say, skippable frames, and legacy frames, and offers
-  checkpoints anywhere. A frame needing a dictionary is `Unsupported`.
-- `decode-zlib`: New crate: a zlib decoder, written clean room from RFC
-  1950 and dedicated to the public domain, over `decode-deflate`, its
-  Adler-32 `compute-adler32`'s, for `no_std` with an allocator. It
-  consumes a stream to its end and no further, and offers checkpoints
-  anywhere; a stream needing a preset dictionary is `Unsupported`.
-- `decode-xz`: New crate: an xz decoder, written clean room from the
-  `.xz` file format specification and dedicated to the public domain,
-  over `decode-lzma`, for `no_std` with an allocator: streams, padding,
-  every filter xz writes, CRC-32, CRC-64, and SHA-256 checks, and the
-  index; it offers checkpoints between blocks.
-- `compute-adler32`, `compute-crc`, `compute-sha256`, and
-  `compute-xxhash`: New crates, clean room and dedicated to the public
-  domain, without dependencies, for `no_std` without an allocator (D64):
-  `compute-crc`'s CRC-16/MODBUS, CRC-32, CRC-32C, CRC-32/BZIP2, and
-  CRC-64/XZ, a type and a feature each; `compute-adler32`'s Adler-32, in
-  16 lanes; `compute-sha256`'s SHA-256; and `compute-xxhash`'s XXH32 and
-  XXH64, from any seed. The `decode-*` crates compute their checks with
-  them, and `filer_api::checksum` re-exports `compute-crc`'s CRCs, whose
-  every type now has `from_state`, `state`, and `CHECK`.
-- `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
-  `compute-sha512`: New crates, with no items yet, reserving the names
-  of checksums and hashes to come (D64): for btrfs, RAR 5, ZFS, and
-  APFS.
-- `decode-lzma`: New crate: an LZMA and LZMA2 decoder, ported from the
-  LZMA SDK and dedicated to the public domain, without dependencies, for
-  `no_std` with an allocator. `Decoder::lzma` decodes LZMA with the
-  properties its container gives, of a known size or to its end marker,
-  and `Decoder::lzma2` LZMA2; each refuses what the LZMA SDK refuses,
-  and offers checkpoints anywhere.
-- `decode-gzip`: New crate: a gzip decoder, written clean room from RFC
-  1952 and dedicated to the public domain, over `decode-deflate`, for
-  `no_std` with an allocator. It decodes members in turn, checking each
-  one's CRC-32 and length, leaves what follows the last unread, and
-  offers checkpoints anywhere.
-- `decode-deflate`: New crate: a Deflate decoder, written clean room from
-  RFC 1951 and dedicated to the public domain, without dependencies, for
-  `no_std` with an allocator. It refuses what zlib refuses, consumes a
-  stream to its end and no further, and offers checkpoints anywhere;
-  `Decoder::deflate64`, with `deflate64`, decodes Deflate64.
-- `decode-bzip2`: New crate: a bzip2 decoder, written clean room from Joe
-  Tsai's description of the format and dedicated to the public domain,
-  without dependencies, for `no_std` with an allocator. Its `Decoder` is
-  sans-I/O, as `decode-zstd`'s is, and offers checkpoints between blocks.
-- `decode-zstd`: New crate: a zstd decoder, written clean room from RFC
-  8878 and dedicated to the public domain, without dependencies, for
-  `no_std` with an allocator. `Decoder` is sans-I/O: `decode` takes what
-  input there is and fills what room there is, `finish` checks that the
-  stream ended where it may, and `checkpoint` and `buffered` let a reader
-  resume anywhere: within a frame, from a copy of its window and tables,
-  which `footprint` measures. `Error` is `Corrupt` or `Unsupported`.
-- `filer-api`: `FileKind::from_unix_mode`, and `Tree::node_mut`.
-- `filer-archive`: Formats told by content (`Format::detect`,
-  `Archive::open_by_content`, and `FormatError::Unrecognized`), which
-  `Archive::open` now goes by before the name. Compressed tarballs, by
-  their extensions (`.tar.gz`, `.tgz`, `.tar.zst`, `.tar.xz`, `.tar.bz2`,
-  and the like); the `bzip2`, `gzip`, `lzma`, `xz`, and `zstd` features,
-  which `filer-cpio`, `filer-tar`, and `filer-zip` decode with.
+- `compute-adler32`: New crate. `Adler32`: Adler-32.
+- `compute-crc`: New crate. CRC-16/MODBUS, CRC-32, CRC-32C,
+  CRC-32/BZIP2, and CRC-64/XZ, a type and a feature each.
+- `compute-sha256`: New crate. `Sha256`: SHA-256.
+- `compute-xxhash`: New crate. `Xxh32` and `Xxh64`: XXH32 and XXH64,
+  from any seed.
+- `decode-bzip2`: New crate. bzip2.
+- `decode-deflate`: New crate. Deflate, and with `deflate64`, Deflate64.
+- `decode-gzip`: New crate. gzip, member by member.
+- `decode-lz4`: New crate. LZ4 frames, legacy frames too, and with
+  `decode_block`, raw blocks.
+- `decode-lzma`: New crate. LZMA and LZMA2.
+- `decode-lzo`: New crate. lzop files, and with `decode_block`, raw
+  LZO1X blocks.
+- `decode-xz`: New crate. xz, with every filter xz writes.
+- `decode-zlib`: New crate. zlib.
+- `decode-zstd`: New crate. zstd.
+- `filer-api`: `FileKind::from_unix_mode` and `Tree::node_mut`; every
+  CRC in `checksum`, now `compute-crc`'s, has `from_state`, `state`, and
+  `CHECK`.
+- `filer-archive`: Formats told by content, with `Format::detect` and
+  `Archive::open_by_content`; compressed tarballs; the `bzip2`, `gzip`,
+  `lzma`, `xz`, and `zstd` features.
 - `filer-cpio`: Initramfs images whose later archive is compressed with
-  gzip, zstd, xz, or bzip2, as distributions build them, behind features
-  named as they are; `Compression`, and `Cpio::compression`.
-- `filer-spec`: `Counted`, a source counting its reads; `Outcome::files`;
-  `Checks::refusals` and
-  `Checks::read_cap`, for archive drivers; `Mutations::aligned` and
-  `Mutations::most`.
-- `filer-tar`: Archives compressed with gzip, zstd, xz, or bzip2, told by
-  their first bytes, behind features named as they are; `Compression`,
-  and `Tar::compression`.
+  gzip, zstd, xz, or bzip2; `Cpio::compression`.
+- `filer-msft`: New crate. Microsoft's on-disk conventions: `nt`,
+  `reparse`, and `wtf8`, and `dos`, FAT's dates and times.
+- `filer-pack`: New crate. What archive drivers share, moved from
+  `filer_api::archive`: `Index`, now applying `Limits`; `Verified`,
+  `Streams`, and `Unpacked`, decoding packed ranges and resuming from
+  checkpoints; `Compression`, telling a stream's compression by its
+  first bytes; and `Bzip2`, `Deflate`, `Gzip`, `Lzma`, `Lzma2`, `Xz`,
+  and `Zstd`, over the `decode-*` crates, each behind a feature.
+- `filer-spec`: `Counted`; `Outcome::files`; `Checks::refusals` and
+  `Checks::read_cap`; `Mutations::aligned` and `Mutations::most`.
+- `filer-tar`: Archives compressed with gzip, zstd, xz, or bzip2;
+  `Tar::compression`.
 - `filer-zip`: Members compressed with Deflate64, bzip2, LZMA, zstd, or
-  xz, behind features named as they are, which `filer-archive` forwards. Names that
-  DOS and Windows hosts wrote without the UTF-8 flag, in a `CodePage`,
-  437 by default, and Info-ZIP's Unicode Path extra field; `Options`,
-  which `Zip::open_with` now takes, or `Limits` alone; the `code-pages`
-  feature.
+  xz; names in a DOS `CodePage`, and Info-ZIP's Unicode paths;
+  `Options`; the `code-pages` feature.
+- `compute-blake2`, `compute-blake3`, `compute-fletcher`,
+  `compute-sha512`, `filer-apfs`, `filer-btrfs`, `filer-cdfs`,
+  `filer-exfat`, `filer-minix`, `filer-refs`, `filer-squashfs`,
+  `filer-ufs`, and `filer-zfs`: New crates, with no items yet.
 ### Changed
 - `filer-ar`, `filer-cpio`: `Limits::max_entries` counts only the
-  members an archive shows, no longer ar's symbol and name tables or
-  cpio's trailers.
+  members an archive shows.
+- `filer-fat`: `UtcOffset` is `filer-msft`'s, re-exported.
+- `filer-zip`: `Zip::open_with` takes `Options`, or `Limits` alone.
 ### Removed
 - `filer-api`: `archive`, now `filer-pack`'s, and the `spin` dependency.
 - `filer-fs`: `nt`, `reparse`, and `wtf8`, now `filer-msft`'s, and

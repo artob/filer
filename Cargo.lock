@@ -48,35 +48,35 @@ dependencies = [
 
 [[package]]
 name = "compute-adler32"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "compute-blake2"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "compute-blake3"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "compute-crc"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "compute-fletcher"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "compute-sha256"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "compute-sha512"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "compute-xxhash"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "twox-hash",
 ]
@@ -107,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "decode-bzip2"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "compute-crc",
  "filer-spec",
@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "decode-deflate"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "deflate64",
  "filer-spec",
@@ -125,7 +125,7 @@ dependencies = [
 
 [[package]]
 name = "decode-gzip"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "compute-crc",
  "decode-deflate",
@@ -136,7 +136,7 @@ dependencies = [
 
 [[package]]
 name = "decode-lz4"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "compute-xxhash",
  "filer-spec",
@@ -145,7 +145,7 @@ dependencies = [
 
 [[package]]
 name = "decode-lzma"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-spec",
  "lzma-rust2",
@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "decode-lzo"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "compute-adler32",
  "compute-crc",
@@ -163,7 +163,7 @@ dependencies = [
 
 [[package]]
 name = "decode-xz"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "compute-crc",
  "compute-sha256",
@@ -174,7 +174,7 @@ dependencies = [
 
 [[package]]
 name = "decode-zlib"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "compute-adler32",
  "decode-deflate",
@@ -185,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "decode-zstd"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "compute-xxhash",
  "filer-spec",
@@ -220,14 +220,14 @@ dependencies = [
 
 [[package]]
 name = "filer-7z"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-apfs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -235,7 +235,7 @@ dependencies = [
 
 [[package]]
 name = "filer-api"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "bitflags",
  "compute-crc",
@@ -244,7 +244,7 @@ dependencies = [
 
 [[package]]
 name = "filer-ar"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-pack",
@@ -254,7 +254,7 @@ dependencies = [
 
 [[package]]
 name = "filer-archive"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-7z",
  "filer-api",
@@ -269,7 +269,7 @@ dependencies = [
 
 [[package]]
 name = "filer-btrfs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -277,7 +277,7 @@ dependencies = [
 
 [[package]]
 name = "filer-cdfs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -285,14 +285,14 @@ dependencies = [
 
 [[package]]
 name = "filer-cli"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-system",
 ]
 
 [[package]]
 name = "filer-cpio"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-pack",
@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "filer-exfat"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -309,7 +309,7 @@ dependencies = [
 
 [[package]]
 name = "filer-ext4"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -319,7 +319,7 @@ dependencies = [
 
 [[package]]
 name = "filer-fat"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -332,7 +332,7 @@ dependencies = [
 
 [[package]]
 name = "filer-fs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -340,7 +340,7 @@ dependencies = [
 
 [[package]]
 name = "filer-heap"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -348,7 +348,7 @@ dependencies = [
 
 [[package]]
 name = "filer-minix"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -356,7 +356,7 @@ dependencies = [
 
 [[package]]
 name = "filer-msft"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -364,7 +364,7 @@ dependencies = [
 
 [[package]]
 name = "filer-ntfs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -375,7 +375,7 @@ dependencies = [
 
 [[package]]
 name = "filer-pack"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "decode-bzip2",
  "decode-deflate",
@@ -391,7 +391,7 @@ dependencies = [
 
 [[package]]
 name = "filer-posix"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-spec",
@@ -400,14 +400,14 @@ dependencies = [
 
 [[package]]
 name = "filer-rar"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-refs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -415,14 +415,14 @@ dependencies = [
 
 [[package]]
 name = "filer-spec"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-squashfs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "filer-system"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-posix",
@@ -441,7 +441,7 @@ dependencies = [
 
 [[package]]
 name = "filer-tar"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-heap",
@@ -452,7 +452,7 @@ dependencies = [
 
 [[package]]
 name = "filer-udf"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -460,7 +460,7 @@ dependencies = [
 
 [[package]]
 name = "filer-ufs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -468,7 +468,7 @@ dependencies = [
 
 [[package]]
 name = "filer-volume"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-ext4",
@@ -482,21 +482,21 @@ dependencies = [
 
 [[package]]
 name = "filer-wasi"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-whatwg"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
 ]
 
 [[package]]
 name = "filer-windows"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -507,7 +507,7 @@ dependencies = [
 
 [[package]]
 name = "filer-xfs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -517,7 +517,7 @@ dependencies = [
 
 [[package]]
 name = "filer-zfs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-fs",
@@ -525,7 +525,7 @@ dependencies = [
 
 [[package]]
 name = "filer-zip"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-heap",
@@ -559,7 +559,7 @@ dependencies = [
 
 [[package]]
 name = "known-codepages"
-version = "0.0.2"
+version = "0.0.3"
 
 [[package]]
 name = "libc"
