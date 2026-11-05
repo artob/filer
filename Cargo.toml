@@ -50,7 +50,7 @@ filer-api = { version = "0.0.4", path = "lib/filer-api", default-features = fals
 filer-ar = { version = "0.0.4", path = "lib/filer-ar", default-features = false }
 filer-archive = { version = "0.0.4", path = "lib/filer-archive", default-features = false }
 filer-btrfs = { version = "0.0.4", path = "tmp/filer-btrfs", default-features = false }
-filer-cdfs = { version = "0.0.4", path = "tmp/filer-cdfs", default-features = false }
+filer-cdfs = { version = "0.0.4", path = "lib/filer-cdfs", default-features = false }
 filer-cpio = { version = "0.0.4", path = "lib/filer-cpio", default-features = false }
 filer-exfat = { version = "0.0.4", path = "tmp/filer-exfat", default-features = false }
 filer-ext4 = { version = "0.0.4", path = "lib/filer-ext4", default-features = false }
@@ -110,7 +110,7 @@ filer-api = { path = "lib/filer-api" }
 filer-ar = { path = "lib/filer-ar" }
 filer-archive = { path = "lib/filer-archive" }
 filer-btrfs = { path = "tmp/filer-btrfs" }
-filer-cdfs = { path = "tmp/filer-cdfs" }
+filer-cdfs = { path = "lib/filer-cdfs" }
 filer-cpio = { path = "lib/filer-cpio" }
 filer-exfat = { path = "tmp/filer-exfat" }
 filer-ext4 = { path = "lib/filer-ext4" }
