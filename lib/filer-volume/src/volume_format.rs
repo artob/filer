@@ -39,6 +39,8 @@ pub enum VolumeFormat {
     Fat32,
     /// NTFS.
     Ntfs,
+    /// SquashFS, version 4.0.
+    Squashfs,
     /// XFS, version 4 or 5.
     Xfs,
 }
@@ -60,7 +62,7 @@ const MAX_FAT16_CLUSTERS: u64 = 65524;
 
 impl VolumeFormat {
     /// Every format, in order.
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Ext2,
         Self::Ext3,
         Self::Ext4,
@@ -68,6 +70,7 @@ impl VolumeFormat {
         Self::Fat16,
         Self::Fat32,
         Self::Ntfs,
+        Self::Squashfs,
         Self::Xfs,
     ];
 
@@ -77,10 +80,10 @@ impl VolumeFormat {
     pub const DETECT_LEN: usize = 2048;
 
     /// Returns the format whose signature `head`, a volume's first bytes,
-    /// holds, if any: XFS's and NTFS's magic numbers, ext's in its
-    /// superblock at offset 1024, whose feature flags tell ext2, ext3, and
-    /// ext4 apart, or a FAT boot sector as `filer-fat` accepts it, whose
-    /// count of clusters tells FAT12, FAT16, and FAT32 apart. A FAT boot
+    /// holds, if any: XFS's, SquashFS's, and NTFS's magic numbers, ext's
+    /// in its superblock at offset 1024, whose feature flags tell ext2,
+    /// ext3, and ext4 apart, or a FAT boot sector as `filer-fat` accepts
+    /// it, whose count of clusters tells FAT12, FAT16, and FAT32 apart. A FAT boot
     /// sector may be left in a volume formatted since, so it is tried
     /// last. An ext journal's own device is no volume.
     ///
@@ -90,6 +93,9 @@ impl VolumeFormat {
     pub fn detect(head: &[u8]) -> Option<Self> {
         if head.starts_with(b"XFSB") {
             return Some(Self::Xfs);
+        }
+        if head.starts_with(b"hsqs") {
+            return Some(Self::Squashfs);
         }
         if head.get(3..11) == Some(b"NTFS    ") {
             return Some(Self::Ntfs);
@@ -107,6 +113,7 @@ impl VolumeFormat {
             Self::Ext2 | Self::Ext3 | Self::Ext4 => VolumeDriver::Ext4,
             Self::Fat12 | Self::Fat16 | Self::Fat32 => VolumeDriver::Fat,
             Self::Ntfs => VolumeDriver::Ntfs,
+            Self::Squashfs => VolumeDriver::Squashfs,
             Self::Xfs => VolumeDriver::Xfs,
         }
     }
@@ -130,6 +137,7 @@ impl VolumeFormat {
             Self::Fat16 => "fat16",
             Self::Fat32 => "fat32",
             Self::Ntfs => "ntfs",
+            Self::Squashfs => "squashfs",
             Self::Xfs => "xfs",
         }
     }
@@ -305,6 +313,7 @@ mod tests {
     fn detects_the_other_formats() {
         let mut xfs = vec![0; VolumeFormat::DETECT_LEN];
         xfs[..4].copy_from_slice(b"XFSB");
+        assert_eq!(VolumeFormat::detect(b"hsqs"), Some(VolumeFormat::Squashfs));
         let mut ntfs = vec![0; VolumeFormat::DETECT_LEN];
         ntfs[3..11].copy_from_slice(b"NTFS    ");
         ntfs[510..512].copy_from_slice(&[0x55, 0xAA]);

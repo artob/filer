@@ -1,0 +1,16 @@
+// This is free and unencumbered software released into the public domain.
+
+//! The directory table: the input replaces its first blocks.
+
+#![no_main]
+
+#[path = "../../tests/common/mod.rs"]
+mod common;
+mod template;
+
+use libfuzzer_sys::fuzz_target;
+
+fuzz_target!(|data: &[u8]| {
+    let template = template::plain();
+    common::exercise(template::overlay(template, template.directories, data));
+});

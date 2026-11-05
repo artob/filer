@@ -65,7 +65,7 @@ filer-posix = { version = "0.0.3", path = "lib/filer-posix", default-features = 
 filer-rar = { version = "0.0.3", path = "tmp/filer-rar", default-features = false }
 filer-refs = { version = "0.0.3", path = "tmp/filer-refs", default-features = false }
 filer-spec = { version = "0.0.3", path = "lib/filer-spec", default-features = false }
-filer-squashfs = { version = "0.0.3", path = "tmp/filer-squashfs", default-features = false }
+filer-squashfs = { version = "0.0.3", path = "lib/filer-squashfs", default-features = false }
 filer-system = { version = "0.0.3", path = "lib/filer-system", default-features = false }
 filer-tar = { version = "0.0.3", path = "lib/filer-tar", default-features = false }
 filer-udf = { version = "0.0.3", path = "tmp/filer-udf", default-features = false }
@@ -125,7 +125,7 @@ filer-posix = { path = "lib/filer-posix" }
 filer-rar = { path = "tmp/filer-rar" }
 filer-refs = { path = "tmp/filer-refs" }
 filer-spec = { path = "lib/filer-spec" }
-filer-squashfs = { path = "tmp/filer-squashfs" }
+filer-squashfs = { path = "lib/filer-squashfs" }
 filer-system = { path = "lib/filer-system" }
 filer-tar = { path = "lib/filer-tar" }
 filer-udf = { path = "tmp/filer-udf" }

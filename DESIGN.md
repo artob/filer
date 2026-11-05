@@ -399,16 +399,15 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `known-codepages`, `compute-adler32`, `compute-crc`, `compute-sha256`,
 `compute-xxhash`, `decode-bzip2`, `decode-deflate`, `decode-gzip`,
 `decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`, `decode-zlib`,
-`decode-zstd`, `filer-pack`,
-the read-only
-`filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
-over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
+`decode-zstd`, `filer-pack`, the read-only `filer-tar`, `filer-zip`,
+`filer-ar`, `filer-cpio`, and `filer-archive` over them, `filer-ext4`,
+`filer-fat`, `filer-ntfs`, `filer-squashfs`, `filer-xfs`, and
 `filer-volume` over them, and as empty skeletons `filer-wasi`,
 `filer-whatwg`, and `filer-cli` (D30, D38, D41). Stubs reserving names
 live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
 `filer-apfs`, `filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`,
-`filer-refs`, `filer-squashfs`, `filer-udf`, `filer-ufs`, and
-`filer-zfs`; and `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
+`filer-refs`, `filer-udf`, `filer-ufs`, and `filer-zfs`; and
+`compute-blake2`, `compute-blake3`, `compute-fletcher`, and
 `compute-sha512` (D64). The rest are created when their first `TODO.md`
 item starts.
 
@@ -2564,8 +2563,8 @@ zlib's gzip decoding, member by member, through `zlib-rs`. `decode-zlib`
 (DEC-06, 2026-11-04) frames it in zlib's header and Adler-32 trailer,
 `compute-adler32`'s, and is checked against zlib likewise; as zlib does
 by default, it checks the header's window size but does not impose it,
-and a stream needing a preset dictionary is `Unsupported`. No driver
-reads through it yet: btrfs, SquashFS, ZFS, and zisofs will.
+and a stream needing a preset dictionary is `Unsupported`.
+`filer-squashfs` reads through it (FMT-08); btrfs, ZFS, and zisofs will.
 `decode-lz4` (DEC-07, 2026-11-04) is written from LZ4's block and frame
 format descriptions: `decode_block` decodes a raw block whole, as
 SquashFS, EROFS, ZFS, F2FS, and ReFS store them, and `Decoder` decodes
@@ -2575,19 +2574,20 @@ initramfs images, ended by the input's end, a frame, or four zero bytes.
 As `lz4` does, and `lz4_flex`, its tests' oracle, does not, it refuses
 what follows the last frame and a frame cut short between blocks; it
 accepts blocks that break the end conditions encoders keep (the last
-five bytes literals, no match within the last 12), as both do. No
-driver reads through it yet. `decode-lzo` (DEC-08, 2026-11-04) is
-written from the Linux kernel's description of the LZO1X stream format,
-and lzop's framing from its published layout, checked against files
-`lzop` writes: `decode_block` decodes a raw block whole, as btrfs,
-SquashFS, and F2FS store them, and `Decoder` decodes lzop files, one
-after another, as the Linux kernel reads them from initramfs images,
-each block checked by the Adler-32s or CRC-32s its header asks for. As
-the Linux kernel does, and `lzokay-native`, its tests' oracle, does
-not, it refuses bytes after a block's end mark; as both do, an end mark
-of a length other than 3. It skips zero bytes after the last file, as
-`lzop` does, and refuses anything else there; filtered and multipart
-files are `Unsupported`. No driver reads through it yet. `decode-lzma`
+five bytes literals, no match within the last 12), as both do.
+`filer-squashfs` reads its blocks through it (FMT-08). `decode-lzo`
+(DEC-08, 2026-11-04) is written from the Linux kernel's description of
+the LZO1X stream format, and lzop's framing from its published layout,
+checked against files `lzop` writes: `decode_block` decodes a raw block
+whole, as btrfs, SquashFS, and F2FS store them, and `Decoder` decodes
+lzop files, one after another, as the Linux kernel reads them from
+initramfs images, each block checked by the Adler-32s or CRC-32s its
+header asks for. As the Linux kernel does, and `lzokay-native`, its
+tests' oracle, does not, it refuses bytes after a block's end mark; as
+both do, an end mark of a length other than 3. It skips zero bytes after
+the last file, as `lzop` does, and refuses anything else there; filtered
+and multipart files are `Unsupported`. `filer-squashfs` reads its blocks
+through it (FMT-08). `decode-lzma`
 (DEC-04, 2026-11-04) is ported from the LZMA SDK's specification, its
 reference decoder, and its LZMA2 decoder, and refuses what they refuse:
 data that ends otherwise than its size or end marker says, or with the
@@ -2832,11 +2832,12 @@ Recorded 2026-11-01 (D40); none exists yet:
   D46), and, at low priority, other file systems such as littlefs, over a
   block device, for embedded and `no_std` use and for reading disk images.
 - **Read-only file systems:** `filer-ext4` (ext2, ext3, and ext4;
-  §17.15), `filer-ntfs` (§17.14), and `filer-xfs` (§17.16), first
-  published as stubs to reserve their names; and as stubs still, in
-  `tmp/` (D58, 2026-11-03), `filer-apfs`, `filer-btrfs`, `filer-cdfs`
-  (ISO 9660), `filer-minix`, `filer-refs`, `filer-squashfs` (read-only by
-  design), `filer-udf`, `filer-ufs` (BSD's FFS), and `filer-zfs`, with
+  §17.15), `filer-ntfs` (§17.14), `filer-xfs` (§17.16), and
+  `filer-squashfs` (read-only by design; §17.19), first published as
+  stubs to reserve their names; and as stubs still, in `tmp/` (D58,
+  2026-11-03), `filer-apfs`, `filer-btrfs`, `filer-cdfs` (ISO 9660),
+  `filer-minix`, `filer-refs`, `filer-udf`, `filer-ufs` (BSD's FFS), and
+  `filer-zfs`, with
   `filer-exfat`. `LEGAL.md` governs them all: exFAT is not to be
   released before its patents expire (mid-2028); ReFS and APFS are
   read-only for good, ReFS best effort; LZO is never decoded from GPL
@@ -3646,10 +3647,10 @@ writing (§17.13) extends the trait rather than replacing it.
 driver type, `Volume`, whatever the file system. Unlike an archive's,
 a volume's format comes from its content, as images are rarely named
 for it (`disk.img`): `VolumeDriver::detect` reads the first 2 KiB for XFS's
-`XFSB` at 0, NTFS's OEM name at 3, an ext superblock at 1024 (magic
-number, block size, and revision), then a FAT boot sector as
-`filer-fat` checks one, last, since one may be left in a volume
-formatted since. `Volume::open` detects and opens; `open_as` takes the
+`XFSB` at 0, SquashFS's `hsqs` at 0, NTFS's OEM name at 3, an ext
+superblock at 1024 (magic number, block size, and revision), then a FAT
+boot sector as `filer-fat` checks one, last, since one may be left in a
+volume formatted since. `Volume::open` detects and opens; `open_as` takes the
 driver from the caller; `open_with` and `open_as_with` take
 `VolumeOptions`, each enabled driver's own, with `allow_dirty` setting
 every journaled one's. A partitioned disk is not a volume: `open` says
@@ -3657,19 +3658,100 @@ so (`VolumeError::Partitioned`), and `open_partition` opens one
 partition through `filer_fs::partition`'s `Window`. As in
 `filer-archive`, the format's driver is held as a `DynDriver`, each
 driver is a feature re-exporting its crate as a module, `code-pages`
-forwards `filer-fat`'s (not in `all`, as in `filer-fat`), `udf` enables
-the empty `filer-udf`, and opening a volume with a disabled driver is
+forwards `filer-fat`'s (not in `all`, as in `filer-fat`), `gzip`,
+`lz4`, `lzma`, `lzo`, `xz`, and `zstd` forward `filer-squashfs`'s
+compressors (in `all`, as `filer-archive` forwards its codecs), `udf`
+enables the empty `filer-udf`, and opening a volume with a disabled driver is
 `Unsupported` with a `VolumeError`. `VolumeFormat` is the format in
 detail: ext2, ext3 (a journal), or ext4 (any feature flag past ext3's),
 and FAT12, FAT16, or FAT32 (by the count of clusters, as Microsoft's
-specification and `filer-fat` decide), with `Ntfs` and `Xfs`; detection
+specification and `filer-fat` decide), with `Ntfs`, `Squashfs`, and
+`Xfs`; detection
 lives there, `VolumeDriver::detect` is its `driver`, and
 `Volume::format` gives an open volume's, or `None` if `open_as` opened
 it with a driver its first bytes do not name. `blkid` agrees with it on
 every fixture. Its tests open fixtures of the drivers' own crates, so
 none is copied, and check that each lists as its driver does.
 
-### 17.19 Later
+### 17.19 `filer-squashfs`
+
+A read-only driver for SquashFS 4.0 images (FMT-08, 2026-11-05), the
+compressed file system of live CDs, snaps, AppImages, and firmware,
+following `filer-fat`'s model (§17.13): a lazy driver over any `ReadAt`
+source, the async `Resolver`, panic-free by lint (D47), pure Rust (D45),
+fixtures from the real tools, and a differential test against the Linux
+kernel's `squashfs` driver. It is read-only for good: SquashFS images
+are built whole, never changed in place. It is the first driver to read
+through most of the `decode-*` crates (D62): each compressor that
+`mksquashfs` offers is a feature, named as `mksquashfs` names it, over
+its crate: `gzip` over `decode-zlib` (SquashFS's gzip is zlib's stream),
+`lzma` over `decode-lzma`, `lzo` over `decode-lzo`'s raw blocks, `xz`
+over `decode-xz`, `lz4` over `decode-lz4`'s raw blocks, and `zstd` over
+`decode-zstd`. An image of a compressor whose feature is off, or of a
+version before 4.0, which the Linux kernel no longer reads either, is
+`Unsupported`.
+
+**Clean room (D52).** The Linux kernel's `squashfs` and squashfs-tools
+are GPL. The driver is written from descriptions of the format only: the
+kernel's prose documentation and the published description of the
+binary format, read for facts, and what `mksquashfs` makes of known
+trees. No implementation's source code is consulted.
+
+**On-disk facts the parser relies on:**
+
+- Everything is little-endian. The superblock is the first 96 bytes:
+  magic `hsqs`, the inode count, the time of making, the block size
+  (4 KiB to 1 MiB, a power of two, with its logarithm), the fragment
+  count, the compressor (1 to 6: gzip, LZMA, LZO, xz, LZ4, zstd), flags,
+  the id count, version 4.0, the root inode's reference, the bytes used,
+  and where the id, extended attribute, inode, directory, fragment, and
+  export tables start; an absent table is all ones. `mksquashfs` pads
+  images to 4 KiB past the bytes used.
+- The inode, directory, fragment, and attribute tables are streams of
+  metadata blocks, each up to 8 KiB decoded, behind a 16-bit header:
+  its size on disk, and bit 15 if stored as is. A reference is a block's
+  position in its table, shifted 16 bits up, and an offset in what it
+  decodes to; entries cross blocks freely.
+- An inode: its type (1 to 7, basic: directory, file, symlink, block
+  and character device, FIFO, socket; 8 to 14, the same extended, with
+  an attribute index and wider fields), mode, owner indices, modification
+  time (seconds, the only time recorded), and number, then its type's
+  fields. A directory gives its listing's place in the directory table
+  and its size plus 3; a file its first block's position, size, fragment
+  and offset in it (all ones if none), and the sizes of its blocks: one
+  each, but for a tail in a fragment. A block's size has bit 24 if stored
+  as is; a size of 0 is a block of zeros, which `mksquashfs` writes for
+  sparse files.
+- A listing is runs of up to 256 entries whose inodes share a metadata
+  block, each behind a header: the count less one, that block, and an
+  inode number the entries' are offsets from. An entry gives its inode's
+  offset in the block, its number's offset, its basic type, and its name
+  (up to 256 bytes) and length less one. `mksquashfs` sorts entries by
+  name. An entry's number and type repeat its inode's, and a lookup
+  refuses an entry that disagrees, so listings and lookups agree.
+- The fragment table lists, raw, the metadata blocks of its entries, 512
+  to a block: each a block's position and size. The attribute table's
+  header gives where its pairs are, the id count, then lists the blocks
+  of ids, 512 to a block: each a reference to the inode's pairs, their
+  count, and size. A pair is a type (0 user, 1 trusted, 2 security; bit 8
+  if the value is a reference to one stored once for all who share it), a
+  name without its prefix, and a value. The export table maps inode
+  numbers for NFS and the id table owners: Filer reports neither.
+
+**Reading.** Opening reads the superblock and the attribute table's
+header, and checks the tables' order. A file keeps a mark every 256
+blocks of where its block is and where its size is listed, so that a
+read sums at most 256 sizes, and never more of a list than a read's
+offset reaches; a corrupt inode claiming billions of blocks costs
+nothing until read. Decoded metadata blocks (32), fragment blocks (4),
+and each open file's last block are cached, behind `filer_fs::Lock`.
+Directory handles hold their listing, decoded whole. `mksquashfs` 4.7.5's
+images of every compressor, of 4 KiB and 1 MiB blocks, stored, without
+fragments, and with every tail in one read exactly as the Linux kernel
+mounts them, LZMA's as `unsquashfs` extracts them; the structure-aware
+fuzzer walked 60,000 mutated images clean.
+
+### 17.20 Later
 
 - `filer-fuse`: a FUSE mount of any driver, via `fuser`.
 - `filer-wasi-host`: a `wasi:filesystem` host implementation for Wasmtime,

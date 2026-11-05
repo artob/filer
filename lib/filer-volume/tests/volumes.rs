@@ -11,7 +11,7 @@ use filer_spec::{Sparse, block_on};
 use filer_volume::{Volume, VolumeDriver, VolumeError, VolumeFormat, VolumeOptions};
 
 /// A volume of each format, as the path of a fixture in the workspace.
-const VOLUMES: [(VolumeFormat, &str); 8] = [
+const VOLUMES: [(VolumeFormat, &str); 9] = [
     (
         VolumeFormat::Ext2,
         "filer-ext4/tests/fixtures/ext2-attrs.sparse",
@@ -31,12 +31,20 @@ const VOLUMES: [(VolumeFormat, &str); 8] = [
         VolumeFormat::Ntfs,
         "filer-ntfs/tests/fixtures/ntfs-links.sparse",
     ),
+    (
+        VolumeFormat::Squashfs,
+        "filer-squashfs/tests/fixtures/spec.sqfs",
+    ),
     (VolumeFormat::Xfs, "filer-xfs/tests/fixtures/spec.sparse"),
 ];
 
 fn fixture(path: &str) -> Vec<u8> {
-    let path = format!("{}/../{path}", env!("CARGO_MANIFEST_DIR"));
-    Sparse::new(&std::fs::read(path).unwrap()).to_vec()
+    let bytes = std::fs::read(format!("{}/../{path}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    // SquashFS images are small, and stored as they are.
+    if path.ends_with(".sqfs") {
+        return bytes;
+    }
+    Sparse::new(&bytes).to_vec()
 }
 
 fn hello() -> Vec<u8> {
@@ -66,6 +74,10 @@ fn listed_by_its_driver(driver: VolumeDriver, image: Vec<u8>) -> Vec<String> {
         VolumeDriver::Fat => names(&block_on(filer_volume::fat::Fat::open(image)).unwrap()),
         #[cfg(feature = "ntfs")]
         VolumeDriver::Ntfs => names(&block_on(filer_volume::ntfs::Ntfs::open(image)).unwrap()),
+        #[cfg(feature = "squashfs")]
+        VolumeDriver::Squashfs => {
+            names(&block_on(filer_volume::squashfs::Squashfs::open(image)).unwrap())
+        },
         #[cfg(feature = "xfs")]
         VolumeDriver::Xfs => names(&block_on(filer_volume::xfs::Xfs::open(image)).unwrap()),
         _ => unreachable!("{driver} is disabled, so {} bytes went unread", image.len()),
@@ -84,6 +96,11 @@ fn detects_and_opens_each_format() {
             let error = opened.unwrap_err();
             assert_eq!(error.kind(), ErrorKind::Unsupported, "{path}");
             assert_eq!(volume_error(&error), Some(VolumeError::Disabled(driver)));
+            continue;
+        }
+        // The SquashFS image is compressed by gzip.
+        if format == VolumeFormat::Squashfs && !cfg!(feature = "gzip") {
+            assert_eq!(opened.unwrap_err().kind(), ErrorKind::Unsupported);
             continue;
         }
         let root = opened.unwrap();

@@ -70,8 +70,9 @@
   `filer-archive` opens any of them by name (add every new archive crate
   to it as an optional dependency, feature, and re-export);
   `filer-fat` is the FAT12/16/32 driver (read-only for now, writing
-  planned); `filer-ext4`, `filer-ntfs`, and `filer-xfs` are read-only file
-  system drivers; `filer-volume` opens any of
+  planned); `filer-ext4`, `filer-ntfs`, `filer-squashfs` (a feature per
+  compressor, each over its `decode-*` crate), and `filer-xfs` are
+  read-only file system drivers; `filer-volume` opens any of
   them, detected by content (add every new file system crate to it as an
   optional dependency, feature, and re-export); `filer-fs` holds what they
   share (each depends on it, `filer-windows` for `le`; shared code goes

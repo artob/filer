@@ -14,6 +14,7 @@
 //! | ext2, ext3, ext4 | superblock magic number, at offset 1080 | `ext4` | `filer-ext4` |
 //! | FAT12, FAT16, FAT32 | boot sector, as `filer-fat` checks it | `fat`, `code-pages` | `filer-fat` |
 //! | NTFS | `NTFS` at offset 3 | `ntfs` | `filer-ntfs` |
+//! | SquashFS | `hsqs` at offset 0 | `squashfs`, and a compressor's | `filer-squashfs` |
 //! | XFS | `XFSB` at offset 0 | `xfs` | `filer-xfs` |
 //!
 //! Each driver's feature, named as its [`VolumeDriver`] is, enables it,
@@ -21,9 +22,12 @@
 //! `filer-ext4`), for what is particular to it, such as its part of the
 //! [`VolumeOptions`]; `code-pages`
 //! forwards `filer-fat`'s, making every DOS code page available for FAT's
-//! short names. `udf` enables `filer-udf`, which reads nothing yet, so
+//! short names; `gzip`, `lz4`, `lzma`, `lzo`, `xz`, and `zstd` forward
+//! `filer-squashfs`'s, each reading SquashFS images of that compressor.
+//! `udf` enables `filer-udf`, which reads nothing yet, so
 //! [`VolumeDriver`] has no UDF until it does. `all`, enabled by default,
-//! enables every driver, but not `code-pages`, as `filer-fat`'s does not.
+//! enables every driver and compressor, but not `code-pages`, as
+//! `filer-fat`'s does not.
 //! Without a driver's feature, [`VolumeDriver`] still names it, and
 //! opening a volume with it fails with
 //! [`Unsupported`](filer_api::ErrorKind::Unsupported).
@@ -146,6 +150,10 @@ pub use filer_fat as fat;
 #[cfg(feature = "ntfs")]
 #[doc(no_inline)]
 pub use filer_ntfs as ntfs;
+
+#[cfg(feature = "squashfs")]
+#[doc(no_inline)]
+pub use filer_squashfs as squashfs;
 
 #[cfg(feature = "udf")]
 #[doc(no_inline)]

@@ -28,13 +28,15 @@ pub enum VolumeDriver {
     Fat,
     /// NTFS, read by `filer-ntfs`.
     Ntfs,
+    /// SquashFS, read by `filer-squashfs`.
+    Squashfs,
     /// XFS, read by `filer-xfs`.
     Xfs,
 }
 
 impl VolumeDriver {
     /// Every driver, in order.
-    pub const ALL: [Self; 4] = [Self::Ext4, Self::Fat, Self::Ntfs, Self::Xfs];
+    pub const ALL: [Self; 5] = [Self::Ext4, Self::Fat, Self::Ntfs, Self::Squashfs, Self::Xfs];
 
     /// How many of a volume's first bytes [`detect`](Self::detect) reads,
     /// as [`VolumeFormat::DETECT_LEN`].
@@ -49,7 +51,8 @@ impl VolumeDriver {
     }
 
     /// Returns whether this build has the driver: whether its feature,
-    /// named as the driver is (`ext4`, `fat`, `ntfs`, or `xfs`), is
+    /// named as the driver is (`ext4`, `fat`, `ntfs`, `squashfs`, or
+    /// `xfs`), is
     /// enabled.
     #[must_use]
     pub const fn is_enabled(self) -> bool {
@@ -57,6 +60,7 @@ impl VolumeDriver {
             Self::Ext4 => cfg!(feature = "ext4"),
             Self::Fat => cfg!(feature = "fat"),
             Self::Ntfs => cfg!(feature = "ntfs"),
+            Self::Squashfs => cfg!(feature = "squashfs"),
             Self::Xfs => cfg!(feature = "xfs"),
         }
     }
@@ -68,6 +72,7 @@ impl VolumeDriver {
             Self::Ext4 => "ext4",
             Self::Fat => "fat",
             Self::Ntfs => "ntfs",
+            Self::Squashfs => "squashfs",
             Self::Xfs => "xfs",
         }
     }

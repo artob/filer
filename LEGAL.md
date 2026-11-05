@@ -239,6 +239,11 @@ is the exception: the reference implementation is GPL, so the decoder must be
 written from the algorithm description or by studying lzokay (MIT), never from
 minilzo.
 
+`filer-squashfs` is written here since 2026-11-05 (FMT-08), from the kernel's
+documentation and the binary format write-up, for facts only, checked against
+images `mksquashfs` makes; it decompresses through the `decode-*` crates, LZO's
+`decode-lzo` among them, written as above.
+
 ## Per-archive assessment
 
 The archive drivers already built (tar, ZIP, ar, cpio) are not assessed

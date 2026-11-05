@@ -179,6 +179,12 @@ async fn open<S: ReadAt + 'static>(
             driver,
             format,
         ),
+        #[cfg(feature = "squashfs")]
+        VolumeDriver::Squashfs => wrap(
+            filer_squashfs::Squashfs::open(source).await?,
+            driver,
+            format,
+        ),
         #[cfg(feature = "xfs")]
         VolumeDriver::Xfs => wrap(
             filer_xfs::Xfs::open_with(source, options.xfs).await?,
@@ -211,7 +217,13 @@ fn unsupported(error: VolumeError) -> Error {
 /// Returns `root`, the root of a format's driver, as a `Volume`'s, with
 /// the same rights.
 #[cfg_attr(
-    not(any(feature = "ext4", feature = "fat", feature = "ntfs", feature = "xfs")),
+    not(any(
+        feature = "ext4",
+        feature = "fat",
+        feature = "ntfs",
+        feature = "squashfs",
+        feature = "xfs"
+    )),
     allow(dead_code)
 )]
 fn wrap<D: Driver>(

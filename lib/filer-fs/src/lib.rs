@@ -16,7 +16,8 @@
 //! entries' Unix file types, and [`posix_acl`] encodes POSIX ACLs as
 //! Linux returns them;
 //! [`map`] reads files through maps of their blocks. A format implements
-//! [`FileSystem`], and [`Mounted`] serves it as a driver. [`partition`]
+//! [`FileSystem`], and [`Mounted`] serves it as a driver; [`Lock`] guards
+//! what a driver caches. [`partition`]
 //! reads partitioned disk images, and [`recover`] reads volumes as
 //! replaying their journals would leave them. Microsoft's conventions,
 //! such as NT times and UTF-16 names, are `filer-msft`'s.
@@ -58,9 +59,14 @@
 )]
 
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 pub mod be;
 pub mod le;
+
+mod lock;
+pub use lock::*;
 
 mod read;
 pub use read::*;

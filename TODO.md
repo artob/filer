@@ -646,8 +646,6 @@ From §17.12 (D40). Create each crate when its item starts.
   of revisions 1.02, 2.01, and 2.50 read.
 - [ ] **FMT-07: `filer-cdfs`.** Read-only ISO 9660, with Joliet and Rock
   Ridge. Done when `xorriso` images of each read.
-- [ ] **FMT-08: `filer-squashfs`.** Done when `mksquashfs` images of each
-  compressor read.
 - [ ] **FMT-09: `filer-minix`.** Done when `mkfs.minix` images of versions
   1, 2, and 3 read.
 - [ ] **FMT-10: `filer-btrfs`.** Done when a single-device

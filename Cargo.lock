@@ -336,6 +336,7 @@ version = "0.0.3"
 dependencies = [
  "filer-api",
  "filer-spec",
+ "spin",
 ]
 
 [[package]]
@@ -424,8 +425,16 @@ dependencies = [
 name = "filer-squashfs"
 version = "0.0.3"
 dependencies = [
+ "decode-lz4",
+ "decode-lzma",
+ "decode-lzo",
+ "decode-xz",
+ "decode-zlib",
+ "decode-zstd",
  "filer-api",
  "filer-fs",
+ "filer-spec",
+ "filer-system",
 ]
 
 [[package]]
@@ -476,6 +485,7 @@ dependencies = [
  "filer-fs",
  "filer-ntfs",
  "filer-spec",
+ "filer-squashfs",
  "filer-udf",
  "filer-xfs",
 ]

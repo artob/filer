@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog], and this project adheres to
 so any release may break compatibility.
 
 ## Unreleased
+### Added
+- `filer-fs`: `Lock`, for what a driver caches.
+- `filer-squashfs`: `Squashfs`, the read-only SquashFS 4.0 driver, with
+  `SquashfsError`: images of every compressor `mksquashfs` offers, each
+  a feature (`gzip`, `lz4`, `lzma`, `lzo`, `xz`, and `zstd`), over the
+  `decode-*` crates; fragments, sparse files, hard links, and extended
+  attributes.
+- `filer-volume`: SquashFS images, detected by `hsqs`, with the
+  `squashfs` feature, `VolumeDriver::Squashfs`, `VolumeFormat::Squashfs`,
+  and the compressor features, forwarded.
 
 ## 0.0.3 - 2026-11-04
 Our own decoders and checksums, written clean room and dedicated to the

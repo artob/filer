@@ -22,13 +22,27 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = ["ext4", "fat", "ntfs", "udf", "xfs"]
+all = [
+  "ext4",
+  "fat",
+  "gzip",
+  "lz4",
+  "lzma",
+  "lzo",
+  "ntfs",
+  "squashfs",
+  "udf",
+  "xfs",
+  "xz",
+  "zstd",
+]
 std = [
   "filer-api/std",
   "filer-fs/std",
   "filer-ext4?/std",
   "filer-fat?/std",
   "filer-ntfs?/std",
+  "filer-squashfs?/std",
   "filer-udf?/std",
   "filer-xfs?/std",
 ]
@@ -36,6 +50,14 @@ code-pages = ["fat", "filer-fat/code-pages"]
 ext4 = ["dep:filer-ext4"]
 fat = ["dep:filer-fat"]
 ntfs = ["dep:filer-ntfs"]
+squashfs = ["dep:filer-squashfs"]
+# The compressors of SquashFS images, each `filer-squashfs`'s.
+gzip = ["filer-squashfs?/gzip"]
+lz4 = ["filer-squashfs?/lz4"]
+lzma = ["filer-squashfs?/lzma"]
+lzo = ["filer-squashfs?/lzo"]
+xz = ["filer-squashfs?/xz"]
+zstd = ["filer-squashfs?/zstd"]
 udf = ["dep:filer-udf"]
 xfs = ["dep:filer-xfs"]
 
@@ -45,6 +67,7 @@ filer-fs.workspace = true
 filer-ext4 = { workspace = true, optional = true }
 filer-fat = { workspace = true, optional = true }
 filer-ntfs = { workspace = true, optional = true }
+filer-squashfs = { workspace = true, optional = true }
 filer-udf = { workspace = true, optional = true }
 filer-xfs = { workspace = true, optional = true }
 
