@@ -23,7 +23,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = []
+std = ["compute-crc/std"]
+# The CRCs of `checksum` by the CPU's instructions, where it has them
+# (`compute-crc`'s): chosen at run time with `std`.
+intrinsics = ["compute-crc/intrinsics"]
 
 [dependencies]
 bitflags.workspace = true

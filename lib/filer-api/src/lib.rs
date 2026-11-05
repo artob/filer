@@ -21,7 +21,11 @@
 //!
 //! It builds with `#![no_std]` but requires `alloc`; the `std` feature,
 //! enabled by default, adds `std::io::Error` interop. `all` currently
-//! enables nothing.
+//! enables nothing. The `intrinsics` feature, not enabled by default,
+//! computes the [`checksum`]s by the CPU's instructions where it has
+//! them, as `compute-crc`'s feature of that name does: CRC-32C by
+//! SSE4.2 on x86-64, and CRC-32 and CRC-32C by ARM's `crc` extension,
+//! chosen at run time with `std`.
 
 #![no_std]
 #![forbid(unsafe_code)]

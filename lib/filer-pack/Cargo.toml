@@ -23,7 +23,22 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = ["bzip2", "deflate", "deflate64", "gzip", "lzma", "xz", "zstd"]
-std = ["filer-api/std"]
+std = [
+  "filer-api/std",
+  "decode-bzip2?/std",
+  "decode-deflate?/std",
+  "decode-gzip?/std",
+  "decode-lzma?/std",
+  "decode-xz?/std",
+  "decode-zstd?/std",
+]
+# Checks by the CPU's instructions, where it has them: `filer-api`'s
+# checksums, gzip's CRC-32, and xz's CRC-32 and SHA-256.
+intrinsics = [
+  "filer-api/intrinsics",
+  "decode-gzip?/intrinsics",
+  "decode-xz?/intrinsics",
+]
 bzip2 = ["dep:decode-bzip2"]
 deflate = ["dep:decode-deflate"]
 deflate64 = ["deflate", "decode-deflate/deflate64"]

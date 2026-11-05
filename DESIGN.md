@@ -2698,6 +2698,9 @@ quarter faster on Apple M4, `decode-xz` checked by SHA-256 a quarter
 and by CRC-32 a tenth, and `decode-lzo` checked by CRC-32 an eighth; the
 others gain nothing, their checksums having no instruction or too small
 a share, and their own loops within 5% built for the CPU (2026-11-05).
+`filer-api` forwards it for its `checksum`s, and `filer-pack` for those
+and its decoders'; their `std` features forward to their dependencies',
+without which the instructions would not be chosen at run time.
 
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and

@@ -30,6 +30,10 @@ so any release may break compatibility.
   which computes their CRC-32 and SHA-256 checks by the CPU's
   instructions, through `compute-crc`'s and `compute-sha256`'s: gzip
   decodes a quarter faster on Apple M4, and xz checked by SHA-256 too.
+- `filer-api` and `filer-pack`: the `intrinsics` feature, which takes
+  the CPU's instructions for `checksum`'s CRCs and, in `filer-pack`, for
+  gzip's and xz's checks; their `std` features now also enable their
+  dependencies', which lets the instructions be chosen at run time.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
 ### Fixed
