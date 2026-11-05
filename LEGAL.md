@@ -407,7 +407,9 @@ replacement.
   from Joe Tsai's *bzip2 format* (2016), an independent
   description reverse-engineered from bzip2 1.0.6, as no official one
   exists, with bzip2's own source (BSD-style, notice required) and Wuffs'
-  decoder (Apache-2.0) read for facts only. No patent applies: the
+  decoder (Apache-2.0) read for facts only. `bzip2` over
+  `libbz2-rs-sys` is its tests' oracle since 2026-11-05 (DEC-11), run,
+  never read. No patent applies: the
   Burrows–Wheeler transform is unpatented, and bzip2 dropped bzip's
   arithmetic coding for Huffman coding over patent concerns.
 

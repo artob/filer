@@ -9,6 +9,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bc62ac97cc33321f50863d514c3bc38a453947a8f9e781137e47c7401020aed"
 
 [[package]]
+name = "bzip2"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a53fac24f34a81bc9954b5d6cfce0c21e18ec6959f44f56e8e90e4bb7c346c"
+dependencies = [
+ "libbz2-rs-sys",
+]
+
+[[package]]
 name = "cc"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -41,6 +50,7 @@ dependencies = [
 name = "decode-bzip2-fuzz"
 version = "0.0.0"
 dependencies = [
+ "bzip2",
  "decode-bzip2",
  "libfuzzer-sys",
 ]
@@ -71,6 +81,12 @@ dependencies = [
  "getrandom",
  "libc",
 ]
+
+[[package]]
+name = "libbz2-rs-sys"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32f454fd6831a29c0e827ed075bca2a15be201bd57f4168f0fd1041124eab17e"
 
 [[package]]
 name = "libc"

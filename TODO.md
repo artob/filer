@@ -564,20 +564,11 @@ crate's name until its first code, which moves it to `lib/`.
   use, whose version 1 adds an instruction for runs of zeros. Done when
   `decode_block` decodes them, from the kernel's description, checked
   against blocks the kernel's `lzo-rle` writes.
-- [ ] **DEC-11: A bzip2 oracle.** `decode-bzip2`'s tests and fuzzers
-  compare with nothing but its blocks' and streams' CRCs, where every
-  other decoder's compare each stream with an independent decoder, as
-  `decode-zstd`'s do with `ruzstd` (`tests/common`). `bzip2` 0.6 over its
-  pure-Rust backend, `libbz2-rs-sys` 0.2 (`LEGAL.md`), as a
-  dev-dependency run, never read: tests may use `std`. Done when
-  `tests/common` decodes through it, `tests/fuzz.rs` and a
-  `differential` target in `fuzz/` compare every stream with it,
-  `LEGAL.md` names it, and the target runs two minutes clean.
 - [ ] **DEC-12: Long fuzz runs.** Each `lib/decode-*/fuzz` target has run
   two minutes from its corpus (2026-11-05), which found only a quirk of
-  `lz4_flex`, and `decode-zstd`'s `differential`, two minutes from
-  `tests/data` and the `decode` corpus; none has run longer. Done when
-  every target, DEC-11's included, has run an hour or more on Linux from
+  `lz4_flex`, and `decode-zstd`'s and `decode-bzip2`'s `differential`,
+  two minutes from `tests/data` and the `decode` corpus; none has run
+  longer. Done when every target has run an hour or more on Linux from
   its corpus, each finding fixed or recorded here, and the corpora
   minimized (`cargo fuzz cmin`) and kept; and when
   `decode-lzma/fuzz/fuzz_targets/input.rs`, a module its targets share,

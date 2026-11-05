@@ -4,12 +4,15 @@
 
 mod common;
 
-use common::{agree, numbers};
+use common::{agree, agrees_with_bzip2, numbers};
 use decode_bzip2::{Decoder, Error};
 
+/// Decodes `stream` whole and in pieces, and checks that `bzip2` decodes
+/// it alike, or refuses it too.
 fn decode(stream: &[u8]) -> Result<Vec<u8>, Error> {
     let whole = agree(stream, 1);
     assert_eq!(whole.as_ref().ok(), agree(stream, 7).as_ref().ok());
+    assert!(agrees_with_bzip2(stream, &whole), "disagrees with bzip2");
     whole
 }
 
@@ -40,7 +43,12 @@ fn decodes_what_bzip2_writes() {
     );
     // In pieces of a few dozen bytes, as a byte at a time takes long.
     let runs_bz2 = include_bytes!("data/runs.bz2");
-    assert_eq!(agree(runs_bz2, 61).unwrap(), runs());
+    let decoded = agree(runs_bz2, 61);
+    assert!(
+        agrees_with_bzip2(runs_bz2, &decoded),
+        "disagrees with bzip2"
+    );
+    assert_eq!(decoded.unwrap(), runs());
     assert_eq!(decode(&EMPTY).unwrap(), b"");
 }
 

@@ -79,6 +79,8 @@ filer-zfs = { version = "0.0.4", path = "tmp/filer-zfs", default-features = fals
 filer-zip = { version = "0.0.4", path = "lib/filer-zip", default-features = false }
 known-codepages = { version = "0.0.4", path = "lib/known-codepages", default-features = false }
 bitflags = { version = "2.13", default-features = false }
+# Its defaults select its pure-Rust backend, `libbz2-rs-sys`, not C.
+bzip2 = "0.6"
 deflate64 = "0.1.12"
 lz4_flex = { version = "0.14", default-features = false }
 lzokay-native = { version = "0.1", default-features = false }
