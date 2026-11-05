@@ -21,18 +21,27 @@ pub struct Template {
     pub xattrs: u64,
 }
 
-/// The image of `make.sh`'s `spec`, compressed by gzip: files,
-/// directories, symlinks, a FIFO, and attributes.
+/// The image of `make.sh`'s `spec`, with nothing compressed, so that the
+/// input changes structures, not compressed bytes: files, directories,
+/// symlinks, a FIFO, and attributes.
 pub fn plain() -> &'static Template {
     static TEMPLATE: OnceLock<Template> = OnceLock::new();
-    TEMPLATE.get_or_init(|| build(include_bytes!("../../tests/fixtures/spec.sqfs")))
+    TEMPLATE.get_or_init(|| {
+        build(include_bytes!(
+            "../../tests/fixtures/spec-uncompressed.sqfs"
+        ))
+    })
 }
 
-/// The image of `make.sh`'s `attrs`: attributes of each namespace, many,
-/// large, and shared.
+/// The image of `make.sh`'s `attrs`, with nothing compressed: attributes
+/// of each namespace, many, large, and shared.
 pub fn attributed() -> &'static Template {
     static TEMPLATE: OnceLock<Template> = OnceLock::new();
-    TEMPLATE.get_or_init(|| build(include_bytes!("../../tests/fixtures/attrs.sqfs")))
+    TEMPLATE.get_or_init(|| {
+        build(include_bytes!(
+            "../../tests/fixtures/attrs-uncompressed.sqfs"
+        ))
+    })
 }
 
 fn build(image: &[u8]) -> Template {

@@ -65,7 +65,9 @@ const WORDS: [u32; 12] = [
 fn corpus() -> Vec<Seed> {
     [
         &include_bytes!("fixtures/spec.sqfs")[..],
+        include_bytes!("fixtures/spec-uncompressed.sqfs"),
         include_bytes!("fixtures/attrs.sqfs"),
+        include_bytes!("fixtures/attrs-uncompressed.sqfs"),
         include_bytes!("fixtures/gzip.sqfs"),
         include_bytes!("fixtures/lzma.sqfs"),
         include_bytes!("fixtures/lzo.sqfs"),

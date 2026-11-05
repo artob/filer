@@ -234,10 +234,15 @@ fn reads_at_any_offset() {
 }
 
 /// Attributes of each namespace, many to a file, large, and sharing a
-/// value.
+/// value, compressed and not.
 #[test]
 fn reads_extended_attributes() {
-    let root = block_on(Squashfs::open(&include_bytes!("fixtures/attrs.sqfs")[..])).unwrap();
+    reads_attributes_of(include_bytes!("fixtures/attrs.sqfs"));
+    reads_attributes_of(include_bytes!("fixtures/attrs-uncompressed.sqfs"));
+}
+
+fn reads_attributes_of(image: &'static [u8]) {
+    let root = block_on(Squashfs::open(image)).unwrap();
     let pairs = |path: &str| {
         let file = block_on(root.open_file(path)).unwrap();
         let mut pairs = Vec::new();

@@ -7,7 +7,10 @@
 # 1 MiB blocks, nothing compressed, no fragments, and every tail in a
 # fragment. `spec.sqfs` holds the specification's tree instead, and
 # `attrs.sqfs` extended attributes of each namespace and size, some
-# sharing their values. Images are stored as they are, `<name>.sqfs`.
+# sharing their values; each has a twin with nothing compressed, which
+# the `cargo-fuzz` targets mutate, so that what they change are the
+# structures, not compressed bytes. Images are stored as they are,
+# `<name>.sqfs`.
 #
 # Usage: tests/fixtures/make.sh [output-dir [fixture...]], on Linux with
 # squashfs-tools 4.6 or later, python3, and `sudo` for making devices and
@@ -177,6 +180,13 @@ os.mkdir(os.path.join(root, "special"))
 os.mkfifo(os.path.join(root, "special", "fifo"))
 os.mkdir(os.path.join(root, "foreign"))
 open(os.path.join(root.encode(), b"foreign", b"caf\xe9"), "wb").write(b"foreign")
+# Every time fixed, directories after what they hold, as filling them
+# changed theirs.
+MTIME = 1_704_164_646_000_000_000
+for parent, dirs, files in os.walk(root.encode(), topdown=False):
+    for name in dirs + files + [b"."]:
+        path = os.path.join(parent, name)
+        os.utime(path, ns=(MTIME, MTIME), follow_symlinks=False)
 PY
 }
 
@@ -208,4 +218,6 @@ make uncompressed fill "-noI -noId -noD -noF -noX"
 make no-fragments fill "-comp gzip -no-fragments"
 make all-fragments fill "-comp gzip -always-use-fragments"
 make attrs attrs "-comp gzip"
+make attrs-uncompressed attrs "-noI -noId -noD -noF -noX"
 make spec spec "-comp gzip"
+make spec-uncompressed spec "-noI -noId -noD -noF -noX"
