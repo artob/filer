@@ -564,6 +564,43 @@ crate's name until its first code, which moves it to `lib/`.
   use, whose version 1 adds an instruction for runs of zeros. Done when
   `decode_block` decodes them, from the kernel's description, checked
   against blocks the kernel's `lzo-rle` writes.
+- [ ] **DEC-10: A zstd oracle.** `decode-zstd`'s tests and fuzzers check
+  its decoding only against the frames they build by hand, zstd's
+  fixtures, and each frame's checksum; every other decoder's fuzzers
+  compare each stream with an independent decoder. `ruzstd` 0.9 (MIT),
+  which it replaced and was checked against then (`LEGAL.md`), as a
+  dev-dependency run, never read, as `lzma-rust2` is. Done when
+  `tests/common` decodes through it, `tests/fuzz.rs` and a
+  `differential` target in `fuzz/` compare every stream with it, as
+  `decode-lz4`'s do with `lz4_flex`, `LEGAL.md` names it, and the
+  target runs two minutes clean.
+- [ ] **DEC-11: A bzip2 oracle.** `decode-bzip2` likewise compares with
+  nothing but its blocks' and streams' CRCs. `bzip2` 0.6 over its
+  pure-Rust backend, `libbz2-rs-sys` 0.2 (`LEGAL.md`), as a
+  dev-dependency run, never read: tests may use `std`. Done as DEC-10
+  is, for bzip2.
+- [ ] **DEC-12: Long fuzz runs.** Each `lib/decode-*/fuzz` target has run
+  two minutes from its corpus (2026-11-05), which found only a quirk of
+  `lz4_flex`; none has run longer. Done when every target, DEC-10's and
+  DEC-11's included, has run an hour or more on Linux from its corpus,
+  each finding fixed or recorded here, and the corpora minimized
+  (`cargo fuzz cmin`) and kept; and when
+  `decode-lzma/fuzz/fuzz_targets/input.rs`, a module its targets share,
+  lives outside `fuzz_targets/`, so that a loop over the targets need
+  not know it.
+- [ ] **DEC-13: Corpora of real files.** `decode-deflate`, `decode-lzma`,
+  `decode-xz`, and `decode-zstd` each have an ignored `decodes_a_corpus`
+  test over the directory `DECODE_<CODEC>_CORPUS` names, never run in
+  CI; the other five have none. Done when each decoder has one, each
+  has run over real-world files (a distribution's packages, initramfs
+  images, SquashFS blocks, archives of large projects), decoding every
+  file to what the reference tool does, compared by SHA-256, and
+  findings are fixed or recorded here.
+- [ ] **DEC-14: Coverage of the decoders.** No coverage report of the
+  `decode-*` crates has been read. Done when a line and branch report
+  of each, by `cargo llvm-cov` on Linux over its tests, is read, and
+  each uncovered branch gets a test, most of all the paths that refuse
+  malformed input, or a note here of why it cannot be reached.
 
 ## Virtual drivers
 
