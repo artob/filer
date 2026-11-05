@@ -1,0 +1,39 @@
+# Coverage-guided fuzzing of `decode-lzo` with `cargo-fuzz` (nightly):
+# `cargo fuzz run decode`, or `block`, from `lib/decode-lzo`. libFuzzer is
+# C++, so this crate stays outside the workspace and is never a dependency
+# of a published crate (DESIGN.md D50); `tests/fuzz.rs` is the pure-Rust
+# fuzzer.
+
+[package]
+name = "decode-lzo-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+compute-adler32 = { path = "../../compute-adler32" }
+compute-crc = { path = "../../compute-crc" }
+decode-lzo = { path = ".." }
+libfuzzer-sys = "0.4"
+lzokay-native = "0.1"
+
+# Its own workspace, apart from the repository's.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "decode"
+path = "fuzz_targets/decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "block"
+path = "fuzz_targets/block.rs"
+test = false
+doc = false
+bench = false

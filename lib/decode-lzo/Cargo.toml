@@ -1,0 +1,41 @@
+[package]
+name = "decode-lzo"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "A clean-room, public-domain LZO decoder, in safe Rust."
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["lzo", "lzop", "btrfs", "decoder", "no-std"]
+categories = ["compression", "no-std"]
+publish.workspace = true
+exclude = ["tests/fuzz.rs"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["all", "std"]
+all = []
+std = ["compute-adler32/std", "compute-crc/std"]
+
+[dependencies]
+compute-adler32.workspace = true
+compute-crc = { workspace = true, features = ["crc32"] }
+
+[dev-dependencies]
+# The tests' checksums of streams built by hand.
+compute-adler32.workspace = true
+compute-crc = { workspace = true, features = ["crc32"] }
+# Mutates streams for `tests/fuzz.rs`. A path alone, without a version, so
+# that publishing strips it; the fuzzer stays out of the package with it.
+filer-spec = { path = "../filer-spec", default-features = false, features = ["std"] }
+# Another decoder, which the tests check this one against, and an encoder.
+lzokay-native = { workspace = true, features = ["compress", "decompress"] }

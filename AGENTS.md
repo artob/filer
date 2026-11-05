@@ -89,7 +89,7 @@
   not Filer-specific: to be spun out to `it-is-known/known-codepages`);
   `decode-<codec>` crates (`decode-bzip2`, `decode-deflate`,
   `decode-gzip` and `decode-zlib` over it, `decode-lz4`, `decode-lzma`,
-  `decode-xz` over it, `decode-zstd`) are our clean-room decoders (D62): generic, no
+  `decode-xz` over it, `decode-lzo`, `decode-zstd`) are our clean-room decoders (D62): generic, no
   dependencies but each other and `compute-*`, each a `Decoder` with
   `decode`, `finish`, `checkpoint`, and `buffered`, which `filer-pack`
   adapts; `compute-<algorithm>` crates (`compute-crc`, every CRC a type
@@ -106,10 +106,9 @@
 - Stubs that reserve a crate name but read nothing yet live in
   `tmp/<crate>/` (archives: `filer-rar`, `filer-7z`; file systems, each
   depending on `filer-fs`: `filer-udf`, `filer-exfat`, `filer-btrfs`,
-  `filer-zfs`, ...; codecs: `decode-lzo`;
-  checksums: `compute-blake2`, `compute-blake3`, `compute-fletcher`,
-  `compute-sha512`). A
-  stub's crate docs list what its format needs. It
+  `filer-zfs`, ...; checksums: `compute-blake2`, `compute-blake3`,
+  `compute-fletcher`, `compute-sha512`). A stub's crate docs list what
+  its format needs. It
   moves to `lib/` with its first implementation, and joins its umbrella
   then (`filer-rar`, `filer-7z`, and `filer-udf` already have).
 - New crates must also be added to the README crate table. CI derives its

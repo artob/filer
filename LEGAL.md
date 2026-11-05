@@ -372,6 +372,14 @@ replacement.
   from the xxHash specification, since 2026-11-04 (DEC-07); LZ4's own
   code is not copied. `lz4_flex` (MIT) is its tests' oracle and source
   of blocks, run, never read. No patent is known.
+- **LZO: written here.** `decode-lzo` (D62) is written from the Linux
+  kernel's description of the LZO1X stream format (GPL-2.0, facts only,
+  as its file systems' documents are read), and its lzop framing from
+  the format's published layout, checked against files `lzop` 1.04
+  writes, since 2026-11-04 (DEC-08). Neither LZO's, minilzo's, lzop's,
+  nor lzokay's code is read. `lzokay-native` (MIT), a port of lzokay, is
+  its tests' oracle and source of blocks, run, never read. No patent is
+  known.
 - **LZMA, LZMA2, and xz: written here.** `decode-lzma` (D62) ports the
   LZMA SDK's specification, reference decoder, and LZMA2 decoder (public
   domain, see 7z), since 2026-11-04 (DEC-04); `decode-xz` is written from

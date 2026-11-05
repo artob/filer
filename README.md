@@ -90,7 +90,7 @@ Decoders, written clean room and dedicated to the public domain:
 | `decode-lzma` | LZMA and LZMA2 |
 | `decode-xz` | xz |
 | `decode-lz4` | LZ4 |
-| `decode-lzo` | LZO (planned) |
+| `decode-lzo` | LZO1X and lzop |
 
 Checksums and hashes, written clean room and dedicated to the public domain:
 

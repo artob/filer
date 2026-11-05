@@ -398,8 +398,8 @@ Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`, `filer-msft`,
 `known-codepages`, `compute-adler32`, `compute-crc`, `compute-sha256`,
 `compute-xxhash`, `decode-bzip2`, `decode-deflate`, `decode-gzip`,
-`decode-lz4`, `decode-lzma`, `decode-xz`, `decode-zlib`, `decode-zstd`,
-`filer-pack`,
+`decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`, `decode-zlib`,
+`decode-zstd`, `filer-pack`,
 the read-only
 `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive`
 over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
@@ -408,7 +408,7 @@ over them, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-xfs`, and
 live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
 `filer-apfs`, `filer-btrfs`, `filer-cdfs`, `filer-exfat`, `filer-minix`,
 `filer-refs`, `filer-squashfs`, `filer-udf`, `filer-ufs`, and
-`filer-zfs`; the decoder `decode-lzo` (D62); and `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
+`filer-zfs`; and `compute-blake2`, `compute-blake3`, `compute-fletcher`, and
 `compute-sha512` (D64). The rest are created when their first `TODO.md`
 item starts.
 
@@ -2576,7 +2576,18 @@ As `lz4` does, and `lz4_flex`, its tests' oracle, does not, it refuses
 what follows the last frame and a frame cut short between blocks; it
 accepts blocks that break the end conditions encoders keep (the last
 five bytes literals, no match within the last 12), as both do. No
-driver reads through it yet. `decode-lzma`
+driver reads through it yet. `decode-lzo` (DEC-08, 2026-11-04) is
+written from the Linux kernel's description of the LZO1X stream format,
+and lzop's framing from its published layout, checked against files
+`lzop` writes: `decode_block` decodes a raw block whole, as btrfs,
+SquashFS, and F2FS store them, and `Decoder` decodes lzop files, one
+after another, as the Linux kernel reads them from initramfs images,
+each block checked by the Adler-32s or CRC-32s its header asks for. As
+the Linux kernel does, and `lzokay-native`, its tests' oracle, does
+not, it refuses bytes after a block's end mark; as both do, an end mark
+of a length other than 3. It skips zero bytes after the last file, as
+`lzop` does, and refuses anything else there; filtered and multipart
+files are `Unsupported`. No driver reads through it yet. `decode-lzma`
 (DEC-04, 2026-11-04) is ported from the LZMA SDK's specification, its
 reference decoder, and its LZMA2 decoder, and refuses what they refuse:
 data that ends otherwise than its size or end marker says, or with the

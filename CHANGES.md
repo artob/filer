@@ -47,8 +47,13 @@ so any release may break compatibility.
   reads headers ahead, adaptively, so that the tar, ar, cpio, and ZIP
   parsers open archives of many small members in a few reads rather than
   one or two per member.
-- `decode-lzo`: New crate, with no items yet, reserving the name of a
-  decoder to come (D62).
+- `decode-lzo`: New crate: an LZO decoder, written clean room from a
+  description of the LZO1X stream format and dedicated to the public
+  domain, its Adler-32 `compute-adler32`'s and its CRC-32
+  `compute-crc`'s, for `no_std` with an allocator. `decode_block`
+  decodes a raw LZO1X block; `Decoder` decodes lzop files, checked where
+  they say, one after another, and offers checkpoints anywhere. A file
+  filtered, multipart, or by another method is `Unsupported`.
 - `decode-lz4`: New crate: an LZ4 decoder, written clean room from LZ4's
   block and frame format descriptions and dedicated to the public
   domain, its XXH32 `compute-xxhash`'s, for `no_std` with an allocator.
