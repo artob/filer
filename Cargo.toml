@@ -16,7 +16,7 @@ readme = true
 homepage = "https://github.com/artob/filer"
 repository = "https://github.com/artob/filer"
 license = "Unlicense"
-keywords = []
+keywords = ["public-domain"]
 categories = ["filesystem", "no-std"]
 publish = true
 

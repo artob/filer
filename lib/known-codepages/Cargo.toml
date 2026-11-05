@@ -9,7 +9,7 @@ readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["codepage", "cp437", "encoding", "oem", "no-std"]
+keywords = ["codepage", "cp437", "encoding", "oem", "public-domain"]
 categories = ["encoding", "no-std"]
 publish.workspace = true
 

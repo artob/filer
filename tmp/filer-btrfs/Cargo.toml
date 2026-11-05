@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["btrfs", "linux", "filesystem", "no-std"]
+keywords = ["btrfs", "linux", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["refs", "windows", "dev-drive", "filesystem", "no-std"]
+keywords = ["refs", "windows", "dev-drive", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

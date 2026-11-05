@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["7z", "7-zip", "lzma", "archive", "vfs"]
+keywords = ["7z", "lzma", "archive", "vfs", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

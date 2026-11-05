@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["rar", "unrar", "archive", "vfs", "no-std"]
+keywords = ["rar", "unrar", "archive", "vfs", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

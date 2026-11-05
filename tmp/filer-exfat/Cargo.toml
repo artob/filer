@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["exfat", "sd-card", "usb", "filesystem", "no-std"]
+keywords = ["exfat", "sd-card", "usb", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

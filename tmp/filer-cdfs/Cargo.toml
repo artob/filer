@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["iso9660", "iso", "cdrom", "filesystem", "no-std"]
+keywords = ["iso9660", "iso", "cdrom", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

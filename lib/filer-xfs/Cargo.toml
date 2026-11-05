@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["xfs", "linux", "filesystem", "no-std"]
+keywords = ["xfs", "linux", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

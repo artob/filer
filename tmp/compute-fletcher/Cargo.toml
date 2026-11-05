@@ -9,7 +9,7 @@ readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["fletcher", "checksum", "zfs", "apfs", "no-std"]
+keywords = ["fletcher", "checksum", "zfs", "apfs", "public-domain"]
 categories = ["algorithms", "no-std", "no-std::no-alloc"]
 publish.workspace = true
 

@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["zfs", "openzfs", "zpool", "filesystem", "no-std"]
+keywords = ["zfs", "openzfs", "zpool", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

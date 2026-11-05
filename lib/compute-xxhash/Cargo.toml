@@ -9,7 +9,7 @@ readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["xxhash", "xxh32", "xxh64", "hash", "no-std"]
+keywords = ["xxhash", "xxh32", "xxh64", "hash", "public-domain"]
 categories = ["algorithms", "no-std", "no-std::no-alloc"]
 publish.workspace = true
 

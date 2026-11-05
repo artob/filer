@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["minix", "filesystem", "no-std"]
+keywords = ["minix", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

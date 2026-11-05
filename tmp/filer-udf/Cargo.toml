@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["udf", "dvd", "blu-ray", "filesystem", "no-std"]
+keywords = ["udf", "dvd", "blu-ray", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

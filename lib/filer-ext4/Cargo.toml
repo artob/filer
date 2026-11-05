@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["ext4", "ext3", "ext2", "filesystem", "no-std"]
+keywords = ["ext4", "ext3", "ext2", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 # The fixtures are large; tests run from the repository.

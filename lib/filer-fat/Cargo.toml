@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["fat", "fat32", "vfat", "filesystem", "no-std"]
+keywords = ["fat", "fat32", "vfat", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

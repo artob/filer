@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["ar", "deb", "archive", "vfs", "no-std"]
+keywords = ["ar", "deb", "archive", "vfs", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

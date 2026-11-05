@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["apfs", "apple", "macos", "filesystem", "no-std"]
+keywords = ["apfs", "apple", "macos", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 

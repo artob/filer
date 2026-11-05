@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["squashfs", "appimage", "snap", "filesystem", "no-std"]
+keywords = ["squashfs", "appimage", "snap", "filesystem", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 # The fixtures are large; tests run from the repository.

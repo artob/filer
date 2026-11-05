@@ -9,7 +9,7 @@ readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["crc", "crc32", "crc32c", "checksum", "no-std"]
+keywords = ["crc", "crc32", "crc32c", "checksum", "public-domain"]
 categories = ["algorithms", "no-std", "no-std::no-alloc"]
 publish.workspace = true
 

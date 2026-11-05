@@ -9,7 +9,7 @@ readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["blake3", "hash", "checksum", "zfs", "no-std"]
+keywords = ["blake3", "hash", "checksum", "zfs", "public-domain"]
 categories = ["algorithms", "no-std", "no-std::no-alloc"]
 publish.workspace = true
 

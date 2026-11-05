@@ -9,7 +9,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords = ["filesystem", "disk-image", "no-std"]
+keywords = ["filesystem", "disk-image", "public-domain"]
 categories.workspace = true
 publish.workspace = true
 
