@@ -52,6 +52,32 @@ fn decodes_what_bzip2_writes() {
     assert_eq!(decode(&EMPTY).unwrap(), b"");
 }
 
+/// A block that ends with a run of four, which a count of none more
+/// follows, as bzip2 writes Canterbury's `sum` and Silesia's `nci`, ends
+/// though that count follows the byte that fills the room (DEC-16).
+#[test]
+fn ends_blocks_whose_last_byte_fills_the_room() {
+    for data in [&b"aaaa"[..], b"filer: aaaa", b"bbbbbbbb", b"bbbbbbbbb"] {
+        let level = bzip2::Compression::best();
+        let mut encoder = bzip2::write::BzEncoder::new(Vec::new(), level);
+        std::io::Write::write_all(&mut encoder, data).unwrap();
+        let packed = encoder.finish().unwrap();
+        let (mut decoder, mut output) = (Decoder::new(), vec![0; data.len()]);
+        let (mut at, mut written) = (0, 0);
+        loop {
+            let (consumed, produced) = decoder
+                .decode(&packed[at..], &mut output[written..])
+                .unwrap();
+            (at, written) = (at + consumed, written + produced);
+            if (consumed, produced) == (0, 0) {
+                break;
+            }
+        }
+        assert_eq!(decoder.finish(), Ok(()), "{data:?}");
+        assert_eq!(output, data);
+    }
+}
+
 #[test]
 fn ignores_what_follows_the_last_stream() {
     let numbers_bz2 = include_bytes!("data/numbers.bz2");
