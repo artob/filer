@@ -575,9 +575,8 @@ crate's name until its first code, which moves it to `lib/`.
   AVX2, by finding why the copy is not vectorized or by `core::arch`'s
   intrinsics, and a test checks it against the lanes.
 - [ ] **COMP-03: Portable gaps.** Built portable, as by default, on
-  Zen 1 (`BENCH.md`, 2026-11-06): `compute-crc`'s eight tables run at
-  1.3 GB/s where `crc`'s sixteen run at 2.0; `compute-sha512` trails
-  `sha2` by 1.14 times and `ring` by 1.43; and `compute-adler32` trails
+  Zen 1 (`BENCH.md`, 2026-11-06): `compute-sha512` trails `sha2` by 1.14
+  times and `ring` by 1.43; and `compute-adler32` trails
   `simd-adler32`, by AVX2, by 1.65. Done when each is within 10% of the
   fastest portable counterpart, or its crate's docs say why not.
 - [ ] **DEC-09: LZO1X version 1.** `decode-lzo` refuses, as

@@ -21,9 +21,12 @@
 //! inversion, which formats that chain checksums store, as ext4 does.
 //! A function of each, such as [`crc32`], computes it over one slice.
 //!
-//! They take eight bytes at a time, by eight tables of each byte followed
-//! by none to seven zeros, built at compile time; a variant's tables are
-//! in a build only if its feature is. The sources are each CRC's
+//! They take sixteen bytes at a time, by sixteen tables of each byte
+//! followed by none to fifteen zeros, built at compile time, and the rest
+//! by eight, four, two, and one, by the same tables; a variant's tables
+//! are in a build only if its feature is. Built portable, as by default,
+//! they are as fast as zlib's CRC-32 on x86-64 (Zen 1), and faster than
+//! the `crc` crate's, whole and in pieces (`BENCH.md`). The sources are each CRC's
 //! parameters, its polynomial, its bit order, and its start and final
 //! values, which are facts, as the catalogue of CRCs lists them; no
 //! other implementation's code is copied. It is pure, safe Rust without
@@ -36,10 +39,10 @@
 //! from any register, as the tables do. With `std`, the instructions are
 //! chosen at run time; without it, only where the build enables them. It
 //! depends on `compute-multiversion`, a fork of `multiversion` that lets
-//! their intrinsics be called without `unsafe` code here. They are about
-//! four times as fast: 3.8 times on x86-64 (Zen 1), and 4.7 times on Apple
-//! M4. Each runs as one stream; none splits the bytes into streams to
-//! combine.
+//! their intrinsics be called without `unsafe` code here. They are 2.4
+//! times as fast as the tables on x86-64 (Zen 1), and run at 11.5 GB/s on
+//! Apple M4. Each runs as one stream; none splits the bytes into streams
+//! to combine.
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
@@ -108,13 +111,13 @@ macro_rules! crc {
         reflected: $reflected:literal, invert: $invert:literal, check: $check:expr,
         label: $label:literal $(, instructions: $instructions:path)?
     ) => {
-        /// The tables for taking eight bytes at a time: `TABLES[0][b]` is
-        /// the CRC of byte `b`, in the register's byte that shifts out
+        /// The tables for taking sixteen bytes at a time: `TABLES[0][b]`
+        /// is the CRC of byte `b`, in the register's byte that shifts out
         /// first, and `TABLES[k][b]` that of `b` followed by `k` zero
         /// bytes. A `static`, as a `const` would be copied wherever it is
         /// used, unless optimized away.
         #[cfg(feature = $feature)]
-        static $tables: [[$reg; 256]; 8] = {
+        static $tables: [[$reg; 256]; 16] = {
             // Evaluated at compile time, where any overflow or index out
             // of range fails the build instead of panicking.
             #[allow(
@@ -123,9 +126,9 @@ macro_rules! crc {
                 clippy::indexing_slicing,
                 reason = "evaluated at compile time"
             )]
-            const fn build() -> [[$reg; 256]; 8] {
+            const fn build() -> [[$reg; 256]; 16] {
                 const TOP: u32 = <$reg>::BITS - 8;
-                let mut tables = [[0; 256]; 8];
+                let mut tables = [[0; 256]; 16];
                 let mut byte = 0;
                 while byte < 256 {
                     let mut crc = if $reflected {
@@ -148,7 +151,7 @@ macro_rules! crc {
                     byte += 1;
                 }
                 let mut k = 1;
-                while k < 8 {
+                while k < 16 {
                     let mut byte = 0;
                     while byte < 256 {
                         let previous = tables[k - 1][byte];
@@ -195,9 +198,40 @@ macro_rules! crc {
             }
 
             /// Feeds `bytes` to the register `crc` by the tables, and
-            /// returns what it comes to.
+            /// returns what it comes to: sixteen bytes at a time, and the
+            /// rest by eight, four, two, and one, each at most once.
             fn tables(mut crc: $reg, bytes: &[u8]) -> $reg {
-                // Always found: `k` is below 8, and a byte below 256.
+                let (groups, rest) = bytes.as_chunks::<16>();
+                for group in groups {
+                    crc = Self::group(crc, *group);
+                }
+                let (groups, rest) = rest.as_chunks::<8>();
+                for group in groups {
+                    crc = Self::group(crc, *group);
+                }
+                let (groups, rest) = rest.as_chunks::<4>();
+                for group in groups {
+                    crc = Self::group(crc, *group);
+                }
+                let (groups, rest) = rest.as_chunks::<2>();
+                for group in groups {
+                    crc = Self::group(crc, *group);
+                }
+                for &byte in rest {
+                    crc = Self::group(crc, [byte]);
+                }
+                crc
+            }
+
+            /// Feeds `N` bytes, at most sixteen, to the register `crc` by
+            /// the tables. The register's bytes go into the group's first,
+            /// the one that shifts out first into the first, and each byte
+            /// of the group out by its table, that of the zeros after it:
+            /// last to first, so that those which wait on the register come
+            /// last. What the group does not shift out shifts along.
+            #[inline(always)]
+            fn group<const N: usize>(crc: $reg, mut group: [u8; N]) -> $reg {
+                // Always found: `k` is below 16, and a byte below 256.
                 let table = |k: usize, byte: u8| {
                     $tables
                         .get(k)
@@ -205,12 +239,19 @@ macro_rules! crc {
                         .copied()
                         .unwrap_or(0)
                 };
-                let (groups, rest) = bytes.as_chunks::<8>();
-                for group in groups {
-                    // The register's bytes go into the group's first, the
-                    // one that shifts out first into the first, and each
-                    // byte of the group out by its table.
-                    let mut group = *group;
+                // As a word where the group has one, which takes fewer of
+                // the CPU's loads than byte by byte: 14% faster on Zen 1.
+                if let Some((head, _)) = group.split_first_chunk_mut::<8>() {
+                    *head = if $reflected {
+                        (u64::from_le_bytes(*head) ^ u64::from(crc)).to_le_bytes()
+                    } else {
+                        // The register's top byte, the first to shift out,
+                        // into the word's.
+                        let up = u64::BITS.wrapping_sub(<$reg>::BITS);
+                        let register = u64::from(crc).checked_shl(up).unwrap_or(0);
+                        (u64::from_be_bytes(*head) ^ register).to_be_bytes()
+                    };
+                } else {
                     let register = if $reflected {
                         crc.to_le_bytes()
                     } else {
@@ -219,21 +260,26 @@ macro_rules! crc {
                     for (byte, reg) in group.iter_mut().zip(register) {
                         *byte ^= reg;
                     }
-                    crc = 0;
-                    for (k, &byte) in group.iter().enumerate() {
-                        crc ^= table(7_usize.wrapping_sub(k), byte);
+                }
+                // What of the register is past the group, shifted along;
+                // and the bytes, into two sums, which halves the chain of
+                // operations that each waits on the one before.
+                let bits = u32::try_from(N.saturating_mul(8)).unwrap_or(u32::MAX);
+                let mut even = if $reflected {
+                    crc.checked_shr(bits).unwrap_or(0)
+                } else {
+                    crc.checked_shl(bits).unwrap_or(0)
+                };
+                let mut odd = 0;
+                for (k, &byte) in group.iter().enumerate().rev() {
+                    let term = table(N.wrapping_sub(1).wrapping_sub(k), byte);
+                    if k % 2 == 0 {
+                        even ^= term;
+                    } else {
+                        odd ^= term;
                     }
                 }
-                for &byte in rest {
-                    crc = if $reflected {
-                        let [low, ..] = crc.to_le_bytes();
-                        table(0, low ^ byte) ^ (crc >> 8)
-                    } else {
-                        let [top, ..] = crc.to_be_bytes();
-                        table(0, top ^ byte) ^ (crc << 8)
-                    };
-                }
-                crc
+                even ^ odd
             }
 
             /// Feeds `bytes`, and returns the CRC that goes on from there,

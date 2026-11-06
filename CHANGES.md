@@ -45,6 +45,11 @@ so any release may break compatibility.
   dependencies', which lets the instructions be chosen at run time.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
+### Changed
+- `compute-crc`: the tables take sixteen bytes at a time, not eight, the
+  bytes that wait on the register last, and the rest by eight, four, two,
+  and one: on x86-64 (Zen 1), CRC-32 runs at 2.5 GB/s, not 1.3, as fast
+  as zlib's, and fed 7 bytes at a time, 1.5 times as fast.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

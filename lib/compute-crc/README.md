@@ -4,12 +4,12 @@ Cyclic redundancy checks, written clean room from their parameters and
 dedicated to the public domain: CRC-32, which gzip, ZIP, xz, and GPT stamp;
 CRC-32C, which ext4, XFS, and Btrfs stamp; CRC-32/BZIP2; CRC-64/XZ; and
 CRC-16/MODBUS, each a type and a feature of its own. Each computes over bytes
-fed in pieces, as they arrive, eight bytes at a time; exposes its register,
+fed in pieces, as they arrive, sixteen bytes at a time; exposes its register,
 which formats that chain checksums store; and is a `Copy` value, so that a
 copy taken anywhere goes on from there. It is pure, safe Rust without
 dependencies, and builds with `#![no_std]`, without an allocator. Its
 `intrinsics` feature takes the CPU's CRC instructions where it has them,
-SSE4.2's and ARM's, about four times as fast.
+SSE4.2's and ARM's, two or more times as fast.
 
 It is one of the `compute-*` crates: clean-room, public-domain checksums and
 hashes, each of the same shape.
