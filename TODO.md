@@ -557,9 +557,6 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **BENCH-02: Every machine.** The rest of the protocol's machines:
   current AMD and Intel on bare metal, and a Neoverse server. Done when
   each `BENCH.md` of a written decoder holds them all.
-- [ ] **BENCH-03: The `compute-*` crates.** The harness measures their
-  throughput over buffers from 16 B to 1 MiB, against portable and SIMD
-  counterparts (D64). Done when each one's `BENCH.md` holds its figures.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
   `intrinsics` takes ARMv8.2's SHA-512 instructions, but not x86-64's,
   which only Intel's newest CPUs have, from Arrow Lake and Lunar Lake on,
@@ -577,6 +574,12 @@ crate's name until its first code, which moves it to `lib/`.
   feature runs the lanes as vectors at run time, as fast as a build for
   AVX2, by finding why the copy is not vectorized or by `core::arch`'s
   intrinsics, and a test checks it against the lanes.
+- [ ] **COMP-03: Portable gaps.** Built portable, as by default, on
+  Zen 1 (`BENCH.md`, 2026-11-06): `compute-crc`'s eight tables run at
+  1.3 GB/s where `crc`'s sixteen run at 2.0; `compute-sha512` trails
+  `sha2` by 1.14 times and `ring` by 1.43; and `compute-adler32` trails
+  `simd-adler32`, by AVX2, by 1.65. Done when each is within 10% of the
+  fastest portable counterpart, or its crate's docs say why not.
 - [ ] **DEC-09: LZO1X version 1.** `decode-lzo` refuses, as
   `Unsupported`, a block that names a version in its second byte, after
   a first of 17: the Linux kernel's `lzo-rle`, which F2FS and zram may
