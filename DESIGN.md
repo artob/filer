@@ -396,19 +396,19 @@ crates.io is an unrelated 0.0.0 placeholder (Q11).
 
 Existing so far (2026-11-03): `filer-api`, `filer-heap`, `filer-posix`,
 `filer-windows`, `filer-system`, `filer-spec`, `filer-fs`, `filer-msft`,
-`known-codepages`, `compute-adler32`, `compute-crc`, `compute-sha256`,
-`compute-sha512`, `compute-xxhash`, `decode-bzip2`, `decode-deflate`,
-`decode-gzip`, `decode-lz4`, `decode-lzma`, `decode-lzo`, `decode-xz`,
-`decode-zlib`, `decode-zstd`, `filer-pack`, the read-only `filer-tar`,
-`filer-zip`, `filer-ar`, `filer-cpio`, and `filer-archive` over them,
-`filer-cdfs`, `filer-ext4`, `filer-fat`, `filer-ntfs`, `filer-squashfs`,
-`filer-udf`, `filer-xfs`, and `filer-volume` over them, and as empty
-skeletons `filer-wasi`, `filer-whatwg`, and `filer-cli` (D30, D38, D41).
-Stubs reserving names live in `tmp/` (D58): `filer-rar` and `filer-7z`,
-and the file systems `filer-apfs`, `filer-btrfs`, `filer-exfat`,
-`filer-minix`, `filer-refs`, `filer-ufs`, and `filer-zfs`; and
-`compute-blake2`, `compute-blake3`, and `compute-fletcher` (D64). The
-rest are created when their first `TODO.md` item starts.
+`known-codepages`, `compute-adler32`, `compute-crc`, `compute-fletcher`,
+`compute-sha256`, `compute-sha512`, `compute-xxhash`, `decode-bzip2`,
+`decode-deflate`, `decode-gzip`, `decode-lz4`, `decode-lzma`,
+`decode-lzo`, `decode-xz`, `decode-zlib`, `decode-zstd`, `filer-pack`,
+the read-only `filer-tar`, `filer-zip`, `filer-ar`, `filer-cpio`, and
+`filer-archive` over them, `filer-cdfs`, `filer-ext4`, `filer-fat`,
+`filer-ntfs`, `filer-squashfs`, `filer-udf`, `filer-xfs`, and
+`filer-volume` over them, and as empty skeletons `filer-wasi`,
+`filer-whatwg`, and `filer-cli` (D30, D38, D41). Stubs reserving names
+live in `tmp/` (D58): `filer-rar` and `filer-7z`, and the file systems
+`filer-apfs`, `filer-btrfs`, `filer-exfat`, `filer-minix`, `filer-refs`,
+`filer-ufs`, and `filer-zfs`; and `compute-blake2` and `compute-blake3`
+(D64). The rest are created when their first `TODO.md` item starts.
 
 Placement rule (D20): `filer-api` holds the abstractions plus combinators
 that perform no I/O and hold no filesystem state (`DynDriver`, `Hybrid`,
@@ -2657,12 +2657,14 @@ and XXH64, from any seed) are crates of their own, as their algorithms
 share nothing, and `compute-adler32` (RFC 1950) for `decode-zlib`,
 written ahead of it, which sums 16 lanes, vectorized, and combines them
 every 64 KiB: 25 GB/s on the M4, nearly three times `adler2`'s.
-Reserved, each for the reader that needs it: `compute-fletcher` for
-ZFS's Fletcher-4 and Fletcher-2 and APFS's Fletcher-64; `compute-blake2`
-for btrfs's BLAKE2b and RAR 5's BLAKE2sp; and `compute-blake3` for ZFS's
+Reserved, each for the reader that needs it: `compute-blake2` for
+btrfs's BLAKE2b and RAR 5's BLAKE2sp; and `compute-blake3` for ZFS's
 BLAKE3. `compute-sha512`, reserved for ZFS's SHA-512/256 too, has SHA-512
 and SHA-512/256 since 2026-11-05, its constants computed from their
-definitions in FIPS 180-4. ZFS's Skein and
+definitions in FIPS 180-4; and `compute-fletcher` ZFS's Fletcher-4 and
+Fletcher-2 and APFS's Fletcher-64 likewise, established by observation,
+as neither ZFS's specification nor APFS's reference defines them, its
+Fletcher-4 in four lanes whose sums combine by integer weights. ZFS's Skein and
 Edon-R wait for a ZFS driver that needs them; a format's own name hashes
 and sums, such as ext4's and XFS's directory hashes, stay in its driver.
 Each is clean room, public domain, pure safe Rust, `no_std` without an

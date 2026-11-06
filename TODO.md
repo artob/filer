@@ -574,6 +574,16 @@ crate's name until its first code, which moves it to `lib/`.
   too, through `compute-multiversion`, what each computes established
   from Intel's manual or by observation as ARM's were (`LEGAL.md`), and
   its test of the instructions against the rounds passes on such a CPU.
+- [ ] **COMP-02: Fletcher-4 on AVX2.** `compute-fletcher` sums
+  Fletcher-4 in four lanes, which LLVM vectorizes for AVX2 only when the
+  whole build targets it: 6.8 GB/s on Zen 1 built for `x86-64-v3`, 5.0
+  for the baseline, where the lanes stay scalar (2026-11-05). A copy for
+  `x86_64+avx2` by `compute-multiversion`, chosen at run time, compiled
+  to scalar code, 3.6 GB/s, whether the byte order was a constant and
+  the lanes whole-array additions or not. Done when an `intrinsics`
+  feature runs the lanes as vectors at run time, as fast as a build for
+  AVX2, by finding why the copy is not vectorized or by `core::arch`'s
+  intrinsics, and a test checks it against the lanes.
 - [ ] **DEC-09: LZO1X version 1.** `decode-lzo` refuses, as
   `Unsupported`, a block that names a version in its second byte, after
   a first of 17: the Linux kernel's `lzo-rle`, which F2FS and zram may

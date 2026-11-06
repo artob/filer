@@ -4,7 +4,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Clean-room, public-domain Fletcher checksums, as ZFS and APFS stamp them, in safe Rust (planned)."
+description = "Clean-room, public-domain Fletcher checksums, as ZFS and APFS stamp them, in safe Rust."
 readme = "README.md"
 homepage.workspace = true
 repository.workspace = true
@@ -22,5 +22,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["all", "std"]
-all = []
+all = ["fletcher2", "fletcher4", "fletcher64"]
 std = []
+fletcher2 = []
+fletcher4 = []
+fletcher64 = []

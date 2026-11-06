@@ -340,10 +340,11 @@ definitions: each CRC's parameters, facts as the catalogue of CRCs lists
 them, and RFC 3720's test vectors; FIPS 180-4 for SHA-256 and SHA-512, a
 United States government work; RFC 7693 and the BLAKE2 specification for
 BLAKE2, and the BLAKE3 specification, the reference code of neither
-read; Fletcher's checksums as ZFS's and APFS's documentation define
-their variants; the xxHash specification for XXH32 and XXH64; and RFC
-1950 for Adler-32. A crate's code is never read as the source of its
-replacement. Under their `intrinsics` feature (D65), the CPU's
+read; Fletcher's checksums as ZFS and APFS stamp them, which their
+documents name but do not define, so established by observation of what
+ZFS 2.4.1 and macOS stamp; the xxHash specification for XXH32 and XXH64;
+and RFC 1950 for Adler-32. A crate's code is never read as the source of
+its replacement. Under their `intrinsics` feature (D65), the CPU's
 instructions are used as Intel's and Arm's architecture manuals define
 them, facts; ARMv8.2's SHA-512 instructions, whose descriptions Arm
 publishes only in pages its scripts render, as observed on Apple M4,

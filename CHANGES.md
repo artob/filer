@@ -20,6 +20,10 @@ so any release may break compatibility.
   `VolumeFormat::Iso9660`; UDF volumes, detected by their volume
   recognition sequence, before ISO 9660, with `VolumeDriver::Udf` and
   `VolumeFormat::Udf`.
+- `compute-fletcher`: `Fletcher4` and `Fletcher2`, ZFS's checksums, of
+  either byte order, and `Fletcher64`, APFS's, each a type and a feature,
+  in the shape of the other `compute-*` crates, with `fletcher4`,
+  `fletcher2`, and `fletcher64`.
 - `compute-sha512`: `Sha512` and `Sha512_256`, SHA-512 and its truncation
   SHA-512/256, which ZFS may stamp on its blocks, in the shape of the
   other `compute-*` crates, with `sha512` and `sha512_256`; and its
