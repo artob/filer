@@ -109,6 +109,9 @@ dependencies = [
 [[package]]
 name = "compute-sha512"
 version = "0.0.4"
+dependencies = [
+ "compute-multiversion",
+]
 
 [[package]]
 name = "compute-xxhash"

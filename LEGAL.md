@@ -345,7 +345,9 @@ their variants; the xxHash specification for XXH32 and XXH64; and RFC
 1950 for Adler-32. A crate's code is never read as the source of its
 replacement. Under their `intrinsics` feature (D65), the CPU's
 instructions are used as Intel's and Arm's architecture manuals define
-them, facts.
+them, facts; ARMv8.2's SHA-512 instructions, whose descriptions Arm
+publishes only in pages its scripts render, as observed on Apple M4,
+each compared with FIPS 180-4's functions over a million random inputs.
 
 - **Deflate and gzip: written here.** `decode-deflate` (D62), written
   from RFC 1951 alone, decodes ZIP's raw Deflate, behind `deflate`, in

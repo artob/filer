@@ -2692,7 +2692,9 @@ instructions are what pay. `compute-crc` takes CRC-32C by SSE4.2's
 `crc32`, and CRC-32, CRC-32C, and CRC-32/BZIP2 by ARM's `crc`
 extension: 3.8 times on Zen 1, 4.7 times on Apple M4; and
 `compute-sha256` SHA-256 by x86-64's SHA extensions and ARMv8's SHA2:
-5.7 to 7.9 times on Zen 1, 6.4 times on Apple M4. The decoders whose
+5.7 to 7.9 times on Zen 1, 6.4 times on Apple M4; and `compute-sha512`
+SHA-512 by ARMv8.2's SHA-512 instructions, 2.5 times on Apple M4, with
+x86-64's, on too few CPUs to test, unused. The decoders whose
 checks they compute forward the feature: `decode-gzip` decodes a
 quarter faster on Apple M4, `decode-xz` checked by SHA-256 a quarter
 and by CRC-32 a tenth, and `decode-lzo` checked by CRC-32 an eighth; the

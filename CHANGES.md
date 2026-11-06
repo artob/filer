@@ -22,7 +22,9 @@ so any release may break compatibility.
   `VolumeFormat::Udf`.
 - `compute-sha512`: `Sha512` and `Sha512_256`, SHA-512 and its truncation
   SHA-512/256, which ZFS may stamp on its blocks, in the shape of the
-  other `compute-*` crates, with `sha512` and `sha512_256`.
+  other `compute-*` crates, with `sha512` and `sha512_256`; and its
+  `intrinsics` feature, which takes ARMv8.2's SHA-512 instructions where
+  the CPU has them, 2.5 times as fast on Apple M4.
 - `compute-crc`: the `intrinsics` feature, which takes CRC-32C by
   SSE4.2's `crc32` on x86-64, and CRC-32, CRC-32C, and CRC-32/BZIP2 by
   ARM's `crc` extension, where the CPU has them: about four times as fast.

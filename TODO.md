@@ -567,6 +567,13 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **BENCH-03: The `compute-*` crates.** The harness measures their
   throughput over buffers from 16 B to 1 MiB, against portable and SIMD
   counterparts (D64). Done when each one's `BENCH.md` holds its figures.
+- [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
+  `intrinsics` takes ARMv8.2's SHA-512 instructions, but not x86-64's,
+  which only Intel's newest CPUs have, from Arrow Lake and Lunar Lake on,
+  and none at hand could test (D65, 2026-11-05). Done when it takes them
+  too, through `compute-multiversion`, what each computes established
+  from Intel's manual or by observation as ARM's were (`LEGAL.md`), and
+  its test of the instructions against the rounds passes on such a CPU.
 - [ ] **DEC-09: LZO1X version 1.** `decode-lzo` refuses, as
   `Unsupported`, a block that names a version in its second byte, after
   a first of 17: the Linux kernel's `lzo-rle`, which F2FS and zram may
