@@ -7,6 +7,7 @@
 
 #[path = "../../tests/common/mod.rs"]
 mod common;
+#[path = "../input.rs"]
 mod input;
 
 use libfuzzer_sys::fuzz_target;

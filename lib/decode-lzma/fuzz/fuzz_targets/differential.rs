@@ -10,6 +10,7 @@
 
 #[path = "../../tests/common/mod.rs"]
 mod common;
+#[path = "../input.rs"]
 mod input;
 
 use input::Kind;
