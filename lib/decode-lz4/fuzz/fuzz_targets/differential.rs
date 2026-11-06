@@ -1,10 +1,11 @@
 // This is free and unencumbered software released into the public domain.
 
 //! LZ4 streams, which must decode as `lz4_flex` decodes them: to the same
-//! bytes, or not at all, but for a stream cut short between blocks, which
-//! it takes to end there, a block that decodes to nothing, which it
-//! takes as the end, and legacy frames it reads otherwise than `lz4`.
-//! Seed the corpus with real ones, such as those in `tests/data`.
+//! bytes, or not at all, but where it reads them otherwise than `lz4`.
+//! It takes a stream cut short between blocks to end there, and a block
+//! that decodes to nothing as the end; it reads legacy frames leniently,
+//! and no frame after one, nor any skippable frame. Seed the corpus with
+//! real ones, such as those in `tests/data`.
 
 #![no_main]
 
@@ -15,51 +16,41 @@ use libfuzzer_sys::fuzz_target;
 use std::io::Read;
 
 /// A legacy frame's magic number, little-endian.
-const LEGACY: [u8; 4] = [0x02, 0x21, 0x4C, 0x18];
+const LEGACY: u32 = 0x184C_2102;
 
-/// What `lz4_flex` reads of a legacy frame otherwise than `lz4` does.
-#[derive(Clone, Copy, PartialEq)]
-enum Legacy {
-    /// Nothing.
-    Alike,
-    /// What `lz4` refuses: a block size with its high bit set, which
-    /// `lz4_flex` takes as a stored block's, though legacy frames have
-    /// none; or one to three bytes after a block, which it takes as the
-    /// frame's end.
-    Lenient,
-    /// Another frame after it, which `lz4_flex` refuses, taking its magic
-    /// number as a block size, and `lz4` reads.
-    Followed,
+/// Returns whether `word` is a legacy or skippable frame's magic number,
+/// which begins a frame that `lz4_flex` refuses, or what follows one.
+fn refused(word: u32) -> bool {
+    word == LEGACY || word >> 4 == 0x0184_D2A5
 }
 
-/// Returns what `lz4_flex` reads of `frame`, a legacy frame, otherwise.
-fn legacy(frame: &[u8]) -> Legacy {
-    let Some(mut rest) = frame.strip_prefix(&LEGACY) else {
-        return Legacy::Alike;
+/// Returns whether `frame`, a legacy frame, has what `lz4_flex` reads and
+/// `lz4` refuses: a block size with its high bit set, which `lz4_flex`
+/// takes as a stored block's, though legacy frames have none; or one to
+/// three bytes after a block, which it takes as the frame's end.
+fn lenient(frame: &[u8]) -> bool {
+    let Some((&magic, mut rest)) = frame.split_first_chunk::<4>() else {
+        return false;
     };
+    if u32::from_le_bytes(magic) != LEGACY {
+        return false;
+    }
     loop {
         let Some((&size, blocks)) = rest.split_first_chunk::<4>() else {
-            return if rest.is_empty() {
-                Legacy::Alike
-            } else {
-                Legacy::Lenient
-            };
+            return !rest.is_empty();
         };
         let size = u32::from_le_bytes(size);
-        if size == 0x184D_2204 || size == u32::from_le_bytes(LEGACY) || size >> 4 == 0x0184_D2A5 {
-            return Legacy::Followed;
-        }
         if size >> 31 == 1 {
-            return Legacy::Lenient;
+            return true;
         }
         let Some(next) = usize::try_from(size)
             .ok()
             .and_then(|size| blocks.get(size..))
         else {
-            return Legacy::Alike;
+            return false;
         };
         if size == 0 || next.is_empty() {
-            return Legacy::Alike;
+            return false;
         }
         rest = next;
     }
@@ -90,12 +81,15 @@ fuzz_target!(|stream: &[u8]| {
     // `lz4_flex` takes four bytes alone, whatever they are, to hold
     // nothing; `lz4` refuses four that begin no frame, as this crate does.
     let four = stream.len() == 4 && theirs.as_ref().is_some_and(Vec::is_empty);
-    let has = |kind| (0..stream.len()).any(|at| stream.get(at..).map(legacy) == Some(kind));
+    let has_lenient = || (0..stream.len()).any(|at| lenient(stream.get(at..).unwrap_or_default()));
+    let has_refused = || {
+        let words = stream.windows(4).filter_map(|word| word.try_into().ok());
+        words.map(u32::from_le_bytes).any(refused)
+    };
     assert!(
         ours == theirs
-            || (ours.is_none() && (four || cut() == theirs || has(Legacy::Lenient)))
-            || (theirs.is_none()
-                && (has(Legacy::Followed) || ours.is_some() && ours == read_on(stream))),
+            || (ours.is_none() && (four || cut() == theirs || has_lenient()))
+            || (theirs.is_none() && (has_refused() || ours.is_some() && ours == read_on(stream))),
         "disagrees with lz4_flex"
     );
 });
