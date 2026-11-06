@@ -583,11 +583,6 @@ crate's name until its first code, which moves it to `lib/`.
   use, whose version 1 adds an instruction for runs of zeros. Done when
   `decode_block` decodes them, from the kernel's description, checked
   against blocks the kernel's `lzo-rle` writes.
-- [ ] **DEC-15: `decode-bzip2` in small pieces.** Given and taking 1
-  KiB at a time, it decodes random bytes at 7.6 MB/s, where whole it
-  does 12.8 and libbzip2 13.5 either way (`bench/`, Linux, Zen 1 VM,
-  2026-11-05). Done when, in pieces of 1 KiB or more, it is within 10%
-  of itself whole.
 - [ ] **DEC-13: Corpora of real files.** `decode-deflate`, `decode-lzma`,
   `decode-xz`, and `decode-zstd` each have an ignored `decodes_a_corpus`
   test over the directory `DECODE_<CODEC>_CORPUS` names, never run in

@@ -346,6 +346,56 @@ impl Block {
     }
 }
 
+/// Whether a byte may be the last but one that a magic number spans, at
+/// any of its eight alignments: as it spans that byte whole, one of 16.
+static SPANNED: [bool; 256] = {
+    // Evaluated at compile time, where any overflow or index out of range
+    // fails the build instead of panicking.
+    #[allow(
+        clippy::arithmetic_side_effects,
+        clippy::as_conversions,
+        clippy::indexing_slicing,
+        reason = "evaluated at compile time"
+    )]
+    const fn build() -> [bool; 256] {
+        let mut table = [false; 256];
+        let mut shift = 0;
+        while shift < 8 {
+            table[((BLOCK >> (8 - shift)) & 0xFF) as usize] = true;
+            table[((END >> (8 - shift)) & 0xFF) as usize] = true;
+            shift += 1;
+        }
+        table
+    }
+    build()
+};
+
+/// Returns the first bit at or after `from` at which a block's magic
+/// number or a stream end's begins in `bytes`, read most significant bit
+/// first: where the block before it ends.
+fn magic(bytes: &[u8], from: usize) -> Option<usize> {
+    const MASK: u64 = (1 << 48) - 1;
+    let mut window = 0_u64;
+    for (i, &byte) in bytes.iter().enumerate().skip(from >> 3) {
+        let [.., before] = window.to_be_bytes();
+        window = window.wrapping_shl(8) | u64::from(byte);
+        if !SPANNED.get(usize::from(before)).copied().unwrap_or(true) {
+            continue;
+        }
+        // The bit after this byte's last; a magic number ending `shift`
+        // bits before it begins 48 bits earlier still.
+        let end = i.saturating_add(1).saturating_mul(8);
+        for shift in (0..8_u8).rev() {
+            let bits = window.wrapping_shr(u32::from(shift)) & MASK;
+            let start = end.checked_sub(usize::from(shift).saturating_add(48));
+            if (bits == BLOCK || bits == END) && start.is_some_and(|start| start >= from) {
+                return start;
+            }
+        }
+    }
+    None
+}
+
 /// Moves the entry at `index` of `order` to its front, and returns it.
 fn to_front(order: &mut [u8], index: usize) -> Result<u8, Fail> {
     let entry = *order.get(index).ok_or(Fail::Corrupt)?;
@@ -429,9 +479,9 @@ pub struct Decoder {
     /// Packed bytes not yet parsed, from bit `bit` of the first.
     input: Vec<u8>,
     bit: usize,
-    /// How much input parsing last ran out of, so that it waits for twice
-    /// as much, or the end of the input, before trying again.
-    tried: usize,
+    /// The bit of `input` from which to look for the magic number that
+    /// ends the block it begins, as none begins before it.
+    scanned: usize,
     state: State,
     /// The most bytes a block of the stream may hold before its runs are
     /// undone.
@@ -449,7 +499,7 @@ impl Decoder {
         Self {
             input: Vec::new(),
             bit: 0,
-            tried: 0,
+            scanned: 0,
             state: State::Header,
             max: 0,
             combined: 0,
@@ -556,10 +606,23 @@ impl Decoder {
     /// if `exhausted`, and returns whether it did.
     fn parse(&mut self, exhausted: bool) -> Result<bool, Error> {
         let full = self.input.len() >= MAX_PACKED;
-        if self.state == State::Ended
-            || (!exhausted && !full && self.input.len() < self.tried.saturating_mul(2))
-        {
+        if self.state == State::Ended {
             return Ok(false);
+        }
+        // A block ends where the next block's magic number, or the stream
+        // end's, begins: until one follows it, parsing it would only run
+        // out of input, at the cost of decoding what it holds so far, so
+        // it waits for one, or for the input's end.
+        if self.state == State::Blocks && !exhausted && !full && self.blocks() {
+            let from = self.scanned.max(self.bit.saturating_add(48));
+            let Some(at) = magic(&self.input, from) else {
+                // Those whose last bits are still to come, scanned again.
+                let bits = self.input.len().saturating_mul(8);
+                self.scanned = from.max(bits.saturating_sub(47));
+                return Ok(false);
+            };
+            // In what the block holds, if it does not parse.
+            self.scanned = at.saturating_add(1);
         }
         let parsed = match self.state {
             State::Header => self.header(exhausted),
@@ -586,13 +649,12 @@ impl Decoder {
                 if full {
                     return Err(corrupt());
                 }
-                self.tried = self.input.len();
                 return Ok(false);
             },
             Err(Fail::Corrupt) => return Err(corrupt()),
             Err(Fail::Unsupported) => return Err(unsupported()),
         };
-        self.tried = 0;
+        self.scanned = 0;
         match unit {
             Unit::Header(max) => (self.state, self.max, self.combined) = (State::Blocks, max, 0),
             Unit::Block(block) => self.block = Some(block),
@@ -610,6 +672,15 @@ impl Decoder {
         self.input.drain(..(at >> 3).min(self.input.len()));
         self.bit = at & 7;
         Ok(true)
+    }
+
+    /// Returns whether a block begins where parsing is.
+    fn blocks(&self) -> bool {
+        let mut bits = Bits {
+            bytes: &self.input,
+            at: self.bit,
+        };
+        matches!(bits.bits(48), Ok(BLOCK))
     }
 
     /// Parses a stream's header, `BZh` and the most hundreds of thousands
@@ -644,5 +715,37 @@ impl core::fmt::Debug for Decoder {
             .field("state", &self.state)
             .field("streams", &self.streams)
             .finish_non_exhaustive()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `magic` at `offset` bits into the second of 16 bytes, all else zeros.
+    fn placed(magic: u64, offset: u32) -> Vec<u8> {
+        (u128::from(magic) << (128 - 8 - 48 - offset))
+            .to_be_bytes()
+            .to_vec()
+    }
+
+    #[test]
+    fn finds_magic_numbers_at_every_bit() {
+        for offset in 0..8 {
+            for number in [BLOCK, END] {
+                let bytes = placed(number, offset);
+                let at = 8 + offset as usize;
+                assert_eq!(magic(&bytes, 0), Some(at), "at bit {offset}");
+                assert_eq!(magic(&bytes, at), Some(at));
+                assert_eq!(magic(&bytes, at + 1), None);
+            }
+        }
+    }
+
+    #[test]
+    fn finds_none_cut_short() {
+        let bytes = placed(BLOCK, 3);
+        assert_eq!(magic(&bytes[..7], 0), None);
+        assert_eq!(magic(&bytes[..8], 0), Some(11));
     }
 }

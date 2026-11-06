@@ -49,6 +49,10 @@ so any release may break compatibility.
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the
   stream corrupt, as bzip2 writes Canterbury's `sum` and Silesia's `nci`.
+- `decode-bzip2`: given its input in pieces, it parsed a block again each
+  time its input doubled, until the block was whole, so that in pieces of
+  1 KiB it decoded random bytes 40% slower; it now waits for the magic
+  number that follows the block, which it scans for at 5 GB/s.
 - `decode-xz`: through a filter chain, each call moved a stage's whole
   buffer and zeroed it again, so that a caller giving or taking a byte at
   a time decoded ten times slower; each now happens once a stage fills.
