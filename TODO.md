@@ -588,16 +588,6 @@ crate's name until its first code, which moves it to `lib/`.
   does 12.8 and libbzip2 13.5 either way (`bench/`, Linux, Zen 1 VM,
   2026-11-05). Done when, in pieces of 1 KiB or more, it is within 10%
   of itself whole.
-- [ ] **DEC-12: Long fuzz runs.** Each `lib/decode-*/fuzz` target has run
-  two minutes from its corpus (2026-11-05), which found only a quirk of
-  `lz4_flex`, and `decode-zstd`'s and `decode-bzip2`'s `differential`,
-  two minutes from `tests/data` and the `decode` corpus; none has run
-  longer. Done when every target has run an hour or more on Linux from
-  its corpus, each finding fixed or recorded here, and the corpora
-  minimized (`cargo fuzz cmin`) and kept; and when
-  `decode-lzma/fuzz/fuzz_targets/input.rs`, a module its targets share,
-  lives outside `fuzz_targets/`, so that a loop over the targets need
-  not know it.
 - [ ] **DEC-13: Corpora of real files.** `decode-deflate`, `decode-lzma`,
   `decode-xz`, and `decode-zstd` each have an ignored `decodes_a_corpus`
   test over the directory `DECODE_<CODEC>_CORPUS` names, never run in
