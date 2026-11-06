@@ -35,6 +35,80 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 [[package]]
 name = "compute-crc"
 version = "0.0.4"
+dependencies = [
+ "compute-multiversion",
+]
+
+[[package]]
+name = "compute-multiversion"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47a96cdb1cad459c186dbc55d7549faf5f7cea269e4c7885ae99fdfb70eccec9"
+dependencies = [
+ "compute-multiversion-macros",
+]
+
+[[package]]
+name = "compute-multiversion-macros"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2164d4dbe40ae932bc6fbe438ceb65014ab5bbb9d7df5b784a57f7c8ed80ebfe"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn",
+]
+
+[[package]]
+name = "compute-sha256"
+version = "0.0.4"
+dependencies = [
+ "compute-multiversion",
+]
+
+[[package]]
+name = "compute-xxhash"
+version = "0.0.4"
+
+[[package]]
+name = "decode-bzip2"
+version = "0.0.4"
+dependencies = [
+ "compute-crc",
+]
+
+[[package]]
+name = "decode-deflate"
+version = "0.0.4"
+
+[[package]]
+name = "decode-gzip"
+version = "0.0.4"
+dependencies = [
+ "compute-crc",
+ "decode-deflate",
+]
+
+[[package]]
+name = "decode-lzma"
+version = "0.0.4"
+
+[[package]]
+name = "decode-xz"
+version = "0.0.4"
+dependencies = [
+ "compute-crc",
+ "compute-sha256",
+ "decode-lzma",
+]
+
+[[package]]
+name = "decode-zstd"
+version = "0.0.4"
+dependencies = [
+ "compute-xxhash",
+]
 
 [[package]]
 name = "filer-api"
@@ -67,6 +141,12 @@ dependencies = [
 name = "filer-pack"
 version = "0.0.4"
 dependencies = [
+ "decode-bzip2",
+ "decode-deflate",
+ "decode-gzip",
+ "decode-lzma",
+ "decode-xz",
+ "decode-zstd",
  "filer-api",
  "spin",
 ]
@@ -164,6 +244,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "rustversion"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "shlex"
