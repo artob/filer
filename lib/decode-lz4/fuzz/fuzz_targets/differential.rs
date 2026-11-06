@@ -2,8 +2,9 @@
 
 //! LZ4 streams, which must decode as `lz4_flex` decodes them: to the same
 //! bytes, or not at all, but for a stream cut short between blocks, which
-//! it takes to end there, and legacy frames it reads otherwise than
-//! `lz4`. Seed the corpus with real ones, such as those in `tests/data`.
+//! it takes to end there, a block that decodes to nothing, which it
+//! takes as the end, and legacy frames it reads otherwise than `lz4`.
+//! Seed the corpus with real ones, such as those in `tests/data`.
 
 #![no_main]
 
@@ -11,6 +12,7 @@
 mod common;
 
 use libfuzzer_sys::fuzz_target;
+use std::io::Read;
 
 /// A legacy frame's magic number, little-endian.
 const LEGACY: [u8; 4] = [0x02, 0x21, 0x4C, 0x18];
@@ -63,6 +65,23 @@ fn legacy(frame: &[u8]) -> Legacy {
     }
 }
 
+/// Decodes `stream` through `lz4_flex` as `common::lz4_flex` does, but
+/// reads on past a read of nothing: it reads a block that decodes to
+/// nothing, such as a legacy frame's of one zero byte, as the end.
+fn read_on(stream: &[u8]) -> Option<Vec<u8>> {
+    let (mut output, mut rest) = (Vec::new(), stream);
+    let mut decoder = lz4_flex::frame::FrameDecoder::new(&mut rest);
+    loop {
+        let left = decoder.get_ref().len();
+        let room = common::CAP.saturating_sub(output.len()) as u64;
+        (&mut decoder).take(room).read_to_end(&mut output).ok()?;
+        if decoder.get_ref().len() == left || output.len() >= common::CAP {
+            break;
+        }
+    }
+    rest.is_empty().then_some(output)
+}
+
 fuzz_target!(|stream: &[u8]| {
     let piece = stream.len().max(1);
     let ours = common::decode(stream, piece).ok();
@@ -75,7 +94,8 @@ fuzz_target!(|stream: &[u8]| {
     assert!(
         ours == theirs
             || (ours.is_none() && (four || cut() == theirs || has(Legacy::Lenient)))
-            || (theirs.is_none() && has(Legacy::Followed)),
+            || (theirs.is_none()
+                && (has(Legacy::Followed) || ours.is_some() && ours == read_on(stream))),
         "disagrees with lz4_flex"
     );
 });
