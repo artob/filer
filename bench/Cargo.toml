@@ -9,8 +9,14 @@ edition = "2024"
 publish = false
 
 [dependencies]
-# Ours: the decoders measured; and the corpus's SHA-256 and xz.
+# Ours: the decoders measured, and the checksums and hashes; the corpus's
+# SHA-256 and xz are also ours.
+compute-adler32 = { path = "../lib/compute-adler32" }
+compute-crc = { path = "../lib/compute-crc" }
+compute-fletcher = { path = "../lib/compute-fletcher" }
 compute-sha256 = { path = "../lib/compute-sha256" }
+compute-sha512 = { path = "../lib/compute-sha512" }
+compute-xxhash = { path = "../lib/compute-xxhash" }
 decode-bzip2 = { path = "../lib/decode-bzip2" }
 decode-xz = { path = "../lib/decode-xz" }
 decode-zstd = { path = "../lib/decode-zstd" }
@@ -24,10 +30,36 @@ libbz2-rs = { package = "bzip2", version = "0.6" }
 # zstd's: libzstd, the reference, in C, which also encodes; and `ruzstd`.
 ruzstd = "0.9"
 zstd = "0.13"
+# The checksums' and hashes' counterparts: zlib's CRC-32 and Adler-32, the
+# references, in C, built from source; `crc`, portable; `crc32fast`,
+# `crc-fast`, and `crc64fast`, with SIMD; `adler2`, and `simd-adler32`;
+# RustCrypto's `sha2` and `ring`, in C and assembly; and xxHash, the
+# reference, in C, `xxhash-rust`, and `twox-hash`.
+adler2 = "2"
+crc = "3"
+crc-fast = "1"
+crc32fast = "1"
+crc64fast = "1"
+libz-sys = { version = "1", default-features = false, features = ["static"] }
+ring = "0.17"
+sha2 = "0.10"
+simd-adler32 = "0.3"
+twox-hash = "2"
+xxhash-c-sys = "0.8"
+xxhash-rust = { version = "0.8", features = ["xxh32", "xxh64"] }
 # `corpus.toml` and `packed.toml`, and the results' JSON lines.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.9"
+
+[features]
+# Our checksums and hashes with the CPU's instructions, where they have
+# them (D65); the results record it, and name their file so.
+intrinsics = [
+    "compute-crc/intrinsics",
+    "compute-sha256/intrinsics",
+    "compute-sha512/intrinsics",
+]
 
 [profile.release]
 codegen-units = 1

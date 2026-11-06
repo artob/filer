@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
-//! The harness that measures the `decode-*` crates against their
-//! counterparts, as `bench/METHOD.md` lays out.
+//! The harness that measures the `decode-*` and `compute-*` crates against
+//! their counterparts, as `bench/METHOD.md` lays out.
 //!
 //! It fetches and verifies the corpus `corpus.toml` names, encodes it and
 //! the synthetic inputs once with the reference encoders at their codecs'
@@ -23,18 +23,26 @@
 //!   the procedure, its samples written to `bench/results/`; on Linux,
 //!   pinned to CPU `n` by `taskset`, if given.
 //!
-//! Every codec, `bzip2` and `zstd`, unless some are named. For the
-//! ceiling, build with `RUSTFLAGS="-C target-cpu=native"` into another
-//! `--target-dir`: the results record the flags, and name their file so.
+//! - `hash [<algorithm>...] [--cpu <n>]`: the procedure over the checksums
+//!   and hashes, by `throughput`, with a Markdown table of each.
+//!
+//! Every codec, `bzip2` and `zstd`, or every algorithm, such as `crc32` or
+//! `sha256`, unless some are named. For the ceiling, build with
+//! `RUSTFLAGS="-C target-cpu=native"` into another `--target-dir`, and for
+//! our checksums with the CPU's instructions, with `--features
+//! intrinsics`: the results record either, and name their file so.
 
 mod corpus;
 mod decoders;
+mod hashes;
 mod inputs;
 mod machine;
 mod measure;
 mod procedure;
+mod throughput;
 
 use decoders::Codec;
+use hashes::Algorithm;
 use inputs::Level;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -64,6 +72,20 @@ fn main() -> Result<()> {
         let (piece, seed) = (next()?.parse()?, next()?.parse()?);
         return procedure::sample(codec, &input, level, piece, seed);
     }
+    let algorithm = |name: &str| {
+        Algorithm::ALL
+            .into_iter()
+            .find(|algorithm| algorithm.name() == name)
+            .ok_or_else(|| format!("no algorithm {name}"))
+    };
+    if command == "hash-sample" {
+        // `hash-sample <algorithm> <size> <piece> <seed>`, from `hash`.
+        let mut next = || args.next().ok_or("hash-sample: too few arguments");
+        let algorithm = algorithm(&next()?)?;
+        let (size, piece, seed) = (next()?.parse()?, next()?.parse()?, next()?.parse()?);
+        return throughput::sample(algorithm, size, piece, seed);
+    }
+    let mut names = Vec::new();
     let mut options = Options {
         codecs: Vec::new(),
         only: String::new(),
@@ -75,8 +97,21 @@ fn main() -> Result<()> {
             "--only" => options.only = args.next().ok_or("--only needs a prefix")?,
             "--piece" => options.piece = args.next().ok_or("--piece needs a size")?.parse()?,
             "--cpu" => options.cpu = Some(args.next().ok_or("--cpu needs a CPU")?),
-            name => options.codecs.push(codec(name)?),
+            name => names.push(name.to_owned()),
         }
+    }
+    if command == "hash" {
+        let mut algorithms = names
+            .iter()
+            .map(|name| algorithm(name))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        if algorithms.is_empty() {
+            algorithms = Algorithm::ALL.to_vec();
+        }
+        return throughput::run(&options, &algorithms, corpus::bench());
+    }
+    for name in &names {
+        options.codecs.push(codec(name)?);
     }
     if options.codecs.is_empty() {
         options.codecs = Codec::ALL.to_vec();
@@ -92,7 +127,7 @@ fn main() -> Result<()> {
         },
         "check" => check(&options),
         "run" => procedure::run(&options, corpus::bench()),
-        _ => Err("commands: fetch, encode, check, run".into()),
+        _ => Err("commands: fetch, encode, check, run, hash".into()),
     }
 }
 

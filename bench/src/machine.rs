@@ -28,6 +28,9 @@ pub struct Machine {
     pub cc: String,
     pub cflags: String,
     pub packages: Vec<String>,
+    /// The harness's features: `intrinsics`, for our checksums with the
+    /// CPU's instructions.
+    pub features: Vec<String>,
     /// The SHA-256 of `corpus.toml` and of `packed.toml`.
     pub corpus: String,
     pub packed: String,
@@ -110,6 +113,10 @@ impl Machine {
                 .split(';')
                 .map(Into::into)
                 .collect(),
+            features: match cfg!(feature = "intrinsics") {
+                true => vec!["intrinsics".into()],
+                false => Vec::new(),
+            },
             corpus: hash("corpus.toml"),
             packed: hash("packed.toml"),
             commit: output("git", &["rev-parse", "HEAD"]),
@@ -117,11 +124,14 @@ impl Machine {
         }
     }
 
-    /// A name for its results' file: the date and the host, and `native`
-    /// for a build for this CPU alone.
+    /// A name for its results' file: the date and the host, `native` for
+    /// a build for this CPU alone, and `intrinsics` for one with that.
     pub fn file_name(&self) -> String {
         let native = self.rustflags.contains("target-cpu=native");
-        let build = if native { "-native" } else { "" };
+        let mut build = String::from(if native { "-native" } else { "" });
+        for feature in &self.features {
+            build = format!("{build}-{feature}");
+        }
         format!("{}-{}{build}.jsonl", self.date.replace(':', ""), self.host)
     }
 }

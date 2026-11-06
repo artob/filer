@@ -35,12 +35,12 @@ const TIMED: Duration = Duration::from_millis(500);
 const ITERATIONS: usize = 10;
 
 /// The fewest processes per input and level, and the most.
-const PROCESSES: usize = 5;
-const MOST_PROCESSES: usize = 20;
+pub const PROCESSES: usize = 5;
+pub const MOST_PROCESSES: usize = 20;
 
 /// The widest a confidence interval's half-width may be, as a fraction of
 /// its median, before more processes are started.
-const WIDTH: f64 = 0.01;
+pub const WIDTH: f64 = 0.01;
 
 /// The resamples of each bootstrap.
 const RESAMPLES: usize = 2000;
@@ -145,15 +145,15 @@ pub fn sample(codec: Codec, input: &str, level: Level, piece: usize, seed: u64) 
 }
 
 /// A decoder's figures over an input at a level.
-struct Figures {
+pub struct Figures {
     /// The median iteration of each process, in nanoseconds; the fastest
     /// is in the raw data.
-    medians: Vec<f64>,
-    failure: Option<String>,
+    pub medians: Vec<f64>,
+    pub failure: Option<String>,
 }
 
 /// The median of `values`, which must not be empty.
-fn median(values: &mut [f64]) -> f64 {
+pub fn median(values: &mut [f64]) -> f64 {
     values.sort_by(f64::total_cmp);
     let middle = values.len() / 2;
     match values.len() % 2 {
@@ -164,7 +164,7 @@ fn median(values: &mut [f64]) -> f64 {
 
 /// The median of `values` and its 95% bootstrap confidence interval, by
 /// resampling them with `random`.
-fn bootstrap(values: &[f64], random: &mut SplitMix) -> (f64, f64, f64) {
+pub fn bootstrap(values: &[f64], random: &mut SplitMix) -> (f64, f64, f64) {
     let mut resample = vec![0.0; values.len()];
     let mut medians: Vec<f64> = (0..RESAMPLES)
         .map(|_| {
@@ -264,15 +264,7 @@ fn measure(
         if process >= PROCESSES && figures.iter().all(narrow) {
             break;
         }
-        let mut command = match &options.cpu {
-            Some(cpu) => {
-                let mut command = Command::new("taskset");
-                command.args(["-c", cpu]).arg(std::env::current_exe()?);
-                command
-            },
-            None => Command::new(std::env::current_exe()?),
-        };
-        let output = command
+        let output = harness(options)?
             .args(["sample", codec.name(), &input.name, &level.label()])
             .arg(options.piece.to_string())
             .arg(random.next().to_string())
@@ -328,9 +320,22 @@ fn measure(
     Ok(figures)
 }
 
+/// A process of the harness, on Linux pinned to the CPU `options` names,
+/// if any, by `taskset`.
+pub fn harness(options: &Options) -> Result<Command> {
+    Ok(match &options.cpu {
+        Some(cpu) => {
+            let mut command = Command::new("taskset");
+            command.args(["-c", cpu]).arg(std::env::current_exe()?);
+            command
+        },
+        None => Command::new(std::env::current_exe()?),
+    })
+}
+
 /// The speed of `theirs` relative to `ours`, paired by process: the median
 /// of their ratios, if both decoded in every process.
-fn paired(ours: &Figures, theirs: &Figures) -> Option<f64> {
+pub fn paired(ours: &Figures, theirs: &Figures) -> Option<f64> {
     if ours.medians.len() != theirs.medians.len() || ours.medians.is_empty() {
         return None;
     }

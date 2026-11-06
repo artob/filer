@@ -142,6 +142,19 @@ from VMs carry their noise, and are never the headline.
   effect. A bimodal distribution, which heat or frequency changes cause,
   is investigated and the run repeated, not averaged.
 
+## Checksums and hashes
+
+The `compute-*` crates are measured as the decoders are, by `hash`, but
+over buffers of random bytes, the same in every process: of 16 B, 256 B,
+4 KiB, 64 KiB, and 1 MiB, fed whole, by one update, and in pieces of 7
+bytes, as a stream's checks are fed. Each counterpart's result is checked
+against ours before it is timed. A sample times computations over 64 KiB
+or more in all, as one over 16 bytes takes less than the timer resolves.
+Each is measured as its crate builds by default, portable, and again with
+`intrinsics`, the CPU's instructions (D65), as two runs; counterparts
+pick their own instructions at run time either way. Their table is in
+GB/s.
+
 ## Reporting
 
 - **Raw data**: every sample, as JSON lines with its metadata (machine,
