@@ -101,7 +101,7 @@ Checksums and hashes, written clean room and dedicated to the public domain:
 | `compute-xxhash` | XXH32, XXH64 |
 | `compute-adler32` | Adler-32 |
 | `compute-fletcher` | Fletcher-2, Fletcher-4, Fletcher-64 (planned) |
-| `compute-sha512` | SHA-512, SHA-512/256 (planned) |
+| `compute-sha512` | SHA-512, SHA-512/256 |
 | `compute-blake2` | BLAKE2b, BLAKE2s, BLAKE2sp (planned) |
 | `compute-blake3` | BLAKE3 (planned) |
 

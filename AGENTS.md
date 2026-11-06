@@ -95,7 +95,8 @@
   dependencies but each other and `compute-*`, each a `Decoder` with
   `decode`, `finish`, `checkpoint`, and `buffered`, which `filer-pack`
   adapts; `compute-<algorithm>` crates (`compute-crc`, every CRC a type
-  and a feature, `compute-adler32`, `compute-sha256`, `compute-xxhash`)
+  and a feature, `compute-adler32`, `compute-sha256`, `compute-sha512`,
+  `compute-xxhash`)
   are our clean-room checksums and hashes (D64): generic, no
   dependencies by default, each with `new`, `update`, `chain`, and
   `finish`; CPU instructions only behind `intrinsics`, through
@@ -111,7 +112,7 @@
   `tmp/<crate>/` (archives: `filer-rar`, `filer-7z`; file systems, each
   depending on `filer-fs`: `filer-exfat`, `filer-btrfs`, `filer-zfs`,
   ...; checksums: `compute-blake2`, `compute-blake3`,
-  `compute-fletcher`, `compute-sha512`). A stub's crate docs list what
+  `compute-fletcher`). A stub's crate docs list what
   its format needs. It
   moves to `lib/` with its first implementation, and joins its umbrella
   then (`filer-rar` and `filer-7z` already have).

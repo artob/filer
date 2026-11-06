@@ -20,6 +20,9 @@ so any release may break compatibility.
   `VolumeFormat::Iso9660`; UDF volumes, detected by their volume
   recognition sequence, before ISO 9660, with `VolumeDriver::Udf` and
   `VolumeFormat::Udf`.
+- `compute-sha512`: `Sha512` and `Sha512_256`, SHA-512 and its truncation
+  SHA-512/256, which ZFS may stamp on its blocks, in the shape of the
+  other `compute-*` crates, with `sha512` and `sha512_256`.
 - `compute-crc`: the `intrinsics` feature, which takes CRC-32C by
   SSE4.2's `crc32` on x86-64, and CRC-32, CRC-32C, and CRC-32/BZIP2 by
   ARM's `crc` extension, where the CPU has them: about four times as fast.

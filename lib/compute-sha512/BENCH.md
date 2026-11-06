@@ -7,7 +7,7 @@ inputs, machines, and builds for every implementation, each figure a
 median with its 95% confidence interval, and every result checked
 against the others'.
 
-**No results yet**: it is still to be written.
+**No results yet**: the harness that measures it is still to be built.
 
 ## Counterparts
 
