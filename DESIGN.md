@@ -2702,6 +2702,21 @@ a share, and their own loops within 5% built for the CPU (2026-11-05).
 and its decoders'; their `std` features forward to their dependencies',
 without which the instructions would not be chosen at run time.
 
+**Rotates under `x86-64-v2`** (measured 2026-11-05, Zen 1 in a VM).
+Built with `-C target-cpu=x86-64-v2`, as some Linux distributions build
+by default, the hashes made of rotates run far slower on AMD:
+`compute-sha256` at 71 MB/s rather than 158, XXH32 at 2,640 rather than
+4,511, and XXH64 at 4,711 rather than 6,430; the CRCs and Adler-32 as
+before. Not our code: that CPU's tuning in LLVM has `fast-shld-rotate`,
+which compiles each rotate to `shld` of a register with itself rather
+than `rol`, faster on Intel since Sandy Bridge but slower on Zen;
+`x86-64-v3`'s tuning has it not, nor any Zen's, and the same features
+without the CPU run at full speed. Rust's rotates, or shifts and an OR,
+all become LLVM's one rotate, so the source cannot choose the
+instruction. `-C target-feature=-fast-shld-rotate` restores full speed,
+with a warning that the feature is unstable; and `intrinsics` (D65)
+spares SHA-256 on CPUs with SHA-NI, every Zen among them.
+
 **Header reads** (measured 2026-11-03, PACK-10). `filer-tar`,
 `filer-ar`, and `filer-cpio` read each header with a read of its own, and
 cpio its name with another, where `filer-zip` reads its central
