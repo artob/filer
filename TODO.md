@@ -545,13 +545,6 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **BENCH-05: The procedure's check.** `bench/`'s `run` follows
-  `METHOD.md`'s procedure, over whole streams or one piece size, and
-  writes every sample to `bench/results/` (2026-11-05). Done when two
-  runs on one idle machine, pinned (`--cpu`), agree within their
-  intervals: one run over zstd's synthetic inputs, on Linux in a VM,
-  gave intervals of 0.1 to 1.5%; the second, and bzip2's, were stopped.
-  Rsyncing `bench/` with `--delete` removes `bench/results/` elsewhere.
 - [ ] **BENCH-06: The other measures.** Streaming in pieces of 4 and 64
   KiB in one run, small streams, memory by a counting allocator, the
   decoder's size, checkpoints, `perf stat` counters on Linux, and code

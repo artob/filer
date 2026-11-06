@@ -132,6 +132,12 @@ from VMs carry their noise, and are never the headline.
 - **Comparisons**: each input's speed ratio, ours to the counterpart's,
   with a confidence interval by paired bootstrap; summarized per level as
   the geometric mean of ratios across inputs, never as the mean of MB/s.
+- **Reproducibility**: two runs on one machine agree when each
+  counterpart's ratio to ours, per level, agrees within 3%. Their MB/s
+  need not: a machine's speed drifts between runs by more than one run's
+  interval measures. Two pinned runs on a Linux VM (Zen 1, KVM) an hour
+  apart differed by 2% at the median, and up to 10%, mostly in the same
+  direction for every decoder, while their ratios moved by 2% at most.
 - **Outliers**: they are kept, not trimmed, as medians bound their
   effect. A bimodal distribution, which heat or frequency changes cause,
   is investigated and the run repeated, not averaged.
