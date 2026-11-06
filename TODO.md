@@ -545,15 +545,24 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **BENCH-06: The other measures.** Streaming in pieces of 4 and 64
-  KiB in one run, small streams, memory by a counting allocator, the
-  decoder's size, checkpoints, `perf stat` counters on Linux, and code
-  size, as `bench/METHOD.md` lists them. Done when the raw data holds
-  each.
+- [ ] **BENCH-08: Code size.** The bytes of `.text` each decoder and
+  `compute-*` crate adds to a minimal `#![no_std]` binary, at `opt-level`
+  3 and `"s"` (item 7). Done when the harness measures each, and each
+  `compute-*` `BENCH.md` fills its "Code size".
+- [ ] **BENCH-09: Streaming and small streams.** Pieces of 4 and of 64
+  KiB in one run, and the time per stream of packed streams of about 64
+  B, 1 KiB, and 16 KiB, construction included (items 2 and 3). Done
+  when the raw data holds each.
+- [ ] **BENCH-10: Checkpoints and counters.** The time to take and to
+  resume from a checkpoint and the bytes each holds; and `perf stat`'s
+  counters per output byte on Linux (items 5 and 6). Done when the raw
+  data holds each.
 - [ ] **BENCH-07: Tables.** The harness generates each `BENCH.md`'s
   tables from `bench/results/`, never edited by hand. Done when it
   fills `decode-zstd`'s and `decode-bzip2`'s on an x86 machine and on
-  Apple M4.
+  Apple M4. On M4, mind code placement: a probe timed `compute-crc`'s
+  tables' CRC-32 at 1.3 GB/s from one call site and 5.1 from another,
+  the same loop (2026-11-06).
 - [ ] **BENCH-02: Every machine.** The rest of the protocol's machines:
   current AMD and Intel on bare metal, and a Neoverse server. Done when
   each `BENCH.md` of a written decoder holds them all.
@@ -598,6 +607,22 @@ crate's name until its first code, which moves it to `lib/`.
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse
   malformed input, or a note here of why it cannot be reached.
+- [ ] **DEC-17: `decode-bzip2`'s memory.** By the harness's `memory`
+  on Linux (2026-11-06), over the corpus, it holds up to 4.9 MiB at
+  level 1 and 11 MiB at 9, in up to 48,000 allocations a stream, where
+  libbzip2 holds 0.45 and 3.6 MiB in 3: it copies up to 4 MiB of input
+  ahead (`MAX_PACKED`), where a block's packed bytes take about 1 MiB
+  at most, and allocates its codes, selectors, and links anew each
+  block.
+  Done when it holds no more than libbzip2 and the most a block packs,
+  and allocates a few times a stream, not each block.
+- [ ] **DEC-18: `decode-zstd`'s memory.** By the same pass, in pieces
+  of 64 KiB, it holds 1.65 times what libzstd does at the median, and
+  up to 3.8 times (16.7 MiB at level 9 where libzstd holds 4.6), in up
+  to 29,000 allocations a stream where libzstd makes 2; decoding into a
+  buffer whole, libzstd holds 94 KiB, as the buffer is its window, and
+  ours up to 256 MiB. Done when it holds the window and a block,
+  allocates a few times a stream, and the harness shows it.
 
 ## Virtual drivers
 

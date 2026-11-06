@@ -22,6 +22,9 @@ pub struct Decoder {
     pub krate: &'static str,
     pub language: &'static str,
     pub decode: Decode,
+    /// The size of the value that its caller holds as it decodes: the
+    /// decoder itself, or a handle to it on the heap.
+    pub value: usize,
 }
 
 /// A codec, and its decoders, ours first, then the reference.
@@ -55,24 +58,28 @@ const BZIP2: [Decoder; 4] = [
         krate: "decode-bzip2",
         language: "Rust",
         decode: ours_bzip2,
+        value: size_of::<decode_bzip2::Decoder>(),
     },
     Decoder {
         name: "libbzip2",
         krate: "bzip2-sys",
         language: "C",
         decode: libbzip2,
+        value: size_of::<bzip2_c::Decompress>(),
     },
     Decoder {
         name: "libbz2-rs-sys",
         krate: "libbz2-rs-sys",
         language: "Rust",
         decode: libbz2_rs,
+        value: size_of::<libbz2_rs::Decompress>(),
     },
     Decoder {
         name: "bzip2-rs",
         krate: "bzip2-rs",
         language: "Rust",
         decode: bzip2_rs,
+        value: size_of::<bzip2_rs::decoder::Decoder>(),
     },
 ];
 
@@ -82,18 +89,21 @@ const ZSTD: [Decoder; 3] = [
         krate: "decode-zstd",
         language: "Rust",
         decode: ours_zstd,
+        value: size_of::<decode_zstd::Decoder>(),
     },
     Decoder {
         name: "libzstd",
         krate: "zstd",
         language: "C",
         decode: libzstd,
+        value: size_of::<zstd::stream::raw::Decoder<'static>>(),
     },
     Decoder {
         name: "ruzstd",
         krate: "ruzstd",
         language: "Rust",
         decode: ruzstd,
+        value: size_of::<ruzstd::decoding::FrameDecoder>(),
     },
 ];
 

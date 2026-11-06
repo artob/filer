@@ -7,9 +7,9 @@
 //! the synthetic inputs once with the reference encoders at their codecs'
 //! levels, recording each in `packed.toml`, and decodes each with every
 //! decoder of its codec, whole or in pieces, by the procedure of
-//! `procedure`, checking every output against the original. The other
-//! measures and the generated tables are to follow (`TODO.md`, BENCH-06
-//! and 07).
+//! `procedure`, checking every output against the original; and counts
+//! what each allocates, by `memory`. The other measures and the generated
+//! tables are to follow (`TODO.md`, BENCH-07 to 10).
 //!
 //! From `bench/`, `cargo run --release --`, then:
 //!
@@ -22,6 +22,10 @@
 //! - `run [<codec>...] [--only <prefix>] [--piece <bytes>] [--cpu <n>]`:
 //!   the procedure, its samples written to `bench/results/`; on Linux,
 //!   pinned to CPU `n` by `taskset`, if given.
+//! - `memory [<codec>...] [--only <prefix>] [--piece <bytes>]`: decodes
+//!   them once each with every decoder, counting the heap each allocates,
+//!   by `memory`, with a Markdown table, and its results written to
+//!   `bench/results/`.
 //!
 //! - `hash [<algorithm>...] [--cpu <n>]`: the procedure over the checksums
 //!   and hashes, by `throughput`, with a Markdown table of each.
@@ -38,6 +42,7 @@ mod hashes;
 mod inputs;
 mod machine;
 mod measure;
+mod memory;
 mod procedure;
 mod throughput;
 
@@ -127,7 +132,8 @@ fn main() -> Result<()> {
         },
         "check" => check(&options),
         "run" => procedure::run(&options, corpus::bench()),
-        _ => Err("commands: fetch, encode, check, run, hash".into()),
+        "memory" => memory::run(&options, corpus::bench()),
+        _ => Err("commands: fetch, encode, check, run, memory, hash".into()),
     }
 }
 

@@ -8,8 +8,8 @@ inputs, machines, and builds. A figure is reported with its machine, its
 build, and its confidence interval, or not at all.
 
 The harness that applies this protocol lives beside this file (see
-"Harness"), and so far applies only part of it (`TODO.md`, BENCH-04 to
-07); until it applies all of it, no `BENCH.md` holds results.
+"Harness"), and so far applies only part of it (`TODO.md`, BENCH-07 to
+10); until it applies all of it, no `BENCH.md` holds results.
 
 ## What is measured
 
@@ -25,7 +25,9 @@ The harness that applies this protocol lives beside this file (see
    dominates archives of many small members.
 4. **Memory**: peak heap and the count of allocations per stream, by a
    counting allocator, in a pass of its own that is not timed; and the size
-   of the decoder value itself.
+   of the decoder value itself. On Linux with glibc, the harness replaces
+   `malloc`, so that the C counterparts are counted as ours are, by the
+   bytes `malloc` reserves; elsewhere, only Rust's allocations are.
 5. **Checkpoints**, for decoders that offer them: the time to take one
    and to resume from one, and the bytes each holds.
 6. **Hardware counters** on Linux: cycles, instructions, IPC, branch
