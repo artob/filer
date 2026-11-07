@@ -607,15 +607,6 @@ crate's name until its first code, which moves it to `lib/`.
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse
   malformed input, or a note here of why it cannot be reached.
-- [ ] **DEC-17: `decode-bzip2`'s memory.** By the harness's `memory`
-  on Linux (2026-11-06), over the corpus, it holds up to 4.9 MiB at
-  level 1 and 11 MiB at 9, in up to 48,000 allocations a stream, where
-  libbzip2 holds 0.45 and 3.6 MiB in 3: it copies up to 4 MiB of input
-  ahead (`MAX_PACKED`), where a block's packed bytes take about 1 MiB
-  at most, and allocates its codes, selectors, and links anew each
-  block.
-  Done when it holds no more than libbzip2 and the most a block packs,
-  and allocates a few times a stream, not each block.
 - [ ] **DEC-18: `decode-zstd`'s memory.** By the same pass, in pieces
   of 64 KiB, it holds 1.65 times what libzstd does at the median, and
   up to 3.8 times (16.7 MiB at level 9 where libzstd holds 4.6), in up

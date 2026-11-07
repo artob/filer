@@ -1,7 +1,7 @@
 // This is free and unencumbered software released into the public domain.
 
 use crate::{Error, corrupt, unsupported};
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use compute_crc::Crc32Bzip2;
 
 /// The magic numbers that begin a block, and that end a stream: π and √π,
@@ -23,6 +23,13 @@ const MAX_CODE: u8 = 20;
 /// of 900,000 symbols at 20 bits at most, and the selectors and tables
 /// that go with them.
 const MAX_PACKED: usize = 4 << 20;
+
+/// The most input taken at a time toward a block, until its end is in.
+const STEP: usize = 64 << 10;
+
+/// The most symbols of a block's alphabet: one for each byte value, two
+/// for runs, and the end.
+const ALPHABET: usize = 258;
 
 /// Why a unit of a stream did not parse.
 enum Fail {
@@ -63,21 +70,25 @@ impl Bits<'_> {
 
 /// A canonical Huffman code, as bzip2 assigns them: the shorter codes
 /// first, and those of a length in the order of their symbols.
+#[derive(Clone, Copy)]
 struct Code {
     /// How many codes each length has.
     counts: [u16; 21],
-    /// The symbols, in the order of their codes.
-    symbols: Vec<u16>,
+    /// The symbols, in the order of their codes, as many as `lengths` has.
+    symbols: [u16; ALPHABET],
 }
 
 impl Code {
     /// Returns the code of symbols of `lengths`, each from 1 to 20.
     fn new(lengths: &[u8]) -> Self {
         let mut counts = [0_u16; 21];
-        let mut symbols = Vec::with_capacity(lengths.len());
+        let mut symbols = [0_u16; ALPHABET];
+        let mut slots = symbols.iter_mut();
         for len in 1..=MAX_CODE {
             for (symbol, _) in lengths.iter().enumerate().filter(|(_, l)| **l == len) {
-                symbols.push(u16::try_from(symbol).unwrap_or_default());
+                if let Some(slot) = slots.next() {
+                    *slot = u16::try_from(symbol).unwrap_or_default();
+                }
                 if let Some(count) = counts.get_mut(usize::from(len)) {
                     *count = count.saturating_add(1);
                 }
@@ -132,8 +143,14 @@ struct Block {
 
 impl Block {
     /// Reads a block, after its magic number, of at most `max` bytes before
-    /// its runs are undone.
-    fn read(bits: &mut Bits<'_>, max: usize) -> Result<Self, Fail> {
+    /// its runs are undone, into `links` and by `selectors`, emptied first:
+    /// the block takes `links`, and leaves `selectors` to be used again.
+    fn read(
+        bits: &mut Bits<'_>,
+        max: usize,
+        links: &mut Vec<u32>,
+        selectors: &mut Vec<u8>,
+    ) -> Result<Self, Fail> {
         let expected = u32::try_from(bits.bits(32)?).map_err(|_| Fail::Corrupt)?;
         // Randomized blocks, which no bzip2 has written since 0.9.5.
         if bits.bit()? {
@@ -143,7 +160,7 @@ impl Block {
 
         // The byte values in use, in sixteen ranges of sixteen.
         let ranges = bits.bits(16)?;
-        let mut used = Vec::with_capacity(256);
+        let (mut all, mut count) = ([0_u8; 256], 0_usize);
         for range in 0..16_u8 {
             if ranges.wrapping_shl(u32::from(range)) & 0x8000 == 0 {
                 continue;
@@ -151,10 +168,14 @@ impl Block {
             let values = bits.bits(16)?;
             for value in 0..16_u8 {
                 if values.wrapping_shl(u32::from(value)) & 0x8000 != 0 {
-                    used.push(range.wrapping_mul(16) | value);
+                    if let Some(slot) = all.get_mut(count) {
+                        *slot = range.wrapping_mul(16) | value;
+                    }
+                    count = count.saturating_add(1);
                 }
             }
         }
+        let used = all.get(..count).unwrap_or_default();
         // Two symbols for runs of the first in order, one per other byte,
         // and one for the end.
         let alphabet = used.len().saturating_add(2);
@@ -170,7 +191,8 @@ impl Block {
             return Err(Fail::Corrupt);
         }
         let mut order = [0_u8, 1, 2, 3, 4, 5];
-        let mut selectors = Vec::with_capacity(count.min(MAX_SELECTORS));
+        selectors.clear();
+        selectors.reserve_exact(count.min(MAX_SELECTORS));
         for _ in 0..count {
             let mut j = 0_usize;
             while bits.bit()? {
@@ -184,12 +206,16 @@ impl Block {
                 selectors.push(table);
             }
         }
-        let mut codes = Vec::with_capacity(tables);
-        for _ in 0..tables {
+        let mut codes = [Code {
+            counts: [0; 21],
+            symbols: [0; ALPHABET],
+        }; 6];
+        for code in codes.iter_mut().take(tables) {
             // Each length differs from the last by a step up or down.
             let mut len = u8::try_from(bits.bits(5)?).map_err(|_| Fail::Corrupt)?;
-            let mut lengths = vec![0; alphabet];
-            for length in &mut lengths {
+            let mut all = [0; ALPHABET];
+            let lengths = all.get_mut(..alphabet).ok_or(Fail::Corrupt)?;
+            for length in lengths.iter_mut() {
                 loop {
                     if !(1..=MAX_CODE).contains(&len) {
                         return Err(Fail::Corrupt);
@@ -205,14 +231,15 @@ impl Block {
                 }
                 *length = len;
             }
-            codes.push(Code::new(&lengths));
+            *code = Code::new(lengths);
         }
+        let codes = codes.get(..tables).unwrap_or_default();
 
         // The symbols: runs of the first in order, counted in bijective
         // base two by two symbols, and moves of others to the front.
-        let mut links: Vec<u32> = Vec::new();
+        links.clear();
         let mut counts = [0_u32; 256];
-        let mut order: Vec<u8> = (0..=u8::MAX).collect();
+        let mut order: [u8; 256] = core::array::from_fn(|i| u8::try_from(i).unwrap_or_default());
         let (mut run, mut weight) = (0_usize, 1_usize);
         let mut code = None;
         for symbols in 0_usize.. {
@@ -235,7 +262,7 @@ impl Block {
                     .first()
                     .and_then(|&i| used.get(usize::from(i)))
                     .ok_or(Fail::Corrupt)?;
-                push(&mut links, &mut counts, byte, run, max)?;
+                push(links, &mut counts, byte, run, max)?;
                 (run, weight) = (0, 1);
             }
             if symbol == end {
@@ -243,7 +270,7 @@ impl Block {
             }
             let index = to_front(&mut order, symbol.saturating_sub(1))?;
             let byte = *used.get(usize::from(index)).ok_or(Fail::Corrupt)?;
-            push(&mut links, &mut counts, byte, 1, max)?;
+            push(links, &mut counts, byte, 1, max)?;
         }
 
         // Link each byte to the next, by where the sort put the bytes of
@@ -268,7 +295,7 @@ impl Block {
         let next = links.get(origin).ok_or(Fail::Corrupt)?.wrapping_shr(8);
         Ok(Self {
             left: links.len(),
-            links,
+            links: core::mem::take(links),
             next,
             last: None,
             run: 0,
@@ -404,7 +431,9 @@ fn to_front(order: &mut [u8], index: usize) -> Result<u8, Fail> {
     Ok(entry)
 }
 
-/// Appends `n` of `byte` to a block's bytes, of at most `max`.
+/// Appends `n` of `byte` to a block's bytes, of at most `max`: growing
+/// them by doubling, but never past `max`, which they are kept at for the
+/// stream's next blocks.
 fn push(
     links: &mut Vec<u32>,
     counts: &mut [u32; 256],
@@ -417,7 +446,17 @@ fn push(
     }
     let count = counts.get_mut(usize::from(byte)).ok_or(Fail::Corrupt)?;
     *count = count.saturating_add(u32::try_from(n).map_err(|_| Fail::Corrupt)?);
-    links.resize(links.len().saturating_add(n), u32::from(byte));
+    let len = links.len().saturating_add(n);
+    if len > links.capacity() {
+        let capacity = links
+            .capacity()
+            .saturating_mul(2)
+            .max(len)
+            .max(4096)
+            .min(max);
+        links.reserve_exact(capacity.saturating_sub(links.len()));
+    }
+    links.resize(len, u32::from(byte));
     Ok(())
 }
 
@@ -446,12 +485,13 @@ enum State {
 /// A decoder of a bzip2 stream: streams, one after another, each of blocks
 /// checked against their CRCs, and their CRCs against the stream's.
 ///
-/// Each block is gathered whole before it is decoded, so it holds at most
-/// 4 MiB of packed bytes, more than any block takes, and of links between
-/// the block's bytes, four bytes each. What a block decodes to, up to 50
-/// times larger, is produced as it is read. After the first stream, bytes that
-/// do not start one end the input, unread, as bzip2 ignores trailing
-/// garbage. Randomized blocks, which bzip2 stopped writing in 1999, are
+/// Each block is gathered whole before it is decoded, from input taken 64
+/// KiB at a time until the block's end is in, so it holds the block's
+/// packed bytes, at most 4 MiB, more than any block takes, and of links
+/// between the block's bytes, four bytes each, allocated about once a
+/// stream. What a block decodes to, up to 50 times larger, is produced as
+/// it is read. After the first stream, bytes that do not start one end the
+/// input, unread, as bzip2 ignores trailing garbage. Randomized blocks, which bzip2 stopped writing in 1999, are
 /// [`Unsupported`](Error::Unsupported).
 ///
 /// # Examples
@@ -490,6 +530,11 @@ pub struct Decoder {
     combined: u32,
     streams: u64,
     block: Option<Block>,
+    /// The links of the stream's last block and the selectors of its
+    /// tables, emptied, kept for the next, so that each is allocated about
+    /// once a stream.
+    links: Vec<u32>,
+    selectors: Vec<u8>,
 }
 
 impl Decoder {
@@ -505,6 +550,8 @@ impl Decoder {
             combined: 0,
             streams: 0,
             block: None,
+            links: Vec::new(),
+            selectors: Vec::new(),
         }
     }
 
@@ -536,26 +583,30 @@ impl Decoder {
                     return Err(corrupt());
                 }
                 self.combined = self.combined.rotate_left(1) ^ block.expected;
-                self.block = None;
+                if let Some(block) = self.block.take() {
+                    self.links = block.links;
+                }
                 // Stop between blocks, where a checkpoint may be, once
                 // there is progress to report.
                 if consumed > 0 || produced > 0 {
                     return Ok((consumed, produced));
                 }
             }
-            // Parsing takes input only once the last block is written, so
-            // that it holds no more than the next block's, up to the most
-            // one takes, and none past the last stream.
-            if self.state != State::Ended && consumed < input.len() {
-                let room = MAX_PACKED.saturating_sub(self.input.len());
-                let end = consumed.saturating_add(room).min(input.len());
-                self.input
-                    .extend_from_slice(input.get(consumed..end).unwrap_or_default());
-                consumed = end;
+            if self.parse(exhausted)? {
+                continue;
             }
-            if !self.parse(exhausted)? {
+            // Parsing takes input only once the last block is written, and
+            // only as it needs it, a step at a time, so that it holds little
+            // more than the next block's, up to the most one takes, and none
+            // past the last stream.
+            let room = MAX_PACKED.saturating_sub(self.input.len()).min(STEP);
+            if self.state == State::Ended || consumed >= input.len() || room == 0 {
                 return Ok((consumed, produced));
             }
+            let end = consumed.saturating_add(room).min(input.len());
+            self.input
+                .extend_from_slice(input.get(consumed..end).unwrap_or_default());
+            consumed = end;
         }
     }
 
@@ -631,8 +682,11 @@ impl Decoder {
                     bytes: &self.input,
                     at: self.bit,
                 };
+                let (links, selectors) = (&mut self.links, &mut self.selectors);
                 match bits.bits(48) {
-                    Ok(BLOCK) => Block::read(&mut bits, self.max).map(Unit::Block),
+                    Ok(BLOCK) => {
+                        Block::read(&mut bits, self.max, links, selectors).map(Unit::Block)
+                    },
                     Ok(END) => bits.bits(32).and_then(|crc| {
                         u32::try_from(crc).map(Unit::End).map_err(|_| Fail::Corrupt)
                     }),

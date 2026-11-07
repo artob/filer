@@ -50,6 +50,10 @@ so any release may break compatibility.
   bytes that wait on the register last, and the rest by eight, four, two,
   and one: on x86-64 (Zen 1), CRC-32 runs at 2.5 GB/s, not 1.3, as fast
   as zlib's, and fed 7 bytes at a time, 1.5 times as fast.
+- `decode-bzip2`: it takes input 64 KiB at a time until a block's end is
+  in, not up to 4 MiB, and keeps its buffers from block to block: a
+  stream at level 9 takes at most 4.5 MiB, not 11, libbzip2's 3.6 and a
+  block's packed bytes, in at most 22 allocations, not 48,000.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the
