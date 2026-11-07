@@ -233,6 +233,47 @@ fn resume_from_checkpoints(stream: &[u8], piece: usize, every: usize) -> usize {
     taken
 }
 
+/// Decodes `stream`, given whole, into room for `room` bytes at a time,
+/// and returns what it decoded and how many calls produced or consumed.
+fn into_room(stream: &[u8], room: usize) -> (Vec<u8>, usize) {
+    let (mut decoder, mut buf) = (Decoder::new(), vec![0; room]);
+    let (mut decoded, mut at, mut calls) = (Vec::new(), 0, 0);
+    loop {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut buf).unwrap();
+        if (consumed, produced) == (0, 0) {
+            break;
+        }
+        decoded.extend_from_slice(&buf[..produced]);
+        (at, calls) = (at + consumed, calls + 1);
+    }
+    decoder.finish().unwrap();
+    (decoded, calls)
+}
+
+#[test]
+fn decodes_whole_frames_straight_into_the_output() {
+    // A frame given whole, which says what it decodes to and has room
+    // for it, decodes straight into the output; others, or with less
+    // room, onto a window, alike. `numbers.zst` has a frame of each kind,
+    // `raw.zst` three, two of them sized, `literals.zst` five, and
+    // `sequences.zst` seven.
+    for (stream, frames) in [
+        (&include_bytes!("data/numbers.zst")[..], 2),
+        (include_bytes!("data/raw.zst"), 3),
+        (include_bytes!("data/literals.zst"), 5),
+        (include_bytes!("data/sequences.zst"), 7),
+    ] {
+        let expected = common::decode(stream, 7).unwrap();
+        for room in [1, 1000, expected.len() / 2, expected.len()] {
+            assert_eq!(into_room(stream, room).0, expected, "{room}");
+        }
+        // With room for all, each call ends a frame.
+        let (decoded, calls) = into_room(stream, expected.len());
+        assert!(decoded == expected);
+        assert_eq!(calls, frames);
+    }
+}
+
 #[test]
 fn offers_checkpoints_between_frames() {
     let stream = [

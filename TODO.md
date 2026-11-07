@@ -595,14 +595,13 @@ crate's name until its first code, which moves it to `lib/`.
   rest of the corpus's figures follow in its `BENCH.md` (BENCH-07). Done
   when a profile shows where the time goes, and the decoder is within
   1.5 times libzstd's over the corpus, or its crate's docs say why not.
-- [ ] **DEC-20: zstd's window, whole.** Decoding a whole stream into a
-  buffer that holds it, `decode-zstd` still allocates the frame's
-  window, as libzstd does not, decoding into the buffer: a peak of 24.9
-  times libzstd's at the median, up to 128 MiB for `librustc_driver.so`
-  at level 22 (2026-11-07, at 9c5f5fc); in pieces, about the same as
-  libzstd's. Done when a decoder given room for a frame's whole content
-  copies matches from its output, holding no window of its own, and
-  `memory` shows it whole within twice libzstd's peak.
+- [ ] **DEC-20: zstd's window, whole, measured.** `decode-zstd` decodes a
+  frame given whole, with room for its content size, straight into the
+  output, holding no window: on Apple M4, 10 KiB of heap for 8 MiB at
+  any level, where the window took up to 128 MiB, 24.9 times libzstd's
+  peak at the median on Zen 1 (2026-11-07). Done when `memory` on comet,
+  which counts libzstd's allocations too, shows it whole within twice
+  libzstd's peak over the corpus.
 - [ ] **DEC-13: Corpora of real files.** `decode-deflate`, `decode-lzma`,
   `decode-xz`, and `decode-zstd` each have an ignored `decodes_a_corpus`
   test over the directory `DECODE_<CODEC>_CORPUS` names, never run in

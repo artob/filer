@@ -101,22 +101,17 @@ impl Window {
     }
 
     /// Returns the room for `n` more bytes at the end.
+    #[cfg(test)]
     fn room(&mut self, n: usize) -> Result<&mut [u8], Error> {
         let to = self.end.checked_add(n).ok_or_else(corrupt)?;
         self.bytes.get_mut(self.end..to).ok_or_else(corrupt)
     }
 
     /// Appends `bytes`.
+    #[cfg(test)]
     pub(super) fn extend(&mut self, bytes: &[u8]) -> Result<(), Error> {
         self.room(bytes.len())?.copy_from_slice(bytes);
         self.end = self.end.saturating_add(bytes.len());
-        Ok(())
-    }
-
-    /// Appends `n` of `byte`.
-    pub(super) fn fill(&mut self, byte: u8, n: usize) -> Result<(), Error> {
-        self.room(n)?.fill(byte);
-        self.end = self.end.saturating_add(n);
         Ok(())
     }
 
@@ -190,7 +185,8 @@ impl Window {
 }
 
 /// Where a block decodes to: the end of a window, held apart from it, so
-/// that it stays in a register as the block's sequences run.
+/// that it stays in a register as the block's sequences run; or the end of
+/// what a frame decoded to so far, straight into a caller's buffer.
 pub(super) struct Cursor<'a> {
     bytes: &'a mut [u8],
     /// Where the next byte goes, and the most it may reach.
@@ -200,7 +196,20 @@ pub(super) struct Cursor<'a> {
     size: usize,
 }
 
-impl Cursor<'_> {
+impl<'a> Cursor<'a> {
+    /// Returns a cursor at `end` of `bytes`, which hold a frame from its
+    /// start, of a window of `size`, to decode a block of at most `max`
+    /// bytes onto: what it copies from is what the frame decoded to.
+    pub(super) fn over(bytes: &'a mut [u8], end: usize, max: usize, size: usize) -> Self {
+        Self {
+            bytes,
+            end,
+            limit: end.saturating_add(max),
+            lapped: 0,
+            size,
+        }
+    }
+
     /// Returns the room for `n` more bytes at the end, within the limit.
     fn room(&mut self, n: usize) -> Result<&mut [u8], Error> {
         let to = self.end.checked_add(n).filter(|&to| to <= self.limit);
@@ -212,6 +221,13 @@ impl Cursor<'_> {
     pub(super) fn extend(&mut self, bytes: &[u8]) -> Result<(), Error> {
         self.room(bytes.len())?.copy_from_slice(bytes);
         self.end = self.end.saturating_add(bytes.len());
+        Ok(())
+    }
+
+    /// Appends `n` of `byte`.
+    pub(super) fn fill(&mut self, byte: u8, n: usize) -> Result<(), Error> {
+        self.room(n)?.fill(byte);
+        self.end = self.end.saturating_add(n);
         Ok(())
     }
 

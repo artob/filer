@@ -21,7 +21,9 @@
 //! without end, or allocate without bound on any input, which its root
 //! denies by lint: it holds at most a block of packed bytes, 128 KiB, and
 //! of decoded bytes the frame's window and two blocks, in a buffer that
-//! decoding goes round, allocated as it fills. A frame whose window
+//! decoding goes round, allocated as it fills; or none, for a frame given
+//! whole with room for what its header says it decodes to, which decodes
+//! straight into the output, as libzstd's does. A frame whose window
 //! passes 128 MiB, the most zstd itself decodes by default, or that needs
 //! a dictionary is [`Unsupported`](Error::Unsupported); anything
 //! malformed, or that zstd itself refuses, is [`Corrupt`](Error::Corrupt).

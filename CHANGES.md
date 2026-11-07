@@ -64,6 +64,11 @@ so any release may break compatibility.
   are arrays, allocated once a frame: in pieces it holds what libzstd
   does, 4.4 MiB at level 9, not 16.5, in at most 13 allocations a
   stream, not 29,000, and decodes 2% to 19% faster.
+- `decode-zstd`: a frame given whole, whose header says what it decodes
+  to, with room for that, decodes straight into the output, holding no
+  window, as libzstd does: whole, 8 MiB at level 19 takes 10 KiB of heap
+  in one allocation, not the window's 8 MiB, and decodes half as fast
+  again as in pieces of 4 KiB, on Apple M4.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

@@ -4,7 +4,7 @@ use crate::{
     Error,
     block::{self, Tables},
     corrupt, unsupported,
-    window::Window,
+    window::{Cursor, Window},
 };
 use alloc::{boxed::Box, vec::Vec};
 use compute_xxhash::Xxh64;
@@ -115,6 +115,115 @@ impl Header {
     fn max_block(&self) -> usize {
         self.window.min(MAX_BLOCK)
     }
+
+    /// Returns how many bytes the block that `head` begins takes in all,
+    /// header and checksum included, once `head` holds its header.
+    fn block_len(&self, head: &[u8]) -> Result<Option<usize>, Error> {
+        let Some(&[a, b, c]) = head.first_chunk() else {
+            return Ok(None);
+        };
+        let header = u32::from_le_bytes([a, b, c, 0]);
+        let size = usize::try_from(header >> 3).unwrap_or(usize::MAX);
+        if size > self.max_block() {
+            return Err(corrupt());
+        }
+        // Raw and compressed blocks hold their size, and RLE blocks one
+        // byte, repeated; the fourth type is reserved.
+        let content = match (header >> 1) & 0x03 {
+            0 | 2 => size,
+            1 => 1,
+            _ => return Err(corrupt()),
+        };
+        let last = header & 1 != 0;
+        let trailer = if last && self.checksum { 4 } else { 0 };
+        Ok(Some(
+            3_usize.saturating_add(content).saturating_add(trailer),
+        ))
+    }
+}
+
+/// A whole block, read apart: its type, the size it gives, whether it is
+/// its frame's last, its content, and the frame's checksum, if last.
+struct Block<'a> {
+    kind: u32,
+    size: usize,
+    last: bool,
+    content: &'a [u8],
+    checksum: &'a [u8; 4],
+}
+
+impl<'a> Block<'a> {
+    /// Reads a whole block apart, of a frame checked by `checksum`.
+    fn read(unit: &'a [u8], checksum: bool) -> Result<Self, Error> {
+        let Some((&[a, b, c], content)) = unit.split_first_chunk() else {
+            return Err(corrupt());
+        };
+        let header = u32::from_le_bytes([a, b, c, 0]);
+        let last = header & 1 != 0;
+        let (content, checksum) = if last && checksum {
+            content.split_last_chunk::<4>().ok_or_else(corrupt)?
+        } else {
+            (content, &[0; 4])
+        };
+        Ok(Self {
+            kind: (header >> 1) & 0x03,
+            size: usize::try_from(header >> 3).map_err(|_| corrupt())?,
+            last,
+            content,
+            checksum,
+        })
+    }
+
+    /// Decodes it onto `output`, with `tables` and `scratch` for a
+    /// compressed block, of at most `max` literals.
+    fn decode(
+        &self,
+        tables: &mut Tables,
+        scratch: &mut Vec<u8>,
+        output: &mut Cursor<'_>,
+        max: usize,
+    ) -> Result<(), Error> {
+        match self.kind {
+            0 => output.extend(self.content),
+            1 => {
+                let byte = self.content.first().copied().ok_or_else(corrupt)?;
+                output.fill(byte, self.size)
+            },
+            2 => block::decode(self.content, tables, scratch, output, max),
+            _ => Err(corrupt()),
+        }
+    }
+}
+
+/// What a frame's blocks have decoded to so far, hashed and counted.
+#[derive(Clone)]
+struct Sum {
+    hash: Xxh64,
+    decoded: u64,
+}
+
+impl Sum {
+    /// Adds what a block of a frame of `header` decoded to, checking the
+    /// frame's size and, past its last block, its checksum.
+    fn add(&mut self, header: &Header, decoded: &[u8], block: &Block<'_>) -> Result<(), Error> {
+        self.hash.update(decoded);
+        let n = u64::try_from(decoded.len()).unwrap_or(u64::MAX);
+        self.decoded = self.decoded.saturating_add(n);
+        if header.size.is_some_and(|size| self.decoded > size) {
+            return Err(corrupt());
+        }
+        if block.last {
+            if header.size.is_some_and(|size| self.decoded != size) {
+                return Err(corrupt());
+            }
+            // The low four bytes of the hash, little-endian.
+            let digest = self.hash.finish().to_le_bytes();
+            if header.checksum && digest.get(..4) != Some(block.checksum) {
+                return Err(corrupt());
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A frame being decoded.
@@ -122,12 +231,28 @@ struct Frame {
     header: Header,
     window: Window,
     tables: Tables,
-    /// What its blocks have decoded to so far, hashed and counted.
-    hash: Xxh64,
-    decoded: u64,
+    sum: Sum,
 }
 
 impl Frame {
+    /// Returns a frame of `header` at its start, its window not yet
+    /// allocated.
+    fn new(header: Header) -> Self {
+        Self {
+            header,
+            window: Window::new(
+                header.window,
+                header.max_block(),
+                header.size.and_then(|size| usize::try_from(size).ok()),
+            ),
+            tables: Tables::default(),
+            sum: Sum {
+                hash: Xxh64::new(0),
+                decoded: 0,
+            },
+        }
+    }
+
     /// Returns a copy that decodes on as it would, holding only what it
     /// needs of its window.
     fn copy(&self) -> Self {
@@ -135,8 +260,7 @@ impl Frame {
             header: self.header,
             window: self.window.copy_state(),
             tables: self.tables.clone(),
-            hash: self.hash.clone(),
-            decoded: self.decoded,
+            sum: self.sum.clone(),
         }
     }
 }
@@ -163,10 +287,13 @@ enum State {
 /// unless the input holds it whole, so it holds at most a block of packed
 /// bytes; and of what they decode to, the frame's window and two blocks,
 /// in a buffer that decoding goes round, allocated as it fills; and its
-/// tables, some 10 KiB, allocated once a frame. A frame whose window passes 128 MiB,
-/// the most zstd itself decodes by default, or that needs a dictionary
-/// is [`Unsupported`](Error::Unsupported). What follows the last frame
-/// must be another, as zstd requires.
+/// tables, some 10 KiB, allocated once a frame. A frame that the input
+/// holds whole, and whose header says what it decodes to, which the
+/// output has room for, it decodes straight into the output, holding no
+/// window, as libzstd does. A frame whose window passes 128 MiB, the most
+/// zstd itself decodes by default, or that needs a dictionary is
+/// [`Unsupported`](Error::Unsupported). What follows the last frame must
+/// be another, as zstd requires.
 ///
 /// # Examples
 ///
@@ -242,6 +369,18 @@ impl Decoder {
             // there is progress to report.
             if self.frames != frames && (consumed > 0 || produced > 0) {
                 return Ok((consumed, produced));
+            }
+            // A frame given whole, with room for it, straight into the
+            // output.
+            if self.frame.is_none() && self.state == State::Frame && self.unit.is_empty() {
+                let rest = input.get(consumed..).unwrap_or_default();
+                let room = output.get_mut(produced..).unwrap_or_default();
+                if let Some((c, p)) = self.whole(rest, room)? {
+                    consumed = consumed.saturating_add(c);
+                    produced = produced.saturating_add(p);
+                    self.frames = self.frames.saturating_add(1);
+                    continue;
+                }
             }
             let Some(n) = self.step(input.get(consumed..).unwrap_or_default())? else {
                 return Ok((consumed, produced));
@@ -354,26 +493,7 @@ impl Decoder {
     /// takes in all, as far as `head` tells.
     fn need(&self, head: &[u8]) -> Result<usize, Error> {
         match (self.state, &self.frame) {
-            (State::Block, Some(frame)) => {
-                let Some(&[a, b, c]) = head.first_chunk() else {
-                    return Ok(3);
-                };
-                let header = u32::from_le_bytes([a, b, c, 0]);
-                let size = usize::try_from(header >> 3).unwrap_or(usize::MAX);
-                if size > frame.header.max_block() {
-                    return Err(corrupt());
-                }
-                // Raw and compressed blocks hold their size, and RLE
-                // blocks one byte, repeated; the fourth type is reserved.
-                let content = match (header >> 1) & 0x03 {
-                    0 | 2 => size,
-                    1 => 1,
-                    _ => return Err(corrupt()),
-                };
-                let last = header & 1 != 0;
-                let trailer = if last && frame.header.checksum { 4 } else { 0 };
-                Ok(3_usize.saturating_add(content).saturating_add(trailer))
-            },
+            (State::Block, Some(frame)) => Ok(frame.header.block_len(head)?.unwrap_or(3)),
             (State::Frame, _) => {
                 let Some(magic) = head.first_chunk().copied().map(u32::from_le_bytes) else {
                     return Ok(4);
@@ -409,67 +529,79 @@ impl Decoder {
             }
             return Ok(());
         }
-        let header = Header::parse(unit)?;
-        self.frame = Some(Box::new(Frame {
-            header,
-            window: Window::new(
-                header.window,
-                header.max_block(),
-                header.size.and_then(|size| usize::try_from(size).ok()),
-            ),
-            tables: Tables::default(),
-            hash: Xxh64::new(0),
-            decoded: 0,
-        }));
+        self.frame = Some(Box::new(Frame::new(Header::parse(unit)?)));
         self.state = State::Block;
         Ok(())
+    }
+
+    /// Decodes the frame that `input` begins straight into `output`, if
+    /// `input` holds it whole, and its header says what it decodes to,
+    /// which `output` has room for; and returns how many bytes of each it
+    /// consumed and produced, or nothing, for the frame to be decoded onto
+    /// a window, as anything malformed before its blocks is.
+    fn whole(&mut self, input: &[u8], output: &mut [u8]) -> Result<Option<(usize, usize)>, Error> {
+        let magic = input.first_chunk().copied().map(u32::from_le_bytes);
+        let Some(&descriptor) = input.get(4).filter(|_| magic == Some(MAGIC)) else {
+            return Ok(None);
+        };
+        let len = Header::len(descriptor);
+        let Some(Ok(header)) = input.get(..len).map(Header::parse) else {
+            return Ok(None);
+        };
+        let size = header.size.and_then(|size| usize::try_from(size).ok());
+        let Some(output) = size.and_then(|size| output.get_mut(..size)) else {
+            return Ok(None);
+        };
+        // Its blocks' headers, to its last, all within the input.
+        let mut at = len;
+        loop {
+            let head = input.get(at..).unwrap_or_default();
+            let Ok(Some(n)) = header.block_len(head) else {
+                return Ok(None);
+            };
+            let Some(&first) = input.get(at..at.saturating_add(n)).and_then(<[u8]>::first) else {
+                return Ok(None);
+            };
+            at = at.saturating_add(n);
+            if first & 1 != 0 {
+                break;
+            }
+        }
+        let mut frame = Box::new(Frame::new(header));
+        let max = header.max_block();
+        let (mut at, mut end) = (len, 0);
+        loop {
+            let head = input.get(at..).unwrap_or_default();
+            let n = header.block_len(head)?.ok_or_else(corrupt)?;
+            let unit = input.get(at..at.saturating_add(n)).ok_or_else(corrupt)?;
+            let block = Block::read(unit, header.checksum)?;
+            let room = output.len().saturating_sub(end).min(max);
+            let mut cursor = Cursor::over(output, end, room, header.window);
+            block.decode(&mut frame.tables, &mut self.literals, &mut cursor, max)?;
+            let to = cursor.end;
+            let decoded = output.get(end..to).ok_or_else(corrupt)?;
+            frame.sum.add(&header, decoded, &block)?;
+            (at, end) = (at.saturating_add(n), to);
+            if block.last {
+                return Ok(Some((at, end)));
+            }
+        }
     }
 
     /// Decodes a whole block, header included, onto the frame's window.
     fn block(&mut self, unit: &[u8]) -> Result<(), Error> {
         let frame = self.frame.as_mut().ok_or_else(corrupt)?;
-        let Some((&[a, b, c], content)) = unit.split_first_chunk() else {
-            return Err(corrupt());
-        };
-        let header = u32::from_le_bytes([a, b, c, 0]);
-        let last = header & 1 != 0;
-        let size = usize::try_from(header >> 3).map_err(|_| corrupt())?;
-        let (content, checksum) = if last && frame.header.checksum {
-            content.split_last_chunk::<4>().ok_or_else(corrupt)?
-        } else {
-            (content, &[0; 4])
-        };
+        let block = Block::read(unit, frame.header.checksum)?;
+        let max = frame.header.max_block();
         let window = &mut frame.window;
         window.prepare()?;
         let start = window.end();
-        match (header >> 1) & 0x03 {
-            0 => window.extend(content)?,
-            1 => {
-                let byte = content.first().copied().ok_or_else(corrupt)?;
-                window.fill(byte, size)?;
-            },
-            _ => {
-                let max = frame.header.max_block();
-                let (tables, scratch) = (&mut frame.tables, &mut self.literals);
-                block::decode(content, tables, scratch, window, max)?;
-            },
-        }
-        let block = window.since(start);
-        frame.hash.update(block);
-        let n = u64::try_from(block.len()).unwrap_or(u64::MAX);
-        frame.decoded = frame.decoded.saturating_add(n);
-        if frame.header.size.is_some_and(|size| frame.decoded > size) {
-            return Err(corrupt());
-        }
-        if last {
-            if frame.header.size.is_some_and(|size| frame.decoded != size) {
-                return Err(corrupt());
-            }
-            // The low four bytes of the hash, little-endian.
-            let digest = frame.hash.finish().to_le_bytes();
-            if frame.header.checksum && digest.get(..4) != Some(checksum) {
-                return Err(corrupt());
-            }
+        let mut cursor = window.cursor(max);
+        block.decode(&mut frame.tables, &mut self.literals, &mut cursor, max)?;
+        let end = cursor.end;
+        window.advance(end);
+        frame.sum.add(&frame.header, window.since(start), &block)?;
+        if block.last {
             self.state = State::Last;
         }
         Ok(())
@@ -611,6 +743,27 @@ mod tests {
             *bad.last_mut().unwrap() ^= 1;
             assert_eq!(kind(&bad), Error::Corrupt);
         }
+    }
+
+    #[test]
+    fn decodes_whole_only_frames_given_whole_with_room() {
+        let blocks = [Block::Raw(b"hello"), Block::Rle(b'!', 3)];
+        let sized = checked(&blocks, true);
+        let mut output = [0; 9];
+        let decoded = Decoder::new().whole(&sized, &mut output).unwrap();
+        assert_eq!(decoded, Some((sized.len(), 8)));
+        assert_eq!(&output[..8], b"hello!!!");
+        // Room for less, the frame cut short, or no size in its header.
+        let short = &sized[..sized.len() - 1];
+        let windowed = checked(&blocks, false);
+        for (stream, room) in [(&sized[..], 7), (short, 8), (&windowed, 8)] {
+            let mut output = vec![0; room];
+            assert_eq!(Decoder::new().whole(stream, &mut output).unwrap(), None);
+        }
+        // A checksum that fails, found there.
+        let mut bad = sized.clone();
+        *bad.last_mut().unwrap() ^= 1;
+        assert_eq!(Decoder::new().whole(&bad, &mut output), Err(Error::Corrupt));
     }
 
     #[test]

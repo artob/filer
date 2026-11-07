@@ -7,7 +7,7 @@ use super::{
     huffman::Huffman,
     literals,
     sequences::{self, Codes},
-    window::Window,
+    window::Cursor,
 };
 use crate::Error;
 use alloc::vec::Vec;
@@ -20,16 +20,16 @@ pub(super) struct Tables {
     codes: Codes,
 }
 
-/// Decodes a compressed block's `content` onto `window`, decoding to at
-/// most `max` bytes, with `scratch` to decode its literals into.
+/// Decodes a compressed block's `content` onto `output`, of at most `max`
+/// literals, with `scratch` to decode them into.
 pub(super) fn decode(
     content: &[u8],
     tables: &mut Tables,
     scratch: &mut Vec<u8>,
-    window: &mut Window,
+    output: &mut Cursor<'_>,
     max: usize,
 ) -> Result<(), Error> {
     let (literals, used) = literals::read(content, &mut tables.huffman, scratch, max)?;
     let section = content.get(used..).unwrap_or_default();
-    sequences::decode(section, &mut tables.codes, literals, window, max)
+    sequences::decode(section, &mut tables.codes, literals, output)
 }

@@ -5,12 +5,7 @@
 //! and their execution (§3.1.1.4), which copies literals and then earlier
 //! bytes, from as far back as the window reaches.
 
-use super::{
-    bits::Backward,
-    corrupt,
-    fse::Table,
-    window::{Cursor, Window},
-};
+use super::{bits::Backward, corrupt, fse::Table, window::Cursor};
 use crate::Error;
 
 /// Each literal length code's baseline and extra bits (Table 16).
@@ -183,23 +178,8 @@ impl Default for Codes {
 }
 
 /// Decodes the sequences `section` and runs them with `literals` onto
-/// `window`, decoding to at most `max` bytes.
+/// `output`, within its limit.
 pub(super) fn decode(
-    section: &[u8],
-    codes: &mut Codes,
-    literals: &[u8],
-    window: &mut Window,
-    max: usize,
-) -> Result<(), Error> {
-    let mut cursor = window.cursor(max);
-    run(section, codes, literals, &mut cursor)?;
-    let end = cursor.end;
-    window.advance(end);
-    Ok(())
-}
-
-/// Runs the sequences `section` with `literals` onto `output`.
-fn run(
     section: &[u8],
     codes: &mut Codes,
     literals: &[u8],
@@ -369,7 +349,7 @@ fn resolve(value: usize, literal_len: usize, repeats: &mut [usize; 3]) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fse::Entry;
+    use crate::{fse::Entry, window::Window};
 
     const LITERAL_LENGTH_STATES: [(u8, u8, u16); 64] = [
         (0, 4, 0),
