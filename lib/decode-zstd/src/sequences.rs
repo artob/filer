@@ -5,7 +5,12 @@
 //! and their execution (§3.1.1.4), which copies literals and then earlier
 //! bytes, from as far back as the window reaches.
 
-use super::{bits::Backward, corrupt, fse::Table, window::Cursor};
+use super::{
+    bits::Backward,
+    corrupt,
+    fse::{MAX_STATES, Table},
+    window::Cursor,
+};
 use crate::Error;
 
 /// Each literal length code's baseline and extra bits (Table 16).
@@ -131,6 +136,8 @@ struct Kind {
     default_log: u8,
     max_log: u8,
     symbols: usize,
+    /// Each symbol's baseline and extra bits.
+    value: fn(u8) -> (u32, u8),
 }
 
 const LITERAL_LENGTH: Kind = Kind {
@@ -139,6 +146,7 @@ const LITERAL_LENGTH: Kind = Kind {
     default_log: 6,
     max_log: 9,
     symbols: LITERAL_LENGTHS.len(),
+    value: |symbol| lookup(&LITERAL_LENGTHS, symbol),
 };
 const OFFSET: Kind = Kind {
     shift: 4,
@@ -146,6 +154,8 @@ const OFFSET: Kind = Kind {
     default_log: 5,
     max_log: 8,
     symbols: OFFSET_CODES,
+    // An offset code is its extra bits, which add to its power of two.
+    value: |code| (1_u32.wrapping_shl(u32::from(code)), code),
 };
 const MATCH_LENGTH: Kind = Kind {
     shift: 2,
@@ -153,16 +163,95 @@ const MATCH_LENGTH: Kind = Kind {
     default_log: 6,
     max_log: 9,
     symbols: MATCH_LENGTHS.len(),
+    value: |symbol| lookup(&MATCH_LENGTHS, symbol),
 };
+
+/// Returns `symbol`'s baseline and extra bits in `codes`, if it has any.
+fn lookup(codes: &[(u32, u8)], symbol: u8) -> (u32, u8) {
+    codes.get(usize::from(symbol)).copied().unwrap_or_default()
+}
+
+/// A state of a kind of code's decoding table, as sequences read it: the
+/// baseline of its symbol's value, and the extra bits that add to it; and
+/// how to find the next state, from `bits` more read and added to `next`.
+#[derive(Clone, Copy, Debug, Default)]
+struct State {
+    baseline: u32,
+    extra: u8,
+    bits: u8,
+    next: u16,
+}
+
+/// A kind of code's decoding table, each state's symbol resolved to its
+/// value, so that a sequence looks up no more than its state: held in an
+/// array of the most any table takes, so that it is never allocated.
+#[derive(Clone, Debug)]
+pub(super) struct Decoding {
+    log: u8,
+    /// Whether it is the kind's predefined table, which it need not be
+    /// built again to be.
+    predefined: bool,
+    states: [State; MAX_STATES],
+}
+
+impl Decoding {
+    /// Returns `table`, of `kind`, resolved.
+    fn new(table: &Table, kind: &Kind, predefined: bool) -> Self {
+        let mut states = [State::default(); MAX_STATES];
+        for (state, entry) in states.iter_mut().zip(table.entries()) {
+            let (baseline, extra) = (kind.value)(entry.symbol);
+            *state = State {
+                baseline,
+                extra,
+                bits: entry.bits,
+                next: entry.base,
+            };
+        }
+        Self {
+            log: table.log(),
+            predefined,
+            states,
+        }
+    }
+
+    /// Returns the state that `bits` begin with.
+    fn start(&self, bits: &mut Backward<'_>) -> usize {
+        usize::try_from(bits.read(u32::from(self.log))).unwrap_or_default()
+    }
+
+    /// Returns `state`'s entry: of the states of the finest table, as
+    /// every state is, which spares checking where it lies.
+    fn state(&self, state: usize) -> State {
+        let state = state & MAX_STATES.wrapping_sub(1);
+        self.states.get(state).copied().unwrap_or_default()
+    }
+}
+
+impl State {
+    /// Returns its value: its baseline and its extra bits, from `bits`,
+    /// which must hold them without a refill.
+    fn value(self, bits: &mut Backward<'_>) -> usize {
+        let more = bits.take(u32::from(self.extra));
+        let value = u64::from(self.baseline).saturating_add(more);
+        usize::try_from(value).unwrap_or(usize::MAX)
+    }
+
+    /// Returns the next state, from `bits`, which must hold them, up to 9,
+    /// without a refill.
+    fn next(self, bits: &mut Backward<'_>) -> usize {
+        let more = usize::try_from(bits.take(u32::from(self.bits))).unwrap_or_default();
+        usize::from(self.next).saturating_add(more)
+    }
+}
 
 /// What a frame's blocks of sequences pass on, each to the next: the
 /// tables each kind of code was last decoded with, and the three offsets
 /// last used, the latest first.
 #[derive(Clone, Debug)]
 pub(super) struct Codes {
-    literal_lengths: Option<Table>,
-    offsets: Option<Table>,
-    match_lengths: Option<Table>,
+    literal_lengths: Option<Decoding>,
+    offsets: Option<Decoding>,
+    match_lengths: Option<Decoding>,
     repeats: [usize; 3],
 }
 
@@ -222,30 +311,41 @@ pub(super) fn decode(
         matches.start(&mut bits),
     ];
     let mut literals = literals;
-    // The repeat offsets, held apart for the block, in registers.
+    // The repeat offsets, held apart for the block, in registers, as is
+    // the cursor, whose end the block's takes back, unless it fails.
     let mut repeats = codes.repeats;
+    let mut cursor = output.apart();
     for left in (0..count).rev() {
         let [length, offset, matched] = states;
         let (length, offset, matched) = (
-            lengths.entry(length),
-            offsets.entry(offset),
-            matches.entry(matched),
+            lengths.state(length),
+            offsets.state(offset),
+            matches.state(matched),
         );
-        let code = u32::from(offset.symbol);
-        let value = 1_u64.wrapping_shl(code).saturating_add(bits.read(code));
-        let value = usize::try_from(value).map_err(|_| corrupt())?;
-        let match_len = extra(&MATCH_LENGTHS, matched.symbol, &mut bits)?;
-        let literal_len = extra(&LITERAL_LENGTHS, length.symbol, &mut bits)?;
-        if left > 0 {
-            let length = Table::next(length, &mut bits);
-            let matched = Table::next(matched, &mut bits);
-            states = [length, Table::next(offset, &mut bits), matched];
+        // A refill holds 57 bits: the states' 26, and the values' extra
+        // bits, unless they take more than 31, when it takes another
+        // between an offset's and a match length's, up to 47, and a literal
+        // length's, up to 16.
+        bits.refill();
+        let extra = offset.extra.wrapping_add(matched.extra);
+        let value = offset.value(&mut bits);
+        let match_len = matched.value(&mut bits);
+        if extra.wrapping_add(length.extra) > 31 {
+            bits.refill();
         }
-        output.literals(literals, literal_len)?;
+        let literal_len = length.value(&mut bits);
+        if left > 0 {
+            let length = length.next(&mut bits);
+            let matched = matched.next(&mut bits);
+            states = [length, offset.next(&mut bits), matched];
+        }
+        cursor.literals(literals, literal_len)?;
         literals = literals.get(literal_len..).ok_or_else(corrupt)?;
         let offset = resolve(value, literal_len, &mut repeats)?;
-        output.copy(offset, match_len)?;
+        cursor.copy(offset, match_len)?;
     }
+    let end = cursor.end;
+    output.end = end;
     if !bits.done() {
         return Err(corrupt());
     }
@@ -261,24 +361,28 @@ impl Kind {
         &self,
         modes: u8,
         section: &'a [u8],
-        table: &mut Option<Table>,
+        table: &mut Option<Decoding>,
     ) -> Result<&'a [u8], Error> {
         match (modes >> self.shift) & 0x03 {
-            // Predefined.
-            0 => *table = Some(Table::new(self.default, self.default_log)?),
+            // Predefined, as it may be already.
+            0 if table.as_ref().is_some_and(|table| table.predefined) => {},
+            0 => {
+                let predefined = Table::new(self.default, self.default_log)?;
+                *table = Some(Decoding::new(&predefined, self, true));
+            },
             // One symbol, every time.
             1 => {
                 let (&symbol, rest) = section.split_first().ok_or_else(corrupt)?;
                 if usize::from(symbol) >= self.symbols {
                     return Err(corrupt());
                 }
-                *table = Some(Table::rle(symbol));
+                *table = Some(Decoding::new(&Table::rle(symbol), self, false));
                 return Ok(rest);
             },
             // Described.
             2 => {
                 let (read, used) = Table::read(section, self.max_log, self.symbols)?;
-                *table = Some(read);
+                *table = Some(Decoding::new(&read, self, false));
                 return section.get(used..).ok_or_else(corrupt);
             },
             // The last block's, which must have been.
@@ -304,14 +408,6 @@ fn count(section: &[u8]) -> Result<(usize, &[u8]), Error> {
         },
         _ => Err(corrupt()),
     }
-}
-
-/// Returns the length that `code` of `codes` and the extra bits it takes
-/// from `bits` add up to.
-fn extra(codes: &[(u32, u8)], code: u8, bits: &mut Backward<'_>) -> Result<usize, Error> {
-    let &(base, extra) = codes.get(usize::from(code)).ok_or_else(corrupt)?;
-    let more = u32::try_from(bits.read(u32::from(extra))).map_err(|_| corrupt())?;
-    usize::try_from(base.saturating_add(more)).map_err(|_| corrupt())
 }
 
 /// Returns the offset that a sequence's offset `value` means, after its

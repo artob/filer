@@ -12,6 +12,10 @@ use alloc::vec::Vec;
 const SHORT: usize = 16;
 const SLACK: usize = 32;
 
+/// The longest match copied by short copies, though it does not overlap:
+/// past it, a copy at once is faster.
+const LONG: usize = 64;
+
 /// What a frame has decoded, in a buffer of its window and two blocks,
 /// allocated as it fills, and then never again: decoding goes round it,
 /// from its start again once a block may not fit before its end, so that
@@ -210,6 +214,20 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Returns a copy of it, of the same bytes, whose end the caller takes
+    /// back: a value of its own, which stays in registers as sequences run
+    /// onto it, where one behind a reference is read and written back to
+    /// memory round each.
+    pub(super) fn apart(&mut self) -> Cursor<'_> {
+        Cursor {
+            bytes: self.bytes,
+            end: self.end,
+            limit: self.limit,
+            lapped: self.lapped,
+            size: self.size,
+        }
+    }
+
     /// Returns the room for `n` more bytes at the end, within the limit.
     fn room(&mut self, n: usize) -> Result<&mut [u8], Error> {
         let to = self.end.checked_add(n).filter(|&to| to <= self.limit);
@@ -261,19 +279,18 @@ impl<'a> Cursor<'a> {
         }
         let to = self.end.checked_add(len).filter(|&to| to <= self.limit);
         let to = to.ok_or_else(corrupt)?;
-        // Most often, from the current lap, not overlapping: a short copy,
-        // if it is far enough back that one does not overlap either.
+        // Most often, from the current lap: by short copies, if it is far
+        // enough back that each reads only what is written already, and
+        // the match is short or overlaps; or else not overlapping, at once.
+        if let Some(from) = self.end.checked_sub(offset)
+            && offset >= SHORT
+            && (len <= LONG || len > offset)
+            && self.shorts(from, to)
+        {
+            self.end = to;
+            return Ok(());
+        }
         if let Some(from) = self.end.checked_sub(offset).filter(|_| len <= offset) {
-            if len <= SHORT && offset >= SHORT {
-                let source = self.bytes.get(from..).and_then(|bytes| bytes.first_chunk());
-                if let Some(&source) = source
-                    && let Some(target) = self.short()
-                {
-                    *target = source;
-                    self.end = to;
-                    return Ok(());
-                }
-            }
             let (before, after) = self.bytes.split_at_mut(self.end.min(self.bytes.len()));
             let source = before.get(from..from.saturating_add(len));
             let target = after.get_mut(..len);
@@ -296,29 +313,64 @@ impl<'a> Cursor<'a> {
             // lap has not reached, as the window lies wholly behind it.
             let from = self.lapped.checked_sub(back).ok_or_else(corrupt)?;
             let n = left.min(back);
-            self.within(from, n)?;
+            self.end = within(self.bytes, from, self.end, n)?;
             left = left.saturating_sub(n);
         }
+        if left == 0 {
+            return Ok(());
+        }
+        // What lies from `from` to the end repeats every `offset` bytes,
+        // and so does when copied on, each time twice as much.
+        let from = self.end.checked_sub(offset).ok_or_else(corrupt)?;
         while left > 0 {
-            let from = self.end.checked_sub(offset).ok_or_else(corrupt)?;
-            let n = left.min(offset);
-            self.within(from, n)?;
+            let n = left.min(self.end.saturating_sub(from));
+            self.end = within(self.bytes, from, self.end, n)?;
             left = left.saturating_sub(n);
         }
         Ok(())
     }
 
-    /// Appends `n` bytes from `from`, which must not overlap the end.
-    fn within(&mut self, from: usize, n: usize) -> Result<(), Error> {
-        let to = from.checked_add(n).ok_or_else(corrupt)?;
-        let end = self.end.checked_add(n).ok_or_else(corrupt)?;
-        if to > self.bytes.len() || end > self.bytes.len() {
-            return Err(corrupt());
+    /// Copies what lies from `from` on to the end, up to `to`, by short
+    /// copies, which write past `to`, and returns whether the buffer has
+    /// room for them: `from` must lie at least a short copy back.
+    fn shorts(&mut self, mut from: usize, to: usize) -> bool {
+        if to.saturating_add(SHORT) > self.bytes.len() {
+            return false;
         }
-        self.bytes.copy_within(from..to, self.end);
-        self.end = end;
-        Ok(())
+        let mut at = self.end;
+        while at < to {
+            let source = self
+                .bytes
+                .get(from..)
+                .and_then(<[u8]>::first_chunk::<SHORT>);
+            let Some(&source) = source else {
+                return false;
+            };
+            let target = self
+                .bytes
+                .get_mut(at..)
+                .and_then(|bytes| bytes.first_chunk_mut());
+            let Some(target) = target else {
+                return false;
+            };
+            *target = source;
+            (from, at) = (from.saturating_add(SHORT), at.saturating_add(SHORT));
+        }
+        true
     }
+}
+
+/// Appends `n` of `bytes` from `from` to its `end`, which they must not
+/// overlap, and returns where they end: a free function, not a method, so
+/// that a cursor that calls it stays in registers.
+fn within(bytes: &mut [u8], from: usize, end: usize, n: usize) -> Result<usize, Error> {
+    let to = from.checked_add(n).ok_or_else(corrupt)?;
+    let after = end.checked_add(n).ok_or_else(corrupt)?;
+    if to > bytes.len() || after > bytes.len() {
+        return Err(corrupt());
+    }
+    bytes.copy_within(from..to, end);
+    Ok(after)
 }
 
 #[cfg(test)]

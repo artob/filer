@@ -27,6 +27,10 @@ struct Code {
 /// The most codes a table indexes: by the longest code's bits.
 const MAX_CODES: usize = 1 << MAX_BITS;
 
+/// The codes read from a refill, of up to 11 bits each, of the 57 it
+/// holds.
+const PER_REFILL: usize = 5;
+
 /// A decoding table, indexed by a stream's next `bits` bits, the length of
 /// the longest code: held in an array of the most any table takes, so
 /// that it is never allocated.
@@ -112,13 +116,68 @@ impl Huffman {
     /// Decodes `stream` into `output`, which it must fill exactly.
     pub(super) fn decode(&self, stream: &[u8], output: &mut [u8]) -> Result<(), Error> {
         let mut bits = Backward::new(stream)?;
-        for slot in output {
-            let index = usize::try_from(bits.peek(u32::from(self.bits))).unwrap_or_default();
-            let code = self.codes.get(index).copied().unwrap_or_default();
-            *slot = code.symbol;
-            bits.consume(u32::from(code.bits));
-        }
+        self.rest(&mut bits, output);
         if bits.done() { Ok(()) } else { Err(corrupt()) }
+    }
+
+    /// Decodes four streams into four outputs, which each must fill
+    /// exactly, in turn, so that the processor looks up each one's codes
+    /// while it looks up the others'.
+    pub(super) fn decode4(
+        &self,
+        streams: [&[u8]; 4],
+        outputs: [&mut [u8]; 4],
+    ) -> Result<(), Error> {
+        let [first, second, third, fourth] = streams;
+        let mut bits = [
+            Backward::new(first)?,
+            Backward::new(second)?,
+            Backward::new(third)?,
+            Backward::new(fourth)?,
+        ];
+        let mut outputs = outputs;
+        let shortest = outputs.iter().map(|output| output.len()).min();
+        let mut at = 0_usize;
+        while at.saturating_add(PER_REFILL) <= shortest.unwrap_or_default() {
+            for (bits, output) in bits.iter_mut().zip(outputs.iter_mut()) {
+                bits.refill();
+                let slots = output.get_mut(at..).and_then(<[u8]>::first_chunk_mut);
+                for slot in slots
+                    .into_iter()
+                    .flat_map(|slots: &mut [u8; PER_REFILL]| slots)
+                {
+                    *slot = self.symbol(bits);
+                }
+            }
+            at = at.saturating_add(PER_REFILL);
+        }
+        for (bits, output) in bits.iter_mut().zip(outputs) {
+            self.rest(bits, output.get_mut(at..).unwrap_or_default());
+            if !bits.done() {
+                return Err(corrupt());
+            }
+        }
+        Ok(())
+    }
+
+    /// Decodes from `bits` into `output`, which they fill.
+    fn rest(&self, bits: &mut Backward<'_>, output: &mut [u8]) {
+        for slots in output.chunks_mut(PER_REFILL) {
+            bits.refill();
+            for slot in slots {
+                *slot = self.symbol(bits);
+            }
+        }
+    }
+
+    /// Decodes the next symbol from `bits`, which must hold its code.
+    fn symbol(&self, bits: &mut Backward<'_>) -> u8 {
+        let index = usize::try_from(bits.peek(u32::from(self.bits))).unwrap_or_default();
+        // The index is of at most 11 bits, which spares checking it.
+        let index = index & MAX_CODES.wrapping_sub(1);
+        let code = self.codes.get(index).copied().unwrap_or_default();
+        bits.consume(u32::from(code.bits));
+        code.symbol
     }
 }
 
@@ -139,6 +198,7 @@ fn fse(bytes: &[u8], weights: &mut [u8; ROOM]) -> Result<usize, Error> {
         let entry = table.entry(*state);
         *weights.get_mut(len).ok_or_else(corrupt)? = entry.symbol;
         len = len.saturating_add(1);
+        bits.refill();
         *state = Table::next(entry, &mut bits);
         if bits.overflowed() {
             let other = states

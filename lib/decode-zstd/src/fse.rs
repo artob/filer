@@ -21,7 +21,7 @@ pub(super) struct Entry {
 
 /// The finest accuracy of any table, as a log, and so its most states.
 const MAX_LOG: u8 = 9;
-const MAX_STATES: usize = 1 << MAX_LOG;
+pub(super) const MAX_STATES: usize = 1 << MAX_LOG;
 
 /// The most symbols of any distribution: those of match lengths.
 const MAX_SYMBOLS: usize = 53;
@@ -162,6 +162,17 @@ impl Table {
         Self { log: 0, entries }
     }
 
+    /// Returns the accuracy, as a log, and so the states' count.
+    pub(super) const fn log(&self) -> u8 {
+        self.log
+    }
+
+    /// Returns the entry of each state, in order.
+    pub(super) fn entries(&self) -> &[Entry] {
+        let states = 1_usize.wrapping_shl(u32::from(self.log));
+        self.entries.get(..states).unwrap_or_default()
+    }
+
     /// Returns the state that `bits` begin with.
     pub(super) fn start(&self, bits: &mut Backward<'_>) -> usize {
         usize::try_from(bits.read(u32::from(self.log))).unwrap_or_default()
@@ -172,9 +183,10 @@ impl Table {
         self.entries.get(state).copied().unwrap_or_default()
     }
 
-    /// Returns the state after `entry`'s, from `bits`.
+    /// Returns the state after `entry`'s, from `bits`, which must hold
+    /// them, up to 9, without a refill.
     pub(super) fn next(entry: Entry, bits: &mut Backward<'_>) -> usize {
-        let more = usize::try_from(bits.read(u32::from(entry.bits))).unwrap_or_default();
+        let more = usize::try_from(bits.take(u32::from(entry.bits))).unwrap_or_default();
         usize::from(entry.base).saturating_add(more)
     }
 }

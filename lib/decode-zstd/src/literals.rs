@@ -86,29 +86,19 @@ pub(super) fn read<'a>(
     }
 
     // Four streams, the first three's lengths before them, each but the
-    // last decoding to a quarter, rounded up.
-    let (jump, mut rest) = streams.split_first_chunk::<6>().ok_or_else(corrupt)?;
-    let (lens, _) = jump.as_chunks::<2>();
-    let lens = lens.iter().map(|&len| Some(u16::from_le_bytes(len)));
+    // last decoding to a quarter, rounded up, and the last to the rest.
+    let (jump, rest) = streams.split_first_chunk::<6>().ok_or_else(corrupt)?;
+    let ([first, second, third], _) = jump.as_chunks::<2>() else {
+        return Err(corrupt());
+    };
+    let len = |len: &[u8; 2]| usize::from(u16::from_le_bytes(*len));
+    let (first, rest) = rest.split_at_checked(len(first)).ok_or_else(corrupt)?;
+    let (second, rest) = rest.split_at_checked(len(second)).ok_or_else(corrupt)?;
+    let (third, fourth) = rest.split_at_checked(len(third)).ok_or_else(corrupt)?;
     let quarter = regenerated.div_ceil(4);
-    let mut outputs = buffer.chunks_mut(quarter.max(1));
-    for len in lens.chain([None]) {
-        let stream = match len {
-            Some(len) => {
-                let (stream, after) = rest
-                    .split_at_checked(usize::from(len))
-                    .ok_or_else(corrupt)?;
-                rest = after;
-                stream
-            },
-            None => rest,
-        };
-        let output = outputs.next().unwrap_or_default();
-        // Only the last may decode to less, by at most three.
-        if len.is_some() && output.len() < quarter {
-            return Err(corrupt());
-        }
-        huffman.decode(stream, output)?;
-    }
+    let (one, rest) = buffer.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
+    let (two, rest) = rest.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
+    let (three, four) = rest.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
+    huffman.decode4([first, second, third, fourth], [one, two, three, four])?;
     Ok((buffer, end))
 }

@@ -204,9 +204,12 @@ struct Sum {
 
 impl Sum {
     /// Adds what a block of a frame of `header` decoded to, checking the
-    /// frame's size and, past its last block, its checksum.
+    /// frame's size and, past its last block, its checksum, if it has one,
+    /// and only then hashing it.
     fn add(&mut self, header: &Header, decoded: &[u8], block: &Block<'_>) -> Result<(), Error> {
-        self.hash.update(decoded);
+        if header.checksum {
+            self.hash.update(decoded);
+        }
         let n = u64::try_from(decoded.len()).unwrap_or(u64::MAX);
         self.decoded = self.decoded.saturating_add(n);
         if header.size.is_some_and(|size| self.decoded > size) {
