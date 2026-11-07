@@ -8,8 +8,9 @@
 //! levels, recording each in `packed.toml`, and decodes each with every
 //! decoder of its codec, whole or in pieces, by the procedure of
 //! `procedure`, checking every output against the original; and counts
-//! what each allocates, by `memory`. The other measures and the generated
-//! tables are to follow (`TODO.md`, BENCH-07 to 10).
+//! what each allocates, by `memory`; and generates each decoder's
+//! `BENCH.md` tables from the results, by `tables`. The other measures are
+//! to follow (`TODO.md`, BENCH-08 to 10).
 //!
 //! From `bench/`, `cargo run --release --`, then:
 //!
@@ -26,6 +27,8 @@
 //!   them once each with every decoder, counting the heap each allocates,
 //!   by `memory`, with a Markdown table, and its results written to
 //!   `bench/results/`.
+//! - `tables [<codec>...]`: writes the tables of each codec's
+//!   `lib/decode-<codec>/BENCH.md` from `bench/results/`, by `tables`.
 //!
 //! - `hash [<algorithm>...] [--cpu <n>]`: the procedure over the checksums
 //!   and hashes, by `throughput`, with a Markdown table of each.
@@ -44,6 +47,7 @@ mod machine;
 mod measure;
 mod memory;
 mod procedure;
+mod tables;
 mod throughput;
 
 use decoders::Codec;
@@ -133,7 +137,8 @@ fn main() -> Result<()> {
         "check" => check(&options),
         "run" => procedure::run(&options, corpus::bench()),
         "memory" => memory::run(&options, corpus::bench()),
-        _ => Err("commands: fetch, encode, check, run, memory, hash".into()),
+        "tables" => tables::run(&options.codecs, corpus::bench()),
+        _ => Err("commands: fetch, encode, check, run, memory, tables, hash".into()),
     }
 }
 

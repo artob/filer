@@ -65,7 +65,9 @@ enum Record<'a> {
         input: &'a str,
         level: String,
         piece: Option<usize>,
+        /// The input's size, and packed.
         bytes: usize,
+        packed: usize,
         process: usize,
         decoder: &'a str,
         ns: u64,
@@ -74,6 +76,7 @@ enum Record<'a> {
         codec: &'a str,
         input: &'a str,
         level: String,
+        piece: Option<usize>,
         decoder: &'a str,
         failure: &'a str,
     },
@@ -185,9 +188,7 @@ pub fn bootstrap(values: &[f64], random: &mut SplitMix) -> (f64, f64, f64) {
 /// `bench/results/`.
 pub fn run(options: &Options, bench: &Path) -> Result<()> {
     let machine = Machine::now(bench);
-    fs::create_dir_all(bench.join("results"))?;
-    let path = bench.join("results").join(machine.file_name());
-    let mut results = fs::File::create(&path)?;
+    let (path, mut results) = machine.create(bench)?;
     writeln!(
         results,
         "{}",
@@ -252,7 +253,7 @@ fn measure(
         })
         .collect();
     let piece = (options.piece != usize::MAX).then_some(options.piece);
-    let bytes = input.size()?;
+    let (bytes, packed) = (input.size()?, input.encoded(codec, level)?.len());
     for process in 0..MOST_PROCESSES {
         let narrow = |figures: &Figures| {
             figures.failure.is_some() || {
@@ -285,6 +286,7 @@ fn measure(
                         level: level.label(),
                         piece,
                         bytes,
+                        packed,
                         process,
                         decoder,
                         ns: *ns,
@@ -296,6 +298,7 @@ fn measure(
                         codec: codec.name(),
                         input: &input.name,
                         level: level.label(),
+                        piece,
                         decoder,
                         failure,
                     },

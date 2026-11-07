@@ -15,7 +15,6 @@
 use crate::{Options, Result, corpus, decoders::Decoder, machine::Machine};
 use serde::Serialize;
 use std::{
-    fs,
     io::Write as _,
     path::Path,
     sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering::Relaxed},
@@ -133,7 +132,7 @@ mod interposed {
     unsafe extern "C" fn posix_memalign(out: *mut *mut c_void, align: usize, size: usize) -> c_int {
         const EINVAL: c_int = 22;
         const ENOMEM: c_int = 12;
-        if !align.is_power_of_two() || align % size_of::<*mut c_void>() != 0 {
+        if !align.is_power_of_two() || !align.is_multiple_of(size_of::<*mut c_void>()) {
             return EINVAL;
         }
         let pointer = unsafe { counted(__libc_memalign(align, size)) };
@@ -201,6 +200,7 @@ enum Record<'a> {
         codec: &'a str,
         input: &'a str,
         level: String,
+        piece: Option<usize>,
         decoder: &'a str,
         failure: &'a str,
     },
@@ -217,9 +217,7 @@ fn counts(decoder: &Decoder) -> bool {
 /// in KiB, and its allocations, and writes each to `bench/results/`.
 pub fn run(options: &Options, bench: &Path) -> Result<()> {
     let machine = Machine::now(bench);
-    fs::create_dir_all(bench.join("results"))?;
-    let path = bench.join("results").join(machine.file_name());
-    let mut results = fs::File::create(&path)?;
+    let (path, mut results) = machine.create(bench)?;
     let mut record = |record: &Record| -> Result<()> {
         writeln!(results, "{}", serde_json::to_string(record)?)?;
         Ok(())
@@ -263,6 +261,7 @@ pub fn run(options: &Options, bench: &Path) -> Result<()> {
                                 codec,
                                 input,
                                 level,
+                                piece,
                                 decoder: decoder.name,
                                 failure: &failure,
                             })?;

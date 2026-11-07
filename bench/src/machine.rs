@@ -3,10 +3,17 @@
 //! What a run records of where and how it ran: the machine, its state, the
 //! build, the corpus, and the commit, as `METHOD.md` asks of raw data.
 
-use serde::Serialize;
-use std::{fs, path::Path, process::Command};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
-#[derive(Serialize)]
+/// What `tables` reads back, in which fields that older runs lack are
+/// empty.
+#[derive(Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct Machine {
     pub date: String,
     pub host: String,
@@ -34,7 +41,7 @@ pub struct Machine {
     /// The SHA-256 of `corpus.toml` and of `packed.toml`.
     pub corpus: String,
     pub packed: String,
-    /// The commit, and whether the tree differs from it.
+    /// The commit, and whether a tracked file differs from it.
     pub commit: String,
     pub dirty: bool,
 }
@@ -120,18 +127,34 @@ impl Machine {
             corpus: hash("corpus.toml"),
             packed: hash("packed.toml"),
             commit: output("git", &["rev-parse", "HEAD"]),
-            dirty: !output("git", &["status", "--porcelain"]).is_empty(),
+            dirty: !output("git", &["status", "--porcelain", "--untracked-files=no"]).is_empty(),
         }
     }
 
-    /// A name for its results' file: the date and the host, `native` for
-    /// a build for this CPU alone, and `intrinsics` for one with that.
-    pub fn file_name(&self) -> String {
+    /// Creates its results' file in `bench/results/`, named for the date
+    /// and the host, `native` for a build for this CPU alone, and
+    /// `intrinsics` for one with that; numbered if a run of the same second
+    /// has one, as a short `memory` may.
+    pub fn create(&self, bench: &Path) -> std::io::Result<(PathBuf, fs::File)> {
         let native = self.rustflags.contains("target-cpu=native");
         let mut build = String::from(if native { "-native" } else { "" });
         for feature in &self.features {
             build = format!("{build}-{feature}");
         }
-        format!("{}-{}{build}.jsonl", self.date.replace(':', ""), self.host)
+        let name = format!("{}-{}{build}", self.date.replace(':', ""), self.host);
+        let results = bench.join("results");
+        fs::create_dir_all(&results)?;
+        for n in 0.. {
+            let path = match n {
+                0 => results.join(format!("{name}.jsonl")),
+                n => results.join(format!("{name}-{n}.jsonl")),
+            };
+            match fs::File::create_new(&path) {
+                Ok(file) => return Ok((path, file)),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {},
+                Err(error) => return Err(error),
+            }
+        }
+        unreachable!("a results' file of each number exists")
     }
 }

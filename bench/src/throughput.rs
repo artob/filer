@@ -157,9 +157,7 @@ pub fn sample(algorithm: Algorithm, size: usize, piece: usize, seed: u64) -> Res
 /// relative to ours, and every sample written to `bench/results/`.
 pub fn run(options: &Options, algorithms: &[Algorithm], bench: &Path) -> Result<()> {
     let machine = Machine::now(bench);
-    fs::create_dir_all(bench.join("results"))?;
-    let path = bench.join("results").join(machine.file_name());
-    let mut results = fs::File::create(&path)?;
+    let (path, mut results) = machine.create(bench)?;
     writeln!(
         results,
         "{}",

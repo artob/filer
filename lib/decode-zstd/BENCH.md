@@ -6,7 +6,9 @@ alternatives, measured by the protocol of this repository's
 and builds for every decoder, each figure a median with its 95%
 confidence interval, and every output checked against the original.
 
-**No results yet**: the harness that measures it is still to be built.
+The harness's `tables` command generates the figures below from its raw
+data, which stays on the machines that measured it; small streams,
+checkpoints, and code size are not measured yet.
 
 ## Counterparts
 
@@ -28,14 +30,23 @@ initrd images.
 metal, and on a cloud VM; and 64-bit ARM on Apple M4 and on a Neoverse
 server.
 
+<!-- filer-bench: machines -->
+<!-- filer-bench: end -->
+
 ## Whole streams
 
 MB/s of decoded output, per machine: a row per input and level, a column
 per decoder, and ours relative to the reference.
 
+<!-- filer-bench: whole -->
+<!-- filer-bench: end -->
+
 ## Streaming
 
 MB/s with input and output in pieces of 4 KiB and of 64 KiB.
+
+<!-- filer-bench: streaming -->
+<!-- filer-bench: end -->
 
 ## Small streams
 
@@ -46,6 +57,9 @@ decoder's construction included.
 
 Peak heap and allocations per stream, and the size of the decoder
 itself.
+
+<!-- filer-bench: memory -->
+<!-- filer-bench: end -->
 
 ## Checkpoints
 
