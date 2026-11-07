@@ -67,4 +67,9 @@ holds.
 
 ## Code size
 
-The bytes of `.text` the decoder adds to a minimal `#![no_std]` binary.
+The bytes of `.text` the decoder adds to a minimal `#![no_std]` program
+that decodes a stream with it, from construction to `finish`, built
+portable with fat LTO; read-only data, such as tables, is not counted.
+
+<!-- filer-bench: size -->
+<!-- filer-bench: end -->

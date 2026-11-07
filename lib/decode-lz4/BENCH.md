@@ -6,7 +6,8 @@ alternatives, measured by the protocol of this repository's
 and builds for every decoder, each figure a median with its 95%
 confidence interval, and every output checked against the original.
 
-**No results yet**: the harness that measures it is still to be built.
+**Only its code size so far**: the harness measures nothing else of it
+yet.
 
 ## Counterparts
 
@@ -48,4 +49,9 @@ itself.
 
 ## Code size
 
-The bytes of `.text` the decoder adds to a minimal `#![no_std]` binary.
+The bytes of `.text` the decoder adds to a minimal `#![no_std]` program
+that decodes a stream with it, from construction to `finish`, built
+portable with fat LTO; read-only data, such as tables, is not counted.
+
+<!-- filer-bench: size -->
+<!-- filer-bench: end -->

@@ -8,7 +8,7 @@ inputs, machines, and builds. A figure is reported with its machine, its
 build, and its confidence interval, or not at all.
 
 The harness that applies this protocol lives beside this file (see
-"Harness"), and so far applies only part of it (`TODO.md`, BENCH-08 to
+"Harness"), and so far applies only part of it (`TODO.md`, BENCH-09 and
 10): each `BENCH.md` holds what it measures so far.
 
 ## What is measured
@@ -34,7 +34,11 @@ The harness that applies this protocol lives beside this file (see
    misses, and L1 data cache misses per output byte, by `perf stat`, to
    explain differences, never to rank.
 7. **Code size**: the bytes of `.text` the decoder adds to a minimal
-   `#![no_std]` binary, at `opt-level` 3 and `"s"`.
+   `#![no_std]` program, at `opt-level` 3 and `"s"`: `bench/probe/`, a
+   static library whose one function decodes a stream, built with fat
+   LTO, which keeps only the code that function needs, alone and with
+   the decoder, per target, portable; and likewise each checksum and
+   hash of `compute-*`. Read-only data, such as tables, is not counted.
 
 ## Inputs
 
@@ -175,9 +179,9 @@ GB/s.
   by hand, between the markers each `BENCH.md` holds. Only runs made at
   a commit, with no tracked file changed, are used, as only of those can
   it be told what they measured; of each machine, build, way of feeding,
-  input, and level, the newest. Each table names its runs' dates,
-  commits, and versions, and results older than the release they
-  describe are marked so.
+  input, and level, and of each target, subject, and `opt-level` sized,
+  the newest. Each table names its runs' dates, commits, and versions,
+  and results older than the release they describe are marked so.
 
 ## Regressions
 

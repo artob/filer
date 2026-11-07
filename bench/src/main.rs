@@ -9,8 +9,9 @@
 //! decoder of its codec, whole or in pieces, by the procedure of
 //! `procedure`, checking every output against the original; and counts
 //! what each allocates, by `memory`; and generates each decoder's
-//! `BENCH.md` tables from the results, by `tables`. The other measures are
-//! to follow (`TODO.md`, BENCH-08 to 10).
+//! `BENCH.md` tables from the results, by `tables`; and measures the code
+//! each decoder and algorithm adds to a minimal program, by `size`. The
+//! other measures are to follow (`TODO.md`, BENCH-09 and 10).
 //!
 //! From `bench/`, `cargo run --release --`, then:
 //!
@@ -28,10 +29,14 @@
 //!   by `memory`, with a Markdown table, and its results written to
 //!   `bench/results/`.
 //! - `tables [<codec>...]`: writes the tables of each codec's
-//!   `lib/decode-<codec>/BENCH.md` from `bench/results/`, by `tables`.
+//!   `lib/decode-<codec>/BENCH.md` from `bench/results/`, by `tables`, and
+//!   the code size of every decoder's and `compute-*` crate's.
 //!
 //! - `hash [<algorithm>...] [--cpu <n>]`: the procedure over the checksums
 //!   and hashes, by `throughput`, with a Markdown table of each.
+//! - `size`: builds `bench/probe/` alone and with each of our decoders
+//!   and algorithms, by `size`, with a Markdown table of the code each
+//!   adds, and its results written to `bench/results/`.
 //!
 //! Every codec, `bzip2` and `zstd`, or every algorithm, such as `crc32` or
 //! `sha256`, unless some are named. For the ceiling, build with
@@ -47,6 +52,7 @@ mod machine;
 mod measure;
 mod memory;
 mod procedure;
+mod size;
 mod tables;
 mod throughput;
 
@@ -94,6 +100,9 @@ fn main() -> Result<()> {
         let (size, piece, seed) = (next()?.parse()?, next()?.parse()?, next()?.parse()?);
         return throughput::sample(algorithm, size, piece, seed);
     }
+    if command == "size" {
+        return size::run(corpus::bench());
+    }
     let mut names = Vec::new();
     let mut options = Options {
         codecs: Vec::new(),
@@ -138,7 +147,7 @@ fn main() -> Result<()> {
         "run" => procedure::run(&options, corpus::bench()),
         "memory" => memory::run(&options, corpus::bench()),
         "tables" => tables::run(&options.codecs, corpus::bench()),
-        _ => Err("commands: fetch, encode, check, run, memory, tables, hash".into()),
+        _ => Err("commands: fetch, encode, check, run, memory, tables, hash, size".into()),
     }
 }
 

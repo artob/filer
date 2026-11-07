@@ -1,12 +1,14 @@
 // This is free and unencumbered software released into the public domain.
 
-//! The tables of each `decode-*` crate's `BENCH.md`, generated from the raw
-//! data in `bench/results/`, never edited by hand, as `METHOD.md` asks.
+//! The tables of each `decode-*` crate's `BENCH.md`, and the code size of
+//! each `compute-*` crate's, generated from the raw data in
+//! `bench/results/`, never edited by hand, as `METHOD.md` asks.
 //!
 //! `tables` reads every run there and keeps those made at a commit from a
 //! clean tree, as only of those can it be told what they measured. Of each
-//! machine, build, codec, way of feeding, input, and level, it takes the
-//! newest run that measured it, and computes its figures as `run` does,
+//! machine, build, codec, way of feeding, input, and level, and of each
+//! target, crate, subject, and `opt-level` sized, it takes the newest run
+//! that measured it, and computes its figures as `run` does,
 //! with the same bootstrap from the same seed, so that the same data always
 //! makes the same tables. It writes them between the `BENCH.md`'s markers,
 //! `<!-- filer-bench: <section> -->` and `<!-- filer-bench: end -->`,
@@ -18,11 +20,13 @@ use crate::{
     inputs::{Level, SplitMix},
     machine::Machine,
     procedure::{self, Figures},
+    size,
 };
 use serde::Deserialize;
 use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path};
 
-/// A line of a results' file, as `procedure` and `memory` write it.
+/// A line of a results' file, as `procedure`, `memory`, and `size` write
+/// it.
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 enum Record {
@@ -58,6 +62,14 @@ enum Record {
         peak: Option<u64>,
         allocations: Option<u64>,
     },
+    Size {
+        #[serde(rename = "crate")]
+        krate: String,
+        subject: String,
+        target: String,
+        level: String,
+        bytes: i64,
+    },
     #[serde(other)]
     Other,
 }
@@ -88,16 +100,28 @@ struct Timed {
 /// peak and allocations, if counted, or why it failed.
 type Counted = BTreeMap<String, std::result::Result<(usize, Option<(u64, u64)>), String>>;
 
+/// What a size is of: the target, the crate, the subject, and the
+/// `opt-level`.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct Sized {
+    target: String,
+    krate: String,
+    subject: String,
+    level: String,
+}
+
 /// The figures kept, each with the run it came from.
 #[derive(Default)]
 struct Data {
     runs: Vec<Machine>,
     timed: BTreeMap<Key, (usize, Timed)>,
     counted: BTreeMap<Key, (usize, Counted)>,
+    sized: BTreeMap<Sized, (usize, i64)>,
 }
 
 /// The `tables` command: writes the tables of each codec's `BENCH.md`,
-/// `lib/decode-<codec>/BENCH.md`, from `bench/results/`.
+/// `lib/decode-<codec>/BENCH.md`, and the code size of every crate that
+/// `size` measures, from `bench/results/`.
 pub fn run(codecs: &[Codec], bench: &Path) -> Result<()> {
     let data = read(&bench.join("results"))?;
     let order: Vec<String> = corpus::inputs("")?
@@ -121,6 +145,14 @@ pub fn run(codecs: &[Codec], bench: &Path) -> Result<()> {
             text = replace(&text, name, &body?)?;
         }
         fs::write(&path, text)?;
+        eprintln!("wrote {}", path.display());
+    }
+    let mut krates: Vec<&str> = size::subjects().iter().map(|&(krate, _)| krate).collect();
+    krates.dedup();
+    for krate in krates {
+        let path = bench.join("..").join("lib").join(krate).join("BENCH.md");
+        let text = fs::read_to_string(&path)?;
+        fs::write(&path, replace(&text, "size", &sizes(&data, krate)?)?)?;
         eprintln!("wrote {}", path.display());
     }
     Ok(())
@@ -226,6 +258,21 @@ fn read(results: &Path) -> Result<Data> {
                     let counted = counted.entry(key(codec, input, level, piece)).or_default();
                     counted.insert(decoder, Ok((value, peak.zip(allocations))));
                 },
+                Record::Size {
+                    krate,
+                    subject,
+                    target,
+                    level,
+                    bytes,
+                } => {
+                    let key = Sized {
+                        target,
+                        krate,
+                        subject,
+                        level,
+                    };
+                    data.sized.insert(key, (run, bytes));
+                },
                 Record::Machine(_) | Record::Other => {},
             }
         }
@@ -255,19 +302,25 @@ fn label(machine: &Machine) -> String {
     format!("{} ({how})", machine.cpu)
 }
 
-/// The version of `krate` that the harness links now.
+/// The version of `krate` that the harness links now, or, of one of ours
+/// it does not link, the repository's.
 fn version(krate: &str) -> Option<&'static str> {
     let packages = env!("FILER_BENCH_PACKAGES").split(';');
-    packages
+    let linked = packages
         .filter_map(|package| package.split_once(' '))
         .find(|&(name, _)| name == krate)
-        .map(|(_, version)| version)
+        .map(|(_, version)| version);
+    linked.or_else(|| {
+        size::subjects()
+            .iter()
+            .any(|&(k, _)| k == krate)
+            .then(|| include_str!("../../VERSION").trim())
+    })
 }
 
-/// When and at what the runs of `runs` measured `codec`'s decoder: each
-/// run's date, commit, and version, marked if older than the crate's.
-fn provenance(data: &Data, codec: Codec, runs: impl IntoIterator<Item = usize>) -> String {
-    let krate = codec.decoders()[0].krate;
+/// When and at what the runs of `runs` measured `krate`: each run's date,
+/// commit, and version, marked if older than the crate's.
+fn provenance(data: &Data, krate: &str, runs: impl IntoIterator<Item = usize>) -> String {
     let mut seen: Vec<String> = Vec::new();
     for run in runs {
         let machine = &data.runs[run];
@@ -421,7 +474,13 @@ fn timing(data: &Data, codec: Codec, order: &[String], pieces: &[Option<usize>])
         writeln!(
             text,
             "{}\n",
-            wrap(&format!("Measured {}.", provenance(data, codec, runs)), 0)
+            wrap(
+                &format!(
+                    "Measured {}.",
+                    provenance(data, codec.decoders()[0].krate, runs)
+                ),
+                0
+            )
         )?;
         // Ours relative to each counterpart, by level, over every input.
         let mut ratios: Vec<(String, usize, f64)> = Vec::new();
@@ -561,7 +620,13 @@ fn memory(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
         writeln!(
             text,
             "{}\n",
-            wrap(&format!("Measured {}.", provenance(data, codec, runs)), 0)
+            wrap(
+                &format!(
+                    "Measured {}.",
+                    provenance(data, codec.decoders()[0].krate, runs)
+                ),
+                0
+            )
         )?;
         // The size of each decoder's value, as any key records it.
         let values: Vec<String> = decoders
@@ -655,6 +720,92 @@ fn memory(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
     match text.is_empty() {
         true => Ok("Not measured yet.".into()),
         false => Ok(text.trim_end().into()),
+    }
+}
+
+/// A table of the bytes of `.text` each of `krate`'s subjects adds, per
+/// target and `opt-level`, and when and with what each target's were
+/// measured.
+fn sizes(data: &Data, krate: &str) -> Result<String> {
+    let keys: Vec<&Sized> = data.sized.keys().filter(|key| key.krate == krate).collect();
+    if keys.is_empty() {
+        return Ok("Not measured yet.".into());
+    }
+    let subjects: Vec<&str> = size::subjects()
+        .into_iter()
+        .filter(|&(k, subject)| k == krate && keys.iter().any(|key| key.subject == subject))
+        .map(|(_, subject)| subject)
+        .collect();
+    let mut targets: Vec<&str> = keys.iter().map(|key| key.target.as_str()).collect();
+    targets.sort();
+    targets.dedup();
+    // A decoder is its crate's one subject, and needs no column of its own.
+    let named = subjects.len() > 1 || subjects.first().is_some_and(|&s| s != krate);
+    let mut text = String::new();
+    if named {
+        write!(text, "| Algorithm ")?;
+    }
+    write!(text, "| Target |")?;
+    for level in size::LEVELS {
+        write!(text, " `opt-level` {} |", opt_level(level))?;
+    }
+    writeln!(text)?;
+    if named {
+        write!(text, "| --- ")?;
+    }
+    write!(text, "| --- |")?;
+    for _ in size::LEVELS {
+        write!(text, " ---: |")?;
+    }
+    writeln!(text)?;
+    for subject in &subjects {
+        for target in &targets {
+            if named {
+                write!(text, "| {subject} ")?;
+            }
+            write!(text, "| {target} |")?;
+            for level in size::LEVELS {
+                let key = Sized {
+                    target: (*target).into(),
+                    krate: krate.into(),
+                    subject: (*subject).into(),
+                    level: level.into(),
+                };
+                match data.sized.get(&key) {
+                    Some((_, bytes)) => write!(text, " {bytes} |")?,
+                    None => write!(text, " |")?,
+                }
+            }
+            writeln!(text)?;
+        }
+    }
+    for target in &targets {
+        let runs: Vec<usize> = keys
+            .iter()
+            .filter(|key| key.target == *target)
+            .map(|key| data.sized[*key].0)
+            .collect();
+        let mut rustc: Vec<&str> = runs
+            .iter()
+            .map(|&run| data.runs[run].rustc.as_str())
+            .collect();
+        rustc.sort();
+        rustc.dedup();
+        let line = format!(
+            "On {target}, measured {}, by {}.",
+            provenance(data, krate, runs),
+            rustc.join(" and ")
+        );
+        writeln!(text, "\n{}", wrap(&line, 0))?;
+    }
+    Ok(text.trim_end().into())
+}
+
+/// An `opt-level` as `Cargo.toml` writes it.
+fn opt_level(level: &str) -> String {
+    match level.parse::<u8>() {
+        Ok(_) => level.into(),
+        Err(_) => format!("\"{level}\""),
     }
 }
 

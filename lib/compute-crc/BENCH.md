@@ -227,5 +227,9 @@ fast 2.57x, crc 0.78x; by 7: crc64fast 0.66x, crc-fast 0.35x, crc 0.61x.
 
 ## Code size
 
-The bytes of `.text` it adds to a minimal `#![no_std]` binary: not
-measured yet.
+The bytes of `.text` each algorithm adds to a minimal `#![no_std]`
+program that computes a checksum or hash with it, built portable with
+fat LTO; read-only data, such as tables, is not counted.
+
+<!-- filer-bench: size -->
+<!-- filer-bench: end -->

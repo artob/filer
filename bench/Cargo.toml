@@ -47,6 +47,8 @@ simd-adler32 = "0.3"
 twox-hash = "2"
 xxhash-c-sys = "0.8"
 xxhash-rust = { version = "0.8", features = ["xxh32", "xxh64"] }
+# The `.text` of the probe's objects, for `size`.
+object = { version = "0.37", default-features = false, features = ["read", "std"] }
 # `corpus.toml` and `packed.toml`, and the results' JSON lines.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
