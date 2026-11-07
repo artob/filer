@@ -232,4 +232,16 @@ program that computes a checksum or hash with it, built portable with
 fat LTO; read-only data, such as tables, is not counted.
 
 <!-- filer-bench: size -->
+
+| Algorithm | Target | `opt-level` 3 | `opt-level` "s" |
+| --- | --- | ---: | ---: |
+| crc16-modbus | aarch64-apple-darwin | 640 | 712 |
+| crc32 | aarch64-apple-darwin | 624 | 724 |
+| crc32c | aarch64-apple-darwin | 624 | 724 |
+| crc32-bzip2 | aarch64-apple-darwin | 648 | 732 |
+| crc64-xz | aarch64-apple-darwin | 632 | 728 |
+
+On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
+`compute-crc` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
+
 <!-- filer-bench: end -->

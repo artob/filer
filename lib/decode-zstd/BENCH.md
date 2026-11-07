@@ -31,6 +31,9 @@ metal, and on a cloud VM; and 64-bit ARM on Apple M4 and on a Neoverse
 server.
 
 <!-- filer-bench: machines -->
+
+Measured so far: none.
+
 <!-- filer-bench: end -->
 
 ## Whole streams
@@ -39,6 +42,9 @@ MB/s of decoded output, per machine: a row per input and level, a column
 per decoder, and ours relative to the reference.
 
 <!-- filer-bench: whole -->
+
+Not measured yet.
+
 <!-- filer-bench: end -->
 
 ## Streaming
@@ -46,6 +52,9 @@ per decoder, and ours relative to the reference.
 MB/s with input and output in pieces of 4 KiB and of 64 KiB.
 
 <!-- filer-bench: streaming -->
+
+Not measured yet.
+
 <!-- filer-bench: end -->
 
 ## Small streams
@@ -59,6 +68,9 @@ Peak heap and allocations per stream, and the size of the decoder
 itself.
 
 <!-- filer-bench: memory -->
+
+Not measured yet.
+
 <!-- filer-bench: end -->
 
 ## Checkpoints
@@ -73,4 +85,12 @@ that decodes a stream with it, from construction to `finish`, built
 portable with fat LTO; read-only data, such as tables, is not counted.
 
 <!-- filer-bench: size -->
+
+| Target | `opt-level` 3 | `opt-level` "s" |
+| --- | ---: | ---: |
+| aarch64-apple-darwin | 14800 | 10876 |
+
+On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
+`decode-zstd` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
+
 <!-- filer-bench: end -->

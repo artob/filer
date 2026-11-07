@@ -120,4 +120,13 @@ program that computes a checksum or hash with it, built portable with
 fat LTO; read-only data, such as tables, is not counted.
 
 <!-- filer-bench: size -->
+
+| Algorithm | Target | `opt-level` 3 | `opt-level` "s" |
+| --- | --- | ---: | ---: |
+| sha512 | aarch64-apple-darwin | 1404 | 1000 |
+| sha512-256 | aarch64-apple-darwin | 1412 | 992 |
+
+On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
+`compute-sha512` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
+
 <!-- filer-bench: end -->

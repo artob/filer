@@ -545,10 +545,6 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **BENCH-08: Code size.** The bytes of `.text` each decoder and
-  `compute-*` crate adds to a minimal `#![no_std]` binary, at `opt-level`
-  3 and `"s"` (item 7). Done when the harness measures each, and each
-  `compute-*` `BENCH.md` fills its "Code size".
 - [ ] **BENCH-09: Streaming and small streams.** Pieces of 4 and of 64
   KiB in one run, and the time per stream of packed streams of about 64
   B, 1 KiB, and 16 KiB, construction included (items 2 and 3). Done

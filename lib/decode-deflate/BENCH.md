@@ -65,4 +65,12 @@ that decodes a stream with it, from construction to `finish`, built
 portable with fat LTO; read-only data, such as tables, is not counted.
 
 <!-- filer-bench: size -->
+
+| Target | `opt-level` 3 | `opt-level` "s" |
+| --- | ---: | ---: |
+| aarch64-apple-darwin | 6772 | 6416 |
+
+On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
+`decode-deflate` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
+
 <!-- filer-bench: end -->

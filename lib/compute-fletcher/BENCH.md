@@ -89,4 +89,14 @@ program that computes a checksum or hash with it, built portable with
 fat LTO; read-only data, such as tables, is not counted.
 
 <!-- filer-bench: size -->
+
+| Algorithm | Target | `opt-level` 3 | `opt-level` "s" |
+| --- | --- | ---: | ---: |
+| fletcher2 | aarch64-apple-darwin | 56 | 96 |
+| fletcher4 | aarch64-apple-darwin | 624 | 624 |
+| fletcher64 | aarch64-apple-darwin | 268 | 264 |
+
+On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
+`compute-fletcher` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
+
 <!-- filer-bench: end -->
