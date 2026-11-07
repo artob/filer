@@ -584,12 +584,11 @@ crate's name until its first code, which moves it to `lib/`.
   times and `ring` by 1.43; and `compute-adler32` trails
   `simd-adler32`, by AVX2, by 1.65. Done when each is within 10% of the
   fastest portable counterpart, or its crate's docs say why not.
-- [ ] **DEC-09: LZO1X version 1.** `decode-lzo` refuses, as
-  `Unsupported`, a block that names a version in its second byte, after
-  a first of 17: the Linux kernel's `lzo-rle`, which F2FS and zram may
-  use, whose version 1 adds an instruction for runs of zeros. Done when
-  `decode_block` decodes them, from the kernel's description, checked
-  against blocks the kernel's `lzo-rle` writes.
+- [ ] **DEC-09: LZO1X version 1, checked.** `decode_block` decodes the
+  Linux kernel's `lzo-rle` blocks, version 1, from its description,
+  tested only against blocks built by hand (2026-11-07). Done when it
+  decodes blocks that the Linux kernel's `lzo-rle` writes, through F2FS
+  with `compress_algorithm=lzo-rle` on comet, to what was written.
 - [ ] **DEC-19: zstd's speed.** `decode-zstd` decodes Canterbury at
   0.27 to 0.36 times libzstd's MB/s, whole and in pieces, on Zen 1
   (2026-11-07, at 9c5f5fc), though 1.15 to 1.22 times `ruzstd`'s; the

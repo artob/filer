@@ -85,6 +85,12 @@ pub fn agree(input: &[u8], piece: usize) -> Result<Vec<u8>, Error> {
     whole
 }
 
+/// Whether `block` names its version, as `lzokay-native`'s never do, and
+/// it does not read: its first byte 17, and five bytes or more.
+pub fn names_a_version(block: &[u8]) -> bool {
+    block.len() >= 5 && block.first() == Some(&17)
+}
+
 /// Decodes `block` through `lzokay-native`, if it decodes to at most
 /// `max` bytes, and reads it to its end: bytes after the end mark, which
 /// it ignores, are refused, as the Linux kernel refuses them. It panics on

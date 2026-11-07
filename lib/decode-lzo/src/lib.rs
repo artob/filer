@@ -4,7 +4,8 @@
 //! stream format, and dedicated to the public domain.
 //!
 //! [`decode_block`] decodes a raw LZO1X block, as btrfs, SquashFS, and
-//! F2FS store them. [`Decoder`] decodes lzop files, as `.lzo` files and
+//! F2FS store them, and the Linux kernel's `lzo-rle` blocks, which zram
+//! and F2FS may write. [`Decoder`] decodes lzop files, as `.lzo` files and
 //! the Linux kernel's initramfs images hold them: files one after
 //! another, each block checked against its Adler-32s or CRC-32s, if it
 //! has them. It decodes only: nothing here compresses, and nothing will.
@@ -24,9 +25,8 @@
 //! of what they decode to, 64 MiB each at most, as lzop allows, and
 //! 256 KiB as it writes them. A file filtered, part of a multipart
 //! archive, or compressed otherwise than by LZO1X, and a block that names
-//! a version past 0, as the Linux kernel's `lzo-rle` blocks do, are
-//! [`Unsupported`](Error::Unsupported); anything malformed is
-//! [`Corrupt`](Error::Corrupt).
+//! a version past `lzo-rle`'s, 1, are [`Unsupported`](Error::Unsupported);
+//! anything malformed is [`Corrupt`](Error::Corrupt).
 //!
 //! Its sources are the Linux kernel's description of the LZO1X stream
 //! format, for facts only, and lzop's published layout, checked against

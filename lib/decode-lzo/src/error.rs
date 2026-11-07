@@ -9,7 +9,7 @@ pub enum Error {
     Corrupt,
     /// The stream is well formed, but needs what this decoder does not
     /// do: a method other than LZO1X's, a filter, parts of a multipart
-    /// archive, or a block of a version past 0, as `lzo-rle`'s are.
+    /// archive, or a block of a version past `lzo-rle`'s, 1.
     Unsupported,
 }
 

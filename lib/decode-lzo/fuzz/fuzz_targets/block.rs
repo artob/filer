@@ -2,7 +2,8 @@
 
 //! Raw LZO1X blocks, which must decode as `lzokay-native` decodes them,
 //! into room for as many bytes as the first two say: to the same bytes,
-//! or not at all.
+//! or not at all; but for those that name their version, which it does
+//! not read, and which must only not panic.
 
 #![no_main]
 
@@ -20,5 +21,8 @@ fuzz_target!(|data: &[u8]| {
     let ours = decode_lzo::decode_block(block, &mut output)
         .ok()
         .map(|len| output[..len].to_vec());
-    assert!(ours == common::lzokay(block, max), "disagrees with lzokay-native");
+    assert!(
+        ours == common::lzokay(block, max) || common::names_a_version(block),
+        "disagrees with lzokay-native"
+    );
 });

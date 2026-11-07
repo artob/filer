@@ -135,17 +135,99 @@ fn ends_at_the_end_mark() {
     }
 }
 
+/// Decodes `block`, which names its version, into room for `max` bytes:
+/// `lzokay-native` knows no versions, and is not asked.
+fn versioned(block: &[u8], max: usize) -> Result<Vec<u8>, Error> {
+    let mut output = vec![0; max];
+    decode_block(block, &mut output).map(|len| output[..len].to_vec())
+}
+
+/// A run of `n` zeros, 4 to 2,051, in version 1, with `next` literals,
+/// 0 to 3, after it.
+fn zeros(n: usize, next: u8) -> Vec<u8> {
+    let n = n - 4;
+    vec![0x18 | (n & 7) as u8, 0xFC | next, 0xFF, (n >> 3) as u8]
+}
+
 #[test]
-fn refuses_blocks_that_name_a_version() {
+fn decodes_blocks_that_name_a_version() {
     // A first byte of 17 names the version in the next, given five bytes
-    // or more: version 1, the Linux kernel's `lzo-rle`, with a run of
-    // zeros; or version 0, which only such a block begins so.
-    for version in [1, 0] {
-        let block = [17, version, 0x11, 0, 0];
-        assert_eq!(decode(&block, 10).unwrap_err(), Error::Unsupported);
+    // or more, and instructions follow as at a block's start: version 0,
+    // which only such a block begins so, or 1, the Linux kernel's
+    // `lzo-rle`. Five bytes are the least, an empty block's.
+    for version in [0, 1] {
+        assert_eq!(versioned(&[17, version, 0x11, 0, 0], 0).unwrap(), b"");
+        let block = [&[17, version, 22, b'h', b'e', b'l', b'l', b'o'][..], &END].concat();
+        assert_eq!(versioned(&block, 5).unwrap(), b"hello");
     }
     // Shorter, it is an instruction, which has nothing to copy.
     assert_eq!(decode(&[17, 1, 0, 0], 10).unwrap_err(), Error::Corrupt);
+    // A version past 1 is not this decoder's.
+    for version in [2, 255] {
+        let block = [17, version, 0x11, 0, 0];
+        assert_eq!(versioned(&block, 10).unwrap_err(), Error::Unsupported);
+    }
+}
+
+#[test]
+fn decodes_runs_of_zeros() {
+    // In version 1: `a`, the fewest zeros, `b`, then the most, three
+    // literals after them, 11 zeros more, and 3 bytes from 2 back.
+    let block = [
+        &[17, 1, 18, b'a'][..],
+        &zeros(4, 1),
+        b"b",
+        &zeros(2051, 3),
+        b"xyz",
+        &zeros(11, 0),
+        &[0x40 | 2 << 5, 0],
+        &END,
+    ]
+    .concat();
+    let mut expected = b"a".to_vec();
+    expected.extend_from_slice(&[0; 4]);
+    expected.push(b'b');
+    expected.extend_from_slice(&[0; 2051]);
+    expected.extend_from_slice(b"xyz");
+    expected.extend_from_slice(&[0; 11]);
+    expected.extend_from_slice(&[0; 3]);
+    assert_eq!(versioned(&block, 3000).unwrap(), expected);
+    // Its distance comes before any length's bytes: a first length field
+    // of 0 is the run's own.
+    let block = [&[17, 1, 18, b'a'][..], &[0x18, 0xFC, 0xFF, 1], &END].concat();
+    assert_eq!(versioned(&block, 20).unwrap(), b"a\0\0\0\0\0\0\0\0\0\0\0\0");
+    // No room for the last zero, or no byte of its length.
+    let block = [&[17, 1, 18, b'a'][..], &zeros(8, 0), &END].concat();
+    assert_eq!(versioned(&block, 8).unwrap_err(), Error::Corrupt);
+    let block = [17, 1, 18, b'a', 0x1C, 0xFC, 0xFF];
+    assert_eq!(versioned(&block, 100).unwrap_err(), Error::Corrupt);
+}
+
+#[test]
+fn matches_from_48_kib_back_outside_version_1() {
+    // The same bytes are a match from 49,151 back in a block that names
+    // no version, or version 0: 6 bytes, one literal after.
+    let data: Vec<u8> = (0..50_000_u32).map(|n| (n * 7 / 3) as u8).collect();
+    let mut expected = data.clone();
+    expected.extend_from_slice(&data[50_000 - 49_151..][..6]);
+    expected.push(b'.');
+    let body = [literals(&data), vec![0x1C, 0xFD, 0xFF, b'.'], END.to_vec()].concat();
+    assert_eq!(decode(&body, 60_000).unwrap(), expected);
+    let named = [&[17, 0][..], &body].concat();
+    assert_eq!(versioned(&named, 60_000).unwrap(), expected);
+    // In version 1, they are a run of zeros, and what follows misread:
+    // only a distance of all ones with the 48 KiB bit set is one, and
+    // 32,767 back, or 49,150, is a match still.
+    let named = [&[17, 1][..], &body].concat();
+    assert_ne!(versioned(&named, 60_000).ok(), Some(expected));
+    for (op, word, back) in [(0x14, 0xFFFD_u16, 32_767), (0x1C, 0xFFF9, 49_150)] {
+        let [low, high] = word.to_le_bytes();
+        let block = [&[17, 1][..], &literals(&data), &[op, low, high, b'.'], &END].concat();
+        let mut expected = data.clone();
+        expected.extend_from_slice(&data[50_000 - back..][..6]);
+        expected.push(b'.');
+        assert_eq!(versioned(&block, 60_000).unwrap(), expected, "{back}");
+    }
 }
 
 #[test]

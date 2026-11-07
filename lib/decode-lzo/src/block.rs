@@ -13,16 +13,20 @@ use crate::{Error, corrupt, unsupported};
 /// It refuses what is malformed: a match from before the block's start,
 /// and a block that ends anywhere but at its end mark, a match of 3 bytes
 /// from 16 KiB back. As the Linux kernel does, and lzokay does not, it
-/// refuses bytes after the mark too. A block that begins with 17, and
-/// holds five bytes or more, names its version in its second byte, as
-/// the Linux kernel's `lzo-rle` blocks do, whose version 1 adds an
-/// instruction for runs of zeros; this decoder reads version 0 only.
+/// refuses bytes after the mark too.
+///
+/// A block that begins with 17, and holds five bytes or more, names its
+/// version in its second byte, as the Linux kernel's `lzo-rle` blocks do,
+/// and its instructions follow. Version 1, theirs, adds a run of 4 to
+/// 2,051 zeros, written as a match from 48 KiB less a byte back: its
+/// length's low 3 bits where a match's are, and its high 8 in a byte
+/// after the distance. A block that names no version is of version 0.
 ///
 /// # Errors
 ///
 /// [`Corrupt`](Error::Corrupt) if it is malformed, or decodes to more than
 /// `output` holds; [`Unsupported`](Error::Unsupported) if it names a
-/// version.
+/// version past 1.
 ///
 /// # Examples
 ///
@@ -34,6 +38,11 @@ use crate::{Error, corrupt, unsupported};
 /// let mut output = [0; 32];
 /// let len = decode_block(&block, &mut output)?;
 /// assert_eq!(&output[..len], b"hellohello");
+///
+/// // Version 1: `a`, 8 zeros, and the end mark.
+/// let block = [17, 1, 18, b'a', 0x1C, 0xFC, 0xFF, 0, 0x11, 0, 0];
+/// let len = decode_block(&block, &mut output)?;
+/// assert_eq!(&output[..len], b"a\0\0\0\0\0\0\0\0");
 /// # Ok::<(), decode_lzo::Error>(())
 /// ```
 pub fn decode_block(input: &[u8], output: &mut [u8]) -> Result<usize, Error> {
@@ -58,19 +67,24 @@ struct Block<'a> {
 impl Block<'_> {
     fn decode(&mut self) -> Result<usize, Error> {
         // A first byte of 17, with four or more after it, names the
-        // block's version in the next; no version 0 block is decodable
-        // from one, as the match it would be has nothing to copy.
+        // block's version in the next, as no block that names none could
+        // begin: the match it would be has nothing to copy.
+        let mut version = 0;
         if self.input.len() >= 5 && self.input.first() == Some(&17) {
-            return Err(unsupported());
+            self.at = 1;
+            version = self.byte()?;
+            if version > 1 {
+                return Err(unsupported());
+            }
         }
         // How many literals the last instruction copied, 0 to 3, or 4 for
         // more, which tells what an instruction below 16 means.
         let mut state = 0;
-        // A first byte above 17 is a run of literals alone.
-        if let Some(&first) = self.input.first()
+        // A first instruction above 17 is a run of literals alone.
+        if let Some(&first) = self.input.get(self.at)
             && first > 17
         {
-            self.at = 1;
+            self.at = self.at.saturating_add(1);
             let n = usize::from(first.saturating_sub(17));
             self.literals(n)?;
             state = n.min(4);
@@ -95,6 +109,17 @@ impl Block<'_> {
                     } else {
                         (2, back.saturating_add(1), usize::from(op & 3))
                     }
+                },
+                // In version 1, from 48 KiB less a byte back, a run of
+                // zeros, its distance read before any length's bytes.
+                24..=31 if version == 1 && self.zeros_next() => {
+                    let word = self.word()?;
+                    let high = usize::from(self.byte()?);
+                    let len = (high << 3 | usize::from(op & 7)).saturating_add(4);
+                    self.zeros(len)?;
+                    state = usize::from(word & 3);
+                    self.literals(state)?;
+                    continue;
                 },
                 // From 16 KiB to 48 KiB back; from exactly 16 KiB, the
                 // end mark.
@@ -132,6 +157,14 @@ impl Block<'_> {
             state = next;
             self.literals(state)?;
         }
+    }
+
+    /// Whether the next two bytes are a distance whose bits are all ones,
+    /// which in version 1 makes a run of zeros of a match from 48 KiB
+    /// back.
+    fn zeros_next(&self) -> bool {
+        let next = self.input.get(self.at..self.at.saturating_add(2));
+        matches!(next, Some(&[low, 0xFF]) if low & 0xFC == 0xFC)
     }
 
     fn byte(&mut self) -> Result<u8, Error> {
@@ -173,6 +206,17 @@ impl Block<'_> {
         };
         into.copy_from_slice(from);
         (self.at, self.pos) = (end, to);
+        Ok(())
+    }
+
+    /// Writes `n` zeros.
+    fn zeros(&mut self, n: usize) -> Result<(), Error> {
+        let to = self.pos.saturating_add(n);
+        self.output
+            .get_mut(self.pos..to)
+            .ok_or_else(corrupt)?
+            .fill(0);
+        self.pos = to;
         Ok(())
     }
 

@@ -45,6 +45,11 @@ so any release may break compatibility.
   dependencies', which lets the instructions be chosen at run time.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
+- `decode-lzo`: `decode_block` decodes the Linux kernel's `lzo-rle`
+  blocks, which zram and F2FS may write: LZO1X's version 1, which a block
+  names after a first byte of 17, and whose runs of 4 to 2,051 zeros take
+  the place of matches from 48 KiB less a byte back. A version past 1
+  is still `Unsupported`.
 ### Changed
 - `compute-crc`: the tables take sixteen bytes at a time, not eight, the
   bytes that wait on the register last, and the rest by eight, four, two,
