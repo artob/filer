@@ -590,6 +590,20 @@ crate's name until its first code, which moves it to `lib/`.
   use, whose version 1 adds an instruction for runs of zeros. Done when
   `decode_block` decodes them, from the kernel's description, checked
   against blocks the kernel's `lzo-rle` writes.
+- [ ] **DEC-19: zstd's speed.** `decode-zstd` decodes Canterbury at
+  0.27 to 0.36 times libzstd's MB/s, whole and in pieces, on Zen 1
+  (2026-11-07, at 9c5f5fc), though 1.15 to 1.22 times `ruzstd`'s; the
+  rest of the corpus's figures follow in its `BENCH.md` (BENCH-07). Done
+  when a profile shows where the time goes, and the decoder is within
+  1.5 times libzstd's over the corpus, or its crate's docs say why not.
+- [ ] **DEC-20: zstd's window, whole.** Decoding a whole stream into a
+  buffer that holds it, `decode-zstd` still allocates the frame's
+  window, as libzstd does not, decoding into the buffer: a peak of 24.9
+  times libzstd's at the median, up to 128 MiB for `librustc_driver.so`
+  at level 22 (2026-11-07, at 9c5f5fc); in pieces, about the same as
+  libzstd's. Done when a decoder given room for a frame's whole content
+  copies matches from its output, holding no window of its own, and
+  `memory` shows it whole within twice libzstd's peak.
 - [ ] **DEC-13: Corpora of real files.** `decode-deflate`, `decode-lzma`,
   `decode-xz`, and `decode-zstd` each have an ignored `decodes_a_corpus`
   test over the directory `DECODE_<CODEC>_CORPUS` names, never run in
