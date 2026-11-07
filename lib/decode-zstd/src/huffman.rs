@@ -5,7 +5,6 @@
 
 use super::{bits::Backward, corrupt, fse::Table};
 use crate::Error;
-use alloc::{vec, vec::Vec};
 
 /// The longest a code may be, and so the heaviest a weight.
 const MAX_BITS: u8 = 11;
@@ -13,6 +12,9 @@ const MAX_BITS: u8 = 11;
 /// The most weights a description lists: of each byte but the last,
 /// whose weight is deduced from the others.
 const MAX_WEIGHTS: usize = 255;
+
+/// Room for one more weight than may be listed, to tell too many.
+const ROOM: usize = 256;
 
 /// What a stream's next bits decode to: a symbol, and the length of its
 /// code.
@@ -22,12 +24,16 @@ struct Code {
     bits: u8,
 }
 
+/// The most codes a table indexes: by the longest code's bits.
+const MAX_CODES: usize = 1 << MAX_BITS;
+
 /// A decoding table, indexed by a stream's next `bits` bits, the length of
-/// the longest code.
+/// the longest code: held in an array of the most any table takes, so
+/// that it is never allocated.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Huffman {
     bits: u8,
-    codes: Vec<Code>,
+    codes: [Code; MAX_CODES],
 }
 
 impl Huffman {
@@ -35,25 +41,27 @@ impl Huffman {
     /// `bytes`, and returns its table and the bytes it took.
     pub(super) fn read(bytes: &[u8]) -> Result<(Self, usize), Error> {
         let (&header, rest) = bytes.split_first().ok_or_else(corrupt)?;
-        let mut weights = Vec::with_capacity(MAX_WEIGHTS.saturating_add(1));
-        let len = match header.checked_sub(127) {
+        let mut all = [0_u8; ROOM];
+        let (len, count) = match header.checked_sub(127) {
             // Coded with FSE, in `header` bytes.
             None | Some(0) => {
                 let len = usize::from(header);
-                fse(rest.get(..len).ok_or_else(corrupt)?, &mut weights)?;
-                len
+                (len, fse(rest.get(..len).ok_or_else(corrupt)?, &mut all)?)
             },
-            // Or four bits each, `header - 127` of them.
+            // Or four bits each, `header - 127` of them, at most 128.
             Some(count) => {
                 let count = usize::from(count);
                 let len = count.div_ceil(2);
                 let packed = rest.get(..len).ok_or_else(corrupt)?;
-                let all = packed.iter().flat_map(|&byte| [byte >> 4, byte & 0x0F]);
-                weights.extend(all.take(count));
-                len
+                let weights = packed.iter().flat_map(|&byte| [byte >> 4, byte & 0x0F]);
+                for (slot, weight) in all.iter_mut().zip(weights.take(count)) {
+                    *slot = weight;
+                }
+                (len, count)
             },
         };
-        Ok((Self::new(&weights)?, len.saturating_add(1)))
+        let weights = all.get(..count).ok_or_else(corrupt)?;
+        Ok((Self::new(weights)?, len.saturating_add(1)))
     }
 
     /// Returns the table of codes of `weights`, each byte's in turn, but
@@ -87,7 +95,7 @@ impl Huffman {
         for start in starts.iter_mut().skip(1) {
             (*start, at) = (at, at.saturating_add(*start));
         }
-        let mut codes = vec![Code::default(); usize::try_from(whole).map_err(|_| corrupt())?];
+        let mut codes = [Code::default(); MAX_CODES];
         for (symbol, weight) in weights().filter(|&(_, weight)| weight > 0) {
             let start = starts.get_mut(usize::from(weight)).ok_or_else(corrupt)?;
             let from = usize::try_from(*start).map_err(|_| corrupt())?;
@@ -118,27 +126,30 @@ impl Huffman {
 /// `weights`: a table's description, and a stream that two states read in
 /// turn, until one's next state would read past its start, after which
 /// the other's symbol is the last.
-fn fse(bytes: &[u8], weights: &mut Vec<u8>) -> Result<(), Error> {
+fn fse(bytes: &[u8], weights: &mut [u8; ROOM]) -> Result<usize, Error> {
     let (table, used) = Table::read(bytes, 6, usize::from(MAX_BITS).saturating_add(1))?;
     let mut bits = Backward::new(bytes.get(used..).unwrap_or_default())?;
     let mut states = [table.start(&mut bits), table.start(&mut bits)];
+    let mut len = 0_usize;
     for turn in [0, 1].into_iter().cycle() {
-        if weights.len() >= MAX_WEIGHTS {
+        if len >= MAX_WEIGHTS {
             return Err(corrupt());
         }
         let state = states.get_mut(turn).ok_or_else(corrupt)?;
         let entry = table.entry(*state);
-        weights.push(entry.symbol);
+        *weights.get_mut(len).ok_or_else(corrupt)? = entry.symbol;
+        len = len.saturating_add(1);
         *state = Table::next(entry, &mut bits);
         if bits.overflowed() {
             let other = states
                 .get(1_usize.saturating_sub(turn))
                 .ok_or_else(corrupt)?;
-            weights.push(table.entry(*other).symbol);
+            *weights.get_mut(len).ok_or_else(corrupt)? = table.entry(*other).symbol;
+            len = len.saturating_add(1);
             break;
         }
     }
-    Ok(())
+    Ok(len)
 }
 
 #[cfg(test)]

@@ -269,8 +269,12 @@ fn copies_only_the_window_into_checkpoints() {
     let stream = include_bytes!("data/numbers.zst");
     let mut decoder = Decoder::new();
     let mut output = vec![0; 30_000];
-    decoder.decode(&stream[..3000], &mut output).unwrap();
+    // Past its header, its tables and no window yet.
+    decoder.decode(&stream[..6], &mut output).unwrap();
+    let empty = decoder.footprint();
+    decoder.decode(&stream[6..3000], &mut output).unwrap();
     let checkpoint = decoder.checkpoint().unwrap();
     assert!(checkpoint.footprint() < decoder.footprint());
-    assert!(checkpoint.footprint() < 4096, "{}", checkpoint.footprint());
+    let window = checkpoint.footprint() - empty;
+    assert!(window <= 1024, "{window}");
 }

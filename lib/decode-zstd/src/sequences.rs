@@ -5,9 +5,13 @@
 //! and their execution (§3.1.1.4), which copies literals and then earlier
 //! bytes, from as far back as the window reaches.
 
-use super::{bits::Backward, corrupt, fse::Table};
+use super::{
+    bits::Backward,
+    corrupt,
+    fse::Table,
+    window::{Cursor, Window},
+};
 use crate::Error;
-use alloc::vec::Vec;
 
 /// Each literal length code's baseline and extra bits (Table 16).
 const LITERAL_LENGTHS: [(u32, u8); 36] = [
@@ -178,64 +182,36 @@ impl Default for Codes {
     }
 }
 
-/// Where a block is being decoded to: the end of a frame's window, of
-/// which it may copy back `reach` bytes, up to `end`, the most it may
-/// decode to.
-struct Output<'a> {
-    window: &'a mut Vec<u8>,
-    reach: usize,
-    end: usize,
-}
-
-impl Output<'_> {
-    /// Appends `bytes`.
-    fn literals(&mut self, bytes: &[u8]) -> Result<(), Error> {
-        if self.window.len().saturating_add(bytes.len()) > self.end {
-            return Err(corrupt());
-        }
-        self.window.extend_from_slice(bytes);
-        Ok(())
-    }
-
-    /// Appends `len` bytes copied from `offset` back, which they may
-    /// overlap, repeating what they copy.
-    fn copy(&mut self, offset: usize, len: usize) -> Result<(), Error> {
-        let at = self.window.len();
-        let from = at.checked_sub(offset).filter(|_| offset <= self.reach);
-        let from = from.ok_or_else(corrupt)?;
-        if at.saturating_add(len) > self.end {
-            return Err(corrupt());
-        }
-        let mut left = len;
-        while left > 0 {
-            let n = left.min(self.window.len().saturating_sub(from));
-            self.window.extend_from_within(from..from.saturating_add(n));
-            left = left.saturating_sub(n);
-        }
-        Ok(())
-    }
-}
-
 /// Decodes the sequences `section` and runs them with `literals` onto
-/// `window`, of whose bytes they may copy from `reach` back, decoding to
-/// at most `max` bytes.
+/// `window`, decoding to at most `max` bytes.
 pub(super) fn decode(
     section: &[u8],
     codes: &mut Codes,
     literals: &[u8],
-    window: &mut Vec<u8>,
-    reach: usize,
+    window: &mut Window,
     max: usize,
 ) -> Result<(), Error> {
-    let end = window.len().saturating_add(max);
-    let mut output = Output { window, reach, end };
+    let mut cursor = window.cursor(max);
+    run(section, codes, literals, &mut cursor)?;
+    let end = cursor.end;
+    window.advance(end);
+    Ok(())
+}
+
+/// Runs the sequences `section` with `literals` onto `output`.
+fn run(
+    section: &[u8],
+    codes: &mut Codes,
+    literals: &[u8],
+    output: &mut Cursor<'_>,
+) -> Result<(), Error> {
     let (count, rest) = count(section)?;
     if count == 0 {
         // The section ends with its count, and the block with literals.
         if !rest.is_empty() {
             return Err(corrupt());
         }
-        return output.literals(literals);
+        return output.extend(literals);
     }
     let (&modes, mut rest) = rest.split_first().ok_or_else(corrupt)?;
     if modes & 0x03 != 0 {
@@ -266,6 +242,8 @@ pub(super) fn decode(
         matches.start(&mut bits),
     ];
     let mut literals = literals;
+    // The repeat offsets, held apart for the block, in registers.
+    let mut repeats = codes.repeats;
     for left in (0..count).rev() {
         let [length, offset, matched] = states;
         let (length, offset, matched) = (
@@ -283,17 +261,17 @@ pub(super) fn decode(
             let matched = Table::next(matched, &mut bits);
             states = [length, Table::next(offset, &mut bits), matched];
         }
-        let (copied, rest) = literals.split_at_checked(literal_len).ok_or_else(corrupt)?;
-        output.literals(copied)?;
-        literals = rest;
-        let offset = resolve(value, literal_len, &mut codes.repeats)?;
+        output.literals(literals, literal_len)?;
+        literals = literals.get(literal_len..).ok_or_else(corrupt)?;
+        let offset = resolve(value, literal_len, &mut repeats)?;
         output.copy(offset, match_len)?;
     }
     if !bits.done() {
         return Err(corrupt());
     }
+    codes.repeats = repeats;
     // The literals left over end the block.
-    output.literals(literals)
+    output.extend(literals)
 }
 
 impl Kind {
@@ -615,22 +593,26 @@ mod tests {
 
     #[test]
     fn copies_overlapping_what_it_repeats() {
-        let mut window = b"abc".to_vec();
-        let mut output = Output {
-            window: &mut window,
-            reach: 1 << 10,
-            end: 20,
-        };
+        let mut window = Window::new(1 << 10, 32, None);
+        window.prepare().unwrap();
+        window.extend(b"abc").unwrap();
+        let mut output = window.cursor(10);
         output.copy(2, 7).unwrap();
         assert!(output.copy(11, 1).is_err());
         output.copy(1, 3).unwrap();
-        assert!(output.copy(1, 8).is_err());
-        assert_eq!(window, b"abcbcbcbcbbbb");
-        let mut short = Output {
-            window: &mut b"abcd".to_vec(),
-            reach: 2,
-            end: 99,
-        };
-        assert!(short.copy(3, 1).is_err());
+        assert!(output.copy(1, 1).is_err());
+        let end = output.end;
+        window.advance(end);
+        assert_eq!(window.since(0), b"abcbcbcbcbbbb");
+        // Farther back than the window reaches.
+        let mut short = Window::new(2, 2, None);
+        short.prepare().unwrap();
+        short.extend(b"ab").unwrap();
+        short.prepare().unwrap();
+        short.extend(b"cd").unwrap();
+        short.prepare().unwrap();
+        let mut output = short.cursor(2);
+        assert!(output.copy(3, 1).is_err());
+        output.copy(2, 1).unwrap();
     }
 }

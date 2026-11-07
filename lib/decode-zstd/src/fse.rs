@@ -9,7 +9,6 @@ use super::{
     corrupt,
 };
 use crate::Error;
-use alloc::{vec, vec::Vec};
 
 /// A state of a decoding table: the symbol it decodes, and how to find
 /// the next, from `bits` more read and added to `base`.
@@ -20,11 +19,19 @@ pub(super) struct Entry {
     pub(super) base: u16,
 }
 
-/// A decoding table: one entry per state, `1 << log` of them.
+/// The finest accuracy of any table, as a log, and so its most states.
+const MAX_LOG: u8 = 9;
+const MAX_STATES: usize = 1 << MAX_LOG;
+
+/// The most symbols of any distribution: those of match lengths.
+const MAX_SYMBOLS: usize = 53;
+
+/// A decoding table: one entry per state, `1 << log` of them, held in an
+/// array of the most any table takes, so that it is never allocated.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Table {
     log: u8,
-    entries: Vec<Entry>,
+    entries: [Entry; MAX_STATES],
 }
 
 impl Table {
@@ -35,17 +42,23 @@ impl Table {
         let mut bits = Forward::new(bytes);
         let log = u8::try_from(bits.read(4)?).map_err(|_| corrupt())?;
         let log = log.saturating_add(5);
-        if log > max_log {
+        if log > max_log.min(MAX_LOG) {
             return Err(corrupt());
         }
         // The probability points left to distribute; each symbol's is
         // read in as few bits as the values it may still take need.
         let mut left = 1_u32.checked_shl(u32::from(log)).ok_or_else(corrupt)?;
-        let mut counts = Vec::with_capacity(symbols);
-        while left > 0 {
-            if counts.len() >= symbols {
+        let symbols = symbols.min(MAX_SYMBOLS);
+        let (mut all, mut len) = ([0_i16; MAX_SYMBOLS], 0_usize);
+        let mut push = |count: i16| -> Result<(), Error> {
+            if len >= symbols {
                 return Err(corrupt());
             }
+            *all.get_mut(len).ok_or_else(corrupt)? = count;
+            len = len.saturating_add(1);
+            Ok(())
+        };
+        while left > 0 {
             let max = left.saturating_add(1);
             let width = u32::BITS.saturating_sub(max.leading_zeros());
             let short = mask(width).saturating_sub(max);
@@ -64,16 +77,13 @@ impl Table {
             left = left
                 .checked_sub(u32::from(count.unsigned_abs()))
                 .ok_or_else(corrupt)?;
-            counts.push(count);
+            push(count)?;
             // Zeros are followed by how many more follow, in twos.
             if count == 0 {
                 loop {
                     let repeat = bits.read(2)?;
                     for _ in 0..repeat {
-                        if counts.len() >= symbols {
-                            return Err(corrupt());
-                        }
-                        counts.push(0);
+                        push(0)?;
                     }
                     if repeat < 3 {
                         break;
@@ -81,7 +91,8 @@ impl Table {
                 }
             }
         }
-        Ok((Self::new(&counts, log)?, bits.bytes()))
+        let counts = all.get(..len).ok_or_else(corrupt)?;
+        Ok((Self::new(counts, log)?, bits.bytes()))
     }
 
     /// Returns the table of a distribution: each symbol's count of the
@@ -92,11 +103,11 @@ impl Table {
             -1.. => total.checked_add(u32::from(count.unsigned_abs())),
             _ => None,
         });
-        if total != Some(whole) {
+        if total != Some(whole) || log > MAX_LOG || counts.len() > MAX_SYMBOLS {
             return Err(corrupt());
         }
         let size = usize::try_from(whole).map_err(|_| corrupt())?;
-        let mut entries = vec![Entry::default(); size];
+        let mut entries = [Entry::default(); MAX_STATES];
         // Symbols of less than 1 take the last states, from the end.
         let mut high = size;
         for (symbol, _) in counts.iter().enumerate().filter(|(_, count)| **count == -1) {
@@ -125,11 +136,11 @@ impl Table {
         }
         // Each symbol's states, in order, take shares of the next state's
         // range: the first, twice those of the others, a bit more.
-        let mut next: Vec<u32> = counts
-            .iter()
-            .map(|&count| u32::from(count.unsigned_abs()))
-            .collect();
-        for entry in &mut entries {
+        let mut next = [0_u32; MAX_SYMBOLS];
+        for (next, &count) in next.iter_mut().zip(counts) {
+            *next = u32::from(count.unsigned_abs());
+        }
+        for entry in entries.iter_mut().take(size) {
             let x = next
                 .get_mut(usize::from(entry.symbol))
                 .ok_or_else(corrupt)?;
@@ -144,15 +155,11 @@ impl Table {
 
     /// Returns the table of a single symbol, which every state decodes.
     pub(super) fn rle(symbol: u8) -> Self {
-        let entry = Entry {
-            symbol,
-            bits: 0,
-            base: 0,
-        };
-        Self {
-            log: 0,
-            entries: vec![entry],
+        let mut entries = [Entry::default(); MAX_STATES];
+        if let Some(entry) = entries.first_mut() {
+            entry.symbol = symbol;
         }
+        Self { log: 0, entries }
     }
 
     /// Returns the state that `bits` begin with.
@@ -182,6 +189,7 @@ fn mask(n: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     /// RFC 8878 §4.1.1's example, a symbol of 5 states of 128: their
     /// bits and bases, from Table 21, in the order of the states.
@@ -191,6 +199,7 @@ mod tests {
         let fives: Vec<_> = table
             .entries
             .iter()
+            .take(1 << table.log)
             .filter(|entry| entry.symbol == 0)
             .map(|entry| (entry.bits, entry.base))
             .collect();
@@ -205,7 +214,10 @@ mod tests {
         let bytes = u32::to_le_bytes(19 << 4 | 7 << 9 | 1 << 12);
         let (table, used) = Table::read(&bytes, 6, 2).unwrap();
         assert_eq!(used, 2);
-        let states = |symbol| table.entries.iter().filter(|e| e.symbol == symbol).count();
+        let states = |symbol| {
+            let entries = table.entries.iter().take(1 << table.log);
+            entries.filter(|e| e.symbol == symbol).count()
+        };
         assert_eq!((states(0), states(1)), (18, 14));
         // Too fine, too many symbols, and too short.
         assert!(Table::read(&bytes, 4, 2).is_err());

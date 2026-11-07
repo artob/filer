@@ -54,6 +54,11 @@ so any release may break compatibility.
   in, not up to 4 MiB, and keeps its buffers from block to block: a
   stream at level 9 takes at most 4.5 MiB, not 11, libbzip2's 3.6 and a
   block's packed bytes, in at most 22 allocations, not 48,000.
+- `decode-zstd`: its window is a buffer of the window and two blocks,
+  which decoding goes round, copying few bytes at once; and its tables
+  are arrays, allocated once a frame: in pieces it holds what libzstd
+  does, 4.4 MiB at level 9, not 16.5, in at most 13 allocations a
+  stream, not 29,000, and decodes 2% to 19% faster.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

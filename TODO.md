@@ -607,13 +607,6 @@ crate's name until its first code, which moves it to `lib/`.
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse
   malformed input, or a note here of why it cannot be reached.
-- [ ] **DEC-18: `decode-zstd`'s memory.** By the same pass, in pieces
-  of 64 KiB, it holds 1.65 times what libzstd does at the median, and
-  up to 3.8 times (16.7 MiB at level 9 where libzstd holds 4.6), in up
-  to 29,000 allocations a stream where libzstd makes 2; decoding into a
-  buffer whole, libzstd holds 94 KiB, as the buffer is its window, and
-  ours up to 256 MiB. Done when it holds the window and a block,
-  allocates a few times a stream, and the harness shows it.
 
 ## Virtual drivers
 

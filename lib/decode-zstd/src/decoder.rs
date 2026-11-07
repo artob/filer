@@ -4,8 +4,9 @@ use crate::{
     Error,
     block::{self, Tables},
     corrupt, unsupported,
+    window::Window,
 };
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use compute_xxhash::Xxh64;
 use core::ops::RangeInclusive;
 
@@ -116,60 +117,6 @@ impl Header {
     }
 }
 
-/// What a frame has decoded: at least its window of the latest bytes,
-/// which blocks copy from, and those not yet produced.
-#[derive(Clone)]
-struct Window {
-    bytes: Vec<u8>,
-    /// How many of `bytes` have been produced.
-    produced: usize,
-    size: usize,
-}
-
-impl Window {
-    /// Drops the bytes produced and further back than the window, once
-    /// they are as many again, so that each byte moves once at most.
-    fn trim(&mut self) {
-        let excess = self.bytes.len().saturating_sub(self.size);
-        if excess >= self.size.max(MAX_BLOCK) {
-            let excess = excess.min(self.produced);
-            self.bytes.drain(..excess);
-            self.produced = self.produced.saturating_sub(excess);
-        }
-    }
-
-    /// Produces what it can into `output`, and returns how much.
-    fn produce(&mut self, output: &mut [u8]) -> usize {
-        let pending = self.bytes.get(self.produced..).unwrap_or_default();
-        let n = pending.len().min(output.len());
-        if let (Some(to), Some(from)) = (output.get_mut(..n), pending.get(..n)) {
-            to.copy_from_slice(from);
-        }
-        self.produced = self.produced.saturating_add(n);
-        n
-    }
-
-    fn pending(&self) -> bool {
-        self.produced < self.bytes.len()
-    }
-
-    /// Returns a copy of what later blocks may copy from or are yet to
-    /// produce: the window's size of the latest bytes, or more if more are
-    /// pending.
-    fn copy(&self) -> Self {
-        let dropped = self
-            .bytes
-            .len()
-            .saturating_sub(self.size)
-            .min(self.produced);
-        Self {
-            bytes: self.bytes.get(dropped..).unwrap_or_default().to_vec(),
-            produced: self.produced.saturating_sub(dropped),
-            size: self.size,
-        }
-    }
-}
-
 /// A frame being decoded.
 struct Frame {
     header: Header,
@@ -186,7 +133,7 @@ impl Frame {
     fn copy(&self) -> Self {
         Self {
             header: self.header,
-            window: self.window.copy(),
+            window: self.window.copy_state(),
             tables: self.tables.clone(),
             hash: self.hash.clone(),
             decoded: self.decoded,
@@ -214,8 +161,9 @@ enum State {
 ///
 /// It gathers each frame header and block whole before it decodes it,
 /// unless the input holds it whole, so it holds at most a block of packed
-/// bytes; and of what they decode to, the frame's window, as much again
-/// or 128 KiB if more, and a block. A frame whose window passes 128 MiB,
+/// bytes; and of what they decode to, the frame's window and two blocks,
+/// in a buffer that decoding goes round, allocated as it fills; and its
+/// tables, some 10 KiB, allocated once a frame. A frame whose window passes 128 MiB,
 /// the most zstd itself decodes by default, or that needs a dictionary
 /// is [`Unsupported`](Error::Unsupported). What follows the last frame
 /// must be another, as zstd requires.
@@ -243,7 +191,8 @@ pub struct Decoder {
     /// What a block's literals decode to, before its sequences run.
     literals: Vec<u8>,
     state: State,
-    frame: Option<Frame>,
+    /// The frame in progress, on the heap, as its tables take some 10 KiB.
+    frame: Option<Box<Frame>>,
     /// The frames decoded whole, skippable ones included.
     frames: u64,
 }
@@ -330,7 +279,7 @@ impl Decoder {
     pub fn checkpoint(&self) -> Option<Self> {
         Some(Self {
             state: self.state,
-            frame: self.frame.as_ref().map(Frame::copy),
+            frame: self.frame.as_ref().map(|frame| Box::new(frame.copy())),
             frames: self.frames,
             ..Self::new()
         })
@@ -344,7 +293,7 @@ impl Decoder {
         let window = self
             .frame
             .as_ref()
-            .map_or(0, |frame| frame.window.bytes.capacity());
+            .map_or(0, |frame| frame.window.footprint());
         size_of::<Self>()
             .saturating_add(size_of::<Frame>())
             .saturating_add(window)
@@ -461,17 +410,17 @@ impl Decoder {
             return Ok(());
         }
         let header = Header::parse(unit)?;
-        self.frame = Some(Frame {
+        self.frame = Some(Box::new(Frame {
             header,
-            window: Window {
-                bytes: Vec::new(),
-                produced: 0,
-                size: header.window,
-            },
+            window: Window::new(
+                header.window,
+                header.max_block(),
+                header.size.and_then(|size| usize::try_from(size).ok()),
+            ),
             tables: Tables::default(),
             hash: Xxh64::new(0),
             decoded: 0,
-        });
+        }));
         self.state = State::Block;
         Ok(())
     }
@@ -491,21 +440,21 @@ impl Decoder {
             (content, &[0; 4])
         };
         let window = &mut frame.window;
-        window.trim();
-        let start = window.bytes.len();
+        window.prepare()?;
+        let start = window.end();
         match (header >> 1) & 0x03 {
-            0 => window.bytes.extend_from_slice(content),
+            0 => window.extend(content)?,
             1 => {
                 let byte = content.first().copied().ok_or_else(corrupt)?;
-                window.bytes.resize(start.saturating_add(size), byte);
+                window.fill(byte, size)?;
             },
             _ => {
-                let (reach, max) = (frame.header.window, frame.header.max_block());
+                let max = frame.header.max_block();
                 let (tables, scratch) = (&mut frame.tables, &mut self.literals);
-                block::decode(content, tables, scratch, &mut window.bytes, reach, max)?;
+                block::decode(content, tables, scratch, window, max)?;
             },
         }
-        let block = window.bytes.get(start..).unwrap_or_default();
+        let block = window.since(start);
         frame.hash.update(block);
         let n = u64::try_from(block.len()).unwrap_or(u64::MAX);
         frame.decoded = frame.decoded.saturating_add(n);
@@ -689,27 +638,5 @@ mod tests {
         stream[4] = 0x40;
         stream.splice(6..6, [44, 0]);
         assert_eq!(decode(&stream).unwrap(), data);
-    }
-
-    #[test]
-    fn trims_the_window_once_it_doubles() {
-        let mut window = Window {
-            bytes: vec![1; 300 * 1024],
-            produced: 300 * 1024,
-            size: 64 * 1024,
-        };
-        window.trim();
-        assert_eq!(
-            (window.bytes.len(), window.produced),
-            (64 * 1024, 64 * 1024)
-        );
-        // Not until it holds the most a block holds past the window, and
-        // never what is yet to be produced.
-        window.bytes.resize(191 * 1024, 2);
-        window.trim();
-        assert_eq!(window.bytes.len(), 191 * 1024);
-        window.bytes.resize(250 * 1024, 2);
-        window.trim();
-        assert_eq!((window.bytes.len(), window.produced), (186 * 1024, 0));
     }
 }

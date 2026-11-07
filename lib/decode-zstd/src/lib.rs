@@ -20,8 +20,8 @@
 //! Streams are untrusted input. Nothing in this crate may panic, loop
 //! without end, or allocate without bound on any input, which its root
 //! denies by lint: it holds at most a block of packed bytes, 128 KiB, and
-//! of decoded bytes the frame's window, as much again or 128 KiB if more,
-//! and a block. A frame whose window passes 128 MiB, the most zstd itself
+//! of decoded bytes the frame's window and two blocks, in a buffer that
+//! decoding goes round, allocated as it fills. A frame whose window passes 128 MiB, the most zstd itself
 //! decodes by default, or that needs a dictionary is
 //! [`Unsupported`](Error::Unsupported); anything malformed, or that zstd
 //! itself refuses, is [`Corrupt`](Error::Corrupt).
@@ -86,6 +86,7 @@ mod fse;
 mod huffman;
 mod literals;
 mod sequences;
+mod window;
 
 mod decoder;
 pub use decoder::*;
