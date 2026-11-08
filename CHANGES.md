@@ -82,6 +82,12 @@ so any release may break compatibility.
   frames with a checksum are hashed: on Apple M4, Canterbury, packed four
   ways, decodes at 0.82 times `lz4_flex`'s speed, not 0.27. `decode_block`
   may overwrite up to 16 bytes of its output past what it decodes to.
+- `decode-lzo`: blocks decode with their place in locals, not a struct,
+  advanced by wrapping additions, and short literals and matches copy 16
+  or 8 bytes at once: on Apple M4, Canterbury in blocks of 128 KiB
+  decodes at 1.40 times liblzo2's speed at LZO1X-1, not 0.60, and 1.54
+  times at LZO1X-999, not 0.69. `decode_block` may overwrite up to 16
+  bytes of its output past what it decodes to.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

@@ -96,25 +96,35 @@ fn decodes_each_instruction() {
 
 #[test]
 fn copies_matches_that_overlap() {
-    // Offsets of 1, 2, 3, and 7, each copying 100 bytes, and a literal.
-    for offset in [1_u8, 2, 3, 7] {
-        let literals: Vec<u8> = (b'a'..b'a' + offset).collect();
-        let mut block = vec![17 + offset];
-        block.extend_from_slice(&literals);
-        let back = u16::from(offset - 1) << 2 | 1;
-        block.extend_from_slice(&[0x20, 100 - 33]);
-        block.extend_from_slice(&back.to_le_bytes());
-        block.push(b'.');
-        block.extend_from_slice(&END);
-        let decoded = decode(&block, 1000).unwrap();
-        let expected: Vec<u8> = literals
-            .iter()
-            .copied()
-            .cycle()
-            .take(usize::from(offset) + 100)
-            .chain(*b".")
-            .collect();
-        assert_eq!(decoded, expected, "{offset}");
+    // Each offset from 1 to 20, past as many literals, copying lengths on
+    // either side of what is copied 8 and 16 bytes at a time, from within
+    // 16 KiB, then a literal, into room for exactly what it decodes to,
+    // and into more.
+    for offset in 1..=20_u8 {
+        for len in [3, 4, 8, 15, 16, 17, 18, 19, 33, 64, 65, 100] {
+            let literals: Vec<u8> = (b'a'..b'a' + offset).collect();
+            let mut block = vec![17 + offset];
+            block.extend_from_slice(&literals);
+            match len - 2 {
+                field @ 1..=31 => block.push(0x20 | field as u8),
+                more => block.extend_from_slice(&[0x20, (more - 31) as u8]),
+            }
+            let back = u16::from(offset - 1) << 2 | 1;
+            block.extend_from_slice(&back.to_le_bytes());
+            block.push(b'.');
+            block.extend_from_slice(&END);
+            let expected: Vec<u8> = literals
+                .iter()
+                .copied()
+                .cycle()
+                .take(usize::from(offset) + len)
+                .chain(*b".")
+                .collect();
+            for room in [expected.len(), expected.len() + 64] {
+                let decoded = decode(&block, room).unwrap();
+                assert_eq!(decoded, expected, "{offset}, {len}, {room}");
+            }
+        }
     }
 }
 
