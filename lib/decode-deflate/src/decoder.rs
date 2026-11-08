@@ -254,10 +254,13 @@ impl Bits {
         self.count |= 56;
     }
 
-    /// Reads past the next `n` bits, which it holds.
+    /// Reads past the next `n` bits, which it holds: every caller checks
+    /// `count` first, or takes a code that a lookup found it holds. So
+    /// `count` never wraps, and wrapping, not saturating, keeps it off the
+    /// chain from code to code.
     fn consume(&mut self, n: u32) {
         self.value = self.value.wrapping_shr(n);
-        self.count = self.count.saturating_sub(n);
+        self.count = self.count.wrapping_sub(n);
     }
 
     /// Reads the next `n` bits, up to 32, which it holds, as a number.
@@ -911,14 +914,23 @@ fn fast(
         if kind == u32::from(LITERAL) {
             [*buf.get_mut(at.end).ok_or_else(corrupt)?, ..] = value.to_le_bytes();
             at.end = at.end.wrapping_add(1);
-            // A second code needs no refill, leaving 26 bits at least.
+            // A second code needs no refill, leaving 26 bits at least, and
+            // after a second literal, a third, as a length code and its
+            // extra bits take 20 at most.
             let n;
             (value, kind, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
             at.bits.consume(n);
             if kind == u32::from(LITERAL) {
                 [*buf.get_mut(at.end).ok_or_else(corrupt)?, ..] = value.to_le_bytes();
                 at.end = at.end.wrapping_add(1);
-                continue;
+                let n;
+                (value, kind, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
+                at.bits.consume(n);
+                if kind == u32::from(LITERAL) {
+                    [*buf.get_mut(at.end).ok_or_else(corrupt)?, ..] = value.to_le_bytes();
+                    at.end = at.end.wrapping_add(1);
+                    continue;
+                }
             }
         }
         if kind == u32::from(END) {
