@@ -594,15 +594,20 @@ crate's name until its first code, which moves it to `lib/`.
   at 0.27 to 0.36 times libzstd's MB/s, whole and in pieces, on Zen 1
   (2026-11-07, at 9c5f5fc). A profile on Apple M4 found the time in
   reading bits, in Huffman-coded literals, and in hashing frames without
-  a checksum; it now decodes Canterbury there at 0.68 to 0.71 times, at
-  every level. On Zen 1, at `69effbb`, the corpus whole, by the geometric
-  mean of its files, at 0.56 times at level 1 to 0.64 at 19, its least
-  `silesia/x-ray` at level 1, 0.38; built for BMI2, no faster. `perf`
-  there finds 12% in `shorts`' store, the copies 16 to 31 bytes back
-  reading what the last just wrote, which Zen 1 may not forward; 6% in
-  short literals; and 11% in libc's `memcpy` (2026-11-08). Done when
-  comet's figures, over the corpus, are within 1.5 times libzstd's, or
-  its crate's docs say why not.
+  a checksum; it now decodes Canterbury there at 0.74 to 0.77 times. On
+  Zen 1, `perf` found 88% of `silesia/x-ray`'s time at level 1 in four
+  Huffman streams, decoded five codes of one, then of the next, which
+  now interleave a code at a time; and twice libzstd's instructions,
+  which an 11-bit table, gathered stores, and copies inline trim. At
+  `89cf564` and a shift less, by the geometric mean of the corpus,
+  synthetic inputs included, warm, by best of runs: 0.645 times at level
+  1, 0.660 at 3, 0.661 at 9, and 0.670 at 19; the least, 0.55 to 0.59.
+  Sequences now take 53% to 66% of the time on text, in bounds checks
+  and spills more than in any one step; tried and dropped, as no faster
+  on Zen 1: running them on the marked reader (and 8% slower on M4), and
+  reading short matches whole before writing them (2026-11-08). Done
+  when comet's figures, over the corpus, are within 1.5 times
+  libzstd's, or its crate's docs say why not.
 - [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
   `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
   names, never run in CI, checked against a reference decoder, or for

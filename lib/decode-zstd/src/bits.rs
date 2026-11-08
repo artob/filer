@@ -126,8 +126,10 @@ impl<'a> Backward<'a> {
     /// container must hold them, as it does those after a refill, up to
     /// 57; those past the start are zeros.
     pub(super) fn peek(&self, n: u32) -> u64 {
-        // Two shifts, so that none of 64 is needed when `n` is 0.
-        (self.unread >> 1).wrapping_shr(63_u32.wrapping_sub(n))
+        // Two shifts, so that none of 64 is needed when `n` is 0; the
+        // second by `!n`, which a shift takes as 63 less `n`, as it takes
+        // only the low six bits.
+        (self.unread >> 1).wrapping_shr(!n)
     }
 
     /// Reads past the next `n` bits, up to 56. However corrupt a stream,
