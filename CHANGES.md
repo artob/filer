@@ -93,6 +93,11 @@ so any release may break compatibility.
   from wrapping, and matches copy inline, not by a call: on Apple M4, 5%
   to 7% faster; gzip, with `intrinsics`, at 0.82 to 0.85 times
   `zlib-rs`'s speed.
+- `compute-crc`: under `intrinsics`, the CRC instructions run three
+  streams of 256 bytes at once, which combine by the CRC's arithmetic,
+  by tables built at compile time: on Apple M4, CRC-32 at 20 to 28 GB/s,
+  not 11.5, and gzip, with `decode-gzip`'s `intrinsics`, at 0.89 times
+  `zlib-rs`'s speed, not 0.83.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

@@ -39,10 +39,11 @@
 //! from any register, as the tables do. With `std`, the instructions are
 //! chosen at run time; without it, only where the build enables them. It
 //! depends on `compute-multiversion`, a fork of `multiversion` that lets
-//! their intrinsics be called without `unsafe` code here. They are 2.4
-//! times as fast as the tables on x86-64 (Zen 1), and run at 11.5 GB/s on
-//! Apple M4. Each runs as one stream; none splits the bytes into streams
-//! to combine.
+//! their intrinsics be called without `unsafe` code here. Each runs three
+//! streams of the bytes at once, which it combines by the CRC's own
+//! arithmetic, as one instruction waits on the one before: on Apple M4,
+//! 20 to 28 GB/s, not one stream's 11.5. One stream was 2.4 times as fast
+//! as the tables on x86-64 (Zen 1).
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
@@ -488,16 +489,18 @@ mod tests {
     }
 
     /// The CPU's instructions, where it has them, come to what the tables
-    /// do, from any register.
+    /// do, from any register: in one stream, and in blocks of three that
+    /// combine, whole or with bytes to spare.
     #[cfg(all(
         feature = "intrinsics",
         any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
     ))]
     #[test]
     fn instructions_match_the_tables() {
-        let bytes: [u8; 1000] = core::array::from_fn(|n| (n * 131 % 251) as u8);
+        let bytes: [u8; 20_000] = core::array::from_fn(|n| (n * 131 % 251) as u8);
+        let blocks = [3071, 3072, 3073, 3079, 6144, 6151, 9215, 20_000];
         for state in [0, !0, 0x1234_5678, 0xDEAD_BEEF] {
-            for len in (0..=64).chain([100, 999, 1000]) {
+            for len in (0..=64).chain([100, 999, 1000]).chain(blocks) {
                 let bytes = &bytes[..len];
                 #[cfg(feature = "crc32")]
                 assert_eq!(
