@@ -21,7 +21,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = ["crc16-modbus", "crc32", "crc32-bzip2", "crc32c", "crc64-xz"]
 std = ["compute-multiversion?/std"]
 # The CRC instructions of x86-64's SSE4.2 and of ARM, where the CPU has them:

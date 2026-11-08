@@ -22,7 +22,10 @@
 - Don't ever directly read the contents of `Cargo.lock`, it can very large.
 - Our current MSRV is Rust 1.97; update and enforce everywhere as needed.
 - Our crates collect their default features under an `all` feature, and
-  their `[features]` should start with the line `default = ["all", "std"]`.
+  their `[features]` should start with the line `default = ["all", "std"]`;
+  a crate with `intrinsics`, or above one, adds it there, our performance
+  baseline (D66), and its docs give the measured price of building
+  without it, the zero-dependency build: `features = ["all", "std"]`.
 - Our crates are meant to always be buildable with `#![no_std]` and hence
   always export an explicit `std` feature flag. Some of our lower-level crates
   may also have an explicit `alloc` feature, but for many crates it's not

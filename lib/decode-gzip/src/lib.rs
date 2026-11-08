@@ -34,10 +34,14 @@
 //! `#![no_std]`, with an allocator. The `std` feature, enabled by
 //! default, adds nothing by itself.
 //!
-//! The `intrinsics` feature, not enabled by default, computes CRC-32 by
+//! The `intrinsics` feature, enabled by default (D66), computes CRC-32 by
 //! the CPU's instructions where it has them, ARM's `crc` extension, as
 //! `compute-crc`'s feature of that name does: chosen at run time with
-//! `std`. It decodes a quarter faster on Apple M4.
+//! `std`. Without it, as `default-features = false, features = ["all",
+//! "std"]` builds it, its dependencies are ours alone, all of them public
+//! domain, and it decodes 12% to 18% slower on Apple M4: Canterbury at
+//! 721 MB/s, not 820, and crates of the cargo registry at 1,107, not 1,356
+//! (2026-11-08); on x86-64, which has no CRC-32 instruction, no slower.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

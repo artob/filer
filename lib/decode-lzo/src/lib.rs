@@ -36,11 +36,16 @@
 //! and builds with `#![no_std]`, with an allocator. The `std` feature,
 //! enabled by default, adds nothing by itself.
 //!
-//! The `intrinsics` feature, not enabled by default, computes lzop's
+//! The `intrinsics` feature, enabled by default (D66), computes lzop's
 //! CRC-32s by the CPU's instructions where it has them, ARM's `crc`
 //! extension, as `compute-crc`'s feature of that name does: chosen at
-//! run time with `std`. Files checked by CRC-32 decode an eighth faster
-//! on Apple M4.
+//! run time with `std`. Without it, as `default-features = false,
+//! features = ["all", "std"]` builds it, its dependencies are ours alone,
+//! all of them public domain, and files checked by CRC-32, as `lzop
+//! --crc32` writes them, decode 13% slower on Apple M4, Canterbury at 778
+//! MB/s, not 897; those checked by Adler-32, lzop's default, and raw
+//! blocks no slower (2026-11-08). On x86-64, which has no CRC-32
+//! instruction, none are slower.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

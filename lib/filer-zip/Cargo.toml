@@ -21,9 +21,12 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = ["bzip2", "deflate", "deflate64", "lzma", "xz", "zstd"]
 std = ["filer-api/std", "filer-msft/std", "filer-pack/std", "known-codepages/std"]
+# Its members' CRC-32, and xz's checks by the CPU's instructions,
+# where it has them (D66).
+intrinsics = ["filer-api/intrinsics", "filer-pack/intrinsics"]
 bzip2 = ["filer-pack/bzip2"]
 code-pages = ["known-codepages/all"]
 deflate = ["filer-pack/deflate"]

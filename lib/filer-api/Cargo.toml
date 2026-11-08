@@ -21,7 +21,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = []
 std = ["compute-crc/std"]
 # The CRCs of `checksum` by the CPU's instructions, where it has them

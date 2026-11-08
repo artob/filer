@@ -33,12 +33,16 @@
 //! `#![no_std]`, with an allocator. The `std` feature, enabled by
 //! default, adds nothing by itself.
 //!
-//! The `intrinsics` feature, not enabled by default, computes the CRC-32
+//! The `intrinsics` feature, enabled by default (D66), computes the CRC-32
 //! and SHA-256 checks by the CPU's instructions where it has them, as
 //! `compute-crc`'s and `compute-sha256`'s features of that name do:
-//! chosen at run time with `std`. Streams checked by SHA-256 decode about
-//! a quarter faster, and by CRC-32 a tenth on ARM; by CRC-64, xz's
-//! default, which has no instruction, as fast as before.
+//! chosen at run time with `std`. Without it, as `default-features =
+//! false, features = ["all", "std"]` builds it, its dependencies are ours
+//! alone, all of them public domain, and streams checked by SHA-256
+//! decode 22% slower on Apple M4, Canterbury at 120 MB/s, not 154; those
+//! checked by CRC-32, or by CRC-64, xz's default, which has no
+//! instruction, within 1% (2026-11-08). On x86-64, those checked by
+//! SHA-256 are slower too, not yet measured, and the others no slower.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

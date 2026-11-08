@@ -22,7 +22,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = []
 std = ["compute-adler32/std", "compute-crc/std"]
 # lzop's CRC-32s by the CPU's instructions, where it has them (`compute-crc`'s).

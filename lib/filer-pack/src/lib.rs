@@ -45,8 +45,7 @@
 //! Like the drivers, it treats archives as untrusted input: nothing in it
 //! may panic, hang, or allocate without bound on any input, which its
 //! root denies by lint. It needs no OS and builds with `#![no_std]`,
-//! locking with a spin lock there. Features, all enabled by default but
-//! `intrinsics`:
+//! locking with a spin lock there. Features, all enabled by default:
 //!
 //! - `std` forwards to `filer-api` and the decoders, and locks with the
 //!   standard mutex;
@@ -58,9 +57,11 @@
 //! - `xz` enables [`Xz`], and `lzma`;
 //! - `zstd` enables [`Zstd`];
 //! - `intrinsics` computes checks by the CPU's instructions where it has
-//!   them, chosen at run time with `std`: `filer-api`'s checksums, gzip's
-//!   CRC-32, and xz's CRC-32 and SHA-256, which decode a quarter faster
-//!   on Apple M4.
+//!   them, chosen at run time with `std` (D66): `filer-api`'s checksums,
+//!   gzip's CRC-32, and xz's CRC-32 and SHA-256. Without it, its
+//!   dependencies are ours alone, all of them public domain, and gzip
+//!   decodes 12% to 18% slower on Apple M4, and xz checked by SHA-256 22%,
+//!   as `decode-gzip`'s and `decode-xz`'s docs say.
 //!
 //! [`ReadAt`]: filer_api::ReadAt
 //! [`Driver`]: filer_api::Driver

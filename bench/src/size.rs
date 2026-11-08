@@ -9,8 +9,9 @@
 //! objects, less the baseline's, is what the decoder or algorithm adds;
 //! read-only data, such as a CRC's tables, is not counted. Sizes are
 //! deterministic, so one build of each suffices. The probe is built for
-//! this machine's target, portable, as by default: without `intrinsics`
-//! and without the Rust flags of the harness's own build.
+//! this machine's target, portable, and without dependencies: without
+//! `intrinsics`, on by default (D66), whose dispatch is not what is
+//! measured, and without the Rust flags of the harness's own build.
 
 use crate::{Result, hashes::Algorithm, machine::Machine};
 use object::{Object as _, ObjectSection as _, SectionKind, read::archive::ArchiveFile};

@@ -13,12 +13,16 @@
 //! constants and SHA-512's initial hash from the primes' roots, and
 //! SHA-512/256's by its generation function.
 //!
-//! The `intrinsics` feature, not enabled by default, takes the blocks by
+//! The `intrinsics` feature, enabled by default (D66), takes the blocks by
 //! ARMv8.2's SHA-512 instructions where the CPU has them, as every Apple
 //! Silicon does. With `std`, they are chosen at run time; without it, only
 //! where the build enables them. It depends on `compute-multiversion`, a
 //! fork of `multiversion` that lets their intrinsics be called without
-//! `unsafe` code here. They are 2.5 times as fast on Apple M4.
+//! `unsafe` code here. Without it, as `default-features = false, features
+//! = ["all", "std"]` builds it, it has no dependencies, all of it public
+//! domain, and is 2.6 times slower on Apple M4, 733 MB/s, not 1,900
+//! (2026-11-08); on x86-64, whose instructions it does not take, no
+//! slower.
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,

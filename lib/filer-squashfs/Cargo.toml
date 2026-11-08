@@ -23,7 +23,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = ["gzip", "lz4", "lzma", "lzo", "xz", "zstd"]
 std = [
   "filer-api/std",
@@ -34,6 +34,13 @@ std = [
   "decode-xz?/std",
   "decode-zlib?/std",
   "decode-zstd?/std",
+]
+# Xz's checks by the CPU's instructions, where it has them (D66).
+intrinsics = [
+  "filer-api/intrinsics",
+  "filer-fs/intrinsics",
+  "decode-lzo?/intrinsics",
+  "decode-xz?/intrinsics",
 ]
 # Each compressor `mksquashfs` offers, named as it names them.
 gzip = ["dep:decode-zlib"]

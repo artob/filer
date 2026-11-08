@@ -98,6 +98,17 @@ so any release may break compatibility.
   by tables built at compile time: on Apple M4, CRC-32 at 20 to 28 GB/s,
   not 11.5, and gzip, with `decode-gzip`'s `intrinsics`, at 0.89 times
   `zlib-rs`'s speed, not 0.83.
+- `intrinsics` is enabled by default (D66), our performance baseline, in
+  `compute-crc`, `compute-sha256`, `compute-sha512`, `decode-gzip`,
+  `decode-lzo`, `decode-xz`, `filer-api`, and `filer-pack`; and it is a
+  new feature, enabled by default, forwarding it, of `filer-fs`,
+  `filer-ext4`, `filer-xfs`, `filer-zip`, `filer-tar`, `filer-cpio`,
+  `filer-squashfs`, `filer-archive`, `filer-volume`, `filer-system`, and
+  `filer-cli`. Built with `default-features = false, features = ["all",
+  "std"]`, each has no dependencies but ours, all public domain, at a
+  price its docs give: on Apple M4, gzip 12% to 18% slower, and CRC-32
+  and CRC-32C 5 to 23 times. The benchmark harness measures both builds,
+  the default first.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

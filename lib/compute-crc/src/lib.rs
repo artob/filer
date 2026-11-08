@@ -33,7 +33,7 @@
 //! dependencies, and builds with `#![no_std]`, without an allocator. The
 //! `std` feature, enabled by default, adds nothing by itself.
 //!
-//! The `intrinsics` feature, not enabled by default, takes eight bytes an
+//! The `intrinsics` feature, enabled by default (D66), takes eight bytes an
 //! instruction where the CPU has one: CRC-32C by SSE4.2's `crc32` on
 //! x86-64, and CRC-32, CRC-32C, and CRC-32/BZIP2 by ARM's `crc` extension,
 //! from any register, as the tables do. With `std`, the instructions are
@@ -44,6 +44,16 @@
 //! arithmetic, as one instruction waits on the one before: on Apple M4,
 //! 20 to 28 GB/s, not one stream's 11.5. One stream was 2.4 times as fast
 //! as the tables on x86-64 (Zen 1).
+//!
+//! Without `intrinsics`, as `default-features = false, features = ["all",
+//! "std"]` builds it, it has no dependencies, all of it public domain, and
+//! takes every CRC by the tables: on Apple M4, CRC-32, CRC-32C, and
+//! CRC-32/BZIP2 at 1.2 to 5.3 GB/s, as where its code lands sways it, not
+//! 28, 5 to 23 times slower; on x86-64, CRC-32C 3.8 times slower by one
+//! stream (Zen 1), its three streams not yet measured, and CRC-32 and
+//! CRC-32/BZIP2, which have no instruction there, no slower. CRC-16/MODBUS
+//! and CRC-64/XZ have no instruction, and are no slower anywhere
+//! (2026-11-08).
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,

@@ -165,8 +165,8 @@ pub fn run(options: &Options, algorithms: &[Algorithm], bench: &Path) -> Result<
     )?;
     eprintln!("writing {}", path.display());
     let build = match cfg!(feature = "intrinsics") {
-        true => "with `intrinsics`",
-        false => "portable",
+        true => "with `intrinsics`, as by default",
+        false => "without `intrinsics`, without dependencies",
     };
     println!("On {}, {}; ours {build}.", machine.cpu, machine.os);
     let mut random = SplitMix(0x5EED);

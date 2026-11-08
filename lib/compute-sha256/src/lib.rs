@@ -10,14 +10,16 @@
 //! taking the same time whatever the bytes, which a cryptographic library
 //! would. The `std` feature, enabled by default, adds nothing by itself.
 //!
-//! The `intrinsics` feature, not enabled by default, takes the blocks by
+//! The `intrinsics` feature, enabled by default (D66), takes the blocks by
 //! the CPU's SHA-256 instructions where it has them: x86-64's SHA
 //! extensions, and ARMv8's SHA2, which every Apple Silicon has. With
 //! `std`, they are chosen at run time; without it, only where the build
 //! enables them. It depends on `compute-multiversion`, a fork of
 //! `multiversion` that lets their intrinsics be called without `unsafe`
-//! code here. They are 6.4 times as fast on Apple M4, and 5.7 to 7.9
-//! times on x86-64 (Zen 1).
+//! code here. Without it, as `default-features = false, features =
+//! ["all", "std"]` builds it, it has no dependencies, all of it public
+//! domain, and is 6.2 times slower on Apple M4, 459 MB/s, not 2,859
+//! (2026-11-08), and 5.7 to 7.9 times on x86-64 (Zen 1, 2026-11-05).
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,

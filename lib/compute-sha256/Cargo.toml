@@ -21,7 +21,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = []
 std = ["compute-multiversion?/std"]
 # SHA-256's instructions, x86-64's SHA extensions and ARMv8's SHA2, where the

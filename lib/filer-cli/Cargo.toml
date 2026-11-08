@@ -17,9 +17,11 @@ publish.workspace = true
 workspace = true
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = []
 std = ["filer-system/std"]
+# `filer-system`'s checksums by the CPU's instructions, where it has them (D66).
+intrinsics = ["filer-system/intrinsics"]
 
 [[bin]]
 name = "filer"

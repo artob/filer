@@ -21,7 +21,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = ["bzip2", "deflate", "deflate64", "gzip", "lzma", "xz", "zstd"]
 std = [
   "filer-api/std",

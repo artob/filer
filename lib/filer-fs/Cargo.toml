@@ -24,9 +24,11 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = []
 std = ["filer-api/std"]
+# `filer-api`'s checksums by the CPU's instructions, where it has them (D66).
+intrinsics = ["filer-api/intrinsics"]
 
 [dependencies]
 filer-api.workspace = true

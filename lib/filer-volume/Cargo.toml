@@ -21,7 +21,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = [
   "cdfs",
   "ext4",
@@ -48,6 +48,14 @@ std = [
   "filer-squashfs?/std",
   "filer-udf?/std",
   "filer-xfs?/std",
+]
+# Each file system's checks by the CPU's instructions, where it has them (D66).
+intrinsics = [
+  "filer-api/intrinsics",
+  "filer-fs/intrinsics",
+  "filer-ext4?/intrinsics",
+  "filer-squashfs?/intrinsics",
+  "filer-xfs?/intrinsics",
 ]
 cdfs = ["dep:filer-cdfs"]
 # Files that zisofs compresses in ISO 9660 images, `filer-cdfs`'s.

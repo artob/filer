@@ -12,13 +12,13 @@ publish = false
 # Ours: the decoders measured, and the checksums and hashes; the corpus's
 # SHA-256 and xz are also ours.
 compute-adler32 = { path = "../lib/compute-adler32" }
-compute-crc = { path = "../lib/compute-crc" }
+compute-crc = { path = "../lib/compute-crc", default-features = false, features = ["all", "std"] }
 compute-fletcher = { path = "../lib/compute-fletcher" }
-compute-sha256 = { path = "../lib/compute-sha256" }
-compute-sha512 = { path = "../lib/compute-sha512" }
+compute-sha256 = { path = "../lib/compute-sha256", default-features = false, features = ["all", "std"] }
+compute-sha512 = { path = "../lib/compute-sha512", default-features = false, features = ["all", "std"] }
 compute-xxhash = { path = "../lib/compute-xxhash" }
 decode-bzip2 = { path = "../lib/decode-bzip2" }
-decode-xz = { path = "../lib/decode-xz" }
+decode-xz = { path = "../lib/decode-xz", default-features = false, features = ["all", "std"] }
 decode-zstd = { path = "../lib/decode-zstd" }
 # bzip2's counterparts: libbzip2, the reference, in C, through `bzip2`
 # 0.5, whose defaults build it; `libbz2-rs-sys`, its port to Rust, through
@@ -55,12 +55,15 @@ serde_json = "1"
 toml = "0.9"
 
 [features]
-# Our checksums and hashes with the CPU's instructions, where they have
-# them (D65); the results record it, and name their file so.
+# Ours as they build by default, with the CPU's instructions where they
+# have them (D66); without, by `--no-default-features`, ours as they build
+# without dependencies. The results record which, and name their file so.
+default = ["intrinsics"]
 intrinsics = [
     "compute-crc/intrinsics",
     "compute-sha256/intrinsics",
     "compute-sha512/intrinsics",
+    "decode-xz/intrinsics",
 ]
 
 [profile.release]

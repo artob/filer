@@ -37,8 +37,9 @@ The harness that applies this protocol lives beside this file (see
    `#![no_std]` program, at `opt-level` 3 and `"s"`: `bench/probe/`, a
    static library whose one function decodes a stream, built with fat
    LTO, which keeps only the code that function needs, alone and with
-   the decoder, per target, portable; and likewise each checksum and
-   hash of `compute-*`. Read-only data, such as tables, is not counted.
+   the decoder, per target, portable and without dependencies, without
+   `intrinsics`; and likewise each checksum and hash of `compute-*`.
+   Read-only data, such as tables, is not counted.
 
 ## Inputs
 
@@ -156,10 +157,10 @@ over buffers of random bytes, the same in every process: of 16 B, 256 B,
 bytes, as a stream's checks are fed. Each counterpart's result is checked
 against ours before it is timed. A sample times computations over 64 KiB
 or more in all, as one over 16 bytes takes less than the timer resolves.
-Each is measured as its crate builds by default, portable, and again with
-`intrinsics`, the CPU's instructions (D65), as two runs; counterparts
-pick their own instructions at run time either way. Their table is in
-GB/s.
+Each is measured as its crate builds by default, with `intrinsics`, the
+CPU's instructions (D65, D66), our baseline; and again without, as it
+builds without dependencies, as two runs. Counterparts pick their own
+instructions at run time either way. Their table is in GB/s.
 
 ## Reporting
 

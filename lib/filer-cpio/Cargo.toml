@@ -21,9 +21,11 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = ["bzip2", "gzip", "xz", "zstd"]
 std = ["filer-api/std", "filer-pack/std"]
+# Gzip's and xz's checks by the CPU's instructions, where it has them (D66).
+intrinsics = ["filer-api/intrinsics", "filer-pack/intrinsics"]
 bzip2 = ["filer-pack/bzip2"]
 gzip = ["filer-pack/gzip"]
 xz = ["filer-pack/xz"]

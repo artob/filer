@@ -40,9 +40,11 @@
 //!
 //! Every codec, `bzip2` and `zstd`, or every algorithm, such as `crc32` or
 //! `sha256`, unless some are named. For the ceiling, build with
-//! `RUSTFLAGS="-C target-cpu=native"` into another `--target-dir`, and for
-//! our checksums with the CPU's instructions, with `--features
-//! intrinsics`: the results record either, and name their file so.
+//! `RUSTFLAGS="-C target-cpu=native"` into another `--target-dir`; and for
+//! ours without the CPU's instructions, as they build without
+//! dependencies, with `--no-default-features`, as `intrinsics`, on by
+//! default, takes them (D66): the results record either, and name their
+//! file so.
 
 mod corpus;
 mod decoders;

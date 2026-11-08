@@ -584,6 +584,13 @@ crate's name until its first code, which moves it to `lib/`.
   times and `ring` by 1.43; and `compute-adler32` trails
   `simd-adler32`, by AVX2, by 1.65. Done when each is within 10% of the
   fastest portable counterpart, or its crate's docs say why not.
+- [ ] **COMP-04: The price of no dependencies, on x86.** D66's table
+  gives Apple M4's price of building without `intrinsics`, measured
+  2026-11-08, but x86-64's from D65, by one stream, before
+  `compute-crc`'s three, and `decode-xz`'s by SHA-256 not at all; nor
+  has `compute-crc`'s SSE4.2 path of three streams run yet. Done when
+  its test passes on comet, and D66's table and each crate's docs hold
+  Zen 1's figures, measured by the same two builds.
 - [ ] **DEC-09: LZO1X version 1, checked.** `decode_block` decodes the
   Linux kernel's `lzo-rle` blocks, version 1, from its description,
   tested only against blocks built by hand (2026-11-07). Done when it
