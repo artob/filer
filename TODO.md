@@ -619,18 +619,6 @@ crate's name until its first code, which moves it to `lib/`.
   images, SquashFS blocks, archives of large projects), `decode-lzo`'s
   over what `lzop` writes on comet, and findings are fixed or recorded
   here.
-- [ ] **DEC-21: LZ4's speed, on x86.** `decode-lz4` decoded Canterbury,
-  packed by `lz4` at `-1` and `-9`, in linked and in small blocks, at
-  0.27 times `lz4_flex`'s speed on Apple M4. A profile found the time in
-  `memmove` for short copies, in saturating additions from token to
-  token, and in hashing frames without a checksum; it now decodes it
-  there at 0.82 times, 0.75 to 0.85 by packing (2026-11-08). On Zen 1,
-  at `5627770`, by the geometric mean of the files: 0.76 times at `-1`
-  and `-9`, which `lz4` checks, as both decoders then hash; 0.69 linked;
-  but 0.58 in blocks of 64 KiB without a checksum, its least
-  `plrabn12.txt`, 0.49 (2026-11-08). Done when comet's figures over the
-  corpus are within 1.5 times `lz4_flex`'s, or its crate's docs say why
-  not.
 - [ ] **DEC-14: Coverage of the decoders.** No coverage report of the
   `decode-*` crates has been read. Done when a line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and

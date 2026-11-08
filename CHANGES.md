@@ -95,6 +95,12 @@ so any release may break compatibility.
   frames with a checksum are hashed: on Apple M4, Canterbury, packed four
   ways, decodes at 0.82 times `lz4_flex`'s speed, not 0.27. `decode_block`
   may overwrite up to 16 bytes of its output past what it decodes to.
+- `decode-lz4`: on x86-64, a block's loop is a function of its own, and
+  calls out for a match longer than 64 bytes or nearer than 8 back, so
+  that its 16 registers hold what it does most: on Zen 1, Canterbury
+  packed by `lz4` decodes at 0.88 times `lz4_flex`'s speed at `-1`, 0.87
+  at `-9`, 0.79 linked, and 0.69 in blocks of 64 KiB without a checksum,
+  not 0.76, 0.76, 0.69, and 0.58.
 - `decode-lzo`: blocks decode with their place in locals, not a struct,
   advanced by wrapping additions, and short literals and matches copy 16
   or 8 bytes at once: on Apple M4, Canterbury in blocks of 128 KiB
