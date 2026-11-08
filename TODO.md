@@ -585,13 +585,6 @@ crate's name until its first code, which moves it to `lib/`.
   times and `ring` by 1.43; and `compute-adler32` trails
   `simd-adler32`, by AVX2, by 1.65. Done when each is within 10% of the
   fastest portable counterpart, or its crate's docs say why not.
-- [ ] **COMP-04: The price of no dependencies, on x86.** D66's table
-  gives Apple M4's price of building without `intrinsics`, measured
-  2026-11-08, but x86-64's from D65, by one stream, before
-  `compute-crc`'s three, and `decode-xz`'s by SHA-256 not at all; nor
-  has `compute-crc`'s SSE4.2 path of three streams run yet. Done when
-  its test passes on comet, and D66's table and each crate's docs hold
-  Zen 1's figures, measured by the same two builds.
 - [ ] **DEC-09: LZO1X version 1, checked.** `decode_block` decodes the
   Linux kernel's `lzo-rle` blocks, version 1, from its description,
   tested only against blocks built by hand (2026-11-07). Done when it
@@ -602,8 +595,14 @@ crate's name until its first code, which moves it to `lib/`.
   (2026-11-07, at 9c5f5fc). A profile on Apple M4 found the time in
   reading bits, in Huffman-coded literals, and in hashing frames without
   a checksum; it now decodes Canterbury there at 0.68 to 0.71 times, at
-  every level (2026-11-07). Done when comet's figures, over the corpus,
-  are within 1.5 times libzstd's, or its crate's docs say why not.
+  every level. On Zen 1, at `69effbb`, the corpus whole, by the geometric
+  mean of its files, at 0.56 times at level 1 to 0.64 at 19, its least
+  `silesia/x-ray` at level 1, 0.38; built for BMI2, no faster. `perf`
+  there finds 12% in `shorts`' store, the copies 16 to 31 bytes back
+  reading what the last just wrote, which Zen 1 may not forward; 6% in
+  short literals; and 11% in libc's `memcpy` (2026-11-08). Done when
+  comet's figures, over the corpus, are within 1.5 times libzstd's, or
+  its crate's docs say why not.
 - [ ] **DEC-20: zstd's window, whole, measured.** `decode-zstd` decodes a
   frame given whole, with room for its content size, straight into the
   output, holding no window: on Apple M4, 24 KiB of heap for 8 MiB at
@@ -627,9 +626,13 @@ crate's name until its first code, which moves it to `lib/`.
   0.27 times `lz4_flex`'s speed on Apple M4. A profile found the time in
   `memmove` for short copies, in saturating additions from token to
   token, and in hashing frames without a checksum; it now decodes it
-  there at 0.82 times, 0.75 to 0.85 by packing (2026-11-08). Done when
-  comet's figures over the corpus are within 1.5 times `lz4_flex`'s, or
-  its crate's docs say why not.
+  there at 0.82 times, 0.75 to 0.85 by packing (2026-11-08). On Zen 1,
+  at `5627770`, by the geometric mean of the files: 0.76 times at `-1`
+  and `-9`, which `lz4` checks, as both decoders then hash; 0.69 linked;
+  but 0.58 in blocks of 64 KiB without a checksum, its least
+  `plrabn12.txt`, 0.49 (2026-11-08). Done when comet's figures over the
+  corpus are within 1.5 times `lz4_flex`'s, or its crate's docs say why
+  not.
 - [ ] **DEC-14: Coverage of the decoders.** No coverage report of the
   `decode-*` crates has been read. Done when a line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and

@@ -28,8 +28,8 @@
 //! chosen at run time with `std`. Without it, as `default-features =
 //! false, features = ["all", "std"]` builds it, its dependencies are ours
 //! alone, all of them public domain, and those CRCs are as much slower as
-//! `compute-crc`'s docs say: 5 to 23 times on Apple M4, and CRC-32C 3.8
-//! times on x86-64.
+//! `compute-crc`'s docs say: 5 to 23 times on Apple M4, and CRC-32C 2.1
+//! times on x86-64 (Zen 1).
 
 #![no_std]
 #![forbid(unsafe_code)]

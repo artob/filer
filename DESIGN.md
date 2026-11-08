@@ -2718,16 +2718,16 @@ it ours and public domain, builds with `default-features = false,
 features = ["all", "std"]`: no `compute-multiversion`, and none of the
 `unsafe` code of its dispatch, at the price below, measured on Apple M4
 by one tool built both ways, best of a second's runs, within 2% of a
-second run (2026-11-08), and on x86-64 (Zen 1) as D65 measured it, by
-one stream, where not marked otherwise:
+second run, and on x86-64, Zen 1 under KVM, by the same tool
+(2026-11-08):
 
 | Crate | Without `intrinsics`, on Apple M4 | On x86-64 |
 | --- | --- | --- |
-| `compute-crc` | CRC-32, CRC-32C, CRC-32/BZIP2 5 to 23 times slower: 1.2 to 5.3 GB/s, as code placement sways the tables, not 28 | CRC-32C 3.8 times slower; the others no slower |
-| `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 5.7 to 7.9 times slower |
+| `compute-crc` | CRC-32, CRC-32C, CRC-32/BZIP2 5 to 23 times slower: 1.2 to 5.3 GB/s, as code placement sways the tables, not 28 | CRC-32C 2.1 times slower: 2.6 GB/s, not 5.6; the others no slower |
+| `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 7.7 times slower: 159 MB/s, not 1,228 |
 | `compute-sha512` | 2.6 times slower: 733 MB/s, not 1,900 | No slower |
 | `decode-gzip` | 12% to 18% slower: Canterbury 721 MB/s, not 820; crates 1,107, not 1,356 | No slower |
-| `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-32 or CRC-64, within 1% | By SHA-256, slower, not yet measured; the others no slower |
+| `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-32 or CRC-64, within 1% | By SHA-256, 27% slower: 45 MB/s, not 62; the others no slower |
 | `decode-lzo` | lzop's files checked by CRC-32 13% slower: 778 MB/s, not 897; by Adler-32, its default, and raw blocks, no slower | No slower |
 | `filer-api`, `filer-fs`, `filer-system`, `filer-cli` | Their checksums, as `compute-crc`'s | As `compute-crc`'s |
 | `filer-ext4`, `filer-xfs` | Estimated: each 4 KiB block of metadata checked by CRC-32C takes some 3 µs more, beside reading it | Estimated: some 1 µs more a block |
@@ -2737,8 +2737,8 @@ one stream, where not marked otherwise:
 | `filer-archive`, `filer-volume` | Those of what they open | As theirs |
 
 The table changes as the code does, and each crate's docs repeat its
-row; x86-64's, after `compute-crc`'s three streams, are to be measured
-on Zen 1 (COMP-04).
+row. On Zen 1, one `crc32` can hardly start before the last ends, so
+three streams beat one by only 6%, 5.6 GB/s to 5.3.
 
 **Rotates under `x86-64-v2`** (measured 2026-11-05, Zen 1 in a VM).
 Built with `-C target-cpu=x86-64-v2`, as some Linux distributions build
