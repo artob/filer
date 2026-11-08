@@ -4,7 +4,10 @@
 //! literals stored as they are, as one byte repeated, or Huffman-coded in
 //! one stream or four.
 
-use super::{corrupt, huffman::Huffman};
+use super::{
+    corrupt,
+    huffman::{Huffman, Runs},
+};
 use crate::Error;
 use alloc::vec::Vec;
 
@@ -20,6 +23,7 @@ const MIN_FOUR_STREAMS: usize = 6;
 pub(super) fn read<'a>(
     block: &'a [u8],
     huffman: &mut Option<Huffman>,
+    runs: &mut Runs,
     buffer: &'a mut Vec<u8>,
     max: usize,
 ) -> Result<(&'a [u8], usize), Error> {
@@ -76,12 +80,14 @@ pub(super) fn read<'a>(
         let (table, used) = Huffman::read(streams)?;
         streams = streams.get(used..).ok_or_else(corrupt)?;
         *huffman = Some(table);
+        runs.clear();
     }
     let huffman = huffman.as_ref().ok_or_else(corrupt)?;
+    let runs = runs.of(huffman, regenerated);
     buffer.clear();
     buffer.resize(regenerated, 0);
     if format == 0 {
-        huffman.decode(streams, buffer)?;
+        huffman.decode(runs, streams, buffer)?;
         return Ok((buffer, end));
     }
 
@@ -99,6 +105,7 @@ pub(super) fn read<'a>(
     let (one, rest) = buffer.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
     let (two, rest) = rest.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
     let (three, four) = rest.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
-    huffman.decode4([first, second, third, fourth], [one, two, three, four])?;
+    let outputs = [one, two, three, four];
+    huffman.decode4(runs, [first, second, third, fourth], outputs)?;
     Ok((buffer, end))
 }

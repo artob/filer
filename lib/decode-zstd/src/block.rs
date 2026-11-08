@@ -4,7 +4,7 @@
 //! that interleave them with copies of what came before.
 
 use super::{
-    huffman::Huffman,
+    huffman::{Huffman, Runs},
     literals,
     sequences::{self, Codes},
     window::Cursor,
@@ -17,6 +17,7 @@ use alloc::vec::Vec;
 #[derive(Clone, Debug, Default)]
 pub(super) struct Tables {
     huffman: Option<Huffman>,
+    runs: Runs,
     codes: Codes,
 }
 
@@ -29,7 +30,8 @@ pub(super) fn decode(
     output: &mut Cursor<'_>,
     max: usize,
 ) -> Result<(), Error> {
-    let (literals, used) = literals::read(content, &mut tables.huffman, scratch, max)?;
+    let (literals, used) =
+        literals::read(content, &mut tables.huffman, &mut tables.runs, scratch, max)?;
     let section = content.get(used..).unwrap_or_default();
     sequences::decode(section, &mut tables.codes, literals, output)
 }

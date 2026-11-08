@@ -66,16 +66,17 @@ so any release may break compatibility.
   stream, not 29,000, and decodes 2% to 19% faster.
 - `decode-zstd`: a frame given whole, whose header says what it decodes
   to, with room for that, decodes straight into the output, holding no
-  window, as libzstd does: whole, 8 MiB at level 19 takes 10 KiB of heap
+  window, as libzstd does: whole, 8 MiB at level 19 takes 24 KiB of heap
   in one allocation, not the window's 8 MiB, and decodes half as fast
   again as in pieces of 4 KiB, on Apple M4.
 - `decode-zstd`: sequences read their bits from a word refilled once a
-  sequence, from tables that hold each code's value; the four streams of
-  Huffman-coded literals decode in turn; runs double as they copy; and
-  only frames with a checksum are hashed: on Apple M4, Canterbury decodes
-  at 0.62 times libzstd's speed at level 3, not 0.39, and 0.52 at level
-  19, not 0.32; frames without a checksum of stored, repeated, or far
-  bytes as fast as libzstd, not 0.15 to 0.25 times.
+  sequence, from tables that hold each code's value; Huffman-coded
+  literals decode their four streams in turn, and short codes several at
+  a time; runs double as they copy; and only frames with a checksum are
+  hashed: on Apple M4, Canterbury decodes at 0.71 times libzstd's speed
+  at level 3, not 0.39, and 0.68 at level 19, not 0.32, and at least 0.68
+  at every level; and frames without a checksum of stored, repeated, or
+  far bytes at 0.88 to 1.10 times, not 0.15 to 0.25.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

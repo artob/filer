@@ -589,15 +589,16 @@ crate's name until its first code, which moves it to `lib/`.
   tested only against blocks built by hand (2026-11-07). Done when it
   decodes blocks that the Linux kernel's `lzo-rle` writes, through F2FS
   with `compress_algorithm=lzo-rle` on comet, to what was written.
-- [ ] **DEC-19: zstd's speed.** `decode-zstd` decodes Canterbury at
-  0.27 to 0.36 times libzstd's MB/s, whole and in pieces, on Zen 1
-  (2026-11-07, at 9c5f5fc), though 1.15 to 1.22 times `ruzstd`'s; the
-  rest of the corpus's figures follow in its `BENCH.md` (BENCH-07). Done
-  when a profile shows where the time goes, and the decoder is within
-  1.5 times libzstd's over the corpus, or its crate's docs say why not.
+- [ ] **DEC-19: zstd's speed, on x86.** `decode-zstd` decoded Canterbury
+  at 0.27 to 0.36 times libzstd's MB/s, whole and in pieces, on Zen 1
+  (2026-11-07, at 9c5f5fc). A profile on Apple M4 found the time in
+  reading bits, in Huffman-coded literals, and in hashing frames without
+  a checksum; it now decodes Canterbury there at 0.68 to 0.71 times, at
+  every level (2026-11-07). Done when comet's figures, over the corpus,
+  are within 1.5 times libzstd's, or its crate's docs say why not.
 - [ ] **DEC-20: zstd's window, whole, measured.** `decode-zstd` decodes a
   frame given whole, with room for its content size, straight into the
-  output, holding no window: on Apple M4, 10 KiB of heap for 8 MiB at
+  output, holding no window: on Apple M4, 24 KiB of heap for 8 MiB at
   any level, where the window took up to 128 MiB, 24.9 times libzstd's
   peak at the median on Zen 1 (2026-11-07). Done when `memory` on comet,
   which counts libzstd's allocations too, shows it whole within twice

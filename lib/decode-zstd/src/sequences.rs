@@ -231,16 +231,18 @@ impl State {
     /// Returns its value: its baseline and its extra bits, from `bits`,
     /// which must hold them without a refill.
     fn value(self, bits: &mut Backward<'_>) -> usize {
+        // Up to 31 bits onto a baseline of 32, which no `u64` overflows.
         let more = bits.take(u32::from(self.extra));
-        let value = u64::from(self.baseline).saturating_add(more);
+        let value = u64::from(self.baseline).wrapping_add(more);
         usize::try_from(value).unwrap_or(usize::MAX)
     }
 
     /// Returns the next state, from `bits`, which must hold them, up to 9,
     /// without a refill.
     fn next(self, bits: &mut Backward<'_>) -> usize {
+        // Up to 9 bits onto a base of 16, which no `usize` overflows.
         let more = usize::try_from(bits.take(u32::from(self.bits))).unwrap_or_default();
-        usize::from(self.next).saturating_add(more)
+        usize::from(self.next).wrapping_add(more)
     }
 }
 

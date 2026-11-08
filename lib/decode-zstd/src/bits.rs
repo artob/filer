@@ -127,9 +127,12 @@ impl<'a> Backward<'a> {
         (self.container.wrapping_shl(self.consumed) >> 1).wrapping_shr(63_u32.saturating_sub(n))
     }
 
-    /// Reads past the next `n` bits.
+    /// Reads past the next `n` bits, up to 56. However corrupt a stream,
+    /// what it is read for never adds up to `u32::MAX` bits: at most
+    /// 98,047 sequences of up to 89 bits, or 128 KiB of literals of up to
+    /// 11.
     pub(super) fn consume(&mut self, n: u32) {
-        self.consumed = self.consumed.saturating_add(n.min(MAX));
+        self.consumed = self.consumed.wrapping_add(n);
     }
 
     /// Reads the next `n` bits, up to 56, which the container must hold.

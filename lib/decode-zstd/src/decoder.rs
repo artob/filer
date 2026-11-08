@@ -290,7 +290,7 @@ enum State {
 /// unless the input holds it whole, so it holds at most a block of packed
 /// bytes; and of what they decode to, the frame's window and two blocks,
 /// in a buffer that decoding goes round, allocated as it fills; and its
-/// tables, some 10 KiB, allocated once a frame. A frame that the input
+/// tables, some 24 KiB, allocated once a frame. A frame that the input
 /// holds whole, and whose header says what it decodes to, which the
 /// output has room for, it decodes straight into the output, holding no
 /// window, as libzstd does. A frame whose window passes 128 MiB, the most
@@ -321,7 +321,7 @@ pub struct Decoder {
     /// What a block's literals decode to, before its sequences run.
     literals: Vec<u8>,
     state: State,
-    /// The frame in progress, on the heap, as its tables take some 10 KiB.
+    /// The frame in progress, on the heap, as its tables take some 24 KiB.
     frame: Option<Box<Frame>>,
     /// The frames decoded whole, skippable ones included.
     frames: u64,
