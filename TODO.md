@@ -553,12 +553,13 @@ crate's name until its first code, which moves it to `lib/`.
   resume from a checkpoint and the bytes each holds; and `perf stat`'s
   counters per output byte on Linux (items 5 and 6). Done when the raw
   data holds each.
-- [ ] **BENCH-07: Tables.** The harness generates each `BENCH.md`'s
-  tables from `bench/results/`, never edited by hand. Done when it
-  fills `decode-zstd`'s and `decode-bzip2`'s on an x86 machine and on
-  Apple M4. On M4, mind code placement: a probe timed `compute-crc`'s
-  tables' CRC-32 at 1.3 GB/s from one call site and 5.1 from another,
-  the same loop (2026-11-06).
+- [ ] **BENCH-07: Tables on Apple M4.** The harness generates each
+  `BENCH.md`'s tables from `bench/results/`, never edited by hand; it
+  filled `decode-zstd`'s and `decode-bzip2`'s on Zen 1, whole and in
+  pieces of 64 KiB, at `9c5f5fc` (2026-11-08), the 4 KiB pass stopped
+  for time. Done when it fills them on Apple M4 too. Mind code placement
+  there: a probe timed `compute-crc`'s tables' CRC-32 at 1.3 GB/s from
+  one call site and 5.1 from another, the same loop (2026-11-06).
 - [ ] **BENCH-02: Every machine.** The rest of the protocol's machines:
   current AMD and Intel on bare metal, and a Neoverse server. Done when
   each `BENCH.md` of a written decoder holds them all.
