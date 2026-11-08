@@ -45,12 +45,12 @@ const RUNS_ROOM: usize = PER_REFILL * 3 + 1;
 const RUNS_WORTH: usize = 16 << 10;
 const RUNS_BITS: usize = 6;
 
-/// A decoding table, indexed by a stream's next `bits` bits, the length of
-/// the longest code: held in an array of the most any table takes, so
-/// that it is never allocated.
+/// A decoding table, indexed by a stream's next 11 bits, the longest a
+/// code may be, each code's entry repeated for the bits past it, so that
+/// a shift by as many as any table takes indexes it: held in an array,
+/// so that it is never allocated.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Huffman {
-    bits: u8,
     codes: [Code; MAX_CODES],
 }
 
@@ -89,7 +89,7 @@ impl Runs {
             return None;
         }
         if !self.built && literals >= RUNS_WORTH {
-            self.runs = runs(&huffman.codes, huffman.bits);
+            self.runs = runs(&huffman.codes);
             self.built = true;
         }
         self.built.then_some(self)
@@ -198,17 +198,19 @@ impl Huffman {
             (*start, at) = (at, at.saturating_add(*start));
         }
         let mut codes = [Code::default(); MAX_CODES];
+        let shift = MAX_BITS.saturating_sub(bits);
         for (symbol, weight) in weights().filter(|&(_, weight)| weight > 0) {
             let start = starts.get_mut(usize::from(weight)).ok_or_else(corrupt)?;
             let from = usize::try_from(*start).map_err(|_| corrupt())?;
             *start = start.saturating_add(share(weight));
             let to = usize::try_from(*start).map_err(|_| corrupt())?;
+            let (from, to) = (from << shift, to << shift);
             codes.get_mut(from..to).ok_or_else(corrupt)?.fill(Code {
                 symbol: u8::try_from(symbol).map_err(|_| corrupt())?,
                 bits: bits.saturating_add(1).saturating_sub(weight),
             });
         }
-        Ok(Self { bits, codes })
+        Ok(Self { codes })
     }
 
     /// Decodes `stream` into `output`, which it must fill exactly, by
@@ -286,16 +288,27 @@ impl Huffman {
                     }
                 }
             } else {
-                while room(w, x, y, z, PER_REFILL) && far(&e, &f, &g, &h) {
+                // Each refill's symbols gathered in a word, stored whole.
+                while room(w, x, y, z, 8) && far(&e, &f, &g, &h) {
                     e.refill(streams);
                     f.refill(streams);
                     g.refill(streams);
                     h.refill(streams);
-                    for _ in 0..PER_REFILL {
-                        w = self.marked(&mut e, output, w);
-                        x = self.marked(&mut f, output, x);
-                        y = self.marked(&mut g, output, y);
-                        z = self.marked(&mut h, output, z);
+                    let mut words = [0_u64; 4];
+                    for n in 0..PER_REFILL {
+                        let shift = u32::try_from(n).unwrap_or_default().wrapping_mul(8);
+                        let [i, j, k, l] = &mut words;
+                        *i |= u64::from(self.marked(&mut e)).wrapping_shl(shift);
+                        *j |= u64::from(self.marked(&mut f)).wrapping_shl(shift);
+                        *k |= u64::from(self.marked(&mut g)).wrapping_shl(shift);
+                        *l |= u64::from(self.marked(&mut h)).wrapping_shl(shift);
+                    }
+                    for (at, word) in [&mut w, &mut x, &mut y, &mut z].into_iter().zip(words) {
+                        let slots = output.get_mut(*at..).and_then(<[u8]>::first_chunk_mut);
+                        if let Some(slots) = slots {
+                            *slots = word.to_le_bytes();
+                        }
+                        *at = at.wrapping_add(PER_REFILL);
                     }
                 }
             }
@@ -341,18 +354,15 @@ impl Huffman {
         Ok(())
     }
 
-    /// Decodes the next symbol from `bits`, which must hold its code, onto
-    /// `output` at `at`, and returns where it ends.
+    /// Decodes and returns the next symbol from `bits`, which must hold
+    /// its code.
     #[inline(always)]
-    fn marked(&self, bits: &mut Marked, output: &mut [u8], at: usize) -> usize {
-        let index = usize::try_from(bits.peek(u32::from(self.bits))).unwrap_or_default();
+    fn marked(&self, bits: &mut Marked) -> u8 {
+        let index = usize::try_from(bits.peek(u32::from(MAX_BITS))).unwrap_or_default();
         let index = index & MAX_CODES.wrapping_sub(1);
         let code = self.codes.get(index).copied().unwrap_or_default();
         bits.consume(u32::from(code.bits));
-        if let Some(slot) = output.get_mut(at) {
-            *slot = code.symbol;
-        }
-        at.wrapping_add(1)
+        code.symbol
     }
 
     /// Decodes the next symbol from `bits`, which must hold its code, onto
@@ -378,7 +388,7 @@ impl Huffman {
 
     /// Decodes the next symbol from `bits`, which must hold its code.
     fn symbol(&self, bits: &mut Backward<'_>) -> u8 {
-        let index = usize::try_from(bits.peek(u32::from(self.bits))).unwrap_or_default();
+        let index = usize::try_from(bits.peek(u32::from(MAX_BITS))).unwrap_or_default();
         // The index is of at most 11 bits, which spares checking it.
         let index = index & MAX_CODES.wrapping_sub(1);
         let code = self.codes.get(index).copied().unwrap_or_default();
@@ -387,18 +397,17 @@ impl Huffman {
     }
 }
 
-/// Returns the runs of `codes`, of up to `bits` bits each: for each 11
-/// bits, the codes they hold whole, one at least, up to three.
-fn runs(codes: &[Code; MAX_CODES], bits: u8) -> [u32; MAX_CODES] {
+/// Returns the runs of `codes`: for each 11 bits, the codes they hold
+/// whole, one at least, up to three.
+fn runs(codes: &[Code; MAX_CODES]) -> [u32; MAX_CODES] {
     let mut runs = [0_u32; MAX_CODES];
-    let shift = u32::from(MAX_BITS.saturating_sub(bits));
     let mask = u32::try_from(MAX_CODES.wrapping_sub(1)).unwrap_or_default();
     for (index, run) in (0_u32..).zip(&mut runs) {
         // The bits left, from the top, with zeros after them.
         let (mut window, mut left) = (index, u32::from(MAX_BITS));
         let (mut symbols, mut used, mut count) = (0_u32, 0_u32, 0_u32);
         while count < RUN {
-            let at = usize::try_from(window >> shift).unwrap_or_default();
+            let at = usize::try_from(window).unwrap_or_default();
             let code = codes.get(at).copied().unwrap_or_default();
             let len = u32::from(code.bits);
             if count > 0 && (len > left || len == 0) {
@@ -456,10 +465,9 @@ mod tests {
     fn deals_codes_as_the_rfc_does() {
         let (huffman, used) = Huffman::read(&[127 + 5, 0x43, 0x20, 0x10]).unwrap();
         assert_eq!(used, 4);
-        assert_eq!(huffman.bits, 4);
         let code = |symbol: u8| {
             let at = huffman.codes.iter().position(|code| code.symbol == symbol);
-            (at.unwrap(), huffman.codes[at.unwrap()].bits)
+            (at.unwrap() >> 7, huffman.codes[at.unwrap()].bits)
         };
         // Table 25: 4 is 0000, 5 0001, 2 001, 1 01, and 0 1.
         assert_eq!(
@@ -483,7 +491,7 @@ mod tests {
         for &symbol in symbols {
             let at = huffman.codes.iter().position(|code| code.symbol == symbol);
             let len = huffman.codes[at.unwrap()].bits;
-            let code = at.unwrap() >> (huffman.bits - len);
+            let code = at.unwrap() >> (MAX_BITS - len);
             bits.extend((0..len).rev().map(|bit| code >> bit & 1 == 1));
         }
         let mut stream = vec![0_u8; bits.len().div_ceil(8)];
@@ -504,7 +512,7 @@ mod tests {
             6, 6,
         ])
         .unwrap();
-        assert_eq!(long.bits, 11);
+        assert!(long.codes.iter().any(|code| code.bits == 11));
         for (huffman, symbols) in [(short, 4), (long, 32)] {
             let mut seed = 1_u32;
             let original: Vec<u8> = (0..RUNS_WORTH + 13)

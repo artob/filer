@@ -126,9 +126,8 @@ impl<'a> Backward<'a> {
     /// container must hold them, as it does those after a refill, up to
     /// 57; those past the start are zeros.
     pub(super) fn peek(&self, n: u32) -> u64 {
-        let n = n.min(MAX);
         // Two shifts, so that none of 64 is needed when `n` is 0.
-        (self.unread >> 1).wrapping_shr(63_u32.saturating_sub(n))
+        (self.unread >> 1).wrapping_shr(63_u32.wrapping_sub(n))
     }
 
     /// Reads past the next `n` bits, up to 56. However corrupt a stream,
@@ -161,18 +160,16 @@ impl<'a> Backward<'a> {
         held.checked_sub(consumed)
     }
 
-    /// Returns it as a [`Marked`] reader, its stream lying from `start` of
-    /// the bytes the marked reader is given, if it is far enough from its
-    /// start that a refill reads only its own bytes, and holds few enough
-    /// bits read that one marks them.
+    /// Returns it as a [`Marked`] reader, refilled, its stream lying from
+    /// `start` of the bytes the marked reader is given, unless its stream
+    /// is shorter than its container.
     pub(super) fn mark(&self, start: usize) -> Option<Marked> {
-        if self.at < 8 || self.consumed > 8 {
-            return None;
-        }
-        let word = word(self.bytes, self.at) | 1;
+        let back = usize::try_from(self.consumed >> 3).unwrap_or_default();
+        let at = self.at.checked_sub(back)?;
+        let word = self.bytes.get(at..).and_then(<[u8]>::first_chunk)?;
         Some(Marked {
-            unread: word.wrapping_shl(self.consumed),
-            at: start.saturating_add(self.at),
+            unread: (u64::from_le_bytes(*word) | 1).wrapping_shl(self.consumed & 7),
+            at: start.saturating_add(at),
         })
     }
 
@@ -200,7 +197,7 @@ impl<'a> Backward<'a> {
 /// with few registers to spare: its container is marked by a set bit
 /// below its unread bits, whose place tells how many it has read, and it
 /// lies at `at` of the bytes that it is given, which all the streams lie
-/// in. Read no more than 55 bits from a refill, it reads only its own
+/// in. Read no more than 56 bits from a refill, it reads only its own
 /// stream's while it lies at least eight bytes from that stream's start.
 #[derive(Clone, Copy)]
 pub(super) struct Marked {
