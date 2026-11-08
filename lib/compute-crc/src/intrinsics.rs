@@ -23,14 +23,26 @@
 /// enough that combining costs little beside them, and few enough that
 /// short inputs take three. On Apple M4, 256 came within 10% of 1,024's
 /// speed over long inputs, and was 1.8 times as fast over pieces of 1 KiB.
-#[cfg(any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c"))]
+#[cfg(any(
+    all(
+        target_arch = "aarch64",
+        any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
+    ),
+    all(target_arch = "x86_64", feature = "crc32c")
+))]
 const STREAM: usize = 256;
 
 /// The polynomials of CRC-32, and of CRC-32/BZIP2 too, and of CRC-32C,
 /// their bits reversed as the instructions read them, without `x^32`.
-#[cfg(any(feature = "crc32", feature = "crc32-bzip2"))]
+#[cfg(all(
+    target_arch = "aarch64",
+    any(feature = "crc32", feature = "crc32-bzip2")
+))]
 const CRC32: u32 = 0xEDB8_8320;
-#[cfg(feature = "crc32c")]
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "x86_64"),
+    feature = "crc32c"
+))]
 const CRC32C: u32 = 0x82F6_3B78;
 
 /// Feeds `bytes` to a register of the polynomial `POLY`, from `state`, by
@@ -38,7 +50,13 @@ const CRC32C: u32 = 0x82F6_3B78;
 /// [`STREAM`] bytes, each fed its own register, the first from `state` and
 /// the others from zero, which then combine; and returns the register, and
 /// the bytes past the last whole block, for one stream to take.
-#[cfg(any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c"))]
+#[cfg(any(
+    all(
+        target_arch = "aarch64",
+        any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
+    ),
+    all(target_arch = "x86_64", feature = "crc32c")
+))]
 #[inline(always)]
 fn streams<const POLY: u32>(
     mut state: u32,
@@ -71,7 +89,13 @@ fn streams<const POLY: u32>(
 
 /// Returns `a` times `b` modulo `x^32` plus `POLY`, each a polynomial of
 /// degree below 32, its bits reversed: the most significant, `x^0`.
-#[cfg(any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c"))]
+#[cfg(any(
+    all(
+        target_arch = "aarch64",
+        any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
+    ),
+    all(target_arch = "x86_64", feature = "crc32c")
+))]
 const fn multiply<const POLY: u32>(a: u32, mut b: u32) -> u32 {
     let mut product = 0;
     let mut term = 0_u32;
@@ -88,12 +112,24 @@ const fn multiply<const POLY: u32>(a: u32, mut b: u32) -> u32 {
 
 /// Tables of what each byte of a register comes to, times a constant: a
 /// table for each of its four bytes, the first its least significant.
-#[cfg(any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c"))]
+#[cfg(any(
+    all(
+        target_arch = "aarch64",
+        any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
+    ),
+    all(target_arch = "x86_64", feature = "crc32c")
+))]
 type Times = [[u32; 256]; 4];
 
 /// Returns the tables of [`Times`] for `constant`, modulo `x^32` plus
 /// `POLY`.
-#[cfg(any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c"))]
+#[cfg(any(
+    all(
+        target_arch = "aarch64",
+        any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
+    ),
+    all(target_arch = "x86_64", feature = "crc32c")
+))]
 // Evaluated at compile time, where any overflow or index out of range
 // fails the build instead of panicking, as the tables are.
 #[allow(
@@ -120,7 +156,13 @@ const fn times<const POLY: u32>(constant: u32) -> Times {
 
 /// Returns `register` times the constant that `times` tabulates: each of
 /// its bytes' products, summed.
-#[cfg(any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c"))]
+#[cfg(any(
+    all(
+        target_arch = "aarch64",
+        any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
+    ),
+    all(target_arch = "x86_64", feature = "crc32c")
+))]
 #[inline(always)]
 fn by(times: &Times, register: u32) -> u32 {
     let mut product = 0;
@@ -132,7 +174,13 @@ fn by(times: &Times, register: u32) -> u32 {
 
 /// Returns `x` to the power of `bytes` bytes' bits, modulo `x^32` plus
 /// `POLY`, its bits reversed, by squaring.
-#[cfg(any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c"))]
+#[cfg(any(
+    all(
+        target_arch = "aarch64",
+        any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
+    ),
+    all(target_arch = "x86_64", feature = "crc32c")
+))]
 const fn power<const POLY: u32>(bytes: usize) -> u32 {
     // `x^0` and `x^1`.
     let (mut power, mut square) = (1 << 31, 1 << 30);
