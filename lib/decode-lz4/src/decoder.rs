@@ -539,7 +539,10 @@ impl Decoder {
         };
         frame.window.end = end;
         let decoded = frame.window.buf.get(start..end).unwrap_or_default();
-        frame.hash.update(decoded);
+        // Hashed only for a checksum to check against.
+        if frame.header.checksum {
+            frame.hash.update(decoded);
+        }
         let n = u64::try_from(decoded.len()).unwrap_or(u64::MAX);
         frame.decoded = frame.decoded.saturating_add(n);
         if frame.header.size.is_some_and(|size| frame.decoded > size) {

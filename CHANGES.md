@@ -77,6 +77,11 @@ so any release may break compatibility.
   at level 3, not 0.39, and 0.68 at level 19, not 0.32, and at least 0.68
   at every level; and frames without a checksum of stored, repeated, or
   far bytes at 0.88 to 1.10 times, not 0.15 to 0.25.
+- `decode-lz4`: short literals and matches copy 16 or 8 bytes at once,
+  sequences advance by wrapping, not saturating, additions, and only
+  frames with a checksum are hashed: on Apple M4, Canterbury, packed four
+  ways, decodes at 0.82 times `lz4_flex`'s speed, not 0.27. `decode_block`
+  may overwrite up to 16 bytes of its output past what it decodes to.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

@@ -46,24 +46,47 @@ fn decodes_what_lz4_flex_writes() {
     }
 }
 
+/// Appends a length field's extra bytes for `len`, past its token's 15.
+fn extend(block: &mut Vec<u8>, mut len: usize) {
+    if len < 15 {
+        return;
+    }
+    len -= 15;
+    while len >= 255 {
+        block.push(255);
+        len -= 255;
+    }
+    block.push(len as u8);
+}
+
 #[test]
 fn copies_matches_that_overlap() {
-    // Offsets of 1, 2, 3, and 7, each copying 100 bytes.
-    for offset in [1_u8, 2, 3, 7] {
-        let literals: Vec<u8> = (b'a'..b'a' + offset).collect();
-        let mut block = vec![offset << 4 | 15];
-        block.extend_from_slice(&literals);
-        block.extend_from_slice(&[offset, 0, 100 - 4 - 15, 0x50]);
-        block.extend_from_slice(b"12345");
-        let decoded = decode(&block, 1000).unwrap();
-        let expected: Vec<u8> = literals
-            .iter()
-            .copied()
-            .cycle()
-            .take(offset as usize + 100)
-            .collect();
-        assert_eq!(decoded[..offset as usize + 100], expected, "{offset}");
-        assert_eq!(&decoded[offset as usize + 100..], b"12345");
+    // Each offset from 1 to 20, past as many literals, copying lengths on
+    // either side of what is copied 8 and 16 bytes at a time, into room
+    // for exactly what it decodes to, and into more.
+    for offset in 1..=20_usize {
+        for len in [4, 5, 8, 15, 16, 17, 18, 19, 33, 64, 65, 100] {
+            let literals: Vec<u8> = (0..offset).map(|i| b'a' + i as u8).collect();
+            let token = (offset.min(15) << 4 | (len - 4).min(15)) as u8;
+            let mut block = vec![token];
+            extend(&mut block, offset);
+            block.extend_from_slice(&literals);
+            block.extend_from_slice(&(offset as u16).to_le_bytes());
+            extend(&mut block, len - 4);
+            block.push(0x50);
+            block.extend_from_slice(b"12345");
+            let mut expected: Vec<u8> = literals
+                .iter()
+                .copied()
+                .cycle()
+                .take(offset + len)
+                .collect();
+            expected.extend_from_slice(b"12345");
+            for room in [expected.len(), expected.len() + 64] {
+                let decoded = decode(&block, room).unwrap();
+                assert_eq!(decoded, expected, "{offset}, {len}, {room}");
+            }
+        }
     }
 }
 
