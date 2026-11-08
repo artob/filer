@@ -239,3 +239,39 @@ fn resumes_from_checkpoints_anywhere() {
         }
     }
 }
+
+/// Decodes each `.lzo` file in the directory `DECODE_LZO_CORPUS` names,
+/// whole, to the file beside it that it was made from, named without the
+/// `.lzo`, as `lzop -d` would, in a release build.
+#[test]
+#[ignore = "needs a corpus of .lzo files"]
+fn decodes_a_corpus() {
+    use std::time::{Duration, Instant};
+    let corpus = std::env::var("DECODE_LZO_CORPUS").unwrap();
+    let mut paths: Vec<_> = std::fs::read_dir(corpus)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "lzo"))
+        .collect();
+    paths.sort();
+    let (mut bytes, mut time) = (0, Duration::ZERO);
+    for path in &paths {
+        let stream = std::fs::read(path).unwrap();
+        let mut output = vec![0; 1 << 30];
+        let start = Instant::now();
+        let (mut decoder, mut at, mut len) = (Decoder::new(), 0, 0);
+        loop {
+            let (consumed, produced) = decoder.decode(&stream[at..], &mut output[len..]).unwrap();
+            if (consumed, produced) == (0, 0) {
+                break;
+            }
+            (at, len) = (at + consumed, len + produced);
+        }
+        decoder.finish().unwrap();
+        time += start.elapsed();
+        let original = std::fs::read(path.with_extension("")).unwrap();
+        assert!(output[..len] == original, "{}", path.display());
+        bytes += len;
+    }
+    println!("{} files, {bytes} bytes, in {time:?}", paths.len());
+}

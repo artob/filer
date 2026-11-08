@@ -186,3 +186,51 @@ fn resumes_from_checkpoints_anywhere() {
         }
     }
 }
+
+/// Decodes each `.lz4` file in the directory `DECODE_LZ4_CORPUS` names,
+/// whole, as `lz4_flex` decodes it, and times it against `lz4_flex`, in a
+/// release build.
+#[test]
+#[ignore = "needs a corpus of .lz4 files"]
+fn decodes_a_corpus() {
+    use std::{
+        io::Read as _,
+        time::{Duration, Instant},
+    };
+    let corpus = std::env::var("DECODE_LZ4_CORPUS").unwrap();
+    let mut paths: Vec<_> = std::fs::read_dir(corpus)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "lz4"))
+        .collect();
+    paths.sort();
+    let (mut bytes, mut times) = (0, [Duration::ZERO; 2]);
+    for path in &paths {
+        let stream = std::fs::read(path).unwrap();
+        let mut output = vec![0; 1 << 30];
+        let start = Instant::now();
+        let (mut decoder, mut at, mut len) = (Decoder::new(), 0, 0);
+        loop {
+            let (consumed, produced) = decoder.decode(&stream[at..], &mut output[len..]).unwrap();
+            if (consumed, produced) == (0, 0) {
+                break;
+            }
+            (at, len) = (at + consumed, len + produced);
+        }
+        decoder.finish().unwrap();
+        times[0] += start.elapsed();
+        let start = Instant::now();
+        let mut theirs = Vec::with_capacity(len);
+        lz4_flex::frame::FrameDecoder::new(&stream[..])
+            .read_to_end(&mut theirs)
+            .unwrap();
+        times[1] += start.elapsed();
+        assert!(output[..len] == theirs, "{}", path.display());
+        bytes += len;
+    }
+    let [ours, theirs] = times;
+    println!(
+        "{} streams, {bytes} bytes: ours in {ours:?}, lz4_flex's in {theirs:?}",
+        paths.len()
+    );
+}

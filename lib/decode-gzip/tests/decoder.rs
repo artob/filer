@@ -169,3 +169,58 @@ fn offers_checkpoints_anywhere() {
         assert!(rest == expected[len..], "from {from}");
     }
 }
+
+/// Decodes each `.gz` file in the directory `DECODE_GZIP_CORPUS` names,
+/// whole, as zlib decodes it, member by member, and times it against
+/// `zlib-rs`, in a release build.
+#[test]
+#[ignore = "needs a corpus of .gz files"]
+fn decodes_a_corpus() {
+    use std::time::{Duration, Instant};
+    use zlib_rs::{Inflate, InflateFlush, Status};
+    let corpus = std::env::var("DECODE_GZIP_CORPUS").unwrap();
+    let mut paths: Vec<_> = std::fs::read_dir(corpus)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "gz"))
+        .collect();
+    paths.sort();
+    let (mut bytes, mut times) = (0, [Duration::ZERO; 2]);
+    for path in &paths {
+        let stream = std::fs::read(path).unwrap();
+        let mut output = vec![0; 1 << 30];
+        let start = Instant::now();
+        let (mut decoder, mut at, mut len) = (Decoder::new(), 0, 0);
+        loop {
+            let (consumed, produced) = decoder.decode(&stream[at..], &mut output[len..]).unwrap();
+            if (consumed, produced) == (0, 0) {
+                break;
+            }
+            (at, len) = (at + consumed, len + produced);
+        }
+        decoder.finish().unwrap();
+        times[0] += start.elapsed();
+        let start = Instant::now();
+        let (mut theirs, mut done) = (vec![0; len], (0, 0));
+        while done.0 < at {
+            let mut inflate = Inflate::new(true, 31);
+            let status = inflate.decompress(
+                &stream[done.0..],
+                &mut theirs[done.1..],
+                InflateFlush::Finish,
+            );
+            assert_eq!(status, Ok(Status::StreamEnd), "{}", path.display());
+            done.0 += usize::try_from(inflate.total_in()).unwrap();
+            done.1 += usize::try_from(inflate.total_out()).unwrap();
+        }
+        times[1] += start.elapsed();
+        assert_eq!(done, (at, len), "{}", path.display());
+        assert!(output[..len] == theirs, "{}", path.display());
+        bytes += len;
+    }
+    let [ours, theirs] = times;
+    println!(
+        "{} streams, {bytes} bytes: ours in {ours:?}, zlib-rs's in {theirs:?}",
+        paths.len()
+    );
+}

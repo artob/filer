@@ -140,3 +140,49 @@ fn resumes_from_checkpoints_anywhere() {
         checkpoint.finish().unwrap();
     }
 }
+
+/// Decodes each `.zz` file in the directory `DECODE_ZLIB_CORPUS` names,
+/// whole, as zlib decodes it, and times it against `zlib-rs`, in a
+/// release build.
+#[test]
+#[ignore = "needs a corpus of .zz files"]
+fn decodes_a_corpus() {
+    use std::time::{Duration, Instant};
+    use zlib_rs::{Inflate, InflateFlush, Status};
+    let corpus = std::env::var("DECODE_ZLIB_CORPUS").unwrap();
+    let mut paths: Vec<_> = std::fs::read_dir(corpus)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "zz"))
+        .collect();
+    paths.sort();
+    let (mut bytes, mut times) = (0, [Duration::ZERO; 2]);
+    for path in &paths {
+        let stream = std::fs::read(path).unwrap();
+        let mut output = vec![0; 1 << 30];
+        let start = Instant::now();
+        let (mut decoder, mut at, mut len) = (Decoder::new(), 0, 0);
+        loop {
+            let (consumed, produced) = decoder.decode(&stream[at..], &mut output[len..]).unwrap();
+            if (consumed, produced) == (0, 0) {
+                break;
+            }
+            (at, len) = (at + consumed, len + produced);
+        }
+        decoder.finish().unwrap();
+        times[0] += start.elapsed();
+        let start = Instant::now();
+        let (mut inflate, mut theirs) = (Inflate::new(true, 15), vec![0; len]);
+        let status = inflate.decompress(&stream, &mut theirs, InflateFlush::Finish);
+        times[1] += start.elapsed();
+        assert_eq!(status, Ok(Status::StreamEnd), "{}", path.display());
+        assert_eq!(inflate.total_out(), u64::try_from(len).unwrap());
+        assert!(output[..len] == theirs, "{}", path.display());
+        bytes += len;
+    }
+    let [ours, theirs] = times;
+    println!(
+        "{} streams, {bytes} bytes: ours in {ours:?}, zlib-rs's in {theirs:?}",
+        paths.len()
+    );
+}

@@ -603,14 +603,23 @@ crate's name until its first code, which moves it to `lib/`.
   peak at the median on Zen 1 (2026-11-07). Done when `memory` on comet,
   which counts libzstd's allocations too, shows it whole within twice
   libzstd's peak over the corpus.
-- [ ] **DEC-13: Corpora of real files.** `decode-deflate`, `decode-lzma`,
-  `decode-xz`, and `decode-zstd` each have an ignored `decodes_a_corpus`
-  test over the directory `DECODE_<CODEC>_CORPUS` names, never run in
-  CI; the other five have none. Done when each decoder has one, each
-  has run over real-world files (a distribution's packages, initramfs
-  images, SquashFS blocks, archives of large projects), decoding every
-  file to what the reference tool does, compared by SHA-256, and
-  findings are fixed or recorded here.
+- [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
+  `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
+  names, never run in CI, checked against a reference decoder, or for
+  `decode-lzo` against the file beside each `.lzo`. On Apple M4, all
+  but `decode-lzo`'s passed over Canterbury, packed by each codec's own
+  tool at several levels, and `decode-gzip`'s over 3,813 `.crate` files
+  of the cargo registry, 3.4 GB (2026-11-08). Done when each has run
+  over real-world files on Linux (a distribution's packages, initramfs
+  images, SquashFS blocks, archives of large projects), `decode-lzo`'s
+  over what `lzop` writes on comet, and findings are fixed or recorded
+  here.
+- [ ] **DEC-21: LZ4's speed.** `decode-lz4` decoded Canterbury, packed
+  by `lz4` at `-1` and `-9`, in linked and in small blocks, at 0.30
+  times `lz4_flex`'s speed on Apple M4, 83 ms to 25, in its
+  `decodes_a_corpus` test (2026-11-08). Done when a profile shows where
+  the time goes and comet's figures over the corpus are within 1.5
+  times `lz4_flex`'s, or its crate's docs say why not.
 - [ ] **DEC-14: Coverage of the decoders.** No coverage report of the
   `decode-*` crates has been read. Done when a line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
