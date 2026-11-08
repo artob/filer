@@ -88,10 +88,11 @@ so any release may break compatibility.
   decodes at 1.40 times liblzo2's speed at LZO1X-1, not 0.60, and 1.54
   times at LZO1X-999, not 0.69. `decode_block` may overwrite up to 16
   bytes of its output past what it decodes to.
-- `decode-deflate`: three literals decode per refill, not two, and the
-  bit count falls by wrapping subtraction, which every caller's check
-  keeps from wrapping: on Apple M4, 2% to 3% faster, Canterbury at 0.87
-  times `zlib-rs`'s speed.
+- `decode-deflate`: three literals decode per refill, not two, the bit
+  count falls by wrapping subtraction, which every caller's check keeps
+  from wrapping, and matches copy inline, not by a call: on Apple M4, 5%
+  to 7% faster; gzip, with `intrinsics`, at 0.82 to 0.85 times
+  `zlib-rs`'s speed.
 ### Fixed
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the

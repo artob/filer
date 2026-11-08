@@ -966,6 +966,7 @@ fn fast(
 /// further than `window`, which they may overlap, repeating what they
 /// copy, and returns the new end. It may write up to `SLACK` bytes past
 /// that end.
+#[inline(always)]
 fn copy(
     buf: &mut [u8],
     end: usize,
