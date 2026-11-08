@@ -82,7 +82,7 @@ pub(super) fn read<'a>(
         runs.clear();
     }
     let huffman = huffman.as_ref().ok_or_else(corrupt)?;
-    let runs = runs.of(huffman, regenerated);
+    let runs = runs.of(huffman, regenerated, streams.len());
     ready(buffer, regenerated, max, 0);
     if format == 0 {
         huffman.decode(runs, streams, buffer)?;
@@ -96,15 +96,8 @@ pub(super) fn read<'a>(
         return Err(corrupt());
     };
     let len = |len: &[u8; 2]| usize::from(u16::from_le_bytes(*len));
-    let (first, rest) = rest.split_at_checked(len(first)).ok_or_else(corrupt)?;
-    let (second, rest) = rest.split_at_checked(len(second)).ok_or_else(corrupt)?;
-    let (third, fourth) = rest.split_at_checked(len(third)).ok_or_else(corrupt)?;
-    let quarter = regenerated.div_ceil(4);
-    let (one, rest) = buffer.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
-    let (two, rest) = rest.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
-    let (three, four) = rest.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
-    let outputs = [one, two, three, four];
-    huffman.decode4(runs, [first, second, third, fourth], outputs)?;
+    let lens = [len(first), len(second), len(third)];
+    huffman.decode4(runs, rest, lens, buffer)?;
     Ok((buffer, end))
 }
 
