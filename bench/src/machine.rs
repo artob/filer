@@ -41,7 +41,9 @@ pub struct Machine {
     /// The SHA-256 of `corpus.toml` and of `packed.toml`.
     pub corpus: String,
     pub packed: String,
-    /// The commit, and whether a tracked file differs from it.
+    /// The commit, and whether a tracked file differs from it, but for the
+    /// `BENCH.md` files that `tables` writes, which a run between others
+    /// would otherwise count against them.
     pub commit: String,
     pub dirty: bool,
 }
@@ -127,7 +129,18 @@ impl Machine {
             corpus: hash("corpus.toml"),
             packed: hash("packed.toml"),
             commit: output("git", &["rev-parse", "HEAD"]),
-            dirty: !output("git", &["status", "--porcelain", "--untracked-files=no"]).is_empty(),
+            dirty: !output(
+                "git",
+                &[
+                    "status",
+                    "--porcelain",
+                    "--untracked-files=no",
+                    "--",
+                    ":(top)",
+                    ":(top,exclude,glob)lib/*/BENCH.md",
+                ],
+            )
+            .is_empty(),
         }
     }
 

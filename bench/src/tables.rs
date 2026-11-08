@@ -23,7 +23,13 @@ use crate::{
     size,
 };
 use serde::Deserialize;
-use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path};
+use std::{
+    collections::BTreeMap,
+    fmt::Write as _,
+    fs,
+    io::{BufRead as _, BufReader},
+    path::Path,
+};
 
 /// A line of a results' file, as `procedure`, `memory`, and `size` write
 /// it.
@@ -162,7 +168,9 @@ pub fn run(codecs: &[Codec], bench: &Path) -> Result<()> {
 const PIECES: [Option<usize>; 2] = [Some(4 << 10), Some(64 << 10)];
 
 /// Reads every run in `results`, oldest first, keeping of each key the
-/// newest run's figures.
+/// newest run's figures. A run's file, gigabytes of samples, is read a
+/// line at a time, twice: once for whether it times or counts, and once
+/// for its figures, never held whole.
 fn read(results: &Path) -> Result<Data> {
     let mut paths: Vec<_> = fs::read_dir(results)?
         .map(|entry| entry.map(|entry| entry.path()))
@@ -173,19 +181,27 @@ fn read(results: &Path) -> Result<Data> {
     });
     let mut runs = Vec::new();
     for path in paths {
-        let text = fs::read_to_string(&path)?;
-        let mut lines = text.lines();
-        let Some(Ok(Record::Machine(machine))) = lines.next().map(serde_json::from_str) else {
+        let mut first = String::new();
+        BufReader::new(fs::File::open(&path)?).read_line(&mut first)?;
+        let Ok(Record::Machine(machine)) = serde_json::from_str(&first) else {
             continue;
         };
         if machine.commit.is_empty() || machine.dirty {
             continue;
         }
-        runs.push((*machine, lines.map(str::to_owned).collect::<Vec<_>>()));
+        runs.push((*machine, path));
     }
     runs.sort_by(|a, b| a.0.date.cmp(&b.0.date));
+    // Each line of a run's file after its first, parsed, as far as it is
+    // one of `Record`'s.
+    let records = |path: &Path| -> Result<_> {
+        let lines = BufReader::new(fs::File::open(path)?).lines().skip(1);
+        Ok(lines
+            .map_while(std::result::Result::ok)
+            .filter_map(|line| serde_json::from_str::<Record>(&line).ok()))
+    };
     let mut data = Data::default();
-    for (run, (machine, lines)) in runs.into_iter().enumerate() {
+    for (run, (machine, path)) in runs.into_iter().enumerate() {
         let native = machine.rustflags.contains("target-cpu=native");
         let key = |codec: String, input: String, level: String, piece| Key {
             machine: label(&machine),
@@ -196,18 +212,11 @@ fn read(results: &Path) -> Result<Data> {
             level,
         };
         // The checksums' runs, whose lines are `throughput`'s, hold none of
-        // these.
-        let records: Vec<Record> = lines
-            .iter()
-            .filter_map(|line| serde_json::from_str(line).ok())
-            .collect();
-        // A run either times or counts, and its failures are of that.
-        let counts = records
-            .iter()
-            .any(|record| matches!(record, Record::Memory { .. }));
+        // these. A run either times or counts, and its failures are of that.
+        let counts = records(&path)?.any(|record| matches!(record, Record::Memory { .. }));
         let mut timed: BTreeMap<Key, Timed> = BTreeMap::new();
         let mut counted: BTreeMap<Key, Counted> = BTreeMap::new();
-        for record in records {
+        for record in records(&path)? {
             match record {
                 Record::Sample {
                     codec,
