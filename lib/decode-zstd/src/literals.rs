@@ -55,8 +55,7 @@ pub(super) fn read<'a>(
             return Ok((literals, header.saturating_add(regenerated)));
         }
         let &byte = rest.first().ok_or_else(corrupt)?;
-        buffer.clear();
-        buffer.resize(regenerated, byte);
+        ready(buffer, regenerated, max, byte);
         return Ok((buffer, header.saturating_add(1)));
     }
 
@@ -84,8 +83,7 @@ pub(super) fn read<'a>(
     }
     let huffman = huffman.as_ref().ok_or_else(corrupt)?;
     let runs = runs.of(huffman, regenerated);
-    buffer.clear();
-    buffer.resize(regenerated, 0);
+    ready(buffer, regenerated, max, 0);
     if format == 0 {
         huffman.decode(runs, streams, buffer)?;
         return Ok((buffer, end));
@@ -108,4 +106,18 @@ pub(super) fn read<'a>(
     let outputs = [one, two, three, four];
     huffman.decode4(runs, [first, second, third, fourth], outputs)?;
     Ok((buffer, end))
+}
+
+/// Fills `buffer` with `len` of `byte`, of at most `max`. Short, it is
+/// freed, as its literals are not kept, before one twice as large, up to
+/// `max`, is allocated: growing it in place would hold both at once, and
+/// pass `max`.
+fn ready(buffer: &mut Vec<u8>, len: usize, max: usize, byte: u8) {
+    if buffer.capacity() < len {
+        let grown = buffer.capacity().saturating_mul(2).min(max).max(len);
+        *buffer = Vec::new();
+        buffer.reserve_exact(grown);
+    }
+    buffer.clear();
+    buffer.resize(len, byte);
 }

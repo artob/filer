@@ -571,7 +571,9 @@ impl Decoder {
             }
         }
         let mut frame = Box::new(Frame::new(header));
-        let max = header.max_block();
+        // No block decodes past the output, nor do its literals, which
+        // are then allocated for no more.
+        let max = header.max_block().min(output.len());
         let (mut at, mut end) = (len, 0);
         loop {
             let head = input.get(at..).unwrap_or_default();

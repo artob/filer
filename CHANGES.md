@@ -69,6 +69,10 @@ so any release may break compatibility.
   window, as libzstd does: whole, 8 MiB at level 19 takes 24 KiB of heap
   in one allocation, not the window's 8 MiB, and decodes half as fast
   again as in pieces of 4 KiB, on Apple M4.
+- `decode-zstd`: the buffer of a block's literals grows by doubling, up
+  to the block's most, freeing the old first, as its literals are not
+  kept: on Zen 1, over the corpus, at most 1.63 times libzstd's peak,
+  152 KiB, not 2.99, and 0.45 times at the median.
 - `decode-zstd`: sequences read their bits from a word refilled once a
   sequence, from tables that hold each code's value; Huffman-coded
   literals decode their four streams in turn, and short codes several at

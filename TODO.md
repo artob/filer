@@ -603,17 +603,6 @@ crate's name until its first code, which moves it to `lib/`.
   short literals; and 11% in libc's `memcpy` (2026-11-08). Done when
   comet's figures, over the corpus, are within 1.5 times libzstd's, or
   its crate's docs say why not.
-- [ ] **DEC-20: zstd's window, whole, measured.** `decode-zstd` decodes a
-  frame given whole, with room for its content size, straight into the
-  output, holding no window. `memory` on comet, at `95c8c22`, puts it at
-  0.45 times libzstd's peak at the median of the corpus, where the
-  window took 24.9 times; 24.3 KiB in one allocation for the synthetic
-  inputs, to libzstd's 93.7 KiB. But 7 of 181 exceed twice: up to 2.99
-  times, `silesia/x-ray` at level 1, 280 KiB in 3 allocations, and
-  `rust/cargo`, `E.coli`, `sao`, and `librustc_driver.so`, the most
-  literal-heavy, by their allocation counts a separate buffer of a
-  block's literals, which libzstd keeps within its context (2026-11-08).
-  Done when it is within twice libzstd's peak over the whole corpus.
 - [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
   `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
   names, never run in CI, checked against a reference decoder, or for
