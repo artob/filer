@@ -66,15 +66,35 @@ fn read(path: &str) -> String {
         .unwrap_or_default()
 }
 
-/// The value of the first line of `/proc/` file `path` that begins with
-/// `key`, such as `/proc/cpuinfo`'s `model name`.
-fn proc_field(path: &str, key: &str) -> String {
-    let text = read(path);
-    let line = text.lines().find(|line| line.starts_with(key));
+/// The value of the first line of `text` that begins with `key`, of lines
+/// of a key, a colon, and a value, as `/proc/` files and `lscpu` print,
+/// which indents some.
+fn field(text: &str, key: &str) -> String {
+    let mut lines = text.lines().map(str::trim_start);
+    let line = lines.find(|line| line.starts_with(key));
     let value = line
         .and_then(|line| line.split_once(':'))
         .map(|(_, value)| value);
     value.unwrap_or_default().trim().to_owned()
+}
+
+/// The value of the first line of `/proc/` file `path` that begins with
+/// `key`, such as `/proc/cpuinfo`'s `model name`.
+fn proc_field(path: &str, key: &str) -> String {
+    field(&read(path), key)
+}
+
+/// The CPU's name on Linux: `/proc/cpuinfo`'s, or on ARM, where that file
+/// gives only the numbers of the CPU's maker and part, the names `lscpu`
+/// has for them, such as `ARM Neoverse-V3`.
+fn linux_cpu() -> String {
+    let name = proc_field("/proc/cpuinfo", "model name");
+    if !name.is_empty() {
+        return name;
+    }
+    let lscpu = output("lscpu", &[]);
+    let (vendor, model) = (field(&lscpu, "Vendor ID"), field(&lscpu, "Model name"));
+    format!("{vendor} {model}").trim().to_owned()
 }
 
 impl Machine {
@@ -86,7 +106,7 @@ impl Machine {
             crate::corpus::hex(&compute_sha256::sha256(&bytes))
         };
         let cpu = match linux {
-            true => proc_field("/proc/cpuinfo", "model name"),
+            true => linux_cpu(),
             false => sysctl("machdep.cpu.brand_string"),
         };
         let memory = match linux {

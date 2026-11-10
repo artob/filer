@@ -91,18 +91,30 @@ Each `BENCH.md` names its codec's counterparts:
 ## Machines
 
 Only 64-bit x86 and ARM, each on at least two microarchitectures, one
-current and one older or smaller, on bare metal where possible:
+current and one older or smaller. Three instance types of AWS EC2,
+`c8a.medium`, `c8i.large`, and `c9g.medium`, are our benchmark
+reference (D67): the default machines, whose figures are the headline,
+and on which we aim for our speed beside the counterparts' to be
+excellent and competitive. The others show how that holds elsewhere:
 
-- **x86-64**: a current AMD (Zen 4 or later) and a current Intel core,
-  each bare metal; and a cloud VM, as the typical server.
-- **AArch64**: Apple Silicon (M4) under macOS; and a Neoverse server
-  (Graviton 4, or Ampere) under Linux.
+- **x86-64**: a current AMD core and a current Intel core, our default
+  x86 machines, each an EC2 instance with a physical core to itself:
+  Zen 5 (EPYC 9R45, `c8a.medium`, 1 vCPU) and Granite Rapids (Xeon
+  6975P-C, `c8i.large`, the core's 2 hyperthreads), which still share
+  their L3 cache, memory bandwidth, and power and boost budget with
+  their hosts' other tenants; and an older AMD core, Zen 1 (EPYC 7551P),
+  on a VM of 4 vCPUs under KVM.
+- **AArch64**: a current server core, our default ARM machine, an EC2
+  instance with a physical core to itself as the x86 ones are: Neoverse
+  V3 (AWS Graviton5, `c9g.medium`, 1 vCPU) under Linux; and Apple
+  Silicon (M4) under macOS.
 - **Optionally**: a Cortex-A76 board, such as the Raspberry Pi 5, as the
   small end.
 
 Results name the CPU model, the cores used, the frequency policy, the
 memory, the OS and its kernel, and whether the machine is virtual. Figures
-from VMs carry their noise, and are never the headline.
+from VMs carry their noise: only those of a VM with a physical core to
+itself may be the headline.
 
 ## Builds
 
@@ -121,9 +133,12 @@ from VMs carry their noise, and are never the headline.
 
 - **Environment**: on Linux, the `performance` governor, frequency
   boost off, the harness pinned to an isolated core whose SMT sibling is
-  idle, and nothing else running. On macOS, which pins nothing, on mains
-  power, Low Power Mode off, and nothing else running. The state is
-  recorded either way.
+  idle, and nothing else running. On an EC2 instance, which exposes no
+  governor or boost to set, the harness and its processes are pinned
+  to one hyperthread of its core, the other, if it has one, left idle,
+  and the system's periodic timers are stopped for the run. On macOS,
+  which pins nothing, on mains power, Low Power Mode off, and nothing
+  else running. The state is recorded either way.
 - **Warm caches**: inputs and output buffers are in memory and touched
   before timing, and each pair of decoder and input warms up for at least
   a second. Decoding is measured, not I/O.
@@ -168,7 +183,9 @@ instructions at run time either way. Their table is in GB/s.
   OS, kernel, CPU, frequency policy, toolchain, each crate's version and
   features, compiler flags, the corpus manifest's hash, the commit, and
   the date), under `bench/results/`, on the machine that measured them,
-  never committed, as a run's are tens of megabytes.
+  never committed, as a run's are gigabytes: tens of megabytes once
+  packed by `zstd`, as `.jsonl.zst`, which `tables` reads as well, and
+  which is how a machine short of disk keeps them.
 - **Each `BENCH.md`, per machine**:
   - a table per input set, with a row per input and level, a column per
     decoder in MB/s (the median and its interval), and ours relative to
@@ -186,11 +203,11 @@ instructions at run time either way. Their table is in GB/s.
 
 ## Regressions
 
-Before each release of a crate, its decoder is measured again, on an x86
-machine on bare metal and on Apple Silicon, over the whole corpus. Being
-slower on any input by more than its interval and 3% blocks the release
-until it is explained. Shared CI runners are too noisy to time anything:
-CI only builds the harness.
+Before each release of a crate, its decoder is measured again, on the
+default machines, x86 and ARM, and on Apple Silicon, over the whole
+corpus. Being slower on any input by more than its interval and 3%
+blocks the release until it is explained. Shared CI runners are too
+noisy to time anything: CI only builds the harness.
 
 ## Harness
 

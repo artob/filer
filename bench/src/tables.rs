@@ -4,8 +4,9 @@
 //! each `compute-*` crate's, generated from the raw data in
 //! `bench/results/`, never edited by hand, as `METHOD.md` asks.
 //!
-//! `tables` reads every run there and keeps those made at a commit from a
-//! clean tree, as only of those can it be told what they measured. Of each
+//! `tables` reads every run there, as written, `.jsonl`, or packed by
+//! `zstd`, `.jsonl.zst`, and keeps those made at a commit from a clean
+//! tree, as only of those can it be told what they measured. Of each
 //! machine, build, codec, way of feeding, input, and level, and of each
 //! target, crate, subject, and `opt-level` sized, it takes the newest run
 //! that measured it, and computes its figures as `run` does,
@@ -27,7 +28,7 @@ use std::{
     collections::BTreeMap,
     fmt::Write as _,
     fs,
-    io::{BufRead as _, BufReader},
+    io::{BufRead, BufReader, Read},
     path::Path,
 };
 
@@ -167,6 +168,65 @@ pub fn run(codecs: &[Codec], bench: &Path) -> Result<()> {
 /// The pieces of streaming, as `METHOD.md` names them.
 const PIECES: [Option<usize>; 2] = [Some(4 << 10), Some(64 << 10)];
 
+/// What the zstd stream `source` holds decodes to, by `decode-zstd`.
+struct Unpacked {
+    source: fs::File,
+    decoder: decode_zstd::Decoder,
+    /// The packed bytes read and not yet decoded, `packed[at..len]`, and
+    /// whether `source` has ended.
+    packed: Vec<u8>,
+    at: usize,
+    len: usize,
+    ended: bool,
+}
+
+impl Read for Unpacked {
+    fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+        let failed = |error: decode_zstd::Error| std::io::Error::other(error.to_string());
+        loop {
+            if self.at == self.len && !self.ended {
+                (self.at, self.len) = (0, self.source.read(&mut self.packed)?);
+                self.ended = self.len == 0;
+            }
+            let packed = &self.packed[self.at..self.len];
+            let (consumed, produced) = self.decoder.decode(packed, output).map_err(failed)?;
+            self.at += consumed;
+            if produced > 0 || output.is_empty() {
+                return Ok(produced);
+            }
+            if consumed == 0 && self.at < self.len {
+                return Err(std::io::Error::other("decode-zstd: went no further"));
+            }
+            if consumed == 0 && self.ended {
+                self.decoder.finish().map_err(failed)?;
+                return Ok(0);
+            }
+        }
+    }
+}
+
+/// The lines of the run's file at `path`: as written, `.jsonl`, or packed
+/// by `zstd`, `.jsonl.zst`, as a machine short of disk keeps its runs,
+/// which are gigabytes otherwise.
+fn lines(path: &Path) -> Result<impl Iterator<Item = String> + use<>> {
+    let source = fs::File::open(path)?;
+    let reader: Box<dyn BufRead> = match path.extension().is_some_and(|e| e == "zst") {
+        true => Box::new(BufReader::with_capacity(
+            1 << 20,
+            Unpacked {
+                source,
+                decoder: decode_zstd::Decoder::new(),
+                packed: vec![0; 1 << 16],
+                at: 0,
+                len: 0,
+                ended: false,
+            },
+        )),
+        false => Box::new(BufReader::new(source)),
+    };
+    Ok(reader.lines().map_while(std::result::Result::ok))
+}
+
 /// Reads every run in `results`, oldest first, keeping of each key the
 /// newest run's figures. A run's file, gigabytes of samples, is read a
 /// line at a time, twice: once for whether it times or counts, and once
@@ -176,13 +236,12 @@ fn read(results: &Path) -> Result<Data> {
         .map(|entry| entry.map(|entry| entry.path()))
         .collect::<std::result::Result<_, _>>()?;
     paths.retain(|path| {
-        path.extension()
-            .is_some_and(|extension| extension == "jsonl")
+        let name = path.file_name().and_then(|name| name.to_str());
+        name.is_some_and(|name| name.ends_with(".jsonl") || name.ends_with(".jsonl.zst"))
     });
     let mut runs = Vec::new();
     for path in paths {
-        let mut first = String::new();
-        BufReader::new(fs::File::open(&path)?).read_line(&mut first)?;
+        let first = lines(&path)?.next().unwrap_or_default();
         let Ok(Record::Machine(machine)) = serde_json::from_str(&first) else {
             continue;
         };
@@ -195,9 +254,8 @@ fn read(results: &Path) -> Result<Data> {
     // Each line of a run's file after its first, parsed, as far as it is
     // one of `Record`'s.
     let records = |path: &Path| -> Result<_> {
-        let lines = BufReader::new(fs::File::open(path)?).lines().skip(1);
-        Ok(lines
-            .map_while(std::result::Result::ok)
+        Ok(lines(path)?
+            .skip(1)
             .filter_map(|line| serde_json::from_str::<Record>(&line).ok()))
     };
     let mut data = Data::default();
@@ -298,17 +356,25 @@ fn read(results: &Path) -> Result<Data> {
     Ok(data)
 }
 
-/// A machine's name in tables: its CPU, and whether it is virtual.
+/// A machine's name in tables: its CPU, without the marks that Intel's
+/// names carry, and whether it is virtual, under the hypervisor
+/// `systemd-detect-virt` names.
 fn label(machine: &Machine) -> String {
+    let cpu = machine.cpu.replace("(R)", "").replace("(TM)", "");
+    let plural = match machine.cores {
+        1 => "",
+        _ => "s",
+    };
     let how = match machine.virtualized.as_str() {
-        "none" | "" => format!("{} cores, bare metal", machine.cores),
+        "none" | "" => format!("{} core{plural}, bare metal", machine.cores),
+        "amazon" => format!("{} vCPU{plural} under EC2 Nitro", machine.cores),
         hypervisor => format!(
-            "{} vCPUs under {}",
+            "{} vCPU{plural} under {}",
             machine.cores,
             hypervisor.to_uppercase()
         ),
     };
-    format!("{} ({how})", machine.cpu)
+    format!("{cpu} ({how})")
 }
 
 /// The version of `krate` that the harness links now, or, of one of ours

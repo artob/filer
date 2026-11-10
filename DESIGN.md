@@ -2625,8 +2625,9 @@ enwik8, Canterbury, a kernel tarball, executables) and synthetic edge
 cases, encoded once by the reference encoder at levels across its range
 and verified by SHA-256, with every decoded output checked; whole
 streams, streaming in pieces, small streams, memory, checkpoints,
-counters, and code size; 64-bit x86 (current AMD and Intel on bare
-metal, and a VM) and ARM (Apple M4, and a Neoverse server), baseline
+counters, and code size; 64-bit x86 (current AMD and Intel, and an
+older AMD in a VM) and ARM (a Neoverse server, and Apple M4), the
+current ones the benchmark reference (D67), baseline
 and native builds; independent processes with decoders interleaved,
 medians with bootstrap confidence intervals, comparisons as geometric
 means of paired ratios; and a release blocked by a regression past its
@@ -2739,6 +2740,17 @@ second run, and on x86-64, Zen 1 under KVM, by the same tool
 The table changes as the code does, and each crate's docs repeat its
 row. On Zen 1, one `crc32` can hardly start before the last ends, so
 three streams beat one by only 6%, 5.6 GB/s to 5.3.
+
+**The benchmark reference (D67, 2026-11-10).** Three instance types of
+AWS EC2 are our benchmark reference, the default machines of
+`bench/METHOD.md`, each with a physical core to itself: `c8a.medium`, a
+Zen 5 core (AMD EPYC 9R45); `c8i.large`, a Granite Rapids core and its
+two hyperthreads (Intel Xeon 6975P-C); and `c9g.medium`, a Neoverse V3
+core (AWS Graviton5). On these we aim for our speed beside the
+counterparts' to be excellent and competitive: their figures are each
+`BENCH.md`'s headline, what the `TODO.md` items on speed are measured
+by, and what a release is checked against. Zen 1 in a VM and Apple M4
+are measured beside them, an older core and a laptop's.
 
 **Rotates under `x86-64-v2`** (measured 2026-11-05, Zen 1 in a VM).
 Built with `-C target-cpu=x86-64-v2`, as some Linux distributions build
@@ -4601,6 +4613,7 @@ Record changes here with a date and one line of rationale.
 | D64 | Our checksums and hashes are `compute-<algorithm>` crates, generic and dependency-free | Accepted |
 | D65 | `compute-*` crates may take CPU instructions behind `intrinsics`, through `compute-multiversion` | Accepted |
 | D66 | `intrinsics` is on by default, our performance baseline; without it, no dependencies, at a measured price | Accepted |
+| D67 | AWS EC2's `c8a.medium`, `c8i.large`, and `c9g.medium` are the benchmark reference, where our speed is to be excellent and competitive | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

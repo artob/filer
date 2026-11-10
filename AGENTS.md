@@ -26,6 +26,10 @@
   a crate with `intrinsics`, or above one, adds it there, our performance
   baseline (D66), and its docs give the measured price of building
   without it, the zero-dependency build: `features = ["all", "std"]`.
+- Speed is judged on the benchmark reference (D67, `bench/METHOD.md`):
+  AWS EC2's `c8a.medium` (Zen 5), `c8i.large` (Granite Rapids), and
+  `c9g.medium` (Graviton5). Aim to be excellent there, and competitive
+  with each counterpart.
 - Our crates are meant to always be buildable with `#![no_std]` and hence
   always export an explicit `std` feature flag. Some of our lower-level crates
   may also have an explicit `alloc` feature, but for many crates it's not

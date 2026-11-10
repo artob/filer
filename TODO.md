@@ -560,9 +560,19 @@ crate's name until its first code, which moves it to `lib/`.
   for time. Done when it fills them on Apple M4 too. Mind code placement
   there: a probe timed `compute-crc`'s tables' CRC-32 at 1.3 GB/s from
   one call site and 5.1 from another, the same loop (2026-11-06).
-- [ ] **BENCH-02: Every machine.** The rest of the protocol's machines:
-  current AMD and Intel on bare metal, and a Neoverse server. Done when
-  each `BENCH.md` of a written decoder holds them all.
+- [ ] **BENCH-02: Every machine.** The protocol's machines are all at
+  hand, the default ones (`bench/METHOD.md`) each an EC2 instance with a
+  core of its own: the current AMD and Intel cores, Zen 5 and Granite
+  Rapids, and the Neoverse server's, Neoverse V3 (Graviton5), which is
+  set up and not yet measured. Zen 5 and Granite Rapids filled
+  `decode-zstd`'s and `decode-bzip2`'s tables whole, their memory, every
+  crate's code size, and the `compute-*` crates' hashes, at `037ffbb`
+  (2026-11-10). Their passes in pieces of 64 KiB and of 4 KiB, and those
+  of the build for the CPU, whole and in pieces, are deferred, stopped 8
+  and 7 inputs into the first (2026-11-10): `~/campaign.sh <cpu>` on
+  each host resumes them. Zen 1's speed tables are older, of `9c5f5fc`,
+  before DEC-19's work. Done when each `BENCH.md` of a written decoder
+  holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
   `intrinsics` takes ARMv8.2's SHA-512 instructions, but not x86-64's,
   which only Intel's newest CPUs have, from Arrow Lake and Lunar Lake on,
@@ -583,8 +593,30 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **COMP-03: Portable gaps.** Built portable, as by default, on
   Zen 1 (`BENCH.md`, 2026-11-06): `compute-sha512` trails `sha2` by 1.14
   times and `ring` by 1.43; and `compute-adler32` trails
-  `simd-adler32`, by AVX2, by 1.65. Done when each is within 10% of the
-  fastest portable counterpart, or its crate's docs say why not.
+  `simd-adler32`, by AVX2, by 1.65. On Zen 5 and Granite Rapids
+  (2026-11-10), by more: `sha2` by 1.60 and 1.51 times, `ring` by 1.51
+  on both, and `simd-adler32` by 2.57 and 2.77. Done when each is
+  within 10% of the fastest portable counterpart, or its crate's docs
+  say why not.
+- [ ] **COMP-05: Wide vectors.** The default x86 machines have AVX-512,
+  with VPCLMULQDQ, VAES, and GFNI, at 512 bits, and of x86-64
+  `intrinsics` takes only SSE4.2's `crc32` and the SHA extensions. The
+  counterparts that fold by carry-less multiplication or sum in vectors
+  lead there by more than on Zen 1 (`BENCH.md`, 1 MiB whole,
+  2026-11-10), on Zen 5, Granite Rapids, and Zen 1: CRC-32 by 11, 18,
+  and 3.8 times; CRC-64/XZ by 16, 25, and 6.1; CRC-32C by 2.3, 4.7, and
+  1.2; Adler-32 by 3.0, 3.3, and 1.4. The two that fold CRC-64/XZ, equal
+  on Zen 1, part there, `crc-fast` 4.0 and 3.0 times `crc64fast`, as one
+  taking the wider vectors would. Linux finds as much: ChaCha in 512-bit
+  vectors ran 1.8 times as fast as in 256-bit ones on Zen 5, 7.5 against
+  4.2 GB/s (a patch of 2026-07-22, reported for Linux 7.5), enabled
+  wherever the CPU does not slow its clock for them, as older Intel ones
+  do (`X86_FEATURE_PREFER_YMM`). Done when `intrinsics` folds CRC-32,
+  CRC-32/BZIP2, and CRC-64/XZ by carry-less multiplication, 512 bits at
+  a time where the CPU has VPCLMULQDQ and does not slow for it, each
+  within 1.5 times the fastest counterpart on the default x86 machines,
+  or its crate's docs say why not; and Adler-32 and Fletcher-4 (COMP-02)
+  are weighed likewise.
 - [ ] **DEC-09: LZO1X version 1, checked.** `decode_block` decodes the
   Linux kernel's `lzo-rle` blocks, version 1, from its description,
   tested only against blocks built by hand (2026-11-07). Done when it
@@ -605,9 +637,14 @@ crate's name until its first code, which moves it to `lib/`.
   Sequences now take 53% to 66% of the time on text, in bounds checks
   and spills more than in any one step; tried and dropped, as no faster
   on Zen 1: running them on the marked reader (and 8% slower on M4), and
-  reading short matches whole before writing them (2026-11-08). Done
-  when comet's figures, over the corpus, are within 1.5 times
-  libzstd's, or its crate's docs say why not.
+  reading short matches whole before writing them (2026-11-08). On the
+  default x86 machines, at `037ffbb`, whole, by the harness's medians
+  (`BENCH.md`, 2026-11-10): on Zen 5, 0.68 times at level 1, 0.66 at 3,
+  0.67 at 9, and 0.68 at 19; on Granite Rapids, 0.64, 0.62, 0.63, and
+  0.64; without the synthetic inputs, 0.63 to 0.65 and 0.59 to 0.61;
+  the least, 0.48 to 0.55, on `kennedy.xls`, `E.coli`, and text. Done
+  when the default x86 machines' figures, over the corpus, are within
+  1.5 times libzstd's, or its crate's docs say why not.
 - [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
   `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
   names, never run in CI, checked against a reference decoder, or for
