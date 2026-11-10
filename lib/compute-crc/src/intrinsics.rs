@@ -4,7 +4,8 @@
 //! `crc` extension, for CRC-32 and CRC-32C, behind the `intrinsics`
 //! feature: chosen at run time, with `std`, or else where the build enables
 //! them, by `compute-multiversion`, a fork of `multiversion` that lets
-//! their intrinsics be called without `unsafe` code here.
+//! their intrinsics be called without `unsafe` code here. x86-64's
+//! carry-less multiplication, for every CRC, is `carryless`'s.
 //!
 //! Each takes the register eight bytes an instruction, from any state, as
 //! the tables do, and returns what it comes to; or `None` where the CPU

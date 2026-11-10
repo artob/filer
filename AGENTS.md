@@ -30,6 +30,9 @@
   AWS EC2's `c8a.medium` (Zen 5), `c8i.large` (Granite Rapids), and
   `c9g.medium` (Graviton5). Aim to be excellent there, and competitive
   with each counterpart.
+- Never fold a CRC by carry-less multiplication: a patent claims it
+  until 2029 (`LEGAL.md`). Sum each word times its weight instead, as
+  `compute-crc`'s `carryless` does (D68).
 - Our crates are meant to always be buildable with `#![no_std]` and hence
   always export an explicit `std` feature flag. Some of our lower-level crates
   may also have an explicit `alloc` feature, but for many crates it's not

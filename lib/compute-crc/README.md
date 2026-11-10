@@ -8,8 +8,9 @@ fed in pieces, as they arrive, sixteen bytes at a time; exposes its register,
 which formats that chain checksums store; and is a `Copy` value, so that a
 copy taken anywhere goes on from there. It is pure, safe Rust without
 dependencies, and builds with `#![no_std]`, without an allocator. Its
-`intrinsics` feature takes the CPU's CRC instructions where it has them,
-SSE4.2's and ARM's, two or more times as fast.
+`intrinsics` feature takes the CPU's instructions where it has them:
+x86-64's carry-less multiplication, ten times as fast and more over long
+inputs, and ARM's CRC instructions, four times.
 
 It is one of the `compute-*` crates: clean-room, public-domain checksums and
 hashes, each of the same shape.

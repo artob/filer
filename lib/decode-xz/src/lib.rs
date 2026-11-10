@@ -41,8 +41,11 @@
 //! alone, all of them public domain, and streams checked by SHA-256
 //! decode 22% slower on Apple M4, Canterbury at 120 MB/s, not 154; those
 //! checked by CRC-32, or by CRC-64, xz's default, which has no
-//! instruction, within 1%; on x86-64 (Zen 1), those checked by SHA-256
-//! 27% slower, 45 MB/s, not 62, and the others no slower (2026-11-08).
+//! instruction, within 1% (2026-11-08); on x86-64, those checked by
+//! SHA-256 29% slower, Canterbury at 112 MB/s, not 144, on Zen 5, and at
+//! 85, not 109, on Granite Rapids; those checked by CRC-64, which
+//! carry-less multiplication takes there, 2% slower; and those checked
+//! by CRC-32 within 1% (2026-11-10).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

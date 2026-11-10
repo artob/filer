@@ -60,8 +60,9 @@
 //!   them, chosen at run time with `std` (D66): `filer-api`'s checksums,
 //!   gzip's CRC-32, and xz's CRC-32 and SHA-256. Without it, its
 //!   dependencies are ours alone, all of them public domain, and gzip
-//!   decodes 12% to 18% slower on Apple M4, and xz checked by SHA-256 22%,
-//!   as `decode-gzip`'s and `decode-xz`'s docs say.
+//!   decodes 12% to 18% slower on Apple M4 and a tenth on x86-64, and xz
+//!   checked by SHA-256 22% and 29%, as `decode-gzip`'s and `decode-xz`'s
+//!   docs say.
 //!
 //! [`ReadAt`]: filer_api::ReadAt
 //! [`Driver`]: filer_api::Driver

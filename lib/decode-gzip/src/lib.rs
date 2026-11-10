@@ -35,13 +35,15 @@
 //! default, adds nothing by itself.
 //!
 //! The `intrinsics` feature, enabled by default (D66), computes CRC-32 by
-//! the CPU's instructions where it has them, ARM's `crc` extension, as
-//! `compute-crc`'s feature of that name does: chosen at run time with
-//! `std`. Without it, as `default-features = false, features = ["all",
-//! "std"]` builds it, its dependencies are ours alone, all of them public
-//! domain, and it decodes 12% to 18% slower on Apple M4: Canterbury at
-//! 721 MB/s, not 820, and crates of the cargo registry at 1,107, not 1,356
-//! (2026-11-08); on x86-64, which has no CRC-32 instruction, no slower.
+//! the CPU's instructions where it has them, ARM's `crc` extension and
+//! x86-64's carry-less multiplication, as `compute-crc`'s feature of that
+//! name does: chosen at run time with `std`. Without it, as
+//! `default-features = false, features = ["all", "std"]` builds it, its
+//! dependencies are ours alone, all of them public domain, and it decodes
+//! 12% to 18% slower on Apple M4: Canterbury at 721 MB/s, not 820, and
+//! crates of the cargo registry at 1,107, not 1,356 (2026-11-08); and a
+//! tenth slower on x86-64: Canterbury at 619 MB/s, not 685, on Zen 5, and
+//! at 429, not 467, on Granite Rapids (2026-11-10).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

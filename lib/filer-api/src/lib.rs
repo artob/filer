@@ -23,13 +23,14 @@
 //! enabled by default, adds `std::io::Error` interop. `all` currently
 //! enables nothing. The `intrinsics` feature, enabled by default (D66),
 //! computes the [`checksum`]s by the CPU's instructions where it has
-//! them, as `compute-crc`'s feature of that name does: CRC-32C by
-//! SSE4.2 on x86-64, and CRC-32 and CRC-32C by ARM's `crc` extension,
-//! chosen at run time with `std`. Without it, as `default-features =
-//! false, features = ["all", "std"]` builds it, its dependencies are ours
-//! alone, all of them public domain, and those CRCs are as much slower as
-//! `compute-crc`'s docs say: 5 to 23 times on Apple M4, and CRC-32C 2.1
-//! times on x86-64 (Zen 1).
+//! them, as `compute-crc`'s feature of that name does: each CRC by
+//! carry-less multiplication on x86-64, and CRC-32 and CRC-32C by ARM's
+//! `crc` extension, chosen at run time with `std`. Without it, as
+//! `default-features = false, features = ["all", "std"]` builds it, its
+//! dependencies are ours alone, all of them public domain, and those CRCs
+//! are as much slower as `compute-crc`'s docs say: 5 to 23 times on Apple
+//! M4, and 9 to 23 times over long inputs on x86-64 (Zen 5 and Granite
+//! Rapids).
 
 #![no_std]
 #![forbid(unsafe_code)]

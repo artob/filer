@@ -598,25 +598,29 @@ crate's name until its first code, which moves it to `lib/`.
   on both, and `simd-adler32` by 2.57 and 2.77. Done when each is
   within 10% of the fastest portable counterpart, or its crate's docs
   say why not.
-- [ ] **COMP-05: Wide vectors.** The default x86 machines have AVX-512,
-  with VPCLMULQDQ, VAES, and GFNI, at 512 bits, and of x86-64
-  `intrinsics` takes only SSE4.2's `crc32` and the SHA extensions. The
-  counterparts that fold by carry-less multiplication or sum in vectors
-  lead there by more than on Zen 1 (`BENCH.md`, 1 MiB whole,
-  2026-11-10), on Zen 5, Granite Rapids, and Zen 1: CRC-32 by 11, 18,
-  and 3.8 times; CRC-64/XZ by 16, 25, and 6.1; CRC-32C by 2.3, 4.7, and
-  1.2; Adler-32 by 3.0, 3.3, and 1.4. The two that fold CRC-64/XZ, equal
-  on Zen 1, part there, `crc-fast` 4.0 and 3.0 times `crc64fast`, as one
-  taking the wider vectors would. Linux finds as much: ChaCha in 512-bit
-  vectors ran 1.8 times as fast as in 256-bit ones on Zen 5, 7.5 against
-  4.2 GB/s (a patch of 2026-07-22, reported for Linux 7.5), enabled
-  wherever the CPU does not slow its clock for them, as older Intel ones
-  do (`X86_FEATURE_PREFER_YMM`). Done when `intrinsics` folds CRC-32,
-  CRC-32/BZIP2, and CRC-64/XZ by carry-less multiplication, 512 bits at
-  a time where the CPU has VPCLMULQDQ and does not slow for it, each
-  within 1.5 times the fastest counterpart on the default x86 machines,
-  or its crate's docs say why not; and Adler-32 and Fletcher-4 (COMP-02)
-  are weighed likewise.
+- [ ] **COMP-06: Adler-32 in vectors.** `compute-adler32` has no
+  `intrinsics`: it sums as LLVM vectorizes it for the build's baseline,
+  19 GB/s on Zen 5, 13 on Granite Rapids, and 18 on Neoverse V3 over a
+  mebibyte, where `simd-adler32` reaches 58, 41, and 35; by the
+  geometric mean over sizes, 2.6, 2.8, and 1.4 times ours (`BENCH.md`,
+  2026-11-10). zlib's streams and lzop's files are checked by it.
+  Weighed with COMP-05, which the CRCs alone closed. Done when an
+  `intrinsics` feature sums in the CPU's widest vectors, chosen at run
+  time, within 1.5 times the fastest counterpart on the default
+  machines, whole, and no slower in pieces of 7, or its crate's docs say
+  why not.
+- [ ] **COMP-07: Weighted sums by PMULL.** On ARM, `compute-crc`'s
+  `intrinsics` takes CRC-32, CRC-32C, and CRC-32/BZIP2 by the `crc`
+  extension, and CRC-64/XZ and CRC-16/MODBUS, which have no instruction,
+  by the tables: 3.4 and 4.2 GB/s on Neoverse V3 over a mebibyte, where
+  `crc-fast` reaches 58 and 57, by the geometric mean over sizes 5.9 and
+  4.8 times ours; and for CRC-32 it reaches 58 where the `crc`
+  extension's three streams reach 34, 1.2 times (2026-11-10). x86-64
+  takes all five by carry-less multiplication, as weighted sums (D68),
+  which PMULL can too, in `carryless`'s own arithmetic. Done when
+  CRC-64/XZ and CRC-16/MODBUS are within 1.5 times the fastest
+  counterpart on the default ARM machine, never by folding (`LEGAL.md`),
+  and the others are no slower than the instructions' streams.
 - [ ] **DEC-09: LZO1X version 1, checked.** `decode_block` decodes the
   Linux kernel's `lzo-rle` blocks, version 1, from its description,
   tested only against blocks built by hand (2026-11-07). Done when it

@@ -2720,20 +2720,22 @@ features = ["all", "std"]`: no `compute-multiversion`, and none of the
 `unsafe` code of its dispatch, at the price below, measured on Apple M4
 by one tool built both ways, best of a second's runs, within 2% of a
 second run, and on x86-64, Zen 1 under KVM, by the same tool
-(2026-11-08):
+(2026-11-08); and what carry-less multiplication changed (D68), on Zen
+5 and Granite Rapids, by the harness and by each crate's
+`decodes_a_corpus` over Canterbury, best of three runs (2026-11-10):
 
 | Crate | Without `intrinsics`, on Apple M4 | On x86-64 |
 | --- | --- | --- |
-| `compute-crc` | CRC-32, CRC-32C, CRC-32/BZIP2 5 to 23 times slower: 1.2 to 5.3 GB/s, as code placement sways the tables, not 28 | CRC-32C 2.1 times slower: 2.6 GB/s, not 5.6; the others no slower |
+| `compute-crc` | CRC-32, CRC-32C, CRC-32/BZIP2 5 to 23 times slower: 1.2 to 5.3 GB/s, as code placement sways the tables, not 28 | Every CRC, over long inputs, 9 to 15 times slower on Zen 5: 4.6 to 7.1 GB/s, not 66 to 67; and 16 to 23 times on Granite Rapids: 3.8 to 5.3, not 78 to 101 |
 | `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 7.7 times slower: 159 MB/s, not 1,228 |
 | `compute-sha512` | 2.6 times slower: 733 MB/s, not 1,900 | No slower |
-| `decode-gzip` | 12% to 18% slower: Canterbury 721 MB/s, not 820; crates 1,107, not 1,356 | No slower |
-| `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-32 or CRC-64, within 1% | By SHA-256, 27% slower: 45 MB/s, not 62; the others no slower |
-| `decode-lzo` | lzop's files checked by CRC-32 13% slower: 778 MB/s, not 897; by Adler-32, its default, and raw blocks, no slower | No slower |
+| `decode-gzip` | 12% to 18% slower: Canterbury 721 MB/s, not 820; crates 1,107, not 1,356 | A tenth slower: Canterbury 619 MB/s, not 685, on Zen 5; 429, not 467, on Granite Rapids |
+| `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-32 or CRC-64, within 1% | By SHA-256, 29% slower: 112 MB/s, not 144, on Zen 5; 85, not 109, on Granite Rapids; by CRC-64, 2%; by CRC-32, within 1% |
+| `decode-lzo` | lzop's files checked by CRC-32 13% slower: 778 MB/s, not 897; by Adler-32, its default, and raw blocks, no slower | lzop's files checked by CRC-32 15% slower on Zen 5: 854 MB/s, not 982; 10% on Granite Rapids: 614, not 678; the others no slower |
 | `filer-api`, `filer-fs`, `filer-system`, `filer-cli` | Their checksums, as `compute-crc`'s | As `compute-crc`'s |
-| `filer-ext4`, `filer-xfs` | Estimated: each 4 KiB block of metadata checked by CRC-32C takes some 3 µs more, beside reading it | Estimated: some 1 µs more a block |
+| `filer-ext4`, `filer-xfs` | Estimated: each 4 KiB block of metadata checked by CRC-32C takes some 3 µs more, beside reading it | Estimated: some 0.7 µs more a block |
 | `filer-pack`, `filer-tar`, `filer-cpio` | Their gzip and xz streams, as `decode-gzip`'s and `decode-xz`'s | As theirs |
-| `filer-zip` | Deflated members, as `decode-gzip`'s; stored ones bound by CRC-32, as `compute-crc`'s | No slower |
+| `filer-zip` | Deflated members, as `decode-gzip`'s; stored ones bound by CRC-32, as `compute-crc`'s | As on Apple M4 |
 | `filer-squashfs` | xz's blocks as `decode-xz`'s, LZO's no slower | As theirs |
 | `filer-archive`, `filer-volume` | Those of what they open | As theirs |
 
@@ -2751,6 +2753,30 @@ counterparts' to be excellent and competitive: their figures are each
 `BENCH.md`'s headline, what the `TODO.md` items on speed are measured
 by, and what a release is checked against. Zen 1 in a VM and Apple M4
 are measured beside them, an older core and a laptop's.
+
+**CRCs by carry-less multiplication are weighted sums (D68,
+2026-11-10).** On x86-64, `compute-crc`'s `intrinsics` takes every CRC
+by PCLMULQDQ, or by VPCLMULQDQ of 256 or 512 bits, but not by folding,
+the usual way, which a patent in force until 2029 claims (`LEGAL.md`).
+A CRC is linear: the register that a block leaves is the sum of each
+of its 64-bit words times its weight, `x` to the power of the bits
+after it modulo the polynomial. The weights are a table of 16 KiB a
+CRC, built at compile time; the products, two instructions a vector,
+wait on nothing but their loads; and their sum, of 128 bits, is fed to
+the byte tables once a block of 16 KiB, with the register the block
+began from, times the first word's weight. That is the two
+multiplications a vector that folding takes, and a second load, of the
+weights: on Zen 5, whose multiplier takes two cycles at any width,
+66 to 67 GB/s over a mebibyte, where the fastest counterparts reach 71;
+on Granite Rapids, 78 to 101, where they reach 61 to 121. Vectors
+of 512 bits are taken only where the CPU has AVX-512's BF16 too, which
+those that slow their clocks for them lack. Safe Rust has no vector
+load: a vector is set from eight words read in order, which the
+compiler makes one load of, and its output is to be checked whenever
+the loop changes, as a closure returning both products came out as
+permutes, a third slower. The weights are aligned to 64 bytes, and
+past a block the data too: a load across two lines of the cache cost a
+quarter of the speed on Granite Rapids.
 
 **Rotates under `x86-64-v2`** (measured 2026-11-05, Zen 1 in a VM).
 Built with `-C target-cpu=x86-64-v2`, as some Linux distributions build
@@ -4614,6 +4640,7 @@ Record changes here with a date and one line of rationale.
 | D65 | `compute-*` crates may take CPU instructions behind `intrinsics`, through `compute-multiversion` | Accepted |
 | D66 | `intrinsics` is on by default, our performance baseline; without it, no dependencies, at a measured price | Accepted |
 | D67 | AWS EC2's `c8a.medium`, `c8i.large`, and `c9g.medium` are the benchmark reference, where our speed is to be excellent and competitive | Accepted |
+| D68 | CRCs by carry-less multiplication are weighted sums, never folded while US 7,886,214 is in force | Accepted |
 
 Notes on the 2026-10-31 decisions:
 

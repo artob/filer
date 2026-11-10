@@ -117,6 +117,12 @@ so any release may break compatibility.
   by tables built at compile time: on Apple M4, CRC-32 at 20 to 28 GB/s,
   not 11.5, and gzip, with `decode-gzip`'s `intrinsics`, at 0.89 times
   `zlib-rs`'s speed, not 0.83.
+- `compute-crc`: under `intrinsics`, x86-64 takes every CRC by
+  carry-less multiplication, PCLMULQDQ's or VPCLMULQDQ's of 256 or 512
+  bits, from 64 bytes up: each word of a block times its weight, summed,
+  and the sum fed to the tables, with no remainder folded along
+  (`LEGAL.md`). Over a mebibyte, 66 to 67 GB/s on Zen 5 and 78 to 101 on
+  Granite Rapids, not the tables' 4 to 7, at 16 KiB of weights a CRC.
 - `intrinsics` is enabled by default (D66), our performance baseline, in
   `compute-crc`, `compute-sha256`, `compute-sha512`, `decode-gzip`,
   `decode-lzo`, `decode-xz`, `filer-api`, and `filer-pack`; and it is a

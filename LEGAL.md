@@ -352,11 +352,13 @@ each compared with FIPS 180-4's functions over a million random inputs.
 `compute-crc` runs three streams of a CRC's instructions at once and
 combines them by the CRC's definition alone: a register fed a message
 comes to its start times `x` to the power of the message's bits, plus
-what the message comes to from zero, modulo the polynomial. Its products
-are taken by the integer instructions, shifts and exclusive-ors, never
-by carry-less multiplication. Stock zlib combines three streams of ARM's
-instructions likewise, as `zlib-rs`'s documentation says; neither's code
-was read (2026-11-08).
+what the message comes to from zero, modulo the polynomial. Their
+products are taken by the integer instructions, shifts and
+exclusive-ors, never by carry-less multiplication. Stock zlib combines
+three streams of ARM's instructions likewise, as `zlib-rs`'s
+documentation says; neither's code was read (2026-11-08). On x86-64 it
+takes blocks by carry-less multiplication besides, in the one way that
+"CRCs by carry-less multiplication" below allows (2026-11-10).
 
 - **Deflate and gzip: written here.** `decode-deflate` (D62), written
   from RFC 1951 alone, decodes ZIP's raw Deflate, behind `deflate`, in
@@ -426,6 +428,53 @@ was read (2026-11-08).
   Burrows–Wheeler transform is unpatented, and bzip2 dropped bzip's
   arithmetic coding for Huffman coding over patent concerns.
 
+### CRCs by carry-less multiplication — one patent in force; not folded
+
+Assessed 2026-11-10, for `compute-crc`'s `intrinsics` on x86-64
+(`DESIGN.md` D68). The usual way to take a CRC by PCLMULQDQ is *folding*: a
+remainder of a few segments is carried along the message, each step
+multiplying its most significant segment by a constant, `x` to a power
+of the segment's size modulo the polynomial, into the segments after
+it. Intel published it in 2009 (Gopal and others, *Fast CRC Computation
+for Generic Polynomials Using PCLMULQDQ Instruction*), and patented it:
+
+- **US 7,886,214**, *Determining a message residue* (filed 2007-12-18):
+  in force, by Google Patents' reckoning until **2029-05-16**. Its
+  claims are of software, a method and a medium of instructions that
+  turn the most significant segments of a message into fewer, again and
+  again, then determine the remainder; its claim 8 is folding itself,
+  the most significant segment times `2^2n` modulo the polynomial,
+  exclusive-ored into the next.
+- US 8,042,025, its continuation in part, of circuitry; US 8,229,109,
+  *Modular reduction using folding*; US 9,052,985; US 7,827,471; and US
+  8,689,078: all listed as lapsed, their fees unpaid.
+
+Those statuses are Google Patents' assumptions, not legal conclusions.
+No assertion of any against CRC code is known, and Linux, zlib-ng, Go,
+and most CRC crates fold.
+
+Policy: **`compute-crc` does not fold until US 7,886,214 expires
+(verify, expected 2029-05-16).** It takes CRCs by carry-less
+multiplication from their linearity alone: each 64-bit word of a block
+times its own weight, `x` to the power of the bits after it modulo the
+polynomial, a constant of a table; the products summed, in any order;
+the register a block starts from, times the first word's weight; and
+the sum reduced once a block, by the byte tables. That a message's CRC
+is the sum of its parts' CRCs, each times a power of `x`, is its
+definition, which the three streams of its instructions already combine
+by, and how US 6,904,558 and 7,458,006 (Agilent, filed 2002, expired
+2023) combine sub-messages' CRCs. No remainder is multiplied along the
+message. Claim 1 of US 7,886,214 is worded widely enough to read on any
+CRC taken a block at a time, the byte tables of decades before it
+included; no design steps clear of such wording, and this one steps
+clear only of what its narrower claims describe.
+
+Safe inputs: each CRC's parameters; Intel's manual for PCLMULQDQ and
+VPCLMULQDQ; the arithmetic of polynomials over GF(2). Do not read or
+port a folding implementation (Intel's ISA-L, zlib-ng, Chromium's zlib,
+Linux's `crc-pclmul`, `crc32fast`, `crc64fast`, `crc-fast`), nor the
+listings of Intel's paper.
+
 ## Summary
 
 | Format    | Patents                          | Format documentation      | Verdict                  |
@@ -447,6 +496,7 @@ was read (2026-11-08).
 | SquashFS  | none                             | unofficial                | clear                    |
 | 7z        | none known                       | public-domain SDK         | clear                    |
 | RAR       | none known                       | container only; code      | reader only, clean room  |
+| CRCs by carry-less multiplication | folding: live until ~May 2029 | each CRC's parameters | weighted sums only, no folding |
 
 ## Rules for contributors: acceptable and unacceptable inputs
 

@@ -44,8 +44,10 @@
 //! all of them public domain, and files checked by CRC-32, as `lzop
 //! --crc32` writes them, decode 13% slower on Apple M4, Canterbury at 778
 //! MB/s, not 897; those checked by Adler-32, lzop's default, and raw
-//! blocks no slower (2026-11-08). On x86-64, which has no CRC-32
-//! instruction, none are slower.
+//! blocks no slower (2026-11-08). On x86-64, where carry-less
+//! multiplication takes CRC-32, files checked by it decode 15% slower on
+//! Zen 5, Canterbury at 854 MB/s, not 982, and 10% on Granite Rapids, at
+//! 614, not 678; the others no slower (2026-11-10).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

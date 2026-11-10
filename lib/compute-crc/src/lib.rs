@@ -24,36 +24,47 @@
 //! They take sixteen bytes at a time, by sixteen tables of each byte
 //! followed by none to fifteen zeros, built at compile time, and the rest
 //! by eight, four, two, and one, by the same tables; a variant's tables
-//! are in a build only if its feature is. Built portable, as by default,
-//! they are as fast as zlib's CRC-32 on x86-64 (Zen 1), and faster than
-//! the `crc` crate's, whole and in pieces (`BENCH.md`). The sources are each CRC's
+//! are in a build only if its feature is. By the tables alone, they are
+//! as fast as zlib's CRC-32 on x86-64, and faster than the `crc` crate's,
+//! whole and in pieces (`BENCH.md`). The sources are each CRC's
 //! parameters, its polynomial, its bit order, and its start and final
 //! values, which are facts, as the catalogue of CRCs lists them; no
 //! other implementation's code is copied. It is pure, safe Rust without
 //! dependencies, and builds with `#![no_std]`, without an allocator. The
 //! `std` feature, enabled by default, adds nothing by itself.
 //!
-//! The `intrinsics` feature, enabled by default (D66), takes eight bytes an
-//! instruction where the CPU has one: CRC-32C by SSE4.2's `crc32` on
-//! x86-64, and CRC-32, CRC-32C, and CRC-32/BZIP2 by ARM's `crc` extension,
-//! from any register, as the tables do. With `std`, the instructions are
-//! chosen at run time; without it, only where the build enables them. It
-//! depends on `compute-multiversion`, a fork of `multiversion` that lets
-//! their intrinsics be called without `unsafe` code here. Each runs three
-//! streams of the bytes at once, which it combines by the CRC's own
-//! arithmetic, as one instruction waits on the one before: on Apple M4,
-//! 20 to 28 GB/s, not one stream's 11.5; on x86-64 (Zen 1), whose
-//! instruction overlaps little, CRC-32C at 5.6 GB/s, not 5.3.
+//! The `intrinsics` feature, enabled by default (D66), takes the CPU's
+//! instructions where it has them: with `std`, chosen at run time;
+//! without it, only where the build enables them. It depends on
+//! `compute-multiversion`, a fork of `multiversion` that lets their
+//! intrinsics be called without `unsafe` code here.
 //!
-//! Without `intrinsics`, as `default-features = false, features = ["all",
-//! "std"]` builds it, it has no dependencies, all of it public domain, and
-//! takes every CRC by the tables: on Apple M4, CRC-32, CRC-32C, and
-//! CRC-32/BZIP2 at 1.2 to 5.3 GB/s, as where its code lands sways it, not
-//! 28, 5 to 23 times slower; on x86-64 (Zen 1), CRC-32C 2.1 times
-//! slower, 2.6 GB/s, not 5.6, and CRC-32 and CRC-32/BZIP2, which have no
-//! instruction there, no slower. CRC-16/MODBUS
-//! and CRC-64/XZ have no instruction, and are no slower anywhere
-//! (2026-11-08).
+//! On x86-64, they are carry-less multiplication's, for every CRC here,
+//! from 64 bytes up: PCLMULQDQ's of 128 bits, VPCLMULQDQ's of 256, and of
+//! 512 where the CPU does not slow its clock for them. A CRC is linear,
+//! so each 64-bit word of a block is multiplied by its own weight, `x` to
+//! the power of the bits after it modulo the polynomial, of a table of 16
+//! KiB a CRC; the products are summed, none waiting on another; and the
+//! sum is fed to the byte tables, once a block of 16 KiB. No remainder is
+//! folded along the message, which a patent in force until 2029 claims
+//! (`LEGAL.md`). Over a mebibyte, 66 to 67 GB/s on Zen 5, where the
+//! instruction's own pace allows 72, and 78 to 101 on Granite Rapids
+//! (`BENCH.md`). CRC-32C takes fewer than 512 bytes by SSE4.2's `crc32`.
+//!
+//! On ARM, they are the `crc` extension's, for CRC-32, CRC-32C, and
+//! CRC-32/BZIP2: eight bytes an instruction, from any register, as the
+//! tables do, in three streams of the bytes at once, which combine by
+//! the CRC's own arithmetic, as one instruction waits on the one before:
+//! on Apple M4, 20 to 28 GB/s, not one stream's 11.5.
+//!
+//! Without `intrinsics`, as `default-features = false,
+//! features = ["all", "std"]` builds it, it has no dependencies, all of it
+//! public domain, and takes every CRC by the tables: on x86-64, over long
+//! inputs, 9 to 15 times slower on Zen 5, 4.6 to 7.1 GB/s, and 16 to 23
+//! times on Granite Rapids, 3.8 to 5.3 (2026-11-10); on Apple M4, CRC-32,
+//! CRC-32C, and CRC-32/BZIP2 at 1.2 to 5.3 GB/s, as where its code lands
+//! sways it, not 28, 5 to 23 times slower, and CRC-16/MODBUS and
+//! CRC-64/XZ, which have no instruction there, no slower (2026-11-08).
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
@@ -114,13 +125,15 @@
 /// reads from the most significant, and shifts up. `$invert` is whether
 /// the final value is inverted. `$instructions`, if given, is a function of
 /// the `intrinsics` module that feeds the register by the CPU's
-/// instructions, if it has them.
+/// instructions, if it has them. `$least`, if given, is the fewest bytes
+/// that x86-64 multiplies, where it has an instruction to take fewer by.
 macro_rules! crc {
     (
         $(#[$meta:meta])*
         $name:ident, $function:ident, $feature:literal, $reg:ty, $poly:expr, $tables:ident,
         reflected: $reflected:literal, invert: $invert:literal, check: $check:expr,
         label: $label:literal $(, instructions: $instructions:path)?
+        $(, least: $least:literal)?
     ) => {
         /// The tables for taking sixteen bytes at a time: `TABLES[0][b]`
         /// is the CRC of byte `b`, in the register's byte that shifts out
@@ -198,6 +211,16 @@ macro_rules! crc {
 
             /// Feeds `bytes`.
             pub fn update(&mut self, bytes: &[u8]) {
+                // Too few bytes to multiply stay here, a comparison away
+                // from the tables.
+                #[cfg(all(feature = "intrinsics", target_arch = "x86_64"))]
+                let bytes = if bytes.len() < Self::LEAST {
+                    bytes
+                } else {
+                    let (state, bytes) = Self::multiplied(self.state, bytes, usize::MAX);
+                    self.state = state;
+                    bytes
+                };
                 $(
                     #[cfg(feature = "intrinsics")]
                     if let Some(state) = $instructions(self.state, bytes) {
@@ -206,6 +229,68 @@ macro_rules! crc {
                     }
                 )?
                 self.state = Self::tables(self.state, bytes);
+            }
+
+            /// The fewest bytes that `multiplied` takes.
+            #[cfg(all(feature = "intrinsics", target_arch = "x86_64"))]
+            const LEAST: usize = {
+                let least = carryless::LEAST;
+                $(let least = if $least > least { $least } else { least };)?
+                least
+            };
+
+            /// Feeds the units of sixteen bytes that `bytes` begins with to
+            /// the register `crc`, by the CPU's carry-less multiplication,
+            /// where it has one and they are enough to gain by it, a block
+            /// at a time: each block's sum, of `carryless`, fed to the
+            /// tables from zero. Returns the register and the bytes left,
+            /// all of them if it took none. `widest` is the widest vector
+            /// to take, in bits.
+            #[cfg(all(feature = "intrinsics", target_arch = "x86_64"))]
+            #[inline(never)]
+            fn multiplied(mut crc: $reg, mut bytes: &[u8], widest: usize) -> ($reg, &[u8]) {
+                #[allow(clippy::as_conversions, reason = "evaluated at compile time")]
+                static WEIGHTS: carryless::Weights =
+                    carryless::weights(<$reg>::BITS, $poly as u64, $reflected);
+                // More than a block: from where each vector's bytes are
+                // in one line of the cache, which the widest, of 64 bytes,
+                // would else span two of, slower read.
+                if bytes.len() > carryless::UNITS.saturating_mul(carryless::UNIT) {
+                    let head = bytes.as_ptr().align_offset(64);
+                    if let Some((head, rest)) = bytes.split_at_checked(head) {
+                        (crc, bytes) = (Self::tables(crc, head), rest);
+                    }
+                }
+                while bytes.len() >= Self::LEAST {
+                    let (units, _) = bytes.as_chunks::<{ carryless::UNIT }>();
+                    let units = units.get(..carryless::UNITS).unwrap_or(units);
+                    // A shorter block's words are the last of a whole one's.
+                    let first = carryless::UNITS.saturating_sub(units.len());
+                    let Some(weights) = WEIGHTS.0.get(first..) else {
+                        break;
+                    };
+                    // The register, where the block's first bits are.
+                    let register = if $reflected {
+                        u64::from(crc)
+                    } else {
+                        let up = u64::BITS.wrapping_sub(<$reg>::BITS);
+                        u64::from(crc).checked_shl(up).unwrap_or(0)
+                    };
+                    let sum = carryless::sum(register, units, weights, !$reflected, widest);
+                    let Some(sum) = sum else {
+                        break;
+                    };
+                    crc = Self::group(
+                        0,
+                        if $reflected {
+                            sum.to_le_bytes()
+                        } else {
+                            sum.to_be_bytes()
+                        },
+                    );
+                    bytes = bytes.get(units.as_flattened().len()..).unwrap_or_default();
+                }
+                (crc, bytes)
             }
 
             /// Feeds `bytes` to the register `crc` by the tables, and
@@ -348,6 +433,19 @@ extern crate std;
 #[cfg(feature = "intrinsics")]
 mod intrinsics;
 
+#[cfg(all(
+    feature = "intrinsics",
+    target_arch = "x86_64",
+    any(
+        feature = "crc16-modbus",
+        feature = "crc32",
+        feature = "crc32-bzip2",
+        feature = "crc32c",
+        feature = "crc64-xz"
+    )
+))]
+mod carryless;
+
 crc! {
     /// CRC-16/MODBUS: the polynomial 0x8005, each byte read from its least
     /// significant bit, from `0xFFFF`, and not inverted at the end; which
@@ -401,7 +499,7 @@ crc! {
     /// ```
     Crc32c, crc32c, "crc32c", u32, 0x82F6_3B78, CRC32C,
     reflected: true, invert: true, check: 0xE306_9283, label: "CRC-32C",
-    instructions: intrinsics::crc32c
+    instructions: intrinsics::crc32c, least: 512
 }
 
 crc! {
@@ -527,6 +625,59 @@ mod tests {
                     Crc32Bzip2::from_state(state).chain(bytes).state(),
                     Crc32Bzip2::tables(state, bytes)
                 );
+            }
+        }
+    }
+
+    /// The CPU's carry-less multiplication, where it has one, comes to
+    /// what the tables do, from any register: in vectors of each width, over
+    /// less than a block, a block, and several, with bytes to spare.
+    #[cfg(all(feature = "intrinsics", target_arch = "x86_64"))]
+    #[test]
+    fn multiplication_matches_the_tables() {
+        let bytes: [u8; 70_000] = core::array::from_fn(|n| (n * 131 % 251) as u8);
+        let block = carryless::UNITS * carryless::UNIT;
+        let blocks = [block - 1, block, block + 1, block + 15, block + 16];
+        let blocks = blocks
+            .into_iter()
+            .chain([2 * block, 2 * block + 17, 4 * block + 99]);
+        for widest in [128, 256, 512] {
+            for state in [0, !0, 0x1234_5678_9ABC_DEF0_u64, 0xDEAD_BEEF_0BAD_F00D] {
+                let lens = (0..=300)
+                    .chain([999, 1000, 1023, 1024])
+                    .chain(blocks.clone());
+                for (n, len) in lens.enumerate() {
+                    // From every place in a line of the cache, by turns.
+                    let bytes = &bytes[n % 64..][..len];
+                    macro_rules! check {
+                        ($name:ident, $reg:ty) => {{
+                            let state = state as $reg;
+                            let (crc, rest) = $name::multiplied(state, bytes, widest);
+                            // With the instruction, all but too few bytes
+                            // to gain by it.
+                            #[cfg(feature = "std")]
+                            if std::is_x86_feature_detected!("pclmulqdq") {
+                                assert!(rest.len() < $name::LEAST);
+                            }
+                            assert_eq!(
+                                $name::tables(crc, rest),
+                                $name::tables(state, bytes),
+                                "{} of {len} bytes from {state:#x} by {widest} bits",
+                                stringify!($name)
+                            );
+                        }};
+                    }
+                    #[cfg(feature = "crc16-modbus")]
+                    check!(Crc16Modbus, u16);
+                    #[cfg(feature = "crc32")]
+                    check!(Crc32, u32);
+                    #[cfg(feature = "crc32c")]
+                    check!(Crc32c, u32);
+                    #[cfg(feature = "crc32-bzip2")]
+                    check!(Crc32Bzip2, u32);
+                    #[cfg(feature = "crc64-xz")]
+                    check!(Crc64Xz, u64);
+                }
             }
         }
     }
