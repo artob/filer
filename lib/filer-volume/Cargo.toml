@@ -53,6 +53,7 @@ std = [
 intrinsics = [
   "filer-api/intrinsics",
   "filer-fs/intrinsics",
+  "filer-cdfs?/intrinsics",
   "filer-ext4?/intrinsics",
   "filer-squashfs?/intrinsics",
   "filer-xfs?/intrinsics",

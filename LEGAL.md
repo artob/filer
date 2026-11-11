@@ -356,9 +356,14 @@ what the message comes to from zero, modulo the polynomial. Their
 products are taken by the integer instructions, shifts and
 exclusive-ors, never by carry-less multiplication. Stock zlib combines
 three streams of ARM's instructions likewise, as `zlib-rs`'s
-documentation says; neither's code was read (2026-11-08). On x86-64 it
-takes blocks by carry-less multiplication besides, in the one way that
-"CRCs by carry-less multiplication" below allows (2026-11-10).
+documentation says; neither's code was read (2026-11-08). On x86-64 and
+on ARM it takes blocks by carry-less multiplication besides, in the one
+way that "CRCs by carry-less multiplication" below allows (2026-11-10).
+`compute-adler32` sums in the CPU's vectors as RFC 1950 defines the
+sums, in another order: the bytes' sum, and each byte times the bytes
+from it to the end, by instructions that add and multiply as their
+manuals say. No patent on summing Adler-32 so is known, a search of
+2026-11-10 finding none, and no other implementation's code was read.
 
 - **Deflate and gzip: written here.** `decode-deflate` (D62), written
   from RFC 1951 alone, decodes ZIP's raw Deflate, behind `deflate`, in
@@ -430,8 +435,9 @@ takes blocks by carry-less multiplication besides, in the one way that
 
 ### CRCs by carry-less multiplication — one patent in force; not folded
 
-Assessed 2026-11-10, for `compute-crc`'s `intrinsics` on x86-64
-(`DESIGN.md` D68). The usual way to take a CRC by PCLMULQDQ is *folding*: a
+Assessed 2026-11-10, for `compute-crc`'s `intrinsics` on x86-64 and,
+by PMULL, on ARM (`DESIGN.md` D68). The usual way to take a CRC by
+PCLMULQDQ is *folding*: a
 remainder of a few segments is carried along the message, each step
 multiplying its most significant segment by a constant, `x` to a power
 of the segment's size modulo the polynomial, into the segments after
@@ -470,7 +476,8 @@ included; no design steps clear of such wording, and this one steps
 clear only of what its narrower claims describe.
 
 Safe inputs: each CRC's parameters; Intel's manual for PCLMULQDQ and
-VPCLMULQDQ; the arithmetic of polynomials over GF(2). Do not read or
+VPCLMULQDQ, and Arm's for PMULL; the arithmetic of polynomials over
+GF(2). Do not read or
 port a folding implementation (Intel's ISA-L, zlib-ng, Chromium's zlib,
 Linux's `crc-pclmul`, `crc32fast`, `crc64fast`, `crc-fast`), nor the
 listings of Intel's paper.

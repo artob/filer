@@ -39,6 +39,9 @@ Measured so far:
 - AMD EPYC 9R45 (1 vCPU under EC2 Nitro), 1934852 kB of memory, Linux
   7.0.0-1017-aws; rustc 1.97.0 (2d8144b78 2026-07-07); cc (Ubuntu
   15.2.0-16ubuntu1) 15.2.0.
+- ARM Neoverse-V3 (1 vCPU under EC2 Nitro), 1833580 kB of memory, Linux
+  7.0.0-1017-aws; rustc 1.97.0 (2d8144b78 2026-07-07); cc (Ubuntu
+  15.2.0-16ubuntu1) 15.2.0.
 - Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), 3902872 kB of memory, Linux
   7.0.0-1017-aws; rustc 1.97.0 (2d8144b78 2026-07-07); cc (Ubuntu
   15.2.0-16ubuntu1) 15.2.0.
@@ -263,6 +266,112 @@ Ours relative to each counterpart, the geometric mean over inputs:
 | ---: | ---: | ---: | ---: |
 | 1 | 1.22x | 1.10x | 0.97x |
 | 9 | 1.17x | 1.13x | 0.97x |
+
+### ARM Neoverse-V3 (1 vCPU under EC2 Nitro)
+
+Measured 2026-11-11, at `b674208`, `decode-bzip2` 0.0.4.
+
+#### Synthetic
+
+| Input | Level | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | ours ÷ libbzip2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| random | 1 | 0.99 | 31.1 ± 0.1% | 40.5 ± 0.1% | 38.9 ± 0.4% | (block: huffman bitstream truncated) | 0.77x |
+| random | 9 | 1.00 | 23.9 ± 0.1% | 28.6 ± 0.2% | 27.5 ± 0.3% | (block: huffman bitstream truncated) | 0.84x |
+| zeros | 1 | 106184.91 | 1366.8 ± 0.2% | 531.0 ± 0.0% | 535.0 ± 0.0% | 1398.3 ± 0.1% | 2.57x |
+| zeros | 9 | 174762.67 | 1367.3 ± 0.1% | 530.8 ± 0.0% | 534.4 ± 0.0% | 1404.7 ± 0.9% | 2.58x |
+| pattern | 1 | 932.79 | 240.2 ± 0.3% | 239.8 ± 0.0% | 261.3 ± 0.1% | 278.9 ± 0.4% | 1.00x |
+| pattern | 9 | 6825.56 | 240.2 ± 0.1% | 237.9 ± 0.9% | 261.3 ± 0.1% | 280.7 ± 0.0% | 1.01x |
+| far | 1 | 0.99 | 31.1 ± 0.9% | 40.5 ± 0.2% | 38.8 ± 0.5% | (block: huffman bitstream truncated) | 0.77x |
+| far | 9 | 1.00 | 23.9 ± 0.0% | 28.5 ± 0.2% | 27.5 ± 0.3% | (block: huffman bitstream truncated) | 0.84x |
+
+#### Silesia
+
+| Input | Level | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | ours ÷ libbzip2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| dickens | 1 | 3.09 | 55.7 ± 0.0% | 55.0 ± 0.0% | 60.4 ± 0.3% | 62.4 ± 0.1% | 1.01x |
+| dickens | 9 | 3.64 | 39.8 ± 0.1% | 40.2 ± 0.2% | 42.2 ± 0.1% | 43.6 ± 0.1% | 0.99x |
+| mozilla | 1 | 2.74 | 61.9 ± 0.1% | 62.7 ± 0.1% | 64.6 ± 0.1% | (block: huffman bitstream truncated) | 0.99x |
+| mozilla | 9 | 2.86 | 54.1 ± 0.1% | 54.6 ± 0.7% | 55.9 ± 0.6% | 55.0 ± 0.6% | 0.99x |
+| mr | 1 | 3.87 | 85.2 ± 0.0% | 79.9 ± 0.1% | 91.6 ± 0.5% | 91.7 ± 0.1% | 1.07x |
+| mr | 9 | 4.08 | 63.5 ± 0.1% | 60.4 ± 0.1% | 66.7 ± 0.2% | 67.5 ± 0.1% | 1.05x |
+| nci | 1 | 14.23 | 120.9 ± 0.0% | 118.3 ± 0.0% | 127.9 ± 0.1% | 133.8 ± 0.1% | 1.02x |
+| nci | 9 | 18.51 | 67.6 ± 0.1% | 68.1 ± 0.1% | 70.8 ± 0.1% | 71.8 ± 0.1% | 0.99x |
+| ooffice | 1 | 2.05 | 48.2 ± 0.0% | 47.8 ± 0.1% | 49.4 ± 0.1% | 48.2 ± 0.1% | 1.01x |
+| ooffice | 9 | 2.15 | 39.7 ± 0.1% | 39.3 ± 0.1% | 40.5 ± 0.1% | 40.0 ± 0.1% | 1.01x |
+| osdb | 1 | 2.69 | 61.0 ± 0.0% | 60.5 ± 0.1% | 61.4 ± 0.1% | 62.4 ± 0.1% | 1.01x |
+| osdb | 9 | 3.60 | 42.2 ± 0.2% | 42.0 ± 0.2% | 43.2 ± 0.3% | 43.6 ± 0.2% | 1.00x |
+| reymont | 1 | 4.48 | 70.5 ± 0.1% | 70.8 ± 0.1% | 76.2 ± 0.1% | 79.9 ± 0.1% | 1.00x |
+| reymont | 9 | 5.32 | 46.9 ± 0.2% | 47.0 ± 0.3% | 48.9 ± 0.2% | 50.8 ± 0.2% | 1.00x |
+| samba | 1 | 4.25 | 79.3 ± 0.0% | 80.1 ± 0.0% | 84.0 ± 0.1% | 84.5 ± 0.1% | 0.99x |
+| samba | 9 | 4.75 | 68.6 ± 0.1% | 69.9 ± 0.1% | 72.5 ± 0.2% | 73.3 ± 0.0% | 0.98x |
+| sao | 1 | 1.43 | 39.9 ± 0.0% | 42.5 ± 0.1% | 43.3 ± 0.3% | 39.9 ± 0.0% | 0.94x |
+| sao | 9 | 1.47 | 30.5 ± 0.3% | 32.7 ± 0.3% | 33.6 ± 0.3% | 31.0 ± 0.2% | 0.93x |
+| webster | 1 | 4.02 | 67.4 ± 0.2% | 66.2 ± 0.3% | 72.6 ± 0.2% | 73.6 ± 0.2% | 1.02x |
+| webster | 9 | 4.80 | 49.6 ± 0.7% | 49.4 ± 0.9% | 52.0 ± 1.0% | 53.5 ± 1.0% | 1.00x |
+| xml | 1 | 9.42 | 107.1 ± 0.1% | 106.1 ± 0.1% | 114.0 ± 0.1% | 117.5 ± 0.0% | 1.01x |
+| xml | 9 | 12.12 | 85.2 ± 0.2% | 85.0 ± 0.1% | 89.4 ± 0.1% | 92.1 ± 0.2% | 1.00x |
+| x-ray | 1 | 1.96 | 50.6 ± 0.1% | 53.9 ± 0.0% | 56.6 ± 0.2% | 52.7 ± 0.1% | 0.94x |
+| x-ray | 9 | 2.09 | 36.3 ± 0.0% | 38.1 ± 0.1% | 39.5 ± 0.1% | 37.6 ± 0.1% | 0.95x |
+
+#### Large files
+
+| Input | Level | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | ours ÷ libbzip2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| enwik8 | 1 | 3.01 | 56.4 ± 0.1% | 55.1 ± 0.1% | 59.9 ± 0.1% | 60.3 ± 0.0% | 1.02x |
+| enwik8 | 9 | 3.45 | 43.3 ± 0.5% | 43.2 ± 0.7% | 45.7 ± 0.8% | 46.4 ± 0.6% | 1.00x |
+| linux-6.12.tar | 1 | 5.53 | 89.0 ± 0.1% | 87.5 ± 0.1% | 92.6 ± 0.2% | 95.7 ± 0.2% | 1.02x |
+| linux-6.12.tar | 9 | 6.61 | 68.4 ± 0.9% | 68.3 ± 0.8% | 71.1 ± 0.7% | 73.1 ± 0.8% | 1.00x |
+
+#### Canterbury
+
+| Input | Level | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | ours ÷ libbzip2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| alice29.txt | 1 | 3.31 | 58.1 ± 0.2% | 57.3 ± 0.2% | 62.1 ± 0.3% | 63.9 ± 0.3% | 1.01x |
+| alice29.txt | 9 | 3.52 | 59.5 ± 1.9% | 59.4 ± 1.9% | 63.7 ± 2.0% | 66.5 ± 2.0% | 1.00x |
+| asyoulik.txt | 1 | 3.02 | 56.2 ± 0.2% | 54.2 ± 0.2% | 60.1 ± 0.3% | 62.3 ± 0.2% | 1.04x |
+| asyoulik.txt | 9 | 3.16 | 57.2 ± 0.1% | 56.0 ± 0.1% | 61.0 ± 0.1% | 64.7 ± 0.3% | 1.02x |
+| cp.html | 1 | 3.23 | 65.4 ± 0.2% | 65.6 ± 0.9% | 67.8 ± 0.2% | 69.1 ± 0.2% | 1.00x |
+| cp.html | 9 | 3.23 | 65.6 ± 0.2% | 65.3 ± 0.3% | 64.4 ± 0.5% | 69.2 ± 0.3% | 1.00x |
+| fields.c | 1 | 3.67 | 73.1 ± 0.3% | 80.6 ± 0.6% | 80.3 ± 0.8% | 77.2 ± 0.4% | 0.91x |
+| fields.c | 9 | 3.67 | 73.4 ± 0.2% | 80.2 ± 0.8% | 70.5 ± 0.2% | 77.1 ± 0.4% | 0.92x |
+| grammar.lsp | 1 | 2.90 | 84.5 ± 0.1% | 100.4 ± 0.2% | 84.2 ± 2.0% | 88.2 ± 0.2% | 0.84x |
+| grammar.lsp | 9 | 2.90 | 84.6 ± 0.3% | 100.3 ± 0.3% | 59.1 ± 0.9% | 88.2 ± 0.6% | 0.84x |
+| kennedy.xls | 1 | 8.37 | 128.9 ± 0.7% | 122.8 ± 0.1% | 128.6 ± 0.1% | 143.7 ± 0.0% | 1.05x |
+| kennedy.xls | 9 | 7.90 | 125.3 ± 0.0% | 119.5 ± 0.0% | 120.7 ± 0.2% | 142.1 ± 0.0% | 1.05x |
+| lcet10.txt | 1 | 3.42 | 60.1 ± 0.3% | 59.1 ± 0.3% | 64.3 ± 0.4% | 65.8 ± 0.4% | 1.02x |
+| lcet10.txt | 9 | 3.96 | 63.6 ± 1.9% | 63.9 ± 2.3% | 69.1 ± 2.4% | 71.5 ± 2.4% | 1.00x |
+| plrabn12.txt | 1 | 2.94 | 54.8 ± 0.1% | 52.9 ± 0.0% | 58.8 ± 0.1% | 61.2 ± 0.2% | 1.04x |
+| plrabn12.txt | 9 | 3.31 | 55.2 ± 0.7% | 54.2 ± 1.1% | 59.7 ± 1.4% | 62.6 ± 1.2% | 1.03x |
+| ptt5 | 1 | 10.28 | 204.0 ± 0.2% | 166.6 ± 0.1% | 179.0 ± 0.1% | 209.2 ± 0.1% | 1.22x |
+| ptt5 | 9 | 10.31 | 203.1 ± 0.4% | 167.0 ± 0.3% | 177.7 ± 0.2% | 210.3 ± 0.3% | 1.22x |
+| sum | 1 | 2.96 | 62.1 ± 0.2% | 62.3 ± 0.2% | 63.9 ± 0.1% | 62.2 ± 0.3% | 1.00x |
+| sum | 9 | 2.96 | 62.1 ± 0.3% | 62.4 ± 0.3% | 61.9 ± 0.1% | 62.2 ± 0.2% | 0.99x |
+| xargs.1 | 1 | 2.40 | 65.3 ± 0.1% | 80.6 ± 0.4% | 73.6 ± 0.5% | 70.4 ± 0.9% | 0.81x |
+| xargs.1 | 9 | 2.40 | 65.1 ± 0.3% | 80.4 ± 0.4% | 55.2 ± 1.0% | 69.9 ± 0.8% | 0.81x |
+| E.coli | 1 | 3.68 | 61.1 ± 0.1% | 61.8 ± 0.1% | 59.9 ± 0.1% | 80.6 ± 0.4% | 0.99x |
+| E.coli | 9 | 3.71 | 38.3 ± 0.1% | 38.8 ± 0.1% | 38.3 ± 0.1% | 44.5 ± 0.3% | 0.99x |
+| bible.txt | 1 | 4.04 | 65.9 ± 0.0% | 66.2 ± 0.1% | 71.3 ± 0.1% | 74.1 ± 0.7% | 0.99x |
+| bible.txt | 9 | 4.79 | 49.4 ± 0.1% | 50.2 ± 0.1% | 52.3 ± 0.1% | 54.2 ± 0.1% | 0.98x |
+| world192.txt | 1 | 3.69 | 63.9 ± 0.1% | 62.9 ± 0.1% | 68.1 ± 0.2% | 68.3 ± 0.1% | 1.02x |
+| world192.txt | 9 | 5.05 | 47.5 ± 0.2% | 47.5 ± 0.3% | 49.7 ± 0.4% | 50.5 ± 0.3% | 1.00x |
+
+#### Rust's executables
+
+| Input | Level | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | ours ÷ libbzip2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| rustc | 1 | 2.54 | 55.7 ± 0.2% | 55.4 ± 0.1% | 56.7 ± 0.1% | 55.7 ± 0.1% | 1.01x |
+| rustc | 9 | 2.86 | 55.6 ± 0.1% | 55.4 ± 0.2% | 56.5 ± 0.4% | 56.0 ± 0.4% | 1.00x |
+| librustc_driver.so | 1 | 2.66 | 58.1 ± 0.1% | 58.0 ± 0.1% | 59.8 ± 0.2% | 58.9 ± 0.1% | 1.00x |
+| librustc_driver.so | 9 | 2.88 | 47.6 ± 0.3% | 47.5 ± 0.7% | 48.6 ± 1.0% | 48.4 ± 0.7% | 1.00x |
+| cargo | 1 | 2.82 | 60.3 ± 0.2% | 60.4 ± 0.2% | 62.2 ± 0.2% | (block: huffman bitstream truncated) | 1.00x |
+| cargo | 9 | 3.01 | 49.5 ± 0.8% | 49.4 ± 1.0% | 50.6 ± 1.1% | 50.3 ± 1.0% | 1.00x |
+
+Ours relative to each counterpart, the geometric mean over inputs:
+
+| Level | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| ---: | ---: | ---: | ---: |
+| 1 | 1.01x | 0.97x | 0.93x |
+| 9 | 1.01x | 1.01x | 0.94x |
 
 ### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro)
 
@@ -1128,6 +1237,321 @@ libbz2-rs-sys 8 B, bzip2-rs 632 B.
 Ours relative to libbzip2's peak: 1.13x at the median, and at most
 1.43x.
 
+### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), whole
+
+Measured 2026-11-10, at `b674208`, `decode-bzip2` 0.0.4.
+
+The size of each decoder's value: ours 160 B, libbzip2 8 B,
+libbz2-rs-sys 8 B, bzip2-rs 632 B.
+
+#### Synthetic
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| random | 1 | 648.6 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| random | 9 | 4557.2 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | (block: huffman bitstream truncated) |
+| zeros | 1 | 390.7 KiB, 6 | 453.4 KiB, 3 | 450.2 KiB, 3 | 390.7 KiB, 4 |
+| zeros | 9 | 642.6 KiB, 6 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3515.7 KiB, 3 |
+| pattern | 1 | 399.4 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 399.4 KiB, 86 |
+| pattern | 9 | 3516.9 KiB, 9 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3516.9 KiB, 12 |
+| far | 1 | 648.6 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| far | 9 | 4557.2 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | (block: huffman bitstream truncated) |
+
+#### Silesia
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dickens | 1 | 520.1 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.3 KiB, 110 |
+| dickens | 9 | 4039.4 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7042.9 KiB, 17 |
+| mozilla | 1 | 648.6 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| mozilla | 9 | 4555.8 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 31654.9 KiB, 61 |
+| mr | 1 | 519.9 KiB, 21 | 453.4 KiB, 3 | 450.2 KiB, 3 | 3517.0 KiB, 80 |
+| mr | 9 | 4037.5 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7041.1 KiB, 14 |
+| nci | 1 | 519.1 KiB, 19 | 453.4 KiB, 3 | 450.2 KiB, 3 | 3516.2 KiB, 355 |
+| nci | 9 | 3646.3 KiB, 13 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7034.0 KiB, 44 |
+| ooffice | 1 | 520.2 KiB, 14 | 453.4 KiB, 3 | 450.2 KiB, 3 | 3517.4 KiB, 68 |
+| ooffice | 9 | 4041.1 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7044.8 KiB, 12 |
+| osdb | 1 | 519.7 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.0 KiB, 109 |
+| osdb | 9 | 4034.7 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7038.3 KiB, 17 |
+| reymont | 1 | 519.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1954.5 KiB, 73 |
+| reymont | 9 | 3779.7 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5281.6 KiB, 12 |
+| samba | 1 | 648.6 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.0 KiB, 207 |
+| samba | 9 | 4555.4 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 10555.5 KiB, 29 |
+| sao | 1 | 648.3 KiB, 19 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.5 KiB, 81 |
+| sao | 9 | 4553.9 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 10561.2 KiB, 15 |
+| webster | 1 | 519.8 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | 12892.3 KiB, 424 |
+| webster | 9 | 3781.0 KiB, 17 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 17587.6 KiB, 54 |
+| xml | 1 | 519.7 KiB, 16 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1173.0 KiB, 59 |
+| xml | 9 | 3649.8 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3952.6 KiB, 9 |
+| x-ray | 1 | 520.1 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.3 KiB, 93 |
+| x-ray | 9 | 4039.9 KiB, 18 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 10558.4 KiB, 16 |
+
+#### Large files
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| enwik8 | 1 | 520.0 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 50396.0 KiB, 1010 |
+| enwik8 | 9 | 4038.8 KiB, 22 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 59778.2 KiB, 120 |
+| linux-6.12.tar | 1 | 520.1 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 25392.8 KiB, 881 |
+| linux-6.12.tar | 9 | 4038.2 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 31648.2 KiB, 105 |
+
+#### Canterbury
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| alice29.txt | 1 | 436.9 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 436.9 KiB, 4 |
+| alice29.txt | 9 | 1068.1 KiB, 9 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3559.7 KiB, 3 |
+| asyoulik.txt | 1 | 432.6 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 432.6 KiB, 4 |
+| asyoulik.txt | 9 | 552.4 KiB, 8 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3556.0 KiB, 3 |
+| cp.html | 1 | 135.7 KiB, 6 | 453.4 KiB, 3 | 450.2 KiB, 3 | 398.4 KiB, 3 |
+| cp.html | 9 | 135.7 KiB, 6 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3523.4 KiB, 3 |
+| fields.c | 1 | 67.1 KiB, 5 | 453.4 KiB, 3 | 450.2 KiB, 3 | 393.7 KiB, 3 |
+| fields.c | 9 | 67.1 KiB, 5 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3518.7 KiB, 3 |
+| grammar.lsp | 1 | 17.3 KiB, 3 | 453.4 KiB, 3 | 450.2 KiB, 3 | 391.9 KiB, 3 |
+| grammar.lsp | 9 | 17.3 KiB, 3 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3516.9 KiB, 3 |
+| kennedy.xls | 1 | 455.2 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 586.5 KiB, 14 |
+| kennedy.xls | 9 | 3648.3 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3715.6 KiB, 5 |
+| lcet10.txt | 1 | 455.9 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 587.2 KiB, 8 |
+| lcet10.txt | 9 | 2271.9 KiB, 11 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3715.8 KiB, 4 |
+| plrabn12.txt | 1 | 520.1 KiB, 9 | 453.4 KiB, 3 | 450.2 KiB, 3 | 587.4 KiB, 8 |
+| plrabn12.txt | 9 | 2937.8 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3717.4 KiB, 4 |
+| ptt5 | 1 | 440.6 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 440.6 KiB, 4 |
+| ptt5 | 9 | 562.2 KiB, 8 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3565.8 KiB, 3 |
+| sum | 1 | 269.1 KiB, 7 | 453.4 KiB, 3 | 450.2 KiB, 3 | 403.7 KiB, 3 |
+| sum | 9 | 269.1 KiB, 7 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3528.7 KiB, 3 |
+| xargs.1 | 1 | 33.8 KiB, 4 | 453.4 KiB, 3 | 450.2 KiB, 3 | 392.4 KiB, 3 |
+| xargs.1 | 9 | 33.8 KiB, 4 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3517.4 KiB, 3 |
+| E.coli | 1 | 520.4 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1955.0 KiB, 53 |
+| E.coli | 9 | 4043.4 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5289.2 KiB, 10 |
+| bible.txt | 1 | 519.9 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1954.4 KiB, 47 |
+| bible.txt | 9 | 3780.9 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 4350.7 KiB, 8 |
+| world192.txt | 1 | 519.8 KiB, 9 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1173.0 KiB, 30 |
+| world192.txt | 9 | 3779.1 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 4001.2 KiB, 6 |
+
+#### Rust's executables
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| rustc | 1 | 520.0 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 782.7 KiB, 11 |
+| rustc | 9 | 3778.7 KiB, 13 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3743.2 KiB, 4 |
+| librustc_driver.so | 1 | 648.5 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | 100400.5 KiB, 1530 |
+| librustc_driver.so | 9 | 4555.8 KiB, 22 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 59783.7 KiB, 178 |
+| cargo | 1 | 648.6 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| cargo | 9 | 4554.7 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 17590.9 KiB, 54 |
+
+Ours relative to libbzip2's peak: 1.13x at the median, and at most
+1.43x.
+
+### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), in pieces of 4 KiB
+
+Measured 2026-11-10, at `b674208`, `decode-bzip2` 0.0.4.
+
+The size of each decoder's value: ours 160 B, libbzip2 8 B,
+libbz2-rs-sys 8 B, bzip2-rs 632 B.
+
+#### Synthetic
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| random | 1 | 520.6 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| random | 9 | 4557.2 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | (block: huffman bitstream truncated) |
+| zeros | 1 | 390.7 KiB, 6 | 453.4 KiB, 3 | 450.2 KiB, 3 | 390.7 KiB, 4 |
+| zeros | 9 | 642.6 KiB, 6 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3515.7 KiB, 3 |
+| pattern | 1 | 398.7 KiB, 9 | 453.4 KiB, 3 | 450.2 KiB, 3 | 406.7 KiB, 88 |
+| pattern | 9 | 3516.9 KiB, 9 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3516.9 KiB, 12 |
+| far | 1 | 520.6 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| far | 9 | 4557.2 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | (block: huffman bitstream truncated) |
+
+#### Silesia
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dickens | 1 | 456.1 KiB, 14 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4488.1 KiB, 114 |
+| dickens | 9 | 3783.4 KiB, 17 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7623.2 KiB, 24 |
+| mozilla | 1 | 520.6 KiB, 16 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| mozilla | 9 | 4555.8 KiB, 20 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 36298.4 KiB, 68 |
+| mr | 1 | 455.9 KiB, 24 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4487.9 KiB, 85 |
+| mr | 9 | 4037.5 KiB, 23 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7621.5 KiB, 21 |
+| nci | 1 | 407.1 KiB, 20 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4487.1 KiB, 360 |
+| nci | 9 | 3582.3 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5566.3 KiB, 50 |
+| ooffice | 1 | 456.2 KiB, 17 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4488.2 KiB, 73 |
+| ooffice | 9 | 4041.1 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7625.1 KiB, 19 |
+| osdb | 1 | 455.7 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4487.7 KiB, 113 |
+| osdb | 9 | 3778.7 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7618.7 KiB, 24 |
+| reymont | 1 | 455.9 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | 2439.9 KiB, 78 |
+| reymont | 9 | 3779.7 KiB, 18 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5571.7 KiB, 19 |
+| samba | 1 | 520.6 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | 8583.7 KiB, 212 |
+| samba | 9 | 4555.4 KiB, 20 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 11716.2 KiB, 36 |
+| sao | 1 | 520.3 KiB, 22 | 453.4 KiB, 3 | 450.2 KiB, 3 | 8584.3 KiB, 86 |
+| sao | 9 | 4553.9 KiB, 23 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 11721.9 KiB, 22 |
+| webster | 1 | 455.8 KiB, 16 | 453.4 KiB, 3 | 450.2 KiB, 3 | 16775.8 KiB, 429 |
+| webster | 9 | 3781.0 KiB, 21 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 19909.0 KiB, 61 |
+| xml | 1 | 423.7 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1415.7 KiB, 64 |
+| xml | 9 | 3649.8 KiB, 18 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 4033.8 KiB, 15 |
+| x-ray | 1 | 456.1 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | 8583.9 KiB, 98 |
+| x-ray | 9 | 4039.9 KiB, 22 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7623.9 KiB, 22 |
+
+#### Large files
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| enwik8 | 1 | 456.0 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | 33164.0 KiB, 1014 |
+| enwik8 | 9 | 4038.8 KiB, 26 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 36298.8 KiB, 126 |
+| linux-6.12.tar | 1 | 456.1 KiB, 14 | 453.4 KiB, 3 | 450.2 KiB, 3 | 33159.8 KiB, 886 |
+| linux-6.12.tar | 9 | 3782.2 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 19910.2 KiB, 111 |
+
+#### Canterbury
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| alice29.txt | 1 | 424.0 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 456.0 KiB, 8 |
+| alice29.txt | 9 | 1089.9 KiB, 13 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3581.6 KiB, 7 |
+| asyoulik.txt | 1 | 424.0 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 456.0 KiB, 8 |
+| asyoulik.txt | 9 | 577.7 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3581.4 KiB, 7 |
+| cp.html | 1 | 136.3 KiB, 7 | 453.4 KiB, 3 | 450.2 KiB, 3 | 398.9 KiB, 4 |
+| cp.html | 9 | 136.3 KiB, 7 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3523.9 KiB, 4 |
+| fields.c | 1 | 67.1 KiB, 5 | 453.4 KiB, 3 | 450.2 KiB, 3 | 393.7 KiB, 3 |
+| fields.c | 9 | 67.1 KiB, 5 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3518.7 KiB, 3 |
+| grammar.lsp | 1 | 17.3 KiB, 3 | 453.4 KiB, 3 | 450.2 KiB, 3 | 391.9 KiB, 3 |
+| grammar.lsp | 9 | 17.3 KiB, 3 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3516.9 KiB, 3 |
+| kennedy.xls | 1 | 407.2 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | 519.2 KiB, 18 |
+| kennedy.xls | 9 | 3648.3 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3648.3 KiB, 9 |
+| lcet10.txt | 1 | 455.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 519.9 KiB, 12 |
+| lcet10.txt | 9 | 2271.9 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3648.5 KiB, 8 |
+| plrabn12.txt | 1 | 456.1 KiB, 12 | 453.4 KiB, 3 | 450.2 KiB, 3 | 648.1 KiB, 13 |
+| plrabn12.txt | 9 | 2937.8 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3778.1 KiB, 9 |
+| ptt5 | 1 | 455.9 KiB, 12 | 453.4 KiB, 3 | 450.2 KiB, 3 | 455.9 KiB, 8 |
+| ptt5 | 9 | 577.6 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3581.2 KiB, 7 |
+| sum | 1 | 272.5 KiB, 9 | 453.4 KiB, 3 | 450.2 KiB, 3 | 407.1 KiB, 5 |
+| sum | 9 | 272.4 KiB, 9 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3532.1 KiB, 5 |
+| xargs.1 | 1 | 33.8 KiB, 4 | 453.4 KiB, 3 | 450.2 KiB, 3 | 392.4 KiB, 3 |
+| xargs.1 | 9 | 33.8 KiB, 4 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3517.4 KiB, 3 |
+| E.coli | 1 | 424.4 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | 2440.4 KiB, 58 |
+| E.coli | 9 | 3787.4 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5579.4 KiB, 17 |
+| bible.txt | 1 | 423.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1415.9 KiB, 51 |
+| bible.txt | 9 | 3780.9 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 4548.9 KiB, 15 |
+| world192.txt | 1 | 423.8 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1415.8 KiB, 35 |
+| world192.txt | 9 | 3779.1 KiB, 18 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 4035.1 KiB, 12 |
+
+#### Rust's executables
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| rustc | 1 | 456.0 KiB, 14 | 453.4 KiB, 3 | 450.2 KiB, 3 | 648.0 KiB, 15 |
+| rustc | 9 | 3778.7 KiB, 17 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3778.7 KiB, 9 |
+| librustc_driver.so | 1 | 520.5 KiB, 21 | 453.4 KiB, 3 | 450.2 KiB, 3 | 65932.5 KiB, 1534 |
+| librustc_driver.so | 9 | 4555.8 KiB, 26 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 69071.7 KiB, 185 |
+| cargo | 1 | 520.6 KiB, 21 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| cargo | 9 | 4554.7 KiB, 20 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 19912.4 KiB, 61 |
+
+Ours relative to libbzip2's peak: 1.01x at the median, and at most
+1.27x.
+
+### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), in pieces of 64 KiB
+
+Measured 2026-11-10, at `b674208`, `decode-bzip2` 0.0.4.
+
+The size of each decoder's value: ours 160 B, libbzip2 8 B,
+libbz2-rs-sys 8 B, bzip2-rs 632 B.
+
+#### Synthetic
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| random | 1 | 648.6 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| random | 9 | 4557.2 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | (block: huffman bitstream truncated) |
+| zeros | 1 | 390.7 KiB, 6 | 453.4 KiB, 3 | 450.2 KiB, 3 | 390.7 KiB, 4 |
+| zeros | 9 | 642.6 KiB, 6 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3515.7 KiB, 3 |
+| pattern | 1 | 399.4 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 399.4 KiB, 86 |
+| pattern | 9 | 3516.9 KiB, 9 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3516.9 KiB, 12 |
+| far | 1 | 648.6 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| far | 9 | 4557.2 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | (block: huffman bitstream truncated) |
+
+#### Silesia
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| dickens | 1 | 520.1 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4488.1 KiB, 110 |
+| dickens | 9 | 4039.4 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7623.2 KiB, 20 |
+| mozilla | 1 | 648.6 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| mozilla | 9 | 4555.8 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 36298.4 KiB, 64 |
+| mr | 1 | 519.9 KiB, 21 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4487.9 KiB, 81 |
+| mr | 9 | 4037.5 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7621.5 KiB, 17 |
+| nci | 1 | 519.1 KiB, 19 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4487.1 KiB, 356 |
+| nci | 9 | 3646.3 KiB, 13 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5566.3 KiB, 46 |
+| ooffice | 1 | 520.2 KiB, 14 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4488.2 KiB, 69 |
+| ooffice | 9 | 4041.1 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7625.1 KiB, 15 |
+| osdb | 1 | 519.7 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | 4487.7 KiB, 109 |
+| osdb | 9 | 4034.7 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7618.7 KiB, 20 |
+| reymont | 1 | 519.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 2439.9 KiB, 74 |
+| reymont | 9 | 3779.7 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5571.7 KiB, 15 |
+| samba | 1 | 648.6 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 8583.7 KiB, 208 |
+| samba | 9 | 4555.4 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 11716.2 KiB, 32 |
+| sao | 1 | 648.3 KiB, 19 | 453.4 KiB, 3 | 450.2 KiB, 3 | 8584.3 KiB, 82 |
+| sao | 9 | 4553.9 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 11721.9 KiB, 18 |
+| webster | 1 | 519.8 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | 16775.8 KiB, 425 |
+| webster | 9 | 3781.0 KiB, 17 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 19909.0 KiB, 57 |
+| xml | 1 | 519.7 KiB, 16 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1415.7 KiB, 60 |
+| xml | 9 | 3649.8 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 4033.8 KiB, 11 |
+| x-ray | 1 | 520.1 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 8583.9 KiB, 94 |
+| x-ray | 9 | 4039.9 KiB, 18 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7623.9 KiB, 18 |
+
+#### Large files
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| enwik8 | 1 | 520.0 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 33164.0 KiB, 1010 |
+| enwik8 | 9 | 4038.8 KiB, 22 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 36298.8 KiB, 122 |
+| linux-6.12.tar | 1 | 520.1 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 33163.8 KiB, 882 |
+| linux-6.12.tar | 9 | 4038.2 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 19910.2 KiB, 107 |
+
+#### Canterbury
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| alice29.txt | 1 | 436.9 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 436.9 KiB, 4 |
+| alice29.txt | 9 | 1068.1 KiB, 9 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3559.7 KiB, 3 |
+| asyoulik.txt | 1 | 432.6 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 432.6 KiB, 4 |
+| asyoulik.txt | 9 | 552.4 KiB, 8 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3556.0 KiB, 3 |
+| cp.html | 1 | 135.7 KiB, 6 | 453.4 KiB, 3 | 450.2 KiB, 3 | 398.4 KiB, 3 |
+| cp.html | 9 | 135.7 KiB, 6 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3523.4 KiB, 3 |
+| fields.c | 1 | 67.1 KiB, 5 | 453.4 KiB, 3 | 450.2 KiB, 3 | 393.7 KiB, 3 |
+| fields.c | 9 | 67.1 KiB, 5 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3518.7 KiB, 3 |
+| grammar.lsp | 1 | 17.3 KiB, 3 | 453.4 KiB, 3 | 450.2 KiB, 3 | 391.9 KiB, 3 |
+| grammar.lsp | 9 | 17.3 KiB, 3 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3516.9 KiB, 3 |
+| kennedy.xls | 1 | 455.2 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 519.2 KiB, 14 |
+| kennedy.xls | 9 | 3648.3 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3648.3 KiB, 5 |
+| lcet10.txt | 1 | 455.9 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 519.9 KiB, 8 |
+| lcet10.txt | 9 | 2271.9 KiB, 11 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3648.5 KiB, 4 |
+| plrabn12.txt | 1 | 520.1 KiB, 9 | 453.4 KiB, 3 | 450.2 KiB, 3 | 648.1 KiB, 9 |
+| plrabn12.txt | 9 | 2937.8 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3778.1 KiB, 5 |
+| ptt5 | 1 | 440.6 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 440.6 KiB, 4 |
+| ptt5 | 9 | 562.2 KiB, 8 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3565.8 KiB, 3 |
+| sum | 1 | 269.1 KiB, 7 | 453.4 KiB, 3 | 450.2 KiB, 3 | 403.7 KiB, 3 |
+| sum | 9 | 269.1 KiB, 7 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3528.7 KiB, 3 |
+| xargs.1 | 1 | 33.8 KiB, 4 | 453.4 KiB, 3 | 450.2 KiB, 3 | 392.4 KiB, 3 |
+| xargs.1 | 9 | 33.8 KiB, 4 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3517.4 KiB, 3 |
+| E.coli | 1 | 520.4 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 2440.4 KiB, 54 |
+| E.coli | 9 | 4043.4 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5579.4 KiB, 13 |
+| bible.txt | 1 | 519.9 KiB, 13 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1415.9 KiB, 47 |
+| bible.txt | 9 | 3780.9 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 4548.9 KiB, 11 |
+| world192.txt | 1 | 519.8 KiB, 9 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1415.8 KiB, 31 |
+| world192.txt | 9 | 3779.1 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 4035.1 KiB, 8 |
+
+#### Rust's executables
+
+| Input | Level | ours | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| rustc | 1 | 520.0 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 648.0 KiB, 11 |
+| rustc | 9 | 3778.7 KiB, 13 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3778.7 KiB, 5 |
+| librustc_driver.so | 1 | 648.5 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | 65932.5 KiB, 1530 |
+| librustc_driver.so | 9 | 4555.8 KiB, 22 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 69071.7 KiB, 181 |
+| cargo | 1 | 648.6 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | (block: huffman bitstream truncated) |
+| cargo | 9 | 4554.7 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 19912.4 KiB, 57 |
+
+Ours relative to libbzip2's peak: 1.13x at the median, and at most
+1.43x.
+
 ### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), whole
 
 Measured 2026-11-10, at `037ffbb`, `decode-bzip2` 0.0.4.
@@ -1461,10 +1885,14 @@ portable with fat LTO; read-only data, such as tables, is not counted.
 | Target | `opt-level` 3 | `opt-level` "s" |
 | --- | ---: | ---: |
 | aarch64-apple-darwin | 11412 | 6980 |
+| aarch64-unknown-linux-gnu | 11148 | 7072 |
 | x86_64-unknown-linux-gnu | 13234 | 7555 |
 
 On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
 `decode-bzip2` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
+
+On aarch64-unknown-linux-gnu, measured 2026-11-10, at `b674208`,
+`decode-bzip2` 0.0.4, by rustc 1.97.0 (2d8144b78 2026-07-07).
 
 On x86_64-unknown-linux-gnu, measured 2026-11-10, at `037ffbb`,
 `decode-bzip2` 0.0.4, by rustc 1.97.0 (2d8144b78 2026-07-07).

@@ -30,7 +30,16 @@
 //! decoder's. It decodes Deflate with `decode-deflate`, written likewise
 //! from RFC 1951 alone, and computes Adler-32 with `compute-adler32`. It is
 //! pure, safe Rust, and builds with `#![no_std]`, with an allocator. The
-//! `std` feature, enabled by default, currently adds nothing.
+//! `std` feature, enabled by default, adds nothing by itself.
+//!
+//! The `intrinsics` feature, enabled by default (D66), computes Adler-32
+//! in the CPU's vectors where it has them, as `compute-adler32`'s feature
+//! of that name does: chosen at run time with `std`. Without it, as
+//! `default-features = false, features = ["all", "std"]` builds it, its
+//! dependencies are ours alone, all of them public domain, and it decodes
+//! 3% to 4% slower on x86-64: Canterbury at 656 MB/s, not 673, on Zen 5,
+//! and at 439, not 458, on Granite Rapids; and 2% slower on Neoverse V3,
+//! at 521, not 530 (2026-11-11).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

@@ -24,13 +24,12 @@
 //! enables nothing. The `intrinsics` feature, enabled by default (D66),
 //! computes the [`checksum`]s by the CPU's instructions where it has
 //! them, as `compute-crc`'s feature of that name does: each CRC by
-//! carry-less multiplication on x86-64, and CRC-32 and CRC-32C by ARM's
-//! `crc` extension, chosen at run time with `std`. Without it, as
-//! `default-features = false, features = ["all", "std"]` builds it, its
-//! dependencies are ours alone, all of them public domain, and those CRCs
-//! are as much slower as `compute-crc`'s docs say: 5 to 23 times on Apple
-//! M4, and 9 to 23 times over long inputs on x86-64 (Zen 5 and Granite
-//! Rapids).
+//! carry-less multiplication, x86-64's and ARM's, chosen at run time with
+//! `std`. Without it, as `default-features = false, features = ["all",
+//! "std"]` builds it, its dependencies are ours alone, all of them public
+//! domain, and those CRCs are as much slower as `compute-crc`'s docs say:
+//! 9 to 23 times over long inputs on x86-64 (Zen 5 and Granite Rapids),
+//! and 9 to 12 times on ARM (Neoverse V3).
 
 #![no_std]
 #![forbid(unsafe_code)]

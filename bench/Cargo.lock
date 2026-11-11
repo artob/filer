@@ -87,6 +87,9 @@ dependencies = [
 [[package]]
 name = "compute-adler32"
 version = "0.0.4"
+dependencies = [
+ "compute-multiversion",
+]
 
 [[package]]
 name = "compute-crc"

@@ -563,14 +563,15 @@ crate's name until its first code, which moves it to `lib/`.
 - [ ] **BENCH-02: Every machine.** The protocol's machines are all at
   hand, the default ones (`bench/METHOD.md`) each an EC2 instance with a
   core of its own: the current AMD and Intel cores, Zen 5 and Granite
-  Rapids, and the Neoverse server's, Neoverse V3 (Graviton5), which is
-  set up and not yet measured. Zen 5 and Granite Rapids filled
-  `decode-zstd`'s and `decode-bzip2`'s tables whole, their memory, every
-  crate's code size, and the `compute-*` crates' hashes, at `037ffbb`
-  (2026-11-10). Their passes in pieces of 64 KiB and of 4 KiB, and those
-  of the build for the CPU, whole and in pieces, are deferred, stopped 8
-  and 7 inputs into the first (2026-11-10): `~/campaign.sh <cpu>` on
-  each host resumes them. Zen 1's speed tables are older, of `9c5f5fc`,
+  Rapids, and the Neoverse server's, Neoverse V3 (Graviton5). Each
+  filled `decode-zstd`'s and `decode-bzip2`'s tables whole, their
+  memory, every crate's code size, and the `compute-*` crates' hashes:
+  Zen 5 and Granite Rapids at `037ffbb` (2026-11-10), Neoverse V3 at
+  `b674208` (2026-11-11). Their passes in pieces of 64 KiB and of 4 KiB,
+  and those of the build for the CPU, whole and in pieces, are deferred:
+  on the x86 hosts stopped 8 and 7 inputs into the first (2026-11-10),
+  on the ARM host not begun; `~/campaign.sh <cpu>` on each host takes
+  them up. Zen 1's speed tables are older, of `9c5f5fc`,
   before DEC-19's work. Done when each `BENCH.md` of a written decoder
   holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
@@ -590,37 +591,48 @@ crate's name until its first code, which moves it to `lib/`.
   feature runs the lanes as vectors at run time, as fast as a build for
   AVX2, by finding why the copy is not vectorized or by `core::arch`'s
   intrinsics, and a test checks it against the lanes.
-- [ ] **COMP-03: Portable gaps.** Built portable, as by default, on
-  Zen 1 (`BENCH.md`, 2026-11-06): `compute-sha512` trails `sha2` by 1.14
-  times and `ring` by 1.43; and `compute-adler32` trails
-  `simd-adler32`, by AVX2, by 1.65. On Zen 5 and Granite Rapids
-  (2026-11-10), by more: `sha2` by 1.60 and 1.51 times, `ring` by 1.51
-  on both, and `simd-adler32` by 2.57 and 2.77. Done when each is
-  within 10% of the fastest portable counterpart, or its crate's docs
-  say why not.
-- [ ] **COMP-06: Adler-32 in vectors.** `compute-adler32` has no
-  `intrinsics`: it sums as LLVM vectorizes it for the build's baseline,
-  19 GB/s on Zen 5, 13 on Granite Rapids, and 18 on Neoverse V3 over a
-  mebibyte, where `simd-adler32` reaches 58, 41, and 35; by the
-  geometric mean over sizes, 2.6, 2.8, and 1.4 times ours (`BENCH.md`,
-  2026-11-10). zlib's streams and lzop's files are checked by it.
-  Weighed with COMP-05, which the CRCs alone closed. Done when an
-  `intrinsics` feature sums in the CPU's widest vectors, chosen at run
-  time, within 1.5 times the fastest counterpart on the default
-  machines, whole, and no slower in pieces of 7, or its crate's docs say
+- [ ] **COMP-03: Portable gaps.** Built portable, on Zen 1 (`BENCH.md`,
+  2026-11-06), `compute-sha512` trails `sha2` by 1.14 times and `ring`
+  by 1.43; on Zen 5 and Granite Rapids, where it has no instruction to
+  take but COMP-01's, by more: `sha2` by 1.64 and 1.48 times, and `ring`
+  by 1.5 on both (2026-11-11). On Neoverse V3, built portable, `sha2`
+  leads both it and `compute-sha256` by 1.7 times: 0.77 GB/s to 0.45,
+  and 0.48 to 0.28 (2026-11-11). `compute-adler32` trailed
+  `simd-adler32` too, which its `intrinsics` now leads (COMP-06). Done
+  when each is within 10% of the fastest portable counterpart, or its
+  crate's docs say why not.
+- [ ] **COMP-08: One load a unit on ARM.** On Neoverse V3,
+  `compute-crc`'s weighted sums take 40 to 42 GB/s over long inputs, and
+  31 for CRC-32/BZIP2, where `crc-fast`, which folds, reaches 57 to 63,
+  and 41: 1.4 times ours over a mebibyte, though by the geometric mean
+  over sizes it is at 0.82 to 1.00 times (`BENCH.md`, 2026-11-11). A unit
+  costs two loads beside its two multiplications, of its words and of
+  their weights, where folding has one; and the compiler loads each
+  word alone, four loads a unit. Vectors loaded whole a turn ahead and
+  carried gained 3%, not worth their fragility. Stripes of a block that
+  share one run of weights, five loads for four units, each stripe's
+  sum fed to the tables and then times its stripe's weight, as the
+  register is now, ran at 50 to 52 GB/s as a sketch of the loop alone. Done
+  when the CRCs are within 1.2 times the fastest counterpart over a
+  mebibyte on the default ARM machine, never by folding (`LEGAL.md`),
+  with x86-64 no slower, or the crate's docs say why not.
+- [ ] **COMP-09: SHA-256 on Neoverse V3.** With `intrinsics`,
+  `compute-sha256` takes 1.62 GB/s over long inputs on Neoverse V3,
+  where `ring` takes 2.10: 1.3 times ours, and 1.17 by the geometric
+  mean over sizes, though on Zen 5 and Granite Rapids the two are equal
+  (`BENCH.md`, 2026-11-11). Look first at how the loop loads its words:
+  `compute-crc`'s PMULL loop lost a fifth of its speed there to words
+  that came through general registers (D68). Done when it is within 10%
+  of `ring` over a mebibyte on the default ARM machine, or the crate's
+  docs say why not.
+- [ ] **COMP-10: XXH32 over long inputs on ARM.** On Neoverse V3,
+  `compute-xxhash`'s XXH32 takes 4.4 GB/s from 4 KiB up, half the 8.5
+  that it takes over 256 bytes, where xxHash's C takes 8 to 9: 1.8 to
+  2.0 times ours, and 1.5 by the geometric mean over sizes.
+  `xxhash-rust` and `twox-hash` slow as ours does, and XXH64 does not
+  (`BENCH.md`, 2026-11-11). Done when XXH32 is within 10% of xxHash
+  over a mebibyte on the default ARM machine, or the crate's docs say
   why not.
-- [ ] **COMP-07: Weighted sums by PMULL.** On ARM, `compute-crc`'s
-  `intrinsics` takes CRC-32, CRC-32C, and CRC-32/BZIP2 by the `crc`
-  extension, and CRC-64/XZ and CRC-16/MODBUS, which have no instruction,
-  by the tables: 3.4 and 4.2 GB/s on Neoverse V3 over a mebibyte, where
-  `crc-fast` reaches 58 and 57, by the geometric mean over sizes 5.9 and
-  4.8 times ours; and for CRC-32 it reaches 58 where the `crc`
-  extension's three streams reach 34, 1.2 times (2026-11-10). x86-64
-  takes all five by carry-less multiplication, as weighted sums (D68),
-  which PMULL can too, in `carryless`'s own arithmetic. Done when
-  CRC-64/XZ and CRC-16/MODBUS are within 1.5 times the fastest
-  counterpart on the default ARM machine, never by folding (`LEGAL.md`),
-  and the others are no slower than the instructions' streams.
 - [ ] **DEC-09: LZO1X version 1, checked.** `decode_block` decodes the
   Linux kernel's `lzo-rle` blocks, version 1, from its description,
   tested only against blocks built by hand (2026-11-07). Done when it

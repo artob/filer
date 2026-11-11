@@ -58,10 +58,14 @@ portable with fat LTO; read-only data, such as tables, is not counted.
 | Target | `opt-level` 3 | `opt-level` "s" |
 | --- | ---: | ---: |
 | aarch64-apple-darwin | 4188 | 4144 |
+| aarch64-unknown-linux-gnu | 4512 | 4520 |
 | x86_64-unknown-linux-gnu | 5510 | 4744 |
 
 On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`, `decode-lz4`
 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
+
+On aarch64-unknown-linux-gnu, measured 2026-11-10, at `b674208`,
+`decode-lz4` 0.0.4, by rustc 1.97.0 (2d8144b78 2026-07-07).
 
 On x86_64-unknown-linux-gnu, measured 2026-11-10, at `037ffbb`,
 `decode-lz4` 0.0.4, by rustc 1.97.0 (2d8144b78 2026-07-07).

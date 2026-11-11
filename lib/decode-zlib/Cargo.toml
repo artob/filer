@@ -22,9 +22,11 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = []
 std = ["compute-adler32/std", "decode-deflate/std"]
+# Adler-32 by the CPU's vectors, where it has them (`compute-adler32`'s).
+intrinsics = ["compute-adler32/intrinsics"]
 
 [dependencies]
 compute-adler32.workspace = true

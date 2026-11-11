@@ -40,10 +40,9 @@
 //! name does: chosen at run time with `std`. Without it, as
 //! `default-features = false, features = ["all", "std"]` builds it, its
 //! dependencies are ours alone, all of them public domain, and it decodes
-//! 12% to 18% slower on Apple M4: Canterbury at 721 MB/s, not 820, and
-//! crates of the cargo registry at 1,107, not 1,356 (2026-11-08); and a
-//! tenth slower on x86-64: Canterbury at 619 MB/s, not 685, on Zen 5, and
-//! at 429, not 467, on Granite Rapids (2026-11-10).
+//! a tenth slower on x86-64: Canterbury at 619 MB/s, not 685, on Zen 5,
+//! and at 429, not 467, on Granite Rapids; 11% slower on Neoverse V3, at
+//! 476, not 534; and 15% on Apple M4, at 732, not 864 (2026-11-11).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

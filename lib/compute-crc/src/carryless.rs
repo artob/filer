@@ -1,10 +1,10 @@
 // This is free and unencumbered software released into the public domain.
 
-//! CRCs by carry-less multiplication on x86-64, behind the `intrinsics`
-//! feature: PCLMULQDQ's 128 bits, and VPCLMULQDQ's 256 and 512, chosen at
-//! run time, with `std`, or else where the build enables them, by
-//! `compute-multiversion`, a fork of `multiversion` that lets their
-//! intrinsics be called without `unsafe` code here.
+//! CRCs by carry-less multiplication, behind the `intrinsics` feature:
+//! on x86-64, PCLMULQDQ's 128 bits, and VPCLMULQDQ's 256 and 512; on ARM,
+//! PMULL's 128; chosen at run time, with `std`, or else where the build
+//! enables them, by `compute-multiversion`, a fork of `multiversion` that
+//! lets their intrinsics be called without `unsafe` code here.
 //!
 //! A CRC is linear: the register that a message leaves is the sum of what
 //! each of its words would leave alone, followed by the zeros of the
@@ -34,12 +34,49 @@ pub(crate) const UNITS: usize = 1024;
 /// fast.
 pub(crate) const LEAST: usize = 64;
 
+/// A unit's weights: its first word's, then its second's.
+#[cfg(target_arch = "x86_64")]
+pub(crate) type Pair = [u64; 2];
+
+/// A unit's weights: its first word's the lower half, as a vector holds
+/// them. Safe Rust loads a vector here only from 128 bits whole: two words
+/// came each through a general register, a fifth slower on Neoverse V3.
+#[cfg(target_arch = "aarch64")]
+pub(crate) type Pair = u128;
+
+/// Returns the pair of the weights `first` and `second`.
+#[cfg(target_arch = "x86_64")]
+const fn pair(first: u64, second: u64) -> Pair {
+    [first, second]
+}
+
+/// Returns the pair of the weights `first` and `second`.
+#[cfg(target_arch = "aarch64")]
+#[allow(clippy::as_conversions, reason = "evaluated at compile time")]
+const fn pair(first: u64, second: u64) -> Pair {
+    (first as u128) | ((second as u128) << 64)
+}
+
+/// Returns the first weight of `pair`.
+#[cfg(target_arch = "x86_64")]
+const fn first(pair: &Pair) -> u64 {
+    pair[0]
+}
+
+/// Returns the first weight of `pair`.
+#[cfg(target_arch = "aarch64")]
+const fn first(pair: &Pair) -> u64 {
+    #[allow(clippy::as_conversions, reason = "the lower half is what is meant")]
+    let first = *pair as u64;
+    first
+}
+
 /// The weights of a block's words: a pair for each unit, the first unit's
 /// first. A block shorter than [`UNITS`] takes the last of them. Aligned as
 /// the widest vector is, so that none of a whole block's spans two lines
 /// of the cache.
 #[repr(align(64))]
-pub(crate) struct Weights(pub(crate) [[u64; 2]; UNITS]);
+pub(crate) struct Weights(pub(crate) [Pair; UNITS]);
 
 /// Returns the weights of the CRC of `width` bits whose polynomial is
 /// `poly`, as its register holds it: with its bits reversed, if
@@ -66,7 +103,7 @@ pub(crate) const fn weights(width: u32, poly: u64, reflected: bool) -> Weights {
     } else {
         poly
     };
-    let mut weights = [[0; 2]; UNITS];
+    let mut words = [[0; 2]; UNITS];
     let mut power = if reflected {
         ((poly ^ 1) >> 1) | (1 << (width - 1))
     } else {
@@ -75,7 +112,7 @@ pub(crate) const fn weights(width: u32, poly: u64, reflected: bool) -> Weights {
     // From the block's last word, back to its first.
     let mut after = 0;
     while after < 2 * UNITS {
-        weights[UNITS - 1 - after / 2][1 - after % 2] = if reflected {
+        words[UNITS - 1 - after / 2][1 - after % 2] = if reflected {
             power.reverse_bits()
         } else {
             power
@@ -93,6 +130,12 @@ pub(crate) const fn weights(width: u32, poly: u64, reflected: bool) -> Weights {
             bit += 1;
         }
         after += 1;
+    }
+    let mut weights = [pair(0, 0); UNITS];
+    let mut unit = 0;
+    while unit < UNITS {
+        weights[unit] = pair(words[unit][0], words[unit][1]);
+        unit += 1;
     }
     Weights(weights)
 }
@@ -113,12 +156,14 @@ pub(crate) const fn weights(width: u32, poly: u64, reflected: bool) -> Weights {
 #[multiversion::multiversion(targets(
     "x86_64+avx512f+avx512vl+avx512bw+avx512bf16+vpclmulqdq+avx2+pclmulqdq+sse4.1+ssse3",
     "x86_64+avx2+vpclmulqdq+pclmulqdq+sse4.1+ssse3",
-    "x86_64+pclmulqdq+sse4.1+ssse3"
+    "x86_64+pclmulqdq+sse4.1+ssse3",
+    "aarch64+aes+sha3",
+    "aarch64+aes"
 ))]
 pub(crate) fn sum(
     register: u64,
     units: &[[u8; UNIT]],
-    weights: &[[u64; 2]],
+    weights: &[Pair],
     forward: bool,
     widest: usize,
 ) -> Option<u128> {
@@ -131,7 +176,7 @@ pub(crate) fn sum(
         target_feature = "vpclmulqdq"
     ))]
     #[multiversion::inherit_target]
-    fn fours(units: &[[u8; UNIT]], weights: &[[u64; 2]], forward: bool) -> (u128, usize) {
+    fn fours(units: &[[u8; UNIT]], weights: &[Pair], forward: bool) -> (u128, usize) {
         use core::arch::x86_64::{
             _mm_cvtsi128_si64, _mm_extract_epi64, _mm_xor_si128, _mm512_castsi512_si128,
             _mm512_clmulepi64_epi128, _mm512_extracti32x4_epi32, _mm512_set_epi64,
@@ -190,7 +235,7 @@ pub(crate) fn sum(
         target_feature = "avx512bw",
         target_feature = "vpclmulqdq"
     )))]
-    fn fours(_: &[[u8; UNIT]], _: &[[u64; 2]], _: bool) -> (u128, usize) {
+    fn fours(_: &[[u8; UNIT]], _: &[Pair], _: bool) -> (u128, usize) {
         (0, 0)
     }
 
@@ -202,7 +247,7 @@ pub(crate) fn sum(
         target_feature = "vpclmulqdq"
     ))]
     #[multiversion::inherit_target]
-    fn twos(units: &[[u8; UNIT]], weights: &[[u64; 2]], forward: bool) -> (u128, usize) {
+    fn twos(units: &[[u8; UNIT]], weights: &[Pair], forward: bool) -> (u128, usize) {
         use core::arch::x86_64::{
             _mm_cvtsi128_si64, _mm_extract_epi64, _mm_xor_si128, _mm256_castsi256_si128,
             _mm256_clmulepi64_epi128, _mm256_extracti128_si256, _mm256_set_epi64x,
@@ -248,7 +293,7 @@ pub(crate) fn sum(
         target_feature = "avx2",
         target_feature = "vpclmulqdq"
     )))]
-    fn twos(_: &[[u8; UNIT]], _: &[[u64; 2]], _: bool) -> (u128, usize) {
+    fn twos(_: &[[u8; UNIT]], _: &[Pair], _: bool) -> (u128, usize) {
         (0, 0)
     }
 
@@ -264,7 +309,7 @@ pub(crate) fn sum(
         register: u64,
         first: u64,
         units: &[[u8; UNIT]],
-        weights: &[[u64; 2]],
+        weights: &[Pair],
         forward: bool,
     ) -> Option<u128> {
         use core::arch::x86_64::{
@@ -294,17 +339,124 @@ pub(crate) fn sum(
         Some(u128::from(low) | (u128::from(high) << 64))
     }
 
-    #[multiversion::target::target_cfg(not(all(
-        target_arch = "x86_64",
-        target_feature = "pclmulqdq",
-        target_feature = "sse4.1",
-        target_feature = "ssse3"
+    /// The sum of `units`, one at a time, by ARM's PMULL, and of `register`
+    /// times `first`.
+    #[multiversion::target::target_cfg(all(target_arch = "aarch64", target_feature = "aes"))]
+    #[multiversion::inherit_target]
+    fn ones(
+        register: u64,
+        first: u64,
+        units: &[[u8; UNIT]],
+        weights: &[Pair],
+        forward: bool,
+    ) -> Option<u128> {
+        // The byte order is chosen here, once: chosen at each unit, in
+        // the loop, it cost a fifth of the speed on Neoverse V3.
+        Some(match forward {
+            true => ordered::<true>(register, first, units, weights),
+            false => ordered::<false>(register, first, units, weights),
+        })
+    }
+
+    /// The sum that `ones` returns, of words whose first byte is the most
+    /// significant if `FORWARD`, and the least if not.
+    #[multiversion::target::target_cfg(all(target_arch = "aarch64", target_feature = "aes"))]
+    #[multiversion::inherit_target]
+    #[inline]
+    fn ordered<const FORWARD: bool>(
+        register: u64,
+        first: u64,
+        units: &[[u8; UNIT]],
+        weights: &[Pair],
+    ) -> u128 {
+        use core::arch::aarch64::{
+            vdupq_n_u64, veorq_u64, vgetq_lane_p64, vmull_high_p64, vmull_p64,
+            vreinterpretq_p64_p128, vreinterpretq_p64_u8, vreinterpretq_p128_u64,
+            vreinterpretq_u8_p128, vreinterpretq_u64_p128, vrev64q_u8,
+        };
+        // A unit's two products.
+        let products = |unit: &[u8; UNIT], weights: &Pair| {
+            let data = vreinterpretq_u8_p128(u128::from_le_bytes(*unit));
+            // Each word's bytes, last to first.
+            let data = if FORWARD { vrev64q_u8(data) } else { data };
+            let data = vreinterpretq_p64_u8(data);
+            let weights = vreinterpretq_p64_p128(*weights);
+            let low = vmull_p64(vgetq_lane_p64::<0>(data), vgetq_lane_p64::<0>(weights));
+            let high = vmull_high_p64(data, weights);
+            (vreinterpretq_u64_p128(low), vreinterpretq_u64_p128(high))
+        };
+        // Into four sums by turns, so that none waits on another's unit.
+        let zero = vdupq_n_u64(0);
+        let mut sums = [
+            vreinterpretq_u64_p128(vmull_p64(register, first)),
+            zero,
+            zero,
+            zero,
+        ];
+        let (fours, last) = units.as_chunks::<4>();
+        let (weight_fours, last_weights) = weights.as_chunks::<4>();
+        for (four, weights) in fours.iter().zip(weight_fours) {
+            for ((sum, unit), weights) in sums.iter_mut().zip(four).zip(weights) {
+                let (low, high) = products(unit, weights);
+                *sum = sum3(*sum, low, high);
+            }
+        }
+        for ((sum, unit), weights) in sums.iter_mut().zip(last).zip(last_weights) {
+            let (low, high) = products(unit, weights);
+            *sum = sum3(*sum, low, high);
+        }
+        let [a, b, c, d] = sums;
+        vreinterpretq_p128_u64(sum3(a, b, veorq_u64(c, d)))
+    }
+
+    /// Returns the sum of three vectors, their exclusive-or: by SHA-3's
+    /// EOR3, one instruction, where the CPU has it.
+    #[multiversion::target::target_cfg(all(
+        target_arch = "aarch64",
+        target_feature = "aes",
+        target_feature = "sha3"
+    ))]
+    #[multiversion::inherit_target]
+    #[inline]
+    fn sum3(
+        a: core::arch::aarch64::uint64x2_t,
+        b: core::arch::aarch64::uint64x2_t,
+        c: core::arch::aarch64::uint64x2_t,
+    ) -> core::arch::aarch64::uint64x2_t {
+        core::arch::aarch64::veor3q_u64(a, b, c)
+    }
+
+    /// Returns the sum of three vectors, their exclusive-or.
+    #[multiversion::target::target_cfg(all(
+        target_arch = "aarch64",
+        target_feature = "aes",
+        not(target_feature = "sha3")
+    ))]
+    #[multiversion::inherit_target]
+    #[inline]
+    fn sum3(
+        a: core::arch::aarch64::uint64x2_t,
+        b: core::arch::aarch64::uint64x2_t,
+        c: core::arch::aarch64::uint64x2_t,
+    ) -> core::arch::aarch64::uint64x2_t {
+        use core::arch::aarch64::veorq_u64;
+        veorq_u64(a, veorq_u64(b, c))
+    }
+
+    #[multiversion::target::target_cfg(not(any(
+        all(
+            target_arch = "x86_64",
+            target_feature = "pclmulqdq",
+            target_feature = "sse4.1",
+            target_feature = "ssse3"
+        ),
+        all(target_arch = "aarch64", target_feature = "aes")
     )))]
-    fn ones(_: u64, _: u64, _: &[[u8; UNIT]], _: &[[u64; 2]], _: bool) -> Option<u128> {
+    fn ones(_: u64, _: u64, _: &[[u8; UNIT]], _: &[Pair], _: bool) -> Option<u128> {
         None
     }
 
-    let first = weights.first().map_or(0, |pair| pair[0]);
+    let first = weights.first().map_or(0, first);
     let (mut sum, mut taken) = (0, 0);
     if widest >= 512 {
         (sum, taken) = fours(units, weights, forward);

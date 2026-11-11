@@ -32,6 +32,14 @@ so any release may break compatibility.
 - `compute-crc`: the `intrinsics` feature, which takes CRC-32C by
   SSE4.2's `crc32` on x86-64, and CRC-32, CRC-32C, and CRC-32/BZIP2 by
   ARM's `crc` extension, where the CPU has them: about four times as fast.
+- `compute-adler32`: the `intrinsics` feature, enabled by default (D66),
+  which sums in the CPU's vectors where it has them, from 64 bytes up:
+  AVX2's, AVX-512's with its VNNI, and NEON's, by its dot products
+  where the CPU has them. Over a mebibyte, 120 GB/s on Zen 5, 86 on
+  Granite Rapids, 48 on Neoverse V3, and 74 on Apple M4, not 18, 13, 18,
+  and 23. `decode-zlib` and `filer-cdfs` gain the feature, enabled by
+  default, to forward it, and `decode-lzo`, `filer-squashfs`, and
+  `filer-volume` forward it in theirs.
 - `compute-sha256`: the `intrinsics` feature, which takes SHA-256 by
   x86-64's SHA extensions and ARMv8's SHA2, where the CPU has them: about
   six times as fast.
@@ -123,6 +131,17 @@ so any release may break compatibility.
   and the sum fed to the tables, with no remainder folded along
   (`LEGAL.md`). Over a mebibyte, 66 to 67 GB/s on Zen 5 and 78 to 101 on
   Granite Rapids, not the tables' 4 to 7, at 16 KiB of weights a CRC.
+  ARM takes them by PMULL, in the same sums: 40 to 41 GB/s on Neoverse
+  V3, and 31 for CRC-32/BZIP2, and 75 to 77 on Apple M4, and 51, where
+  the `crc` extension's streams took three of them at 25 to 34 and at 20
+  to 28, and the tables the other two at 3 to 6. The streams now take
+  only fewer than 384 bytes, or 256 of CRC-32/BZIP2, and 128 built for
+  Apple's targets.
+- `compute-adler32`: fewer than 48 bytes are summed one at a time, not
+  by the lanes: updates of 7 bytes are twice as fast, 2.0 GB/s on Zen 5,
+  not 1.0.
+- The MSRV is Rust 1.99, not 1.97, which lacks the intrinsics of NEON's
+  dot products that `compute-adler32` takes.
 - `intrinsics` is enabled by default (D66), our performance baseline, in
   `compute-crc`, `compute-sha256`, `compute-sha512`, `decode-gzip`,
   `decode-lzo`, `decode-xz`, `filer-api`, and `filer-pack`; and it is a

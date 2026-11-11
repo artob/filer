@@ -1,7 +1,7 @@
 # Filer
 
 [![License](https://img.shields.io/badge/license-Public%20Domain-blue.svg)](https://unlicense.org)
-[![Compatibility](https://img.shields.io/badge/rust-1.97%2B-blue)](https://endoflife.date/rust)
+[![Compatibility](https://img.shields.io/badge/rust-1.99%2B-blue)](https://endoflife.date/rust)
 
 **Filer provides a filesystem API with platform-specific backends for Rust.**
 
@@ -17,7 +17,7 @@ archives below; writing is not implemented yet.
 
 ## 🛠️ Prerequisites
 
-- [Rust] 1.97+
+- [Rust] 1.99+
 
 ## 📚 Reference
 

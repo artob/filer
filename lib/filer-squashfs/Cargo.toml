@@ -41,6 +41,7 @@ intrinsics = [
   "filer-fs/intrinsics",
   "decode-lzo?/intrinsics",
   "decode-xz?/intrinsics",
+  "decode-zlib?/intrinsics",
 ]
 # Each compressor `mksquashfs` offers, named as it names them.
 gzip = ["dep:decode-zlib"]

@@ -24,9 +24,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std", "intrinsics"]
 all = ["crc16-modbus", "crc32", "crc32-bzip2", "crc32c", "crc64-xz"]
 std = ["compute-multiversion?/std"]
-# x86-64's carry-less multiplication and SSE4.2's `crc32`, and ARM's CRC
-# instructions, where the CPU has them: chosen at run time with `std`, else
-# where the build enables them.
+# Carry-less multiplication and the CRC instructions, x86-64's and ARM's,
+# where the CPU has them: chosen at run time with `std`, else where the
+# build enables them.
 intrinsics = ["dep:compute-multiversion"]
 crc16-modbus = []
 crc32 = []

@@ -37,17 +37,20 @@
 //! enabled by default, adds nothing by itself.
 //!
 //! The `intrinsics` feature, enabled by default (D66), computes lzop's
-//! CRC-32s by the CPU's instructions where it has them, ARM's `crc`
-//! extension, as `compute-crc`'s feature of that name does: chosen at
-//! run time with `std`. Without it, as `default-features = false,
-//! features = ["all", "std"]` builds it, its dependencies are ours alone,
-//! all of them public domain, and files checked by CRC-32, as `lzop
-//! --crc32` writes them, decode 13% slower on Apple M4, Canterbury at 778
-//! MB/s, not 897; those checked by Adler-32, lzop's default, and raw
-//! blocks no slower (2026-11-08). On x86-64, where carry-less
-//! multiplication takes CRC-32, files checked by it decode 15% slower on
-//! Zen 5, Canterbury at 854 MB/s, not 982, and 10% on Granite Rapids, at
-//! 614, not 678; the others no slower (2026-11-10).
+//! checksums by the CPU's instructions where it has them, as
+//! `compute-crc`'s and `compute-adler32`'s features of that name do:
+//! chosen at run time with `std`.
+//! Without it, as `default-features = false, features = ["all", "std"]`
+//! builds it, its dependencies are ours alone, all of them public domain,
+//! and on x86-64, files checked by CRC-32, as `lzop --crc32` writes them,
+//! decode 15% slower on Zen 5, Canterbury at 854 MB/s, not 982, and 10%
+//! on Granite Rapids, at 614, not 678; those checked by Adler-32, lzop's
+//! default, 6% and 3% slower, at 942, not 1,000, and at 648, not 669; and
+//! raw blocks no slower (2026-11-10). On Neoverse V3, those checked by
+//! CRC-32 decode 19% slower, at 797 MB/s, not 985, and by Adler-32 3%, at
+//! 956, not 988 (2026-11-11). On Apple M4, those checked by CRC-32 decode
+//! 16% slower, at 962 MB/s, not 1,152, and by Adler-32 5%, at 1,098, not
+//! 1,157 (2026-11-10).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

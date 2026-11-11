@@ -21,7 +21,8 @@
 //! `unsafe` code here. Without it, as `default-features = false, features
 //! = ["all", "std"]` builds it, it has no dependencies, all of it public
 //! domain, and is 2.6 times slower on Apple M4, 733 MB/s, not 1,900
-//! (2026-11-08); on x86-64, whose instructions it does not take, no
+//! (2026-11-08), and 2.8 times on Neoverse V3, 0.45 GB/s, not 1.24
+//! (2026-11-11); on x86-64, whose instructions it does not take, no
 //! slower.
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain

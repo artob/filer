@@ -20,7 +20,7 @@
 
 # Rust code
 - Don't ever directly read the contents of `Cargo.lock`, it can very large.
-- Our current MSRV is Rust 1.97; update and enforce everywhere as needed.
+- Our current MSRV is Rust 1.99; update and enforce everywhere as needed.
 - Our crates collect their default features under an `all` feature, and
   their `[features]` should start with the line `default = ["all", "std"]`;
   a crate with `intrinsics`, or above one, adds it there, our performance

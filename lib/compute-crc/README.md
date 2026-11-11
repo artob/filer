@@ -9,8 +9,8 @@ which formats that chain checksums store; and is a `Copy` value, so that a
 copy taken anywhere goes on from there. It is pure, safe Rust without
 dependencies, and builds with `#![no_std]`, without an allocator. Its
 `intrinsics` feature takes the CPU's instructions where it has them:
-x86-64's carry-less multiplication, ten times as fast and more over long
-inputs, and ARM's CRC instructions, four times.
+carry-less multiplication, x86-64's and ARM's, 9 to 23 times as fast over
+long inputs.
 
 It is one of the `compute-*` crates: clean-room, public-domain checksums and
 hashes, each of the same shape.

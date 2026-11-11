@@ -11,7 +11,7 @@ publish = false
 [dependencies]
 # Ours: the decoders measured, and the checksums and hashes; the corpus's
 # SHA-256 and xz are also ours.
-compute-adler32 = { path = "../lib/compute-adler32" }
+compute-adler32 = { path = "../lib/compute-adler32", default-features = false, features = ["all", "std"] }
 compute-crc = { path = "../lib/compute-crc", default-features = false, features = ["all", "std"] }
 compute-fletcher = { path = "../lib/compute-fletcher" }
 compute-sha256 = { path = "../lib/compute-sha256", default-features = false, features = ["all", "std"] }
@@ -60,6 +60,7 @@ toml = "0.9"
 # without dependencies. The results record which, and name their file so.
 default = ["intrinsics"]
 intrinsics = [
+    "compute-adler32/intrinsics",
     "compute-crc/intrinsics",
     "compute-sha256/intrinsics",
     "compute-sha512/intrinsics",

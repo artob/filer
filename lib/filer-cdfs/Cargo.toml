@@ -23,9 +23,12 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = ["zisofs"]
 std = ["filer-api/std", "filer-fs/std", "filer-msft/std", "decode-zlib?/std"]
+# Checks by the CPU's instructions, where it has them (D66): zisofs's
+# Adler-32.
+intrinsics = ["filer-api/intrinsics", "filer-fs/intrinsics", "decode-zlib?/intrinsics"]
 # Files that zisofs compresses, block by block, as zlib streams.
 zisofs = ["dep:decode-zlib"]
 

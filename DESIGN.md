@@ -137,8 +137,9 @@ windows; this section holds the rationale.
   metadata, `[workspace.dependencies]` (always `default-features = false`,
   enabled per crate), and `[workspace.lints]`; every crate sets `[lints]
   workspace = true`.
-- Rust 2024 edition, resolver 3, MSRV 1.97, enforced everywhere it is
-  stated (manifest, README badge, CI matrix, `AGENTS.md`).
+- Rust 2024 edition, resolver 3, MSRV 1.99, enforced everywhere it is
+  stated (manifest, README badge, CI matrix, `AGENTS.md`); 1.97 until
+  2026-11-10, raised for the intrinsics of NEON's dot products.
 - A `VERSION` file holds the single project version. Package versions and
   internal dependency versions stay aligned with it; internal dependencies
   keep default features disabled.
@@ -2713,31 +2714,38 @@ Every crate with `intrinsics` enables it by default, beside `all` and
 `std`, and each crate above them forwards it, by default too: `filer-fs`,
 `filer-ext4`, `filer-xfs`, `filer-zip`, `filer-tar`, `filer-cpio`,
 `filer-squashfs`, `filer-archive`, `filer-volume`, `filer-system`, and
-`filer-cli`. As it builds by default is how a crate is measured and
-compared (`bench/METHOD.md`). Who wants no dependencies, every line of
-it ours and public domain, builds with `default-features = false,
-features = ["all", "std"]`: no `compute-multiversion`, and none of the
-`unsafe` code of its dispatch, at the price below, measured on Apple M4
-by one tool built both ways, best of a second's runs, within 2% of a
-second run, and on x86-64, Zen 1 under KVM, by the same tool
-(2026-11-08); and what carry-less multiplication changed (D68), on Zen
-5 and Granite Rapids, by the harness and by each crate's
-`decodes_a_corpus` over Canterbury, best of three runs (2026-11-10):
+`filer-cli`; and, since `compute-adler32` has it (2026-11-10),
+`decode-zlib` and `filer-cdfs`. As it builds by default is how a crate
+is measured and compared (`bench/METHOD.md`). Who wants no
+dependencies, every line of it ours and public domain, builds with
+`default-features = false, features = ["all", "std"]`: no
+`compute-multiversion`, and none of the `unsafe` code of its dispatch,
+at the price below, measured on Apple M4 by one tool built both ways,
+best of a second's runs, within 2% of a second run, and on x86-64, Zen
+1 under KVM, by the same tool (2026-11-08); and what carry-less
+multiplication (D68) and Adler-32's vectors changed, on Zen 5, Granite
+Rapids, and Apple M4, by the harness or a timer of a mebibyte and by
+each crate's `decodes_a_corpus` over Canterbury, best of three runs
+(2026-11-10); and on Neoverse V3, the default ARM machine (D67), all
+of it by the harness and by those tests (2026-11-11):
 
-| Crate | Without `intrinsics`, on Apple M4 | On x86-64 |
-| --- | --- | --- |
-| `compute-crc` | CRC-32, CRC-32C, CRC-32/BZIP2 5 to 23 times slower: 1.2 to 5.3 GB/s, as code placement sways the tables, not 28 | Every CRC, over long inputs, 9 to 15 times slower on Zen 5: 4.6 to 7.1 GB/s, not 66 to 67; and 16 to 23 times on Granite Rapids: 3.8 to 5.3, not 78 to 101 |
-| `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 7.7 times slower: 159 MB/s, not 1,228 |
-| `compute-sha512` | 2.6 times slower: 733 MB/s, not 1,900 | No slower |
-| `decode-gzip` | 12% to 18% slower: Canterbury 721 MB/s, not 820; crates 1,107, not 1,356 | A tenth slower: Canterbury 619 MB/s, not 685, on Zen 5; 429, not 467, on Granite Rapids |
-| `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-32 or CRC-64, within 1% | By SHA-256, 29% slower: 112 MB/s, not 144, on Zen 5; 85, not 109, on Granite Rapids; by CRC-64, 2%; by CRC-32, within 1% |
-| `decode-lzo` | lzop's files checked by CRC-32 13% slower: 778 MB/s, not 897; by Adler-32, its default, and raw blocks, no slower | lzop's files checked by CRC-32 15% slower on Zen 5: 854 MB/s, not 982; 10% on Granite Rapids: 614, not 678; the others no slower |
-| `filer-api`, `filer-fs`, `filer-system`, `filer-cli` | Their checksums, as `compute-crc`'s | As `compute-crc`'s |
-| `filer-ext4`, `filer-xfs` | Estimated: each 4 KiB block of metadata checked by CRC-32C takes some 3 µs more, beside reading it | Estimated: some 0.7 µs more a block |
-| `filer-pack`, `filer-tar`, `filer-cpio` | Their gzip and xz streams, as `decode-gzip`'s and `decode-xz`'s | As theirs |
-| `filer-zip` | Deflated members, as `decode-gzip`'s; stored ones bound by CRC-32, as `compute-crc`'s | As on Apple M4 |
-| `filer-squashfs` | xz's blocks as `decode-xz`'s, LZO's no slower | As theirs |
-| `filer-archive`, `filer-volume` | Those of what they open | As theirs |
+| Crate | Without `intrinsics`, on Apple M4 | On x86-64 | On Neoverse V3 |
+| --- | --- | --- | --- |
+| `compute-adler32` | 3 times slower: 23 GB/s, not 74 | 7 times slower on Zen 5: 18 GB/s, not 121; and on Granite Rapids: 13, not 86 | 2.7 times slower: 18 GB/s, not 48 |
+| `compute-crc` | Every CRC 10 to 16 times slower: 4.6 to 5.8 GB/s, not 51 to 77 | Every CRC, over long inputs, 9 to 15 times slower on Zen 5: 4.6 to 7.1 GB/s, not 66 to 67; and 16 to 23 times on Granite Rapids: 3.8 to 5.3, not 78 to 101 | Every CRC 9 to 12 times slower: 3.4 to 4.2 GB/s, not 31 to 41 |
+| `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 7.7 times slower: 159 MB/s, not 1,228 | 5.8 times slower: 0.28 GB/s, not 1.62 |
+| `compute-sha512` | 2.6 times slower: 733 MB/s, not 1,900 | No slower | 2.8 times slower: 0.45 GB/s, not 1.24 |
+| `decode-gzip` | 15% slower: Canterbury 732 MB/s, not 864 | A tenth slower: Canterbury 619 MB/s, not 685, on Zen 5; 429, not 467, on Granite Rapids | 11% slower: Canterbury 476 MB/s, not 534 |
+| `decode-zlib` | No slower: Canterbury 843 MB/s | 3% slower on Zen 5: Canterbury 656 MB/s, not 673; 4% on Granite Rapids: 439, not 458 | 2% slower: Canterbury 521 MB/s, not 530 |
+| `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-64, 4%; by CRC-32, 2% | By SHA-256, 29% slower: 112 MB/s, not 144, on Zen 5; 85, not 109, on Granite Rapids; by CRC-64, 2%; by CRC-32, within 1% | By SHA-256, 28% slower: 95 MB/s, not 131; by CRC-64, 4%; by CRC-32, 3% |
+| `decode-lzo` | lzop's files checked by CRC-32 16% slower: 962 MB/s, not 1,152; by Adler-32, its default, 5%: 1,098, not 1,157; raw blocks no slower | lzop's files checked by CRC-32 15% slower on Zen 5: 854 MB/s, not 982; 10% on Granite Rapids: 614, not 678; by Adler-32, 6% and 3%: 942, not 1,000, and 648, not 669; raw blocks no slower | lzop's files checked by CRC-32 19% slower: 797 MB/s, not 985; by Adler-32, 3%: 956, not 988 |
+| `filer-api`, `filer-fs`, `filer-system`, `filer-cli` | Their checksums, as `compute-crc`'s | As `compute-crc`'s | As `compute-crc`'s |
+| `filer-ext4`, `filer-xfs` | Estimated: each 4 KiB block of metadata checked by CRC-32C takes some 3 µs more, beside reading it | Estimated: some 0.7 µs more a block | Estimated: some 0.9 µs more a block |
+| `filer-pack`, `filer-tar`, `filer-cpio` | Their gzip and xz streams, as `decode-gzip`'s and `decode-xz`'s | As theirs | As theirs |
+| `filer-zip` | Deflated members, as `decode-gzip`'s; stored ones bound by CRC-32, as `compute-crc`'s | As on Apple M4 | As on Apple M4 |
+| `filer-squashfs` | xz's, LZO's, and zlib's blocks as `decode-xz`'s, `decode-lzo`'s, and `decode-zlib`'s | As theirs | As theirs |
+| `filer-cdfs` | zisofs's files as `decode-zlib`'s | As its | As its |
+| `filer-archive`, `filer-volume` | Those of what they open | As theirs | As theirs |
 
 The table changes as the code does, and each crate's docs repeat its
 row. On Zen 1, one `crc32` can hardly start before the last ends, so
@@ -2776,7 +2784,44 @@ compiler makes one load of, and its output is to be checked whenever
 the loop changes, as a closure returning both products came out as
 permutes, a third slower. The weights are aligned to 64 bytes, and
 past a block the data too: a load across two lines of the cache cost a
-quarter of the speed on Granite Rapids.
+quarter of the speed on Granite Rapids. ARM takes the same sums by
+PMULL, of 128 bits, into four sums by turns, as one alone waited on
+each exclusive-or (COMP-07): over a mebibyte, 40 to 41 GB/s on Neoverse
+V3, and 31 for CRC-32/BZIP2, whose bytes each vector turns about, where
+the `crc` extension's three streams reached 34, and 25; and 75 to 77 on
+Apple M4, and 51, where they reached 20 to 28. The first loop took
+only 26 on Neoverse V3, until three changes (2026-11-11): a unit's
+weights are a `u128`, as safe Rust loads a vector only from 128 bits
+whole, and two words came each through a general register; the byte
+order is a constant of the loop, as choosing it at each unit cost a
+fifth of the speed; and where the CPU has SHA-3's EOR3, one instruction
+adds both of a unit's products to its sum. The compiler still loads
+each word of the data alone, which leaves `crc-fast`, which folds, at
+57 to 63 there (COMP-08). The `crc` instructions now take only what
+they take faster: on Neoverse V3, where the sums cost 11 to 12 ns
+before their first byte, fewer than 384 bytes, and 256 of
+CRC-32/BZIP2; built for Apple's targets, fewer than 128, as Apple M4
+takes 64 in 3.2 ns by them, and in 5.4 by the sums.
+
+**Adler-32 in vectors** (2026-11-10, COMP-06). `compute-adler32`'s
+`intrinsics` sums a chunk of 64 bytes at a time: the bytes' sum; each
+byte times the bytes from it to the chunk's end, 64 down to 1; and, as
+every byte before a chunk counts 64 times more for it, the sum of the
+bytes before each. On x86-64, by AVX2, or by AVX-512 with its VNNI,
+whose one instruction multiplies and sums each four bytes, into four
+sums by turns, as each waits five cycles on its last: 120 GB/s over a
+mebibyte on Zen 5, and 86 on Granite Rapids, where `simd-adler32`
+reaches 58 and 42, and the lanes that the compiler vectorizes 18 and
+13. On ARM, by NEON, four vectors a chunk, each with sums of its own:
+by ARMv8.2's dot products where the CPU has them, an instruction for
+the bytes' sum and one for the products', 48 GB/s on Neoverse V3, not
+18, where `simd-adler32` reaches 35, and 74 on Apple M4, not 23; and
+without them, by multiplies and pairwise adds, 37 there. The dot
+products' intrinsics are unstable in Rust 1.97, so the MSRV rose to
+1.99 for them. A NEON vector is read whole only through the `aes`
+feature's 128-bit intrinsics, which take no pointer, so the CPU must
+have that too. Fewer than 48 bytes are
+summed one at a time, which made updates of 7 bytes twice as fast.
 
 **Rotates under `x86-64-v2`** (measured 2026-11-05, Zen 1 in a VM).
 Built with `-C target-cpu=x86-64-v2`, as some Linux distributions build
@@ -4399,7 +4444,7 @@ a default build is immediately useful (D25). Optional components
 ## 23. Dependencies
 
 Candidate versions as of 2026-10-31 (crates.io index; recheck before adding,
-and confirm each builds at MSRV 1.97 with `default-features = false` and
+and confirm each builds at MSRV 1.99 with `default-features = false` and
 passes the minimal-versions CI job). Add each to `[workspace.dependencies]`
 only when the first item needs it.
 

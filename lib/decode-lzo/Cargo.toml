@@ -25,8 +25,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std", "intrinsics"]
 all = []
 std = ["compute-adler32/std", "compute-crc/std"]
-# lzop's CRC-32s by the CPU's instructions, where it has them (`compute-crc`'s).
-intrinsics = ["compute-crc/intrinsics"]
+# lzop's checksums by the CPU's instructions, where it has them
+# (`compute-adler32`'s and `compute-crc`'s).
+intrinsics = ["compute-adler32/intrinsics", "compute-crc/intrinsics"]
 
 [dependencies]
 compute-adler32.workspace = true

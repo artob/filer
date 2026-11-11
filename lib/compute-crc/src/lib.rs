@@ -51,20 +51,23 @@
 //! instruction's own pace allows 72, and 78 to 101 on Granite Rapids
 //! (`BENCH.md`). CRC-32C takes fewer than 512 bytes by SSE4.2's `crc32`.
 //!
-//! On ARM, they are the `crc` extension's, for CRC-32, CRC-32C, and
-//! CRC-32/BZIP2: eight bytes an instruction, from any register, as the
-//! tables do, in three streams of the bytes at once, which combine by
-//! the CRC's own arithmetic, as one instruction waits on the one before:
-//! on Apple M4, 20 to 28 GB/s, not one stream's 11.5.
+//! On ARM, they are PMULL's, of 128 bits, in the same sums, for every CRC
+//! here, from 64 bytes up: over a mebibyte, 40 to 41 GB/s on Neoverse V3,
+//! and 31 for CRC-32/BZIP2, whose bytes each vector turns about; on Apple
+//! M4, 75 to 77, and 51. CRC-32 and CRC-32C take fewer than 384 bytes,
+//! and CRC-32/BZIP2 fewer than 256, or each fewer than 128 built for
+//! Apple's targets, faster so, and all of them where the CPU lacks PMULL,
+//! by the `crc` extension's instructions: eight bytes each, from any
+//! register, as the tables do, in three streams of the bytes at once where
+//! there are enough, which combine by the CRC's own arithmetic, as one
+//! instruction waits on the one before.
 //!
 //! Without `intrinsics`, as `default-features = false,
 //! features = ["all", "std"]` builds it, it has no dependencies, all of it
-//! public domain, and takes every CRC by the tables: on x86-64, over long
-//! inputs, 9 to 15 times slower on Zen 5, 4.6 to 7.1 GB/s, and 16 to 23
-//! times on Granite Rapids, 3.8 to 5.3 (2026-11-10); on Apple M4, CRC-32,
-//! CRC-32C, and CRC-32/BZIP2 at 1.2 to 5.3 GB/s, as where its code lands
-//! sways it, not 28, 5 to 23 times slower, and CRC-16/MODBUS and
-//! CRC-64/XZ, which have no instruction there, no slower (2026-11-08).
+//! public domain, and takes every CRC by the tables: over long inputs, 9
+//! to 15 times slower on Zen 5, 4.6 to 7.1 GB/s; 16 to 23 times on Granite
+//! Rapids, 3.8 to 5.3; 9 to 12 times on Neoverse V3, 3.4 to 4.2; and 10
+//! to 16 times on Apple M4, 4.6 to 5.8 (2026-11-11).
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
@@ -126,14 +129,15 @@
 /// the final value is inverted. `$instructions`, if given, is a function of
 /// the `intrinsics` module that feeds the register by the CPU's
 /// instructions, if it has them. `$least`, if given, is the fewest bytes
-/// that x86-64 multiplies, where it has an instruction to take fewer by.
+/// that x86-64, ARM, and Apple's ARM multiply, in that order, where they
+/// have instructions that take fewer faster: at least `carryless::LEAST`.
 macro_rules! crc {
     (
         $(#[$meta:meta])*
         $name:ident, $function:ident, $feature:literal, $reg:ty, $poly:expr, $tables:ident,
         reflected: $reflected:literal, invert: $invert:literal, check: $check:expr,
         label: $label:literal $(, instructions: $instructions:path)?
-        $(, least: $least:literal)?
+        $(, least: ($x86:literal, $arm:literal, $apple:literal))?
     ) => {
         /// The tables for taking sixteen bytes at a time: `TABLES[0][b]`
         /// is the CRC of byte `b`, in the register's byte that shifts out
@@ -213,7 +217,10 @@ macro_rules! crc {
             pub fn update(&mut self, bytes: &[u8]) {
                 // Too few bytes to multiply stay here, a comparison away
                 // from the tables.
-                #[cfg(all(feature = "intrinsics", target_arch = "x86_64"))]
+                #[cfg(all(
+                feature = "intrinsics",
+                any(target_arch = "x86_64", target_arch = "aarch64")
+            ))]
                 let bytes = if bytes.len() < Self::LEAST {
                     bytes
                 } else {
@@ -232,10 +239,22 @@ macro_rules! crc {
             }
 
             /// The fewest bytes that `multiplied` takes.
-            #[cfg(all(feature = "intrinsics", target_arch = "x86_64"))]
+            #[cfg(all(
+                feature = "intrinsics",
+                any(target_arch = "x86_64", target_arch = "aarch64")
+            ))]
             const LEAST: usize = {
                 let least = carryless::LEAST;
-                $(let least = if $least > least { $least } else { least };)?
+                $(
+                    let own = if cfg!(target_arch = "x86_64") {
+                        $x86
+                    } else if cfg!(target_vendor = "apple") {
+                        $apple
+                    } else {
+                        $arm
+                    };
+                    let least = if own > least { own } else { least };
+                )?
                 least
             };
 
@@ -246,7 +265,10 @@ macro_rules! crc {
             /// tables from zero. Returns the register and the bytes left,
             /// all of them if it took none. `widest` is the widest vector
             /// to take, in bits.
-            #[cfg(all(feature = "intrinsics", target_arch = "x86_64"))]
+            #[cfg(all(
+                feature = "intrinsics",
+                any(target_arch = "x86_64", target_arch = "aarch64")
+            ))]
             #[inline(never)]
             fn multiplied(mut crc: $reg, mut bytes: &[u8], widest: usize) -> ($reg, &[u8]) {
                 #[allow(clippy::as_conversions, reason = "evaluated at compile time")]
@@ -435,7 +457,7 @@ mod intrinsics;
 
 #[cfg(all(
     feature = "intrinsics",
-    target_arch = "x86_64",
+    any(target_arch = "x86_64", target_arch = "aarch64"),
     any(
         feature = "crc16-modbus",
         feature = "crc32",
@@ -476,7 +498,7 @@ crc! {
     /// ```
     Crc32, crc32, "crc32", u32, 0xEDB8_8320, CRC32,
     reflected: true, invert: true, check: 0xCBF4_3926, label: "CRC-32",
-    instructions: intrinsics::crc32
+    instructions: intrinsics::crc32, least: (0, 384, 128)
 }
 
 crc! {
@@ -499,7 +521,7 @@ crc! {
     /// ```
     Crc32c, crc32c, "crc32c", u32, 0x82F6_3B78, CRC32C,
     reflected: true, invert: true, check: 0xE306_9283, label: "CRC-32C",
-    instructions: intrinsics::crc32c, least: 512
+    instructions: intrinsics::crc32c, least: (512, 384, 128)
 }
 
 crc! {
@@ -532,7 +554,7 @@ crc! {
     /// ```
     Crc32Bzip2, crc32_bzip2, "crc32-bzip2", u32, 0x04C1_1DB7, CRC32_BZIP2,
     reflected: false, invert: true, check: 0xFC89_1918, label: "CRC-32/BZIP2",
-    instructions: intrinsics::crc32_bzip2
+    instructions: intrinsics::crc32_bzip2, least: (0, 256, 128)
 }
 
 // The README's example runs as a doctest, with the CRCs it uses.
@@ -632,7 +654,10 @@ mod tests {
     /// The CPU's carry-less multiplication, where it has one, comes to
     /// what the tables do, from any register: in vectors of each width, over
     /// less than a block, a block, and several, with bytes to spare.
-    #[cfg(all(feature = "intrinsics", target_arch = "x86_64"))]
+    #[cfg(all(
+        feature = "intrinsics",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
     #[test]
     fn multiplication_matches_the_tables() {
         let bytes: [u8; 70_000] = core::array::from_fn(|n| (n * 131 % 251) as u8);
@@ -641,6 +666,11 @@ mod tests {
         let blocks = blocks
             .into_iter()
             .chain([2 * block, 2 * block + 17, 4 * block + 99]);
+        // Whether the CPU multiplies without carries.
+        #[cfg(all(feature = "std", target_arch = "x86_64"))]
+        let multiplies = std::is_x86_feature_detected!("pclmulqdq");
+        #[cfg(all(feature = "std", target_arch = "aarch64"))]
+        let multiplies = std::arch::is_aarch64_feature_detected!("aes");
         for widest in [128, 256, 512] {
             for state in [0, !0, 0x1234_5678_9ABC_DEF0_u64, 0xDEAD_BEEF_0BAD_F00D] {
                 let lens = (0..=300)
@@ -656,7 +686,7 @@ mod tests {
                             // With the instruction, all but too few bytes
                             // to gain by it.
                             #[cfg(feature = "std")]
-                            if std::is_x86_feature_detected!("pclmulqdq") {
+                            if multiplies {
                                 assert!(rest.len() < $name::LEAST);
                             }
                             assert_eq!(

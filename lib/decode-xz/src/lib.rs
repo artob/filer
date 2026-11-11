@@ -33,19 +33,19 @@
 //! `#![no_std]`, with an allocator. The `std` feature, enabled by
 //! default, adds nothing by itself.
 //!
-//! The `intrinsics` feature, enabled by default (D66), computes the CRC-32
-//! and SHA-256 checks by the CPU's instructions where it has them, as
-//! `compute-crc`'s and `compute-sha256`'s features of that name do:
-//! chosen at run time with `std`. Without it, as `default-features =
-//! false, features = ["all", "std"]` builds it, its dependencies are ours
-//! alone, all of them public domain, and streams checked by SHA-256
-//! decode 22% slower on Apple M4, Canterbury at 120 MB/s, not 154; those
-//! checked by CRC-32, or by CRC-64, xz's default, which has no
-//! instruction, within 1% (2026-11-08); on x86-64, those checked by
-//! SHA-256 29% slower, Canterbury at 112 MB/s, not 144, on Zen 5, and at
-//! 85, not 109, on Granite Rapids; those checked by CRC-64, which
-//! carry-less multiplication takes there, 2% slower; and those checked
-//! by CRC-32 within 1% (2026-11-10).
+//! The `intrinsics` feature, enabled by default (D66), computes the
+//! checks, CRC-32, CRC-64, and SHA-256, by the CPU's instructions where it
+//! has them, as `compute-crc`'s and `compute-sha256`'s features of that
+//! name do: chosen at run time with `std`.
+//! Without it, as `default-features = false, features = ["all", "std"]`
+//! builds it, its dependencies are ours alone, all of them public domain,
+//! and on x86-64, streams checked by SHA-256 decode 29% slower, Canterbury
+//! at 112 MB/s, not 144, on Zen 5, and at 85, not 109, on Granite Rapids;
+//! those checked by CRC-64, xz's default, 2% slower; and those checked by
+//! CRC-32 within 1%. On Neoverse V3, those checked by SHA-256 decode 28%
+//! slower, at 95 MB/s, not 131; by CRC-64, 4%; and by CRC-32, 3%. On
+//! Apple M4, those checked by SHA-256 decode 22% slower, at 120 MB/s, not
+//! 154; by CRC-64, 4%; and by CRC-32, 2% (2026-11-11).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.
