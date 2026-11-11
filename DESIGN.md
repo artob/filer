@@ -2732,7 +2732,7 @@ of it by the harness and by those tests (2026-11-11):
 | Crate | Without `intrinsics`, on Apple M4 | On x86-64 | On Neoverse V3 |
 | --- | --- | --- | --- |
 | `compute-adler32` | 3 times slower: 23 GB/s, not 74 | 7 times slower on Zen 5: 18 GB/s, not 121; and on Granite Rapids: 13, not 86 | 2.7 times slower: 18 GB/s, not 48 |
-| `compute-crc` | Every CRC 10 to 16 times slower: 4.6 to 5.8 GB/s, not 51 to 77 | Every CRC, over long inputs, 9 to 15 times slower on Zen 5: 4.6 to 7.1 GB/s, not 66 to 67; and 16 to 23 times on Granite Rapids: 3.8 to 5.3, not 78 to 101 | Every CRC 9 to 12 times slower: 3.4 to 4.2 GB/s, not 31 to 41 |
+| `compute-crc` | Every CRC 12 to 17 times slower: 4.6 to 5.8 GB/s, not 58 to 80 | Every CRC, over long inputs, 9 to 15 times slower on Zen 5: 4.6 to 7.1 GB/s, not 66 to 67; and 16 to 23 times on Granite Rapids: 3.8 to 5.3, not 78 to 101 | Every CRC 11 to 13 times slower: 3.4 to 4.2 GB/s, not 38 to 46 |
 | `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 7.7 times slower: 159 MB/s, not 1,228 | 7.5 times slower: 0.28 GB/s, not 2.10 |
 | `compute-sha512` | 2.6 times slower: 733 MB/s, not 1,900 | No slower | 2.8 times slower: 0.45 GB/s, not 1.24 |
 | `decode-gzip` | 15% slower: Canterbury 732 MB/s, not 864 | A tenth slower: Canterbury 619 MB/s, not 685, on Zen 5; 429, not 467, on Granite Rapids | 11% slower: Canterbury 476 MB/s, not 534 |
@@ -2795,11 +2795,19 @@ weights are a `u128`, as safe Rust loads a vector only from 128 bits
 whole, and two words came each through a general register; the byte
 order is a constant of the loop, as choosing it at each unit cost a
 fifth of the speed; and where the CPU has SHA-3's EOR3, one instruction
-adds both of a unit's products to its sum. The compiler still loads
-each word of the data alone, which leaves `crc-fast`, which folds, at
-57 to 63 there (COMP-08). The `crc` instructions now take only what
-they take faster: on Neoverse V3, where the sums cost 11 to 12 ns
-before their first byte, fewer than 384 bytes, and 256 of
+adds both of a unit's products to its sum. From 16 KiB up, a block is
+summed in four stripes at once (COMP-08, 2026-11-11), each a block of
+its own, whose register passes on to the next as from block to block:
+the units of a row, one of each stripe, share one pair of weights, five
+loads for four units, not eight, and each stripe has two sums, by turns
+of rows, as one waited on each exclusive-or: over a mebibyte, 46 GB/s on
+Neoverse V3, and 38 for CRC-32/BZIP2, and 78 to 80 on Apple M4, and 58.
+The compiler still loads each word of the data alone, which leaves
+`crc-fast`, which folds, at 56 to 59 on Neoverse V3; both words kept in
+one loaded vector, by an instruction more a unit, was slower, 39 to 41,
+and so were three sums a stripe, and four. The `crc` instructions now
+take only what they take faster: on Neoverse V3, where the sums cost 11
+to 12 ns before their first byte, fewer than 384 bytes, and 256 of
 CRC-32/BZIP2; built for Apple's targets, fewer than 128, as Apple M4
 takes 64 in 3.2 ns by them, and in 5.4 by the sums.
 

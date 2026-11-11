@@ -144,8 +144,9 @@ so any release may break compatibility.
   and the sum fed to the tables, with no remainder folded along
   (`LEGAL.md`). Over a mebibyte, 66 to 67 GB/s on Zen 5 and 78 to 101 on
   Granite Rapids, not the tables' 4 to 7, at 16 KiB of weights a CRC.
-  ARM takes them by PMULL, in the same sums: 40 to 41 GB/s on Neoverse
-  V3, and 31 for CRC-32/BZIP2, and 75 to 77 on Apple M4, and 51, where
+  ARM takes them by PMULL, in the same sums, and from 16 KiB up in four
+  stripes at once, whose units share their weights: 46 GB/s on Neoverse
+  V3, and 38 for CRC-32/BZIP2, and 78 to 80 on Apple M4, and 58, where
   the `crc` extension's streams took three of them at 25 to 34 and at 20
   to 28, and the tables the other two at 3 to 6. The streams now take
   only fewer than 384 bytes, or 256 of CRC-32/BZIP2, and 128 built for

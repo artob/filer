@@ -603,20 +603,19 @@ crate's name until its first code, which moves it to `lib/`.
   when each is within 10% of the fastest portable counterpart, or its
   crate's docs say why not.
 - [ ] **COMP-08: One load a unit on ARM.** On Neoverse V3,
-  `compute-crc`'s weighted sums take 40 to 42 GB/s over long inputs, and
-  31 for CRC-32/BZIP2, where `crc-fast`, which folds, reaches 57 to 63,
-  and 41: 1.4 times ours over a mebibyte, though by the geometric mean
-  over sizes it is at 0.82 to 1.00 times (`BENCH.md`, 2026-11-11). A unit
-  costs two loads beside its two multiplications, of its words and of
-  their weights, where folding has one; and the compiler loads each
-  word alone, four loads a unit. Vectors loaded whole a turn ahead and
-  carried gained 3%, not worth their fragility. Stripes of a block that
-  share one run of weights, five loads for four units, each stripe's
-  sum fed to the tables and then times its stripe's weight, as the
-  register is now, ran at 50 to 52 GB/s as a sketch of the loop alone. Done
-  when the CRCs are within 1.2 times the fastest counterpart over a
-  mebibyte on the default ARM machine, never by folding (`LEGAL.md`),
-  with x86-64 no slower, or the crate's docs say why not.
+  `compute-crc`'s weighted sums take 46 GB/s over a mebibyte, and 38 for
+  CRC-32/BZIP2, from 16 KiB up in four stripes whose units share their
+  weights, where `crc-fast`, which folds, takes 56 to 59, and 41: 1.2 to
+  1.3 times ours, and 1.1, though by the geometric mean over sizes it is
+  at 0.76 to 0.96 times (`BENCH.md`, 2026-11-11). A unit still costs two
+  loads of its words beside its two multiplications and their sum, as
+  the compiler loads each word alone; both kept in one loaded vector, by
+  an instruction more a unit, took 39 to 41, and three sums a stripe, or
+  four, fewer than two. Below 16 KiB, where stripes cost more than they
+  gain, 40. Done when the CRCs are within 1.2 times the fastest
+  counterpart over a mebibyte on the default ARM machine, never by
+  folding (`LEGAL.md`), with x86-64 no slower, or the crate's docs say
+  why not.
 - [ ] **COMP-11: SHA-256 on Apple M4.** With `intrinsics`,
   `compute-sha256` takes 2.88 GB/s over long inputs on Apple M4, where
   `ring` takes 3.40, 1.18 times ours; on Neoverse V3, Zen 5, and

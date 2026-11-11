@@ -15,7 +15,9 @@
 //! another, two words an instruction pair, or four, or eight; and the sum,
 //! sixteen bytes that leave the register as the block does, fed to the
 //! tables once, a block of at most [`UNITS`] units. The register a block
-//! starts from is a word before it, times the first word's weight.
+//! starts from is a word before it, times the first word's weight. On
+//! ARM, from [`STRIPED`] units up, [`STRIPES`] such blocks are summed at
+//! once, as stripes whose units share their weights ([`stripes`]).
 //!
 //! This is the definition's arithmetic alone, as `LEGAL.md` records: the
 //! CRC of a message as the sum of its parts' CRCs, each times a power of
@@ -33,6 +35,13 @@ pub(crate) const UNITS: usize = 1024;
 /// The fewest bytes worth summing: below them, the tables alone are as
 /// fast.
 pub(crate) const LEAST: usize = 64;
+
+/// The stripes that [`stripes`] sums at once, each as a block of its own.
+pub(crate) const STRIPES: usize = 4;
+
+/// The fewest units worth summing in stripes: of fewer, the registers
+/// that pass from stripe to stripe cost what the stripes gain.
+pub(crate) const STRIPED: usize = 1024;
 
 /// A unit's weights: its first word's, then its second's.
 #[cfg(target_arch = "x86_64")]
@@ -468,4 +477,132 @@ pub(crate) fn sum(
     }
     let (units, weights) = (units.get(taken..)?, weights.get(taken..)?);
     Some(sum ^ ones(register, first, units, weights, forward)?)
+}
+
+/// Returns the sums of the [`STRIPES`] stripes of `units`, one after
+/// another, each of as many units as `weights` has pairs for, as
+/// [`sum`] returns each one's from a register of zero: so that each is a
+/// block of its own, whose register the caller passes on to the next.
+/// Or `None`, but on ARM with PMULL, where alone stripes gain.
+///
+/// A block's units take as many loads of weights as of words, where
+/// folding takes none: in stripes, the units of a row, one of each
+/// stripe, share one pair of weights, five loads for four units, not
+/// eight; and the stripes' sums wait on nothing of each other's. Each
+/// stripe has two sums, which take its rows by turns, as one alone
+/// waited on each exclusive-or.
+#[multiversion::multiversion(targets("aarch64+aes+sha3", "aarch64+aes"))]
+pub(crate) fn stripes(
+    units: &[[u8; UNIT]],
+    weights: &[Pair],
+    forward: bool,
+) -> Option<[u128; STRIPES]> {
+    #[multiversion::target::target_cfg(all(target_arch = "aarch64", target_feature = "aes"))]
+    #[multiversion::inherit_target]
+    fn rows(units: &[[u8; UNIT]], weights: &[Pair], forward: bool) -> Option<[u128; STRIPES]> {
+        let (a, rest) = units.split_at_checked(weights.len())?;
+        let (b, rest) = rest.split_at_checked(weights.len())?;
+        let (c, d) = rest.split_at_checked(weights.len())?;
+        // The byte order is chosen here, once, as `sum` chooses it.
+        Some(match forward {
+            true => ordered::<true>([a, b, c, d], weights),
+            false => ordered::<false>([a, b, c, d], weights),
+        })
+    }
+
+    /// The sums that `rows` returns, of words whose first byte is the
+    /// most significant if `FORWARD`, and the least if not.
+    #[multiversion::target::target_cfg(all(target_arch = "aarch64", target_feature = "aes"))]
+    #[multiversion::inherit_target]
+    #[inline]
+    fn ordered<const FORWARD: bool>(
+        stripes: [&[[u8; UNIT]]; STRIPES],
+        weights: &[Pair],
+    ) -> [u128; STRIPES] {
+        use core::arch::aarch64::{
+            uint64x2_t, vdupq_n_u64, veorq_u64, vgetq_lane_p64, vmull_high_p64, vmull_p64,
+            vreinterpretq_p64_p128, vreinterpretq_p64_u8, vreinterpretq_p128_u64,
+            vreinterpretq_u8_p128, vreinterpretq_u64_p128, vrev64q_u8,
+        };
+        // A row: a unit of each stripe, times the row's weights, into a
+        // sum of each stripe's.
+        let row =
+            |sums: &mut [uint64x2_t; STRIPES], units: [&[u8; UNIT]; STRIPES], weights: &Pair| {
+                let weights = vreinterpretq_p64_p128(*weights);
+                for (sum, unit) in sums.iter_mut().zip(units) {
+                    let data = vreinterpretq_u8_p128(u128::from_le_bytes(*unit));
+                    // Each word's bytes, last to first.
+                    let data = if FORWARD { vrev64q_u8(data) } else { data };
+                    let data = vreinterpretq_p64_u8(data);
+                    let low = vmull_p64(vgetq_lane_p64::<0>(data), vgetq_lane_p64::<0>(weights));
+                    let high = vmull_high_p64(data, weights);
+                    *sum = sum3(
+                        *sum,
+                        vreinterpretq_u64_p128(low),
+                        vreinterpretq_u64_p128(high),
+                    );
+                }
+            };
+        let (mut even, mut odd) = ([vdupq_n_u64(0); STRIPES], [vdupq_n_u64(0); STRIPES]);
+        let [a, b, c, d] = stripes;
+        let ((a, a_last), (b, b_last)) = (a.as_chunks::<2>(), b.as_chunks::<2>());
+        let ((c, c_last), (d, d_last)) = (c.as_chunks::<2>(), d.as_chunks::<2>());
+        let (pairs, last) = weights.as_chunks::<2>();
+        for (((([a, a1], [b, b1]), [c, c1]), [d, d1]), [weights, weights1]) in
+            a.iter().zip(b).zip(c).zip(d).zip(pairs)
+        {
+            row(&mut even, [a, b, c, d], weights);
+            row(&mut odd, [a1, b1, c1, d1], weights1);
+        }
+        let rows = a_last.iter().zip(b_last).zip(c_last).zip(d_last);
+        for ((((a, b), c), d), weights) in rows.zip(last) {
+            row(&mut even, [a, b, c, d], weights);
+        }
+        let mut sums = even;
+        for (sum, odd) in sums.iter_mut().zip(odd) {
+            *sum = veorq_u64(*sum, odd);
+        }
+        sums.map(|sum| vreinterpretq_p128_u64(sum))
+    }
+
+    /// Returns the sum of three vectors, their exclusive-or: by SHA-3's
+    /// EOR3, one instruction, where the CPU has it.
+    #[multiversion::target::target_cfg(all(
+        target_arch = "aarch64",
+        target_feature = "aes",
+        target_feature = "sha3"
+    ))]
+    #[multiversion::inherit_target]
+    #[inline]
+    fn sum3(
+        a: core::arch::aarch64::uint64x2_t,
+        b: core::arch::aarch64::uint64x2_t,
+        c: core::arch::aarch64::uint64x2_t,
+    ) -> core::arch::aarch64::uint64x2_t {
+        core::arch::aarch64::veor3q_u64(a, b, c)
+    }
+
+    /// Returns the sum of three vectors, their exclusive-or.
+    #[multiversion::target::target_cfg(all(
+        target_arch = "aarch64",
+        target_feature = "aes",
+        not(target_feature = "sha3")
+    ))]
+    #[multiversion::inherit_target]
+    #[inline]
+    fn sum3(
+        a: core::arch::aarch64::uint64x2_t,
+        b: core::arch::aarch64::uint64x2_t,
+        c: core::arch::aarch64::uint64x2_t,
+    ) -> core::arch::aarch64::uint64x2_t {
+        use core::arch::aarch64::veorq_u64;
+        veorq_u64(a, veorq_u64(b, c))
+    }
+
+    #[multiversion::target::target_cfg(not(all(target_arch = "aarch64", target_feature = "aes")))]
+    fn rows(_: &[[u8; UNIT]], _: &[Pair], _: bool) -> Option<[u128; STRIPES]> {
+        None
+    }
+
+    rows(units, weights, forward)
 }

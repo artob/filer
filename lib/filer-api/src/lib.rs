@@ -29,7 +29,7 @@
 //! "std"]` builds it, its dependencies are ours alone, all of them public
 //! domain, and those CRCs are as much slower as `compute-crc`'s docs say:
 //! 9 to 23 times over long inputs on x86-64 (Zen 5 and Granite Rapids),
-//! and 9 to 12 times on ARM (Neoverse V3).
+//! and 11 to 13 times on ARM (Neoverse V3).
 
 #![no_std]
 #![forbid(unsafe_code)]

@@ -52,22 +52,23 @@
 //! (`BENCH.md`). CRC-32C takes fewer than 512 bytes by SSE4.2's `crc32`.
 //!
 //! On ARM, they are PMULL's, of 128 bits, in the same sums, for every CRC
-//! here, from 64 bytes up: over a mebibyte, 40 to 41 GB/s on Neoverse V3,
-//! and 31 for CRC-32/BZIP2, whose bytes each vector turns about; on Apple
-//! M4, 75 to 77, and 51. CRC-32 and CRC-32C take fewer than 384 bytes,
-//! and CRC-32/BZIP2 fewer than 256, or each fewer than 128 built for
-//! Apple's targets, faster so, and all of them where the CPU lacks PMULL,
-//! by the `crc` extension's instructions: eight bytes each, from any
-//! register, as the tables do, in three streams of the bytes at once where
-//! there are enough, which combine by the CRC's own arithmetic, as one
-//! instruction waits on the one before.
+//! here, from 64 bytes up, and from 16 KiB up in four stripes at once,
+//! whose units share their weights: over a mebibyte, 46 GB/s on Neoverse
+//! V3, and 38 for CRC-32/BZIP2, whose bytes each vector turns about; on
+//! Apple M4, 78 to 80, and 58. CRC-32 and CRC-32C take fewer than 384
+//! bytes, and CRC-32/BZIP2 fewer than 256, or each fewer than 128 built
+//! for Apple's targets, faster so, and all of them where the CPU lacks
+//! PMULL, by the `crc` extension's instructions: eight bytes each, from
+//! any register, as the tables do, in three streams of the bytes at once
+//! where there are enough, which combine by the CRC's own arithmetic, as
+//! one instruction waits on the one before.
 //!
 //! Without `intrinsics`, as `default-features = false,
 //! features = ["all", "std"]` builds it, it has no dependencies, all of it
 //! public domain, and takes every CRC by the tables: over long inputs, 9
 //! to 15 times slower on Zen 5, 4.6 to 7.1 GB/s; 16 to 23 times on Granite
-//! Rapids, 3.8 to 5.3; 9 to 12 times on Neoverse V3, 3.4 to 4.2; and 10
-//! to 16 times on Apple M4, 4.6 to 5.8 (2026-11-11).
+//! Rapids, 3.8 to 5.3; 11 to 13 times on Neoverse V3, 3.4 to 4.2; and 12
+//! to 17 times on Apple M4, 4.6 to 5.8 (2026-11-11).
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,
@@ -283,33 +284,60 @@ macro_rules! crc {
                         (crc, bytes) = (Self::tables(crc, head), rest);
                     }
                 }
-                while bytes.len() >= Self::LEAST {
-                    let (units, _) = bytes.as_chunks::<{ carryless::UNIT }>();
-                    let units = units.get(..carryless::UNITS).unwrap_or(units);
-                    // A shorter block's words are the last of a whole one's.
-                    let first = carryless::UNITS.saturating_sub(units.len());
-                    let Some(weights) = WEIGHTS.0.get(first..) else {
-                        break;
-                    };
-                    // The register, where the block's first bits are.
-                    let register = if $reflected {
+                // The register, where a block's first bits are.
+                let register = |crc: $reg| {
+                    if $reflected {
                         u64::from(crc)
                     } else {
                         let up = u64::BITS.wrapping_sub(<$reg>::BITS);
                         u64::from(crc).checked_shl(up).unwrap_or(0)
-                    };
-                    let sum = carryless::sum(register, units, weights, !$reflected, widest);
-                    let Some(sum) = sum else {
-                        break;
-                    };
-                    crc = Self::group(
+                    }
+                };
+                // The register that a block's sum leaves, from zero.
+                let left = |sum: u128| {
+                    Self::group(
                         0,
                         if $reflected {
                             sum.to_le_bytes()
                         } else {
                             sum.to_be_bytes()
                         },
-                    );
+                    )
+                };
+                while bytes.len() >= Self::LEAST {
+                    let (units, _) = bytes.as_chunks::<{ carryless::UNIT }>();
+                    // Enough units for stripes, each a block of its own,
+                    // summed at once, where the CPU gains by them: each
+                    // one's register passed on to the next, as from block
+                    // to block.
+                    let each = (units.len() / carryless::STRIPES).min(carryless::UNITS);
+                    let striped = each.saturating_mul(carryless::STRIPES);
+                    if cfg!(target_arch = "aarch64")
+                        && striped >= carryless::STRIPED
+                        && let Some(stripes) = units.get(..striped)
+                        && let Some(weights) =
+                            WEIGHTS.0.get(carryless::UNITS.saturating_sub(each)..)
+                        && let Some(sums) = carryless::stripes(stripes, weights, !$reflected)
+                    {
+                        for sum in sums {
+                            let carried =
+                                carryless::sum(register(crc), &[], weights, !$reflected, widest);
+                            crc = left(sum ^ carried.unwrap_or_default());
+                        }
+                        bytes = bytes.get(stripes.as_flattened().len()..).unwrap_or_default();
+                        continue;
+                    }
+                    let units = units.get(..carryless::UNITS).unwrap_or(units);
+                    // A shorter block's words are the last of a whole one's.
+                    let first = carryless::UNITS.saturating_sub(units.len());
+                    let Some(weights) = WEIGHTS.0.get(first..) else {
+                        break;
+                    };
+                    let sum = carryless::sum(register(crc), units, weights, !$reflected, widest);
+                    let Some(sum) = sum else {
+                        break;
+                    };
+                    crc = left(sum);
                     bytes = bytes.get(units.as_flattened().len()..).unwrap_or_default();
                 }
                 (crc, bytes)
@@ -653,7 +681,8 @@ mod tests {
 
     /// The CPU's carry-less multiplication, where it has one, comes to
     /// what the tables do, from any register: in vectors of each width, over
-    /// less than a block, a block, and several, with bytes to spare.
+    /// less than a block, a block, and several, with bytes to spare, and
+    /// over as few units as stripes take, and more.
     #[cfg(all(
         feature = "intrinsics",
         any(target_arch = "x86_64", target_arch = "aarch64")
@@ -666,6 +695,9 @@ mod tests {
         let blocks = blocks
             .into_iter()
             .chain([2 * block, 2 * block + 17, 4 * block + 99]);
+        let striped = carryless::STRIPED * carryless::UNIT;
+        let stripes = [striped - 1, striped, striped + 16, striped + 79, 40_003];
+        let blocks = blocks.chain(stripes);
         // Whether the CPU multiplies without carries.
         #[cfg(all(feature = "std", target_arch = "x86_64"))]
         let multiplies = std::is_x86_feature_detected!("pclmulqdq");
