@@ -6,12 +6,29 @@
 //! bytes, from as far back as the window reaches.
 
 use super::{
-    bits::Backward,
+    bits::{Backward, Counted},
     corrupt,
     fse::{MAX_STATES, Table},
     window::Cursor,
 };
 use crate::Error;
+use core::hint::select_unpredictable;
+
+/// How many sequences are decoded before they run: decoding waits on
+/// each state's bits, and running on each copy's bytes, so that apart,
+/// each a loop of few values, the copies of several are under way at
+/// once, however far back they reach.
+const BATCH: usize = 64;
+
+/// A sequence decoded, and yet to run: its literals' length, its match's,
+/// and its offset, as its code has it until [`settle`] makes it how far
+/// back the match lies.
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct Sequence {
+    pub(super) literals: usize,
+    pub(super) matched: usize,
+    pub(super) offset: usize,
+}
 
 /// Each literal length code's baseline and extra bits (Table 16).
 const LITERAL_LENGTHS: [(u32, u8); 36] = [
@@ -171,109 +188,151 @@ fn lookup(codes: &[(u32, u8)], symbol: u8) -> (u32, u8) {
     codes.get(usize::from(symbol)).copied().unwrap_or_default()
 }
 
-/// A state of a kind of code's decoding table, as sequences read it: the
-/// baseline of its symbol's value, and the extra bits that add to it; and
-/// how to find the next state, from `bits` more read and added to `next`.
+/// How a state of a kind of code's decoding table moves on, as sequences
+/// read it: by `bits` more read and added to `next`. With how many
+/// `extra` bits its symbol's value reads before those, and the `total`
+/// of both, summed already for where a sequence's later fields lie; and
+/// the low bits set that the state's bits take, so that the next state
+/// waits on no load but this one's. Of eight bytes, which a state indexes
+/// by itself.
 #[derive(Clone, Copy, Debug, Default)]
-struct State {
-    baseline: u32,
-    extra: u8,
-    bits: u8,
+#[repr(align(8))]
+struct Step {
     next: u16,
+    mask: u16,
+    extra: u8,
+    total: u8,
 }
 
-/// A kind of code's decoding table, each state's symbol resolved to its
-/// value, so that a sequence looks up no more than its state: held in an
-/// array of the most any table takes, so that it is never allocated.
-#[derive(Clone, Debug)]
-pub(super) struct Decoding {
-    log: u8,
-    /// Whether it is the kind's predefined table, which it need not be
-    /// built again to be.
-    predefined: bool,
-    states: [State; MAX_STATES],
-}
-
-impl Decoding {
-    /// Returns `table`, of `kind`, resolved.
-    fn new(table: &Table, kind: &Kind, predefined: bool) -> Self {
-        let mut states = [State::default(); MAX_STATES];
-        for (state, entry) in states.iter_mut().zip(table.entries()) {
-            let (baseline, extra) = (kind.value)(entry.symbol);
-            *state = State {
-                baseline,
-                extra,
-                bits: entry.bits,
-                next: entry.base,
-            };
-        }
-        Self {
-            log: table.log(),
-            predefined,
-            states,
-        }
-    }
-
-    /// Returns the state that `bits` begin with.
-    fn start(&self, bits: &mut Backward<'_>) -> usize {
-        usize::try_from(bits.read(u32::from(self.log))).unwrap_or_default()
-    }
-
-    /// Returns `state`'s entry: of the states of the finest table, as
-    /// every state is, which spares checking where it lies.
-    fn state(&self, state: usize) -> State {
-        let state = state & MAX_STATES.wrapping_sub(1);
-        self.states.get(state).copied().unwrap_or_default()
-    }
-}
-
-impl State {
-    /// Returns its value: its baseline and its extra bits, from `bits`,
-    /// which must hold them without a refill.
-    fn value(self, bits: &mut Backward<'_>) -> usize {
-        // Up to 31 bits onto a baseline of 32, which no `u64` overflows.
-        let more = bits.take(u32::from(self.extra));
-        let value = u64::from(self.baseline).wrapping_add(more);
-        usize::try_from(value).unwrap_or(usize::MAX)
+impl Step {
+    /// Returns how many bits the next state reads.
+    const fn bits(self) -> u8 {
+        self.total.wrapping_sub(self.extra)
     }
 
     /// Returns the next state, from `bits`, which must hold them, up to 9,
     /// without a refill.
     fn next(self, bits: &mut Backward<'_>) -> usize {
         // Up to 9 bits onto a base of 16, which no `usize` overflows.
-        let more = usize::try_from(bits.take(u32::from(self.bits))).unwrap_or_default();
+        let more = usize::try_from(bits.take(u32::from(self.bits()))).unwrap_or_default();
         usize::from(self.next).wrapping_add(more)
     }
 }
 
+/// What a state's symbol is worth, held apart from how the state moves
+/// on, which alone the next state waits for: its baseline, and the low
+/// bits set that its extra bits take, which add to it.
+#[derive(Clone, Copy, Debug, Default)]
+struct Worth {
+    baseline: u32,
+    mask: u32,
+}
+
+impl Worth {
+    /// Returns the value: the baseline and its `extra` bits, from `bits`,
+    /// which must hold them without a refill.
+    fn value(self, extra: u8, bits: &mut Backward<'_>) -> usize {
+        // Up to 31 bits onto a baseline of 32, which no `u64` overflows.
+        let more = bits.take(u32::from(extra));
+        let value = u64::from(self.baseline).wrapping_add(more);
+        usize::try_from(value).unwrap_or(usize::MAX)
+    }
+}
+
+/// A kind of code's decoding table, each state's symbol resolved to its
+/// value, so that a sequence looks up no more than its state: of the most
+/// states any table takes, so that it is never allocated.
+#[derive(Clone, Debug)]
+struct Decoding {
+    steps: [Step; MAX_STATES],
+    worths: [Worth; MAX_STATES],
+}
+
+impl Decoding {
+    const NONE: Self = Self {
+        steps: [Step {
+            next: 0,
+            mask: 0,
+            extra: 0,
+            total: 0,
+        }; MAX_STATES],
+        worths: [Worth {
+            baseline: 0,
+            mask: 0,
+        }; MAX_STATES],
+    };
+
+    /// Sets it to `table`, of `kind`, resolved.
+    fn resolve(&mut self, table: &Table, kind: &Kind) {
+        let states = self.steps.iter_mut().zip(&mut self.worths);
+        for ((step, worth), entry) in states.zip(table.entries()) {
+            let (baseline, extra) = (kind.value)(entry.symbol);
+            // Up to 31 bits and up to 9, which neither mask overflows.
+            let mask = |n: u8| 1_u32.wrapping_shl(u32::from(n)).wrapping_sub(1);
+            *step = Step {
+                next: entry.base,
+                mask: u16::try_from(mask(entry.bits)).unwrap_or(u16::MAX),
+                extra,
+                total: extra.wrapping_add(entry.bits),
+            };
+            *worth = Worth {
+                baseline,
+                mask: mask(extra),
+            };
+        }
+    }
+
+    /// Returns `state`'s entries: of the states of the finest table, as
+    /// every state is, which spares checking where it lies.
+    fn state(&self, state: usize) -> (Step, Worth) {
+        let state = state & MAX_STATES.wrapping_sub(1);
+        (
+            self.steps.get(state).copied().unwrap_or_default(),
+            self.worths.get(state).copied().unwrap_or_default(),
+        )
+    }
+}
+
+/// What is known of a kind of code's table but its states: its accuracy,
+/// as a log; whether a block has set it; and whether it is the kind's
+/// predefined table, which it need not be built again to be.
+#[derive(Clone, Copy, Debug, Default)]
+struct Set {
+    log: u8,
+    set: bool,
+    predefined: bool,
+}
+
 /// What a frame's blocks of sequences pass on, each to the next: the
-/// tables each kind of code was last decoded with, and the three offsets
+/// tables each kind of code was last decoded with, of literal lengths,
+/// offsets, and match lengths, in the order their states start, one after
+/// another, so that one pointer reaches all three; and the three offsets
 /// last used, the latest first.
 #[derive(Clone, Debug)]
 pub(super) struct Codes {
-    literal_lengths: Option<Decoding>,
-    offsets: Option<Decoding>,
-    match_lengths: Option<Decoding>,
+    tables: [Decoding; 3],
+    sets: [Set; 3],
     repeats: [usize; 3],
 }
 
 impl Default for Codes {
     fn default() -> Self {
         Self {
-            literal_lengths: None,
-            offsets: None,
-            match_lengths: None,
+            tables: [Decoding::NONE; 3],
+            sets: [Set::default(); 3],
             repeats: [1, 4, 8],
         }
     }
 }
 
-/// Decodes the sequences `section` and runs them with `literals` onto
-/// `output`, within its limit.
+/// Decodes the sequences `section` and runs them with the first `len` of
+/// `literals`, which may hold more bytes past them, onto `output`, within
+/// its limit.
 pub(super) fn decode(
     section: &[u8],
     codes: &mut Codes,
     literals: &[u8],
+    len: usize,
     output: &mut Cursor<'_>,
 ) -> Result<(), Error> {
     let (count, rest) = count(section)?;
@@ -282,69 +341,43 @@ pub(super) fn decode(
         if !rest.is_empty() {
             return Err(corrupt());
         }
-        return output.extend(literals);
+        return output.extend(literals.get(..len).ok_or_else(corrupt)?);
     }
     let (&modes, mut rest) = rest.split_first().ok_or_else(corrupt)?;
     if modes & 0x03 != 0 {
         return Err(corrupt());
     }
-    for (kind, table) in [
-        (LITERAL_LENGTH, &mut codes.literal_lengths),
-        (OFFSET, &mut codes.offsets),
-        (MATCH_LENGTH, &mut codes.match_lengths),
-    ] {
-        rest = kind.table(modes, rest, table)?;
+    let kinds = [LITERAL_LENGTH, OFFSET, MATCH_LENGTH];
+    for ((kind, table), set) in kinds.iter().zip(&mut codes.tables).zip(&mut codes.sets) {
+        rest = kind.table(modes, rest, table, set)?;
     }
-    let (Some(lengths), Some(offsets), Some(matches)) =
-        (&codes.literal_lengths, &codes.offsets, &codes.match_lengths)
-    else {
-        return Err(corrupt());
-    };
 
     // The states start as literal lengths', offsets', and match lengths',
-    // in that order; each sequence reads its offset's bits, then its match
-    // length's, then its literal length's; and then, but for the last, the
-    // states move on, literal lengths' first, then match lengths', then
-    // offsets'.
+    // in that order.
     let mut bits = Backward::new(rest)?;
-    let mut states = [
-        lengths.start(&mut bits),
-        offsets.start(&mut bits),
-        matches.start(&mut bits),
-    ];
-    let mut literals = literals;
-    // The repeat offsets, held apart for the block, in registers, as is
-    // the cursor, whose end the block's takes back, unless it fails.
+    let mut states = [0_usize; 3];
+    for (state, set) in states.iter_mut().zip(&codes.sets) {
+        *state = usize::try_from(bits.read(u32::from(set.log))).unwrap_or_default();
+    }
+    // The repeat offsets and the cursor are held apart for the block,
+    // which takes them back at its end, unless it fails.
     let mut repeats = codes.repeats;
     let mut cursor = output.apart();
-    for left in (0..count).rev() {
-        let [length, offset, matched] = states;
-        let (length, offset, matched) = (
-            lengths.state(length),
-            offsets.state(offset),
-            matches.state(matched),
-        );
-        // A refill holds 57 bits: the states' 26, and the values' extra
-        // bits, unless they take more than 31, when it takes another
-        // between an offset's and a match length's, up to 47, and a literal
-        // length's, up to 16.
-        bits.refill();
-        let extra = offset.extra.wrapping_add(matched.extra);
-        let value = offset.value(&mut bits);
-        let match_len = matched.value(&mut bits);
-        if extra.wrapping_add(length.extra) > 31 {
-            bits.refill();
+    let (mut literals, mut spare) = (literals, len);
+    let mut batch = [Sequence::default(); BATCH];
+    let (mut left, mut mixed) = (count, false);
+    while left > 0 {
+        let batch = batch.get_mut(..left.min(BATCH)).unwrap_or_default();
+        left = left.saturating_sub(batch.len());
+        read(&mut bits, &codes.tables, &mut states, batch, left == 0);
+        // What they take in all is checked before any runs, which fails
+        // no later than the first that takes too much would.
+        let (taken, farthest) = settle(batch, &mut repeats, &mut mixed);
+        spare = spare.checked_sub(taken).ok_or_else(corrupt)?;
+        if !cursor.reaches(farthest) {
+            return Err(corrupt());
         }
-        let literal_len = length.value(&mut bits);
-        if left > 0 {
-            let length = length.next(&mut bits);
-            let matched = matched.next(&mut bits);
-            states = [length, offset.next(&mut bits), matched];
-        }
-        cursor.literals(literals, literal_len)?;
-        literals = literals.get(literal_len..).ok_or_else(corrupt)?;
-        let offset = resolve(value, literal_len, &mut repeats)?;
-        cursor.copy(offset, match_len)?;
+        literals = cursor.run(batch, literals)?;
     }
     let end = cursor.end;
     output.end = end;
@@ -353,45 +386,262 @@ pub(super) fn decode(
     }
     codes.repeats = repeats;
     // The literals left over end the block.
-    output.extend(literals)
+    output.extend(literals.get(..spare).ok_or_else(corrupt)?)
+}
+
+/// Decodes as many sequences as `batch` holds from `bits`, the `last` of
+/// their block or not, by `tables`, from `states`, which it moves on;
+/// their offsets as they are coded, yet to be [settled](settle).
+///
+/// Each whole from one container, while the stream holds one whole and a
+/// sequence takes no more than it holds; and one by one, with refills,
+/// near the stream's start, and where a sequence takes more. A function
+/// of its own, of few values, so that they stay in registers: the bits
+/// left, and the states.
+#[inline(never)]
+fn read(
+    bits: &mut Backward<'_>,
+    tables: &[Decoding; 3],
+    states: &mut [usize; 3],
+    batch: &mut [Sequence],
+    last: bool,
+) {
+    let mut now = *states;
+    // The block's last sequence moves no state on.
+    let (mut batch, ending) = match batch.split_last_mut() {
+        Some((ending, batch)) if last => (batch, Some(ending)),
+        _ => (batch, None),
+    };
+    loop {
+        if let Some(mut counted) = bits.counted() {
+            let (len, mut each) = (batch.len(), batch.iter_mut());
+            let mut whole = len;
+            while let Some(sequence) = each.next() {
+                if !swift(&mut counted, tables, &mut now, sequence) {
+                    // All before this one.
+                    whole = len.wrapping_sub(each.len()).wrapping_sub(1);
+                    break;
+                }
+            }
+            if whole > 0 {
+                bits.recount(&counted);
+            }
+            batch = batch.get_mut(whole..).unwrap_or_default();
+        }
+        // The next by refills, and then whole again, if any are left.
+        let Some((sequence, rest)) = batch.split_first_mut() else {
+            break;
+        };
+        *sequence = one(bits, tables, &mut now, true);
+        batch = rest;
+    }
+    if let Some(sequence) = ending {
+        *sequence = one(bits, tables, &mut now, false);
+    }
+    *states = now;
+}
+
+/// Decodes a sequence whole from one container of `bits`, by `tables`,
+/// from `states`, which it moves on to the next, into `sequence`, and
+/// returns whether it did; or else has moved nothing on: if the stream
+/// holds no container whole, or the sequence takes more than one holds,
+/// or a state is none of a table's.
+///
+/// A container holds 57 bits: the states' 26, and the values' extra bits,
+/// if no more than 31. Each field is turned to the container's bottom
+/// from where it ends, the sum of the counts before it, each sum of two
+/// additions at most, so that the next states wait on little but their
+/// tables: no field on another's bits. The states move on first, as the
+/// next sequence waits on them alone, and then the values are read,
+/// which nothing waits on.
+#[inline(always)]
+fn swift(
+    bits: &mut Counted<'_>,
+    tables: &[Decoding; 3],
+    states: &mut [usize; 3],
+    sequence: &mut Sequence,
+) -> bool {
+    let Some(container) = bits.container() else {
+        return false;
+    };
+    let [lengths, offsets, matches] = tables;
+    let [length, offset, matched] = *states;
+    let (Some(l), Some(o), Some(m)) = (
+        lengths.steps.get(length),
+        offsets.steps.get(offset),
+        matches.steps.get(matched),
+    ) else {
+        return false;
+    };
+    let (Some(length), Some(offset), Some(matched)) = (
+        lengths.worths.get(length),
+        offsets.worths.get(offset),
+        matches.worths.get(matched),
+    ) else {
+        return false;
+    };
+    // Where each field ends, from the container's top: the offset's
+    // bits, the match length's, the literal length's; and then the
+    // states', literal lengths' first, then match lengths', then offsets'.
+    let (o_extra, o_total) = (u32::from(o.extra), u32::from(o.total));
+    let (m_extra, m_total) = (u32::from(m.extra), u32::from(m.total));
+    let (l_extra, l_total) = (u32::from(l.extra), u32::from(l.total));
+    let ml = o_extra.wrapping_add(m_extra);
+    let ll = ml.wrapping_add(l_extra);
+    if ll > 31 {
+        return false;
+    }
+    let ls = ml.wrapping_add(l_total);
+    let ms = o_extra.wrapping_add(m_total).wrapping_add(l_total);
+    let os = o_total.wrapping_add(m_total).wrapping_add(l_total);
+    let field = |end: u32, mask: u32| container.rotate_left(end) & u64::from(mask);
+    let size = |value: u64| usize::try_from(value).unwrap_or(usize::MAX);
+    // None overflows: up to 9 bits onto a base of 16, or 31 onto a
+    // baseline of 32.
+    let next = |step: &Step, end: u32| {
+        size(u64::from(step.next).wrapping_add(field(end, u32::from(step.mask))))
+    };
+    *states = [next(l, ls), next(o, os), next(m, ms)];
+    bits.consume(os);
+    let value = |worth: &Worth, end: u32| {
+        size(u64::from(worth.baseline).wrapping_add(field(end, worth.mask)))
+    };
+    sequence.offset = value(offset, o_extra);
+    sequence.matched = value(matched, ml);
+    sequence.literals = value(length, ll);
+    true
+}
+
+/// Decodes a sequence from `bits`, by `tables`, from `states`, and moves
+/// them on to the next, if there is a `next`, as [`swift`] does, by a
+/// refill, and another where it takes more than one holds.
+///
+/// It reads its offset's bits, then its match length's, then its literal
+/// length's; and then the states move on, literal lengths' first, then
+/// match lengths', then offsets'.
+#[inline(always)]
+fn one(
+    bits: &mut Backward<'_>,
+    tables: &[Decoding; 3],
+    states: &mut [usize; 3],
+    next: bool,
+) -> Sequence {
+    let [lengths, offsets, matches] = tables;
+    let [length, offset, matched] = *states;
+    let ((l, length), (o, offset), (m, matched)) = (
+        lengths.state(length),
+        offsets.state(offset),
+        matches.state(matched),
+    );
+    // A refill holds 57 bits: the states' 26, and the values' extra bits,
+    // unless they take more than 31, when it takes another between a
+    // match length's, up to 47 with an offset's, and a literal length's,
+    // up to 16.
+    bits.refill();
+    let extra = o.extra.wrapping_add(m.extra).wrapping_add(l.extra);
+    let value = offset.value(o.extra, bits);
+    let match_len = matched.value(m.extra, bits);
+    if extra > 31 {
+        bits.refill();
+    }
+    let literal_len = length.value(l.extra, bits);
+    if next {
+        let length = l.next(bits);
+        let matched = m.next(bits);
+        *states = [length, o.next(bits), matched];
+    }
+    Sequence {
+        literals: literal_len,
+        matched: match_len,
+        offset: value,
+    }
+}
+
+/// Settles the offsets of `batch`, each as its sequence codes it, after
+/// `repeats`, which it moves on; and returns how many literals the batch
+/// takes, and the farthest back that it reaches.
+///
+/// A pass of its own, between decoding and running, so that neither
+/// holds the repeats, which only wait on each other. Whether an offset
+/// repeats is branched on where a batch's almost all do, or almost none,
+/// as text's; and selected where they are `mixed`, as the last batch's
+/// were, which a branch would mistake.
+fn settle(batch: &mut [Sequence], repeats: &mut [usize; 3], mixed: &mut bool) -> (usize, usize) {
+    let mut latest = *repeats;
+    let (mut taken, mut farthest, mut repeated) = (0_usize, 0_usize, 0_usize);
+    // None wraps: a batch's lengths are of 17 bits each.
+    let mut tally = |sequence: &Sequence| {
+        taken = taken.wrapping_add(sequence.literals);
+        farthest = farthest.max(sequence.offset);
+    };
+    if *mixed {
+        for sequence in batch.iter_mut() {
+            repeated = repeated.wrapping_add(usize::from(sequence.offset <= 3));
+            sequence.offset = resolve(sequence.offset, sequence.literals, &mut latest);
+            tally(sequence);
+        }
+    } else {
+        for sequence in batch.iter_mut() {
+            let [first, second, _] = latest;
+            match sequence.offset.checked_sub(3) {
+                Some(offset @ 1..) => {
+                    sequence.offset = offset;
+                    latest = [offset, first, second];
+                },
+                _ => {
+                    repeated = repeated.wrapping_add(1);
+                    sequence.offset = resolve(sequence.offset, sequence.literals, &mut latest);
+                },
+            }
+            tally(sequence);
+        }
+    }
+    *repeats = latest;
+    // Between an eighth of them and seven.
+    let (some, most) = (batch.len() / 8, batch.len().saturating_sub(batch.len() / 8));
+    *mixed = repeated > some && repeated < most;
+    (taken, farthest)
 }
 
 impl Kind {
     /// Reads the table this kind of code is decoded with from `section`,
-    /// as `modes` say, into `table`, and returns the section past it.
+    /// as `modes` say, into `table`, which `set` tells of, and returns
+    /// the section past it.
     fn table<'a>(
         &self,
         modes: u8,
         section: &'a [u8],
-        table: &mut Option<Decoding>,
+        table: &mut Decoding,
+        set: &mut Set,
     ) -> Result<&'a [u8], Error> {
-        match (modes >> self.shift) & 0x03 {
+        let (read, rest) = match (modes >> self.shift) & 0x03 {
             // Predefined, as it may be already.
-            0 if table.as_ref().is_some_and(|table| table.predefined) => {},
-            0 => {
-                let predefined = Table::new(self.default, self.default_log)?;
-                *table = Some(Decoding::new(&predefined, self, true));
-            },
+            0 if set.set && set.predefined => return Ok(section),
+            0 => (Table::new(self.default, self.default_log)?, section),
             // One symbol, every time.
             1 => {
                 let (&symbol, rest) = section.split_first().ok_or_else(corrupt)?;
                 if usize::from(symbol) >= self.symbols {
                     return Err(corrupt());
                 }
-                *table = Some(Decoding::new(&Table::rle(symbol), self, false));
-                return Ok(rest);
+                (Table::rle(symbol), rest)
             },
             // Described.
             2 => {
                 let (read, used) = Table::read(section, self.max_log, self.symbols)?;
-                *table = Some(Decoding::new(&read, self, false));
-                return section.get(used..).ok_or_else(corrupt);
+                (read, section.get(used..).ok_or_else(corrupt)?)
             },
             // The last block's, which must have been.
-            _ if table.is_none() => return Err(corrupt()),
-            _ => {},
-        }
-        Ok(section)
+            _ if set.set => return Ok(section),
+            _ => return Err(corrupt()),
+        };
+        table.resolve(&read, self);
+        *set = Set {
+            log: read.log(),
+            set: true,
+            predefined: (modes >> self.shift) & 0x03 == 0,
+        };
+        Ok(rest)
     }
 }
 
@@ -413,41 +663,39 @@ fn count(section: &[u8]) -> Result<(usize, &[u8]), Error> {
 }
 
 /// Returns the offset that a sequence's offset `value` means, after its
-/// `literal_len` literals, and updates the `repeats` (RFC 8878 §3.1.1.5).
+/// `literal_len` literals, and updates the `repeats` (RFC 8878 §3.1.1.5);
+/// or none, zero, for one less than a repeat of 1, which no copy takes.
 ///
 /// Values past 3 are offsets, less 3; 1 to 3 repeat the latest offsets,
 /// but for a sequence without literals, whose 1 and 2 repeat the second
 /// and third latest, and whose 3 is one less than the latest. An offset
 /// used goes first among the repeats, and those before it move back one.
-fn resolve(value: usize, literal_len: usize, repeats: &mut [usize; 3]) -> Result<usize, Error> {
+/// Whether one repeats varies as data does, so each is selected, not
+/// branched to.
+#[inline(always)]
+fn resolve(value: usize, literal_len: usize, repeats: &mut [usize; 3]) -> usize {
     let [first, second, third] = *repeats;
-    let (offset, after) = match value.checked_sub(3) {
-        Some(offset @ 1..) => (offset, [offset, first, second]),
-        _ => match value
-            .saturating_sub(1)
-            .saturating_add(usize::from(literal_len == 0))
-        {
-            0 => (first, *repeats),
-            1 => (second, [second, first, third]),
-            2 => (third, [third, first, second]),
-            _ => {
-                let offset = first.saturating_sub(1);
-                (offset, [offset, first, second])
-            },
-        },
-    };
-    // One less than an offset of 1 is none.
-    if offset == 0 {
-        return Err(corrupt());
-    }
-    *repeats = after;
-    Ok(offset)
+    let repeat = value <= 3;
+    let which = value
+        .wrapping_sub(1)
+        .wrapping_add(usize::from(literal_len == 0));
+    let repeated = select_unpredictable(which == 1, second, first);
+    let repeated = select_unpredictable(which == 2, third, repeated);
+    let repeated = select_unpredictable(which == 3, first.wrapping_sub(1), repeated);
+    let offset = select_unpredictable(repeat, repeated, value.wrapping_sub(3));
+    *repeats = [
+        offset,
+        select_unpredictable(repeat & (which == 0), second, first),
+        select_unpredictable(repeat & (which <= 1), third, second),
+    ];
+    offset
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{fse::Entry, window::Window};
+    use alloc::vec::Vec;
 
     const LITERAL_LENGTH_STATES: [(u8, u8, u16); 64] = [
         (0, 4, 0),
@@ -649,13 +897,67 @@ mod tests {
             (3, 0, 2221, [2221, 2222, 1111]),
             (1, 0, 2222, [2222, 2221, 1111]),
         ] {
-            assert_eq!(resolve(value, literal_len, &mut repeats).unwrap(), offset);
+            assert_eq!(resolve(value, literal_len, &mut repeats), offset);
             assert_eq!(repeats, after, "{value} after {literal_len}");
         }
-        // One less than an offset of 1 is none.
+        // One less than an offset of 1 is none, which no copy takes.
         let mut repeats = [1, 4, 8];
-        assert!(resolve(3, 0, &mut repeats).is_err());
-        assert_eq!(repeats, [1, 4, 8]);
+        assert_eq!(resolve(3, 0, &mut repeats), 0);
+        let mut window = Window::new(1 << 10, 32, None);
+        window.prepare().unwrap();
+        window.extend(b"abc").unwrap();
+        let none = Sequence {
+            literals: 0,
+            matched: 3,
+            offset: 0,
+        };
+        assert!(window.cursor(10).run(&[none], &[]).is_err());
+        // Farther back than the window reaches.
+        assert!(!window.cursor(10).reaches((1 << 10) + 1));
+    }
+
+    /// A batch settles as its offsets resolve one by one, whether it
+    /// branches on those that repeat or selects them.
+    #[test]
+    fn settles_as_it_resolves() {
+        let mut seed = 0x2545_F491_4F6C_DD1D_u64;
+        let mut below = move |n: usize| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed % n as u64) as usize
+        };
+        for often in [1, 2, 9] {
+            let batch: Vec<Sequence> = (0..BATCH)
+                .map(|_| Sequence {
+                    literals: below(3),
+                    matched: 3,
+                    offset: if below(often) == 0 {
+                        1 + below(3)
+                    } else {
+                        4 + below(900)
+                    },
+                })
+                .collect();
+            let mut repeats = [1, 4, 8];
+            let resolved: Vec<usize> = batch
+                .iter()
+                .map(|sequence| resolve(sequence.offset, sequence.literals, &mut repeats))
+                .collect();
+            let literals: usize = batch.iter().map(|sequence| sequence.literals).sum();
+            let farthest = resolved.iter().copied().max().unwrap();
+            for mixed in [false, true] {
+                let (mut settled, mut latest, mut mixed) = (batch.clone(), [1, 4, 8], mixed);
+                assert_eq!(
+                    settle(&mut settled, &mut latest, &mut mixed),
+                    (literals, farthest)
+                );
+                let offsets: Vec<usize> = settled.iter().map(|sequence| sequence.offset).collect();
+                assert_eq!((offsets, latest), (resolved.clone(), repeats), "{often}");
+                // Mixed where one in two repeats, but not one in nine, nor all.
+                assert_eq!(mixed, often == 2, "{often}");
+            }
+        }
     }
 
     #[test]

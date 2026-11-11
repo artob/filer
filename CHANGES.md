@@ -74,7 +74,7 @@ so any release may break compatibility.
   stream, not 29,000, and decodes 2% to 19% faster.
 - `decode-zstd`: a frame given whole, whose header says what it decodes
   to, with room for that, decodes straight into the output, holding no
-  window, as libzstd does: whole, 8 MiB at level 19 takes 24 KiB of heap
+  window, as libzstd does: whole, 8 MiB at level 19 takes 36 KiB of heap
   in one allocation, not the window's 8 MiB, and decodes half as fast
   again as in pieces of 4 KiB, on Apple M4.
 - `decode-zstd`: four Huffman streams decode a code of each in turn,
@@ -86,6 +86,19 @@ so any release may break compatibility.
   1, the corpus decodes at 0.61 to 0.64 times libzstd's speed, not 0.51
   to 0.60, and its least, `silesia/x-ray` at level 1, at 0.66, not 0.38;
   and Canterbury on Apple M4 at 0.75 to 0.78, not 0.66 to 0.70.
+- `decode-zstd`: a block's sequences are decoded 64 at a time, then
+  their repeat offsets settled, then run, each a loop of few values that
+  stay in registers. Each is read whole from one container, its fields'
+  places summed from the counts its tables hold, so that the next states
+  wait on little but their tables; offsets that repeat are branched on
+  where almost all or almost none do, and selected where they are mixed;
+  and literals and matches of up to 32 bytes copy 32 at once, checked
+  only for the memory they touch, the block's limit and the window's
+  reach once a batch. By a timer's best of runs over the corpus, at
+  levels 1, 3, 9, and 19: on Zen 5, 0.82 to 0.85 times libzstd's speed,
+  not 0.67 to 0.69; on Granite Rapids, 0.79 to 0.84, not 0.61 to 0.63;
+  and on Neoverse V3, 0.86 to 0.90, not 0.81 to 0.85. A frame's tables
+  take 36 KiB, not 24.
 - `decode-zstd`: the buffer of a block's literals grows by doubling, up
   to the block's most, freeing the old first, as its literals are not
   kept: on Zen 1, over the corpus, at most 1.63 times libzstd's peak,

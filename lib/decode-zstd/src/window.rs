@@ -3,14 +3,22 @@
 //! A frame's window (RFC 8878 §3.1.1.1.2): the latest bytes it decoded,
 //! which its blocks copy from, and those not yet produced.
 
+use super::sequences::Sequence;
 use crate::{Error, corrupt};
 use alloc::vec::Vec;
 
-/// The bytes a short copy takes at once, past what it copies, and the
-/// room kept past a block for it, and before the window: so that what it
-/// writes past the end is overwritten later, never needed.
+/// The bytes a short copy takes at once, past what it copies.
 const SHORT: usize = 16;
-const SLACK: usize = 32;
+
+/// The bytes a wide copy takes at once, as a sequence's literals and its
+/// match each are, if no longer, and the room the two take past where
+/// they start, each written whole.
+const WIDE: usize = 32;
+const ROOM: usize = 2 * WIDE;
+
+/// The room kept past a block for such copies, and before the window: so
+/// that what they write past the end is overwritten later, never needed.
+const SLACK: usize = ROOM;
 
 /// The longest match copied by short copies, though it does not overlap:
 /// past it, a copy at once is faster.
@@ -291,6 +299,53 @@ impl<'a> Cursor<'a> {
         self.extend(bytes.get(..len).ok_or_else(corrupt)?)
     }
 
+    /// Returns whether a copy may reach `offset` back: no farther than
+    /// the window's size.
+    pub(super) const fn reaches(&self, offset: usize) -> bool {
+        offset <= self.size
+    }
+
+    /// Runs `sequences`, each its literals, from the start of `literals`,
+    /// which hold as many, and then its match, none from farther back
+    /// than the window [reaches](Self::reaches); and returns the literals
+    /// past them. Those that take no more than wide copies run by them,
+    /// checked only for what memory they touch: the limit is checked once
+    /// they have all run, which fails no later than the block does.
+    ///
+    /// A function of its own, the cursor's end and the literals held
+    /// apart in it, so that they stay in registers: no copy waits on the
+    /// one before, but where it copies what that one wrote.
+    #[inline(never)]
+    pub(super) fn run<'l>(
+        &mut self,
+        sequences: &[Sequence],
+        literals: &'l [u8],
+    ) -> Result<&'l [u8], Error> {
+        let (limit, lapped, size) = (self.limit, self.lapped, self.size);
+        let bytes = &mut *self.bytes;
+        let (mut end, mut literals) = (self.end, literals);
+        for sequence in sequences {
+            if let Some((rest, to)) = wide(bytes, end, literals, sequence) {
+                (literals, end) = (rest, to);
+                continue;
+            }
+            let cursor = Cursor {
+                bytes: &mut *bytes,
+                end,
+                limit,
+                lapped,
+                size,
+            };
+            end = careful(cursor, literals, sequence)?;
+            literals = literals.get(sequence.literals..).ok_or_else(corrupt)?;
+        }
+        self.end = end;
+        if end > limit {
+            return Err(corrupt());
+        }
+        Ok(literals)
+    }
+
     /// Returns the room for a short copy at the end, if the buffer has it.
     fn short(&mut self) -> Option<&mut [u8; SHORT]> {
         self.bytes.get_mut(self.end..)?.first_chunk_mut::<SHORT>()
@@ -352,6 +407,64 @@ impl<'a> Cursor<'a> {
         }
         true
     }
+}
+
+/// Runs `sequence` onto `bytes` at `end` by wide copies, its literals from
+/// the start of `literals`, and returns the literals past them and where
+/// it ends; or nothing, having moved nothing on, unless both hold a wide
+/// copy from there, its literals are fewer than one, its match is no
+/// longer than a few, and lies at least one back from its literals, in
+/// what `bytes` hold before `end`.
+///
+/// The literals are written whole, then the match over what they wrote
+/// past their length, so neither copy waits on the other's bytes; and a
+/// match longer than one copy goes on by more, each from at least one
+/// back.
+#[inline(always)]
+fn wide<'l>(
+    bytes: &mut [u8],
+    end: usize,
+    literals: &'l [u8],
+    sequence: &Sequence,
+) -> Option<(&'l [u8], usize)> {
+    let (literal_len, match_len, offset) = (sequence.literals, sequence.matched, sequence.offset);
+    let source = literals.first_chunk::<WIDE>()?;
+    if literal_len >= WIDE || match_len > LONG {
+        return None;
+    }
+    let (before, after) = bytes.split_at_mut_checked(end)?;
+    let room = after.first_chunk_mut::<ROOM>()?;
+    // How far back the match lies from where the literals start: an
+    // offset within the literals wraps, and lies before any buffer.
+    let back = offset.wrapping_sub(literal_len);
+    let from = before.len().checked_sub(back)?;
+    let matched = before.get(from..)?.first_chunk::<WIDE>()?;
+    *room.first_chunk_mut::<WIDE>()? = *source;
+    *room.get_mut(literal_len..)?.first_chunk_mut::<WIDE>()? = *matched;
+    // Neither wraps: the lengths are below those checked, and `end` is
+    // within the buffer.
+    let start = end.wrapping_add(literal_len);
+    let to = start.wrapping_add(match_len);
+    let mut at = start.wrapping_add(WIDE);
+    while at < to {
+        let (before, after) = bytes.split_at_mut_checked(at)?;
+        let from = at.checked_sub(offset)?;
+        let matched = before.get(from..)?.first_chunk::<WIDE>()?;
+        *after.first_chunk_mut::<WIDE>()? = *matched;
+        at = at.wrapping_add(WIDE);
+    }
+    Some((literals.get(literal_len..)?, to))
+}
+
+/// Runs `sequence` onto `cursor`, its literals from the start of
+/// `literals`, as [`wide`] does where wide copies do not serve, and
+/// returns where it ends: a free function, not inlined, so that the loop
+/// that calls it stays in registers.
+#[inline(never)]
+fn careful(mut cursor: Cursor<'_>, literals: &[u8], sequence: &Sequence) -> Result<usize, Error> {
+    cursor.literals(literals, sequence.literals)?;
+    cursor.copy(sequence.offset, sequence.matched)?;
+    Ok(cursor.end)
 }
 
 /// Appends to `bytes` from `end` the `len` bytes from `offset` back, as
@@ -447,27 +560,27 @@ mod tests {
 
     #[test]
     fn copies_across_laps() {
-        // A window of 10 and blocks of 4: a buffer of 82, with the slack
+        // A window of 10 and blocks of 4: a buffer of 146, with the slack
         // of each, round which decoding goes once a block and its slack
         // may not fit.
         let mut window = Window::new(10, 4, None);
-        let bytes: Vec<u8> = (0..52).collect();
+        let bytes: Vec<u8> = (0..84).collect();
         assert_eq!(decode(&mut window, &bytes), bytes);
         assert_eq!(window.bytes.len(), 10 + 2 * (4 + SLACK));
-        // The current lap holds 48 to 51, the previous still 4 to 47.
-        assert_eq!((window.end, window.lapped), (4, 48));
+        // The current lap holds 80 to 83, the previous still 4 to 79.
+        assert_eq!((window.end, window.lapped), (4, 80));
         window.prepare().unwrap();
         // From the previous lap.
         copy(&mut window, 8, 2).unwrap();
-        assert_eq!(window.since(4), [44, 45]);
+        assert_eq!(window.since(4), [76, 77]);
         window.prepare().unwrap();
         // From the previous lap into the current one.
         copy(&mut window, 8, 4).unwrap();
-        assert_eq!(window.since(6), [46, 47, 48, 49]);
+        assert_eq!(window.since(6), [78, 79, 80, 81]);
         window.prepare().unwrap();
         // Overlapping what it copies.
         copy(&mut window, 2, 3).unwrap();
-        assert_eq!(window.since(10), [48, 49, 48]);
+        assert_eq!(window.since(10), [80, 81, 80]);
         // Past the window, or past what was ever decoded.
         assert!(copy(&mut window, 11, 1).is_err());
         assert!(copy(&mut Window::new(10, 4, None), 1, 1).is_err());
@@ -492,6 +605,72 @@ mod tests {
             window.since(40),
             [100, 100, 100, 100, 100, 25, 26, 27, 28, 29, 200, 200, 200]
         );
+    }
+
+    /// Runs sequences made up at random, short and long, near and far,
+    /// as copying each byte in turn does: onto a window, and straight
+    /// into a buffer with no room past them, where the last run with
+    /// care.
+    #[test]
+    fn runs_sequences_as_copying_each_byte_does() {
+        let mut seed = 0x9E37_79B9_7F4A_7C15_u64;
+        let mut below = move |n: usize| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed % n as u64) as usize
+        };
+        let history: Vec<u8> = (0..300_u32).map(|n| (n * 7 % 251) as u8).collect();
+        let literals: Vec<u8> = (0..8192_u32).map(|n| (n * 13 % 253) as u8).collect();
+        for _ in 0..300 {
+            let mut expected = history.clone();
+            let (mut sequences, mut taken) = (Vec::new(), 0);
+            while expected.len() < 3000 {
+                let literal_len = if below(8) == 0 { below(70) } else { below(12) };
+                let match_len = 3 + if below(8) == 0 { below(200) } else { below(30) };
+                let reach = expected.len() + literal_len;
+                let offset = 1 + match below(4) {
+                    0 => below(20),
+                    1 => below(48),
+                    _ => below(reach),
+                };
+                expected.extend_from_slice(&literals[taken..taken + literal_len]);
+                for _ in 0..match_len {
+                    expected.push(expected[expected.len() - offset.min(reach)]);
+                }
+                taken += literal_len;
+                sequences.push(Sequence {
+                    literals: literal_len,
+                    matched: match_len,
+                    offset: offset.min(reach),
+                });
+            }
+            let mut window = Window::new(1 << 16, 1 << 12, None);
+            window.prepare().unwrap();
+            window.extend(&history).unwrap();
+            let mut cursor = window.cursor(1 << 12);
+            let rest = cursor.run(&sequences, &literals).unwrap();
+            assert_eq!(rest.len(), literals.len() - taken);
+            let end = cursor.end;
+            window.advance(end);
+            assert_eq!(window.since(0), expected);
+
+            let mut whole = vec![0; expected.len()];
+            whole[..history.len()].copy_from_slice(&history);
+            let max = expected.len() - history.len();
+            let mut cursor = Cursor::over(&mut whole, history.len(), max, 1 << 16);
+            cursor.run(&sequences, &literals[..taken]).unwrap();
+            assert_eq!(cursor.end, expected.len());
+            assert_eq!(whole, expected);
+            // One byte more than the limit allows.
+            let more = Sequence {
+                literals: 0,
+                matched: 1,
+                offset: 1,
+            };
+            let mut cursor = window.cursor(0);
+            assert!(cursor.run(&[more], &literals).is_err());
+        }
     }
 
     #[test]

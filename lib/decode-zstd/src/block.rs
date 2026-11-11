@@ -30,8 +30,8 @@ pub(super) fn decode(
     output: &mut Cursor<'_>,
     max: usize,
 ) -> Result<(), Error> {
-    let (literals, used) =
+    let (literals, len, used) =
         literals::read(content, &mut tables.huffman, &mut tables.runs, scratch, max)?;
     let section = content.get(used..).unwrap_or_default();
-    sequences::decode(section, &mut tables.codes, literals, output)
+    sequences::decode(section, &mut tables.codes, literals, len, output)
 }

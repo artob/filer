@@ -572,8 +572,9 @@ crate's name until its first code, which moves it to `lib/`.
   on the x86 hosts stopped 8 and 7 inputs into the first (2026-11-10),
   on the ARM host not begun; `~/campaign.sh <cpu>` on each host takes
   them up. Zen 1's speed tables are older, of `9c5f5fc`,
-  before DEC-19's work. Done when each `BENCH.md` of a written decoder
-  holds them all.
+  before DEC-19's work, and every machine's `decode-zstd` tables are of
+  before its sequences were decoded in batches. Done when each
+  `BENCH.md` of a written decoder holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
   `intrinsics` takes ARMv8.2's SHA-512 instructions, but not x86-64's,
   which only Intel's newest CPUs have, from Arrow Lake and Lunar Lake on,
@@ -638,29 +639,21 @@ crate's name until its first code, which moves it to `lib/`.
   tested only against blocks built by hand (2026-11-07). Done when it
   decodes blocks that the Linux kernel's `lzo-rle` writes, through F2FS
   with `compress_algorithm=lzo-rle` on comet, to what was written.
-- [ ] **DEC-19: zstd's speed, on x86.** `decode-zstd` decoded Canterbury
-  at 0.27 to 0.36 times libzstd's MB/s, whole and in pieces, on Zen 1
-  (2026-11-07, at 9c5f5fc). A profile on Apple M4 found the time in
-  reading bits, in Huffman-coded literals, and in hashing frames without
-  a checksum; it now decodes Canterbury there at 0.74 to 0.77 times. On
-  Zen 1, `perf` found 88% of `silesia/x-ray`'s time at level 1 in four
-  Huffman streams, decoded five codes of one, then of the next, which
-  now interleave a code at a time; and twice libzstd's instructions,
-  which an 11-bit table, gathered stores, and copies inline trim. At
-  `89cf564` and a shift less, by the geometric mean of the corpus,
-  synthetic inputs included, warm, by best of runs: 0.645 times at level
-  1, 0.660 at 3, 0.661 at 9, and 0.670 at 19; the least, 0.55 to 0.59.
-  Sequences now take 53% to 66% of the time on text, in bounds checks
-  and spills more than in any one step; tried and dropped, as no faster
-  on Zen 1: running them on the marked reader (and 8% slower on M4), and
-  reading short matches whole before writing them (2026-11-08). On the
-  default x86 machines, at `037ffbb`, whole, by the harness's medians
-  (`BENCH.md`, 2026-11-10): on Zen 5, 0.68 times at level 1, 0.66 at 3,
-  0.67 at 9, and 0.68 at 19; on Granite Rapids, 0.64, 0.62, 0.63, and
-  0.64; without the synthetic inputs, 0.63 to 0.65 and 0.59 to 0.61;
-  the least, 0.48 to 0.55, on `kennedy.xls`, `E.coli`, and text. Done
-  when the default x86 machines' figures, over the corpus, are within
-  1.5 times libzstd's, or its crate's docs say why not.
+- [ ] **DEC-22: zstd's literals, tables, and near matches.** Its
+  sequences decoded in batches (DEC-19), `decode-zstd` decodes the
+  corpus, whole, at 0.82 to 0.85 times libzstd's speed on Zen 5, 0.79 to
+  0.84 on Granite Rapids, and 0.86 to 0.90 on Neoverse V3, at levels 1
+  to 19, by a timer's best of runs, and in pieces at 0.77 to 0.80 on
+  Zen 5 (2026-11-11); `BENCH.md`'s tables, of before, are due again
+  (BENCH-02). What is left, by `perf` on Zen 5: at level 1, a fifth to a
+  third of the time in the four Huffman streams, 1.9 cycles a literal;
+  at level 19, an eighth of `silesia/mozilla`'s in building the tables
+  of blocks of 24 KiB; `kennedy.xls`, at 0.61, a quarter of whose
+  matches lie fewer than 16 bytes back, each copied with care, and
+  `ptt5`, at 0.62 to 0.65, of long matches; and reading a sequence takes
+  13.5 cycles, of 90 instructions, a spill among them on the way to the
+  next state. Done when the default machines' figures, over the corpus,
+  are within 1.1 times libzstd's, or its crate's docs say why not.
 - [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
   `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
   names, never run in CI, checked against a reference decoder, or for

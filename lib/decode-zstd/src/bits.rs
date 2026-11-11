@@ -154,6 +154,28 @@ impl<'a> Backward<'a> {
         self.take(n)
     }
 
+    /// Returns a reader that goes on from here, by a count of the bits
+    /// left alone; or nothing, if a read went past the start.
+    pub(super) fn counted(&self) -> Option<Counted<'a>> {
+        self.left().map(|left| Counted {
+            bytes: self.bytes,
+            left,
+        })
+    }
+
+    /// Goes on from where `counted`, which
+    /// [`counted`](Self::counted) returned of it, has read to.
+    pub(super) fn recount(&mut self, counted: &Counted<'_>) {
+        let left = counted.left;
+        // The container ends with the byte of the next bit, or lies at
+        // the start, of a stream that has less before it.
+        self.at = left.div_ceil(8).saturating_sub(8);
+        let held = self.at.saturating_mul(8).saturating_add(64);
+        self.consumed = u32::try_from(held.saturating_sub(left)).unwrap_or(u32::MAX);
+        let word = word(self.bytes, self.at);
+        self.unread = word.checked_shl(self.consumed).unwrap_or_default();
+    }
+
     /// Returns the bits left to read, or `None` if a read went past the
     /// start.
     fn left(&self) -> Option<usize> {
@@ -192,6 +214,38 @@ impl<'a> Backward<'a> {
     /// Returns whether every bit has been read, and none past the start.
     pub(super) fn done(&self) -> bool {
         self.left() == Some(0)
+    }
+}
+
+/// A [`Backward`] reader for a loop that reads a whole sequence from one
+/// container: no more than how many bits are left to read, from which it
+/// loads the container anew each time, so that reading waits on nothing
+/// but that count.
+#[derive(Clone, Copy)]
+pub(super) struct Counted<'a> {
+    bytes: &'a [u8],
+    left: usize,
+}
+
+impl Counted<'_> {
+    /// Returns a container whose top holds the next bits, 57 at least, if
+    /// the stream holds it whole: until it has fewer than 57 left.
+    #[inline(always)]
+    pub(super) fn container(&self) -> Option<u64> {
+        // The eight bytes that end with the next bit's; short of them, the
+        // subtraction wraps past the stream's end.
+        let at = (self.left.wrapping_sub(1) >> 3).wrapping_sub(7);
+        let word = self.bytes.get(at..)?.first_chunk()?;
+        let above = u32::try_from(self.left.wrapping_neg() & 7).unwrap_or_default();
+        Some(u64::from_le_bytes(*word).wrapping_shl(above))
+    }
+
+    /// Reads past the next `n` bits, no more than a container held.
+    #[inline(always)]
+    pub(super) fn consume(&mut self, n: u32) {
+        // A container holds no more than are left, so this never wraps.
+        let n = usize::try_from(n).unwrap_or_default();
+        self.left = self.left.wrapping_sub(n);
     }
 }
 
@@ -235,6 +289,7 @@ impl Marked {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn reads_forward_from_the_lowest_bits() {
@@ -248,6 +303,35 @@ mod tests {
 
     /// RFC 8878 §4.2.2's example: "0145" coded as `1`, `01`, `0001`, and
     /// `0000`, as its Table 26 has them, read from the top.
+    /// A counted reader's containers hold what refills do, and a reader
+    /// goes on from where one has read to.
+    #[test]
+    fn counts_bits_as_it_refills() {
+        let bytes: Vec<u8> = (1..=40_u32).map(|n| (n * 37 % 251) as u8 | 1).collect();
+        let (mut refilled, mut resumed) = (
+            Backward::new(&bytes).unwrap(),
+            Backward::new(&bytes).unwrap(),
+        );
+        let mut counted = resumed.counted().unwrap();
+        let (mut n, mut whole) = (1, 0);
+        while let Some(container) = counted.container() {
+            assert_eq!(container >> (64 - n), refilled.read(n));
+            counted.consume(n);
+            (n, whole) = (n % 57 + 3, whole + 1);
+        }
+        // Until fewer than 57 bits are left; the rest by refills.
+        assert!(whole > 4 && counted.left < 57);
+        resumed.recount(&counted);
+        while !refilled.done() {
+            assert_eq!(resumed.read(1), refilled.read(1));
+            assert!(!refilled.overflowed());
+        }
+        assert!(resumed.done());
+        // A stream shorter than a container has none whole.
+        let short = Backward::new(&bytes[..5]).unwrap();
+        assert!(short.counted().unwrap().container().is_none());
+    }
+
     #[test]
     fn reads_backward_from_the_marker() {
         let mut bits = Backward::new(&[0b0001_0000, 0b0000_1101]).unwrap();
