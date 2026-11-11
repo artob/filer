@@ -42,8 +42,8 @@
 //! and on x86-64, streams checked by SHA-256 decode 29% slower, Canterbury
 //! at 112 MB/s, not 144, on Zen 5, and at 85, not 109, on Granite Rapids;
 //! those checked by CRC-64, xz's default, 2% slower; and those checked by
-//! CRC-32 within 1%. On Neoverse V3, those checked by SHA-256 decode 28%
-//! slower, at 95 MB/s, not 131; by CRC-64, 4%; and by CRC-32, 3%. On
+//! CRC-32 within 1%. On Neoverse V3, those checked by SHA-256 decode 29%
+//! slower, at 95 MB/s, not 133; by CRC-64, 4%; and by CRC-32, 3%. On
 //! Apple M4, those checked by SHA-256 decode 22% slower, at 120 MB/s, not
 //! 154; by CRC-64, 4%; and by CRC-32, 2% (2026-11-11).
 //!

@@ -61,8 +61,8 @@
 //!   gzip's CRC-32, and xz's CRC-32 and SHA-256. Without it, its
 //!   dependencies are ours alone, all of them public domain, and gzip
 //!   decodes a tenth slower on x86-64 and on ARM (Neoverse V3), and xz
-//!   checked by SHA-256 29% and 28%, as `decode-gzip`'s and `decode-xz`'s
-//!   docs say.
+//!   checked by SHA-256 29%, as `decode-gzip`'s and `decode-xz`'s docs
+//!   say.
 //!
 //! [`ReadAt`]: filer_api::ReadAt
 //! [`Driver`]: filer_api::Driver

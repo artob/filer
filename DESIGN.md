@@ -2733,11 +2733,11 @@ of it by the harness and by those tests (2026-11-11):
 | --- | --- | --- | --- |
 | `compute-adler32` | 3 times slower: 23 GB/s, not 74 | 7 times slower on Zen 5: 18 GB/s, not 121; and on Granite Rapids: 13, not 86 | 2.7 times slower: 18 GB/s, not 48 |
 | `compute-crc` | Every CRC 10 to 16 times slower: 4.6 to 5.8 GB/s, not 51 to 77 | Every CRC, over long inputs, 9 to 15 times slower on Zen 5: 4.6 to 7.1 GB/s, not 66 to 67; and 16 to 23 times on Granite Rapids: 3.8 to 5.3, not 78 to 101 | Every CRC 9 to 12 times slower: 3.4 to 4.2 GB/s, not 31 to 41 |
-| `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 7.7 times slower: 159 MB/s, not 1,228 | 5.8 times slower: 0.28 GB/s, not 1.62 |
+| `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 7.7 times slower: 159 MB/s, not 1,228 | 7.5 times slower: 0.28 GB/s, not 2.10 |
 | `compute-sha512` | 2.6 times slower: 733 MB/s, not 1,900 | No slower | 2.8 times slower: 0.45 GB/s, not 1.24 |
 | `decode-gzip` | 15% slower: Canterbury 732 MB/s, not 864 | A tenth slower: Canterbury 619 MB/s, not 685, on Zen 5; 429, not 467, on Granite Rapids | 11% slower: Canterbury 476 MB/s, not 534 |
 | `decode-zlib` | No slower: Canterbury 843 MB/s | 3% slower on Zen 5: Canterbury 656 MB/s, not 673; 4% on Granite Rapids: 439, not 458 | 2% slower: Canterbury 521 MB/s, not 530 |
-| `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-64, 4%; by CRC-32, 2% | By SHA-256, 29% slower: 112 MB/s, not 144, on Zen 5; 85, not 109, on Granite Rapids; by CRC-64, 2%; by CRC-32, within 1% | By SHA-256, 28% slower: 95 MB/s, not 131; by CRC-64, 4%; by CRC-32, 3% |
+| `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-64, 4%; by CRC-32, 2% | By SHA-256, 29% slower: 112 MB/s, not 144, on Zen 5; 85, not 109, on Granite Rapids; by CRC-64, 2%; by CRC-32, within 1% | By SHA-256, 29% slower: 95 MB/s, not 133; by CRC-64, 4%; by CRC-32, 3% |
 | `decode-lzo` | lzop's files checked by CRC-32 16% slower: 962 MB/s, not 1,152; by Adler-32, its default, 5%: 1,098, not 1,157; raw blocks no slower | lzop's files checked by CRC-32 15% slower on Zen 5: 854 MB/s, not 982; 10% on Granite Rapids: 614, not 678; by Adler-32, 6% and 3%: 942, not 1,000, and 648, not 669; raw blocks no slower | lzop's files checked by CRC-32 19% slower: 797 MB/s, not 985; by Adler-32, 3%: 956, not 988 |
 | `filer-api`, `filer-fs`, `filer-system`, `filer-cli` | Their checksums, as `compute-crc`'s | As `compute-crc`'s | As `compute-crc`'s |
 | `filer-ext4`, `filer-xfs` | Estimated: each 4 KiB block of metadata checked by CRC-32C takes some 3 µs more, beside reading it | Estimated: some 0.7 µs more a block | Estimated: some 0.9 µs more a block |

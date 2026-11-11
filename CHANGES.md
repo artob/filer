@@ -150,6 +150,11 @@ so any release may break compatibility.
   to 28, and the tables the other two at 3 to 6. The streams now take
   only fewer than 384 bytes, or 256 of CRC-32/BZIP2, and 128 built for
   Apple's targets.
+- `compute-sha256`: on ARM, the half of the state that each four rounds
+  copy is the second instruction's, not the first's, which the next
+  four wait on: over a mebibyte, 2.10 GB/s on Neoverse V3, as `ring`,
+  not 1.62, and xz's streams checked by it decode Canterbury at 133
+  MB/s there, not 131.
 - `compute-xxhash`: on ARM, each of XXH32's four accumulators takes its
   lane of three stripes in turn, where the four taken together were made
   a vector, whose multiplications each wait twice as long as a
