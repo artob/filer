@@ -45,9 +45,16 @@ const MAX_CODES: usize = 1 << MAX_BITS;
 /// holds.
 const PER_REFILL: usize = 5;
 
-/// The room a refill's runs of a stream take: each up to three symbols,
+/// The codes that a round of the four streams reads of each, between
+/// refills, of the 56 bits that one holds at the least: the first is
+/// looked up before the refill, in what the round before left, so that
+/// neither the refill nor the code waits on the other, which takes as
+/// many bits again left after the last.
+const PER_ROUND: usize = 4;
+
+/// The room a round's runs of a stream take: each up to three symbols,
 /// written as four bytes.
-const RUNS_ROOM: usize = PER_REFILL * 3 + 1;
+const RUNS_ROOM: usize = PER_ROUND * 3 + 1;
 
 /// Where a run's symbols lie, above the bits of their codes, and where
 /// their count does.
@@ -73,19 +80,112 @@ pub(super) struct Huffman {
 /// time. In a run's low six bits, the bits of its codes, which a stream
 /// is shifted past by the run itself, as by a [`Code`]; above them, its
 /// symbols, the first lowest; and in its two high bits, how many they
-/// are: each a shift away, and no more. Built from a table once enough
-/// literals use it to be worth it, and held apart from it, in an array
-/// that a frame allocates when it first builds them and then keeps, so
-/// that a table read costs no more for them, nor a frame that never
-/// builds any.
-#[derive(Clone, Debug, Default)]
-pub(super) struct Runs {
-    runs: Option<Box<Several>>,
-    built: bool,
+/// are: each a shift away, and no more.
+///
+/// On x86-64, whose cores load four words a cycle but shift two, the
+/// bits and the counts are bytes in arrays of their own, and a run is
+/// its symbols alone: each loaded by itself, so that a stream's two
+/// shifts a run, to index it and to read past it, are all there are.
+#[derive(Clone, Debug)]
+pub(super) struct Several {
+    runs: [u32; MAX_CODES],
+    #[cfg(target_arch = "x86_64")]
+    bits: [u8; MAX_CODES],
+    #[cfg(target_arch = "x86_64")]
+    counts: [u8; MAX_CODES],
 }
 
-/// A table's runs, as its loops take them.
-type Several = [u32; MAX_CODES];
+impl Several {
+    /// Runs of nothing, which a table's replace.
+    const EMPTY: Self = Self {
+        runs: [0; MAX_CODES],
+        #[cfg(target_arch = "x86_64")]
+        bits: [0; MAX_CODES],
+        #[cfg(target_arch = "x86_64")]
+        counts: [0; MAX_CODES],
+    };
+
+    /// Sets them to those of `codes`: for each 11 bits, the codes they
+    /// hold whole, one at least, up to three, each looked up past the one
+    /// before, and counted in if it ends within the 11 bits; without a
+    /// branch, as which do varies from one index to the next.
+    fn set(&mut self, codes: &[Code; MAX_CODES]) {
+        let all = u32::from(MAX_BITS);
+        let mask = u32::try_from(MAX_CODES.wrapping_sub(1)).unwrap_or_default();
+        let look = |window: u32| {
+            let at = usize::try_from(window & mask).unwrap_or_default();
+            symbol(codes.get(at).copied().unwrap_or_default())
+        };
+        for (index, run) in (0_u32..).zip(&mut self.runs) {
+            // The bits left, from the top, with zeros after them.
+            let (first, one) = look(index);
+            let window = index.wrapping_shl(one);
+            let (second, two) = look(window);
+            let two = one.wrapping_add(two);
+            let (third, three) = look(window.wrapping_shl(two.wrapping_sub(one)));
+            let three = two.wrapping_add(three);
+            let (pair, triple) = (two <= all, three <= all);
+            let used = if triple {
+                three
+            } else if pair {
+                two
+            } else {
+                one
+            };
+            let count = 1_u32
+                .wrapping_add(u32::from(pair))
+                .wrapping_add(u32::from(triple));
+            let symbols = u32::from_le_bytes([first, second, third, 0]);
+            *run = used | symbols << RUN_BITS | count << RUN_COUNT;
+        }
+        // Each field out of its run, which is left its symbols, and its
+        // count above them: a pass of its own, which takes several runs
+        // at once.
+        #[cfg(target_arch = "x86_64")]
+        {
+            let low = 1_u32.wrapping_shl(RUN_BITS).wrapping_sub(1);
+            let fields = self.bits.iter_mut().zip(&mut self.counts);
+            for (run, (bits, count)) in self.runs.iter_mut().zip(fields) {
+                *bits = u8::try_from(*run & low).unwrap_or_default();
+                *count = u8::try_from(*run >> RUN_COUNT).unwrap_or_default();
+                *run >>= RUN_BITS;
+            }
+        }
+    }
+
+    /// Returns the run at `index`: what a stream is shifted past by, as
+    /// a shift takes it; its symbols, the first lowest, written as four
+    /// bytes, those past their count overwritten by the next run; and how
+    /// many they are.
+    #[inline(always)]
+    fn at(&self, index: usize) -> Option<(u32, u32, usize)> {
+        #[cfg(target_arch = "x86_64")]
+        {
+            let (bits, count) = (self.bits.get(index)?, self.counts.get(index)?);
+            Some((
+                u32::from(*bits),
+                *self.runs.get(index)?,
+                usize::from(*count),
+            ))
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            let run = *self.runs.get(index)?;
+            let count = usize::try_from(run >> RUN_COUNT).unwrap_or_default();
+            Some((run, run >> RUN_BITS, count))
+        }
+    }
+}
+
+/// A table's runs, built from it once enough literals use it to be worth
+/// it, and held apart from it, in arrays that a frame allocates when it
+/// first builds them and then keeps, so that a table read costs no more
+/// for them, nor a frame that never builds any.
+#[derive(Clone, Debug, Default)]
+pub(super) struct Runs {
+    runs: Option<Box<[Several]>>,
+    built: bool,
+}
 
 impl Runs {
     /// Forgets the table they were built from, which another replaces.
@@ -106,18 +206,14 @@ impl Runs {
             return None;
         }
         if !self.built && literals >= RUNS_WORTH {
-            let table = match &mut self.runs {
-                Some(table) => table,
-                // Zeros, which the allocator may hand out as they are.
-                none => {
-                    let zeros = vec![0; MAX_CODES].into_boxed_slice();
-                    none.insert(zeros.try_into().ok()?)
-                },
-            };
-            runs(&huffman.codes, table);
+            // Written where they are allocated, not moved there.
+            let table = self
+                .runs
+                .get_or_insert_with(|| vec![Several::EMPTY; 1].into_boxed_slice());
+            table.first_mut()?.set(&huffman.codes);
             self.built = true;
         }
-        self.runs.as_deref().filter(|_| self.built)
+        self.runs.as_deref()?.first().filter(|_| self.built)
     }
 
     /// Returns the bytes it holds, allocated.
@@ -127,51 +223,54 @@ impl Runs {
 }
 
 /// Decodes the next of `runs` from `bits`, which must hold its codes,
-/// onto the start of `room`, and returns how many symbols it is, up to
-/// three: four bytes written, the last of which the next run overwrites.
+/// onto `output` at `end`, no further than `limit`, four bytes before its
+/// end, and returns where its symbols end, up to three: four bytes
+/// written, those past them overwritten by the next run; or nothing,
+/// having read nothing, if `end` is past the limit.
 #[inline(always)]
-fn run(runs: &Several, bits: &mut Marked<'_>, room: &mut [u8; 4]) -> usize {
-    let index = usize::try_from(bits.peek(u32::from(MAX_BITS))).unwrap_or_default();
-    let run = runs.get(index).copied().unwrap_or_default();
-    bits.consume(run);
-    *room = (run >> RUN_BITS).to_le_bytes();
-    usize::try_from(run >> RUN_COUNT).unwrap_or_default()
+fn run(
+    runs: &Several,
+    bits: &mut Marked<'_>,
+    output: &mut [u8],
+    limit: usize,
+    end: usize,
+) -> Option<usize> {
+    take(runs, ahead(bits), bits, output, limit, end)
 }
 
-/// Decodes a refill's `runs` from each of `bits`, which must hold them,
-/// onto each of `rooms`, in turn, and returns how many symbols each
-/// decoded to, up to fifteen.
+/// Returns the index of what the next bits of `bits` decode to.
 #[inline(always)]
-fn round(
+fn ahead(bits: &Marked<'_>) -> usize {
+    usize::try_from(bits.peek(u32::from(MAX_BITS))).unwrap_or_default()
+}
+
+/// Decodes the one of `runs` at `index`, which the next bits of `bits`
+/// were [`ahead`], as [`run`] does.
+#[inline(always)]
+fn take(
     runs: &Several,
-    bits: [&mut Marked<'_>; 4],
-    rooms: [&mut [u8; RUNS_ROOM]; 4],
-) -> [usize; 4] {
-    let [e, f, g, h] = bits;
-    let [w, x, y, z] = rooms;
-    let (mut i, mut j, mut k, mut l) = (0_usize, 0_usize, 0_usize, 0_usize);
-    for _ in 0..PER_REFILL {
-        // Each within its room: four runs before it took twelve bytes
-        // at most.
-        if let (Some(w), Some(x), Some(y), Some(z)) = (
-            w.get_mut(i..).and_then(<[u8]>::first_chunk_mut),
-            x.get_mut(j..).and_then(<[u8]>::first_chunk_mut),
-            y.get_mut(k..).and_then(<[u8]>::first_chunk_mut),
-            z.get_mut(l..).and_then(<[u8]>::first_chunk_mut),
-        ) {
-            i = i.wrapping_add(run(runs, e, w));
-            j = j.wrapping_add(run(runs, f, x));
-            k = k.wrapping_add(run(runs, g, y));
-            l = l.wrapping_add(run(runs, h, z));
-        }
+    index: usize,
+    bits: &mut Marked<'_>,
+    output: &mut [u8],
+    limit: usize,
+    end: usize,
+) -> Option<usize> {
+    if end > limit {
+        return None;
     }
-    [i, j, k, l]
+    let room = output.get_mut(end..)?.first_chunk_mut::<4>()?;
+    let (read, symbols, count) = runs.at(index)?;
+    bits.consume(read);
+    *room = symbols.to_le_bytes();
+    Some(end.wrapping_add(count))
 }
 
 impl Huffman {
     /// Reads a tree's description (RFC 8878 §4.2.1) from the start of
-    /// `bytes`, and returns its table and the bytes it took.
-    pub(super) fn read(bytes: &[u8]) -> Result<(Self, usize), Error> {
+    /// `bytes` into `table`, and returns the bytes it took: in place,
+    /// where a frame keeps it, as a table is too large to move there for
+    /// each block; one that cannot be read is left as none.
+    pub(super) fn read(table: &mut Option<Self>, bytes: &[u8]) -> Result<usize, Error> {
         let (&header, rest) = bytes.split_first().ok_or_else(corrupt)?;
         let mut all = [0_u8; ROOM];
         let (len, count) = match header.checked_sub(127) {
@@ -192,19 +291,44 @@ impl Huffman {
                 (len, count)
             },
         };
-        let weights = all.get(..count).ok_or_else(corrupt)?;
-        Ok((Self::new(weights)?, len.saturating_add(1)))
+        let codes = table.get_or_insert_with(|| Self {
+            codes: [0; MAX_CODES],
+        });
+        if let Err(error) = codes.set(&mut all, count) {
+            *table = None;
+            return Err(error);
+        }
+        Ok(len.saturating_add(1))
     }
 
     /// Returns the table of codes of `weights`, each byte's in turn, but
     /// for the last listed's successor, whose weight brings their total
     /// to a power of two.
+    #[cfg(test)]
     fn new(weights: &[u8]) -> Result<Self, Error> {
-        if weights.len() > MAX_WEIGHTS || weights.iter().any(|&weight| weight > MAX_BITS) {
+        let mut all = [0_u8; ROOM];
+        all.get_mut(..weights.len())
+            .ok_or_else(corrupt)?
+            .copy_from_slice(weights);
+        let mut table = Self {
+            codes: [0; MAX_CODES],
+        };
+        table.set(&mut all, weights.len())?;
+        Ok(table)
+    }
+
+    /// Sets it to the table of codes of the first `count` of `weights`,
+    /// each byte's in turn, with zeros after them: the first of which is
+    /// set to the weight of the last listed's successor, which brings
+    /// their total to a power of two. A table that fails to be set holds
+    /// no table's codes.
+    fn set(&mut self, weights: &mut [u8; ROOM], count: usize) -> Result<(), Error> {
+        let listed = weights.get(..count).ok_or_else(corrupt)?;
+        if count > MAX_WEIGHTS || listed.iter().any(|&weight| weight > MAX_BITS) {
             return Err(corrupt());
         }
         let share = |weight: u8| 1_u32.wrapping_shl(u32::from(weight)) >> 1;
-        let total: u32 = weights.iter().map(|&weight| share(weight)).sum();
+        let total: u32 = listed.iter().map(|&weight| share(weight)).sum();
         let bits = total.checked_ilog2().ok_or_else(corrupt)?.saturating_add(1);
         let whole = 1_u32.wrapping_shl(bits);
         let rest = whole.saturating_sub(total);
@@ -213,49 +337,66 @@ impl Huffman {
         }
         let last = u8::try_from(rest.ilog2().saturating_add(1)).map_err(|_| corrupt())?;
         let bits = u8::try_from(bits).map_err(|_| corrupt())?;
-        let mut all = [0_u8; ROOM];
-        let (listed, after) = all
-            .split_at_mut_checked(weights.len())
-            .ok_or_else(corrupt)?;
-        listed.copy_from_slice(weights);
-        *after.first_mut().ok_or_else(corrupt)? = last;
-        let weights = all
-            .get(..weights.len().saturating_add(1))
-            .ok_or_else(corrupt)?;
+        *weights.get_mut(count).ok_or_else(corrupt)? = last;
 
         // The codes are dealt out lightest weight first, each weight's in
         // the order of their symbols: the symbols sorted so, by counting
         // how many each weight has, and so where its first lies. A weight
-        // is of four bits, which index sixteen counts unchecked.
-        let mut starts = [0_usize; 16];
-        for &weight in weights {
-            let next = usize::from(weight).wrapping_add(1) & 0x0F;
-            if let Some(count) = starts.get_mut(next) {
-                *count = count.wrapping_add(1);
-            }
+        // is of four bits, which index sixteen counts unchecked; and each
+        // quarter of the bytes that have weights has counts of its own,
+        // taken in turn, as weights that follow each other are often the
+        // same, and a count would wait on the one before it.
+        let quarter = count.saturating_add(1).div_ceil(4);
+        let (first, rest) = weights.split_at_checked(quarter).ok_or_else(corrupt)?;
+        let (second, rest) = rest.split_at_checked(quarter).ok_or_else(corrupt)?;
+        let (third, rest) = rest.split_at_checked(quarter).ok_or_else(corrupt)?;
+        let fourth = rest.get(..quarter).ok_or_else(corrupt)?;
+        let quarters = || first.iter().zip(second).zip(third.iter().zip(fourth));
+        let slot = |counts: &mut [usize; 16], weight: u8| {
+            let count = counts.get_mut(usize::from(weight & 0x0F))?;
+            let was = *count;
+            *count = was.wrapping_add(1);
+            Some(was)
+        };
+        let mut counts = [[0_usize; 16]; 4];
+        let [a, b, c, d] = &mut counts;
+        for ((&w, &x), (&y, &z)) in quarters() {
+            let _ = (slot(a, w), slot(b, x), slot(c, y), slot(d, z));
         }
+        // Where each weight's symbols start, and each quarter's of them.
+        let mut starts = [0_usize; 17];
         let mut at = 0_usize;
-        for start in &mut starts {
-            at = at.wrapping_add(*start);
+        for (weight, start) in starts.iter_mut().enumerate() {
             *start = at;
-        }
-        let mut sorted = [0_u8; ROOM];
-        for (symbol, &weight) in (0_u8..=u8::MAX).zip(weights) {
-            if let Some(start) = starts.get_mut(usize::from(weight & 0x0F)) {
-                // Fewer than 257, as the weights are.
-                if let Some(slot) = sorted.get_mut(*start & 0xFF) {
-                    *slot = symbol;
+            for counts in &mut counts {
+                if let Some(count) = counts.get_mut(weight) {
+                    (*count, at) = (at, at.wrapping_add(*count));
                 }
-                *start = start.wrapping_add(1);
             }
         }
-        // Each weight's symbols now lie before where the next one's did:
+        // Fewer than 257 symbols, as the weights are, so a byte is each.
+        let mut sorted = [0_u8; ROOM];
+        let mut place = |at: Option<usize>, symbol: usize| {
+            if let Some(slot) = at.and_then(|at| sorted.get_mut(at & 0xFF)) {
+                *slot = u8::try_from(symbol & 0xFF).unwrap_or_default();
+            }
+        };
+        let [a, b, c, d] = &mut counts;
+        for (symbol, ((&w, &x), (&y, &z))) in quarters().enumerate() {
+            place(slot(a, w), symbol);
+            place(slot(b, x), symbol.wrapping_add(quarter));
+            place(slot(c, y), symbol.wrapping_add(quarter.wrapping_mul(2)));
+            place(slot(d, z), symbol.wrapping_add(quarter.wrapping_mul(3)));
+        }
+        // Each weight's symbols now lie from its start to the next one's:
         // those of no weight first, which have no code.
-        let mut codes = [0; MAX_CODES];
         let shift = MAX_BITS.saturating_sub(bits);
-        let mut rest = codes.as_mut_slice();
-        let (mut from, mut weight) = (starts.first().copied().unwrap_or_default(), 1_u8);
-        for &to in starts.get(1..=usize::from(MAX_BITS)).unwrap_or_default() {
+        let mut rest = self.codes.as_mut_slice();
+        let classes = starts.windows(2).zip(0_u8..).skip(1);
+        for (bounds, weight) in classes.take(usize::from(MAX_BITS)) {
+            let &[from, to] = bounds else {
+                return Err(corrupt());
+            };
             let symbols = sorted.get(from..to).ok_or_else(corrupt)?;
             // As many entries each as codes of the longest the table
             // takes begin with the weight's, a power of two.
@@ -265,9 +406,9 @@ impl Huffman {
             let all = each.saturating_mul(symbols.len());
             let (entries, after) = rest.split_at_mut_checked(all).ok_or_else(corrupt)?;
             deal(entries, symbols, each, len);
-            (rest, from, weight) = (after, to, weight.saturating_add(1));
+            rest = after;
         }
-        Ok(Self { codes })
+        Ok(())
     }
 
     /// Decodes `stream` into `output`, which it must fill exactly.
@@ -284,8 +425,8 @@ impl Huffman {
     /// they stay in registers, and the processor looks up each one's codes
     /// while it looks up the others'; and while far from their starts, by
     /// [`Marked`] readers, which hold fewer, as many rounds at once as
-    /// their streams and their quarters have room for at the least, so
-    /// that a round checks neither.
+    /// their streams and their quarters have room for at the least, each
+    /// round's first codes looked up while its streams are refilled.
     pub(super) fn decode4(
         &self,
         runs: Option<&Several>,
@@ -304,23 +445,23 @@ impl Huffman {
             Backward::new(fourth)?,
         ];
         let quarter = output.len().div_ceil(4);
-        let (first, rest) = output.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
-        let (second, rest) = rest.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
-        let (third, fourth) = rest.split_at_mut_checked(quarter).ok_or_else(corrupt)?;
-        let mut quarters = [first, second, third, fourth];
         // How far each quarter is decoded.
         let mut ends = [0_usize; 4];
         let [a, b, c, d] = &readers;
         if let (Some(e), Some(f), Some(g), Some(h)) = (a.mark(), b.mark(), c.mark(), d.mark()) {
             let mut marked = [e, f, g, h];
             match runs {
-                Some(runs) => several(runs, &mut marked, &mut quarters, &mut ends),
-                None => singly(self, &mut marked, &mut quarters, &mut ends),
+                Some(runs) => several(runs, &mut marked, output, quarter, &mut ends),
+                None => {
+                    let mut quarters = quarters(output, quarter).ok_or_else(corrupt)?;
+                    singly(self, &mut marked, &mut quarters, &mut ends);
+                },
             }
             for (reader, marked) in readers.iter_mut().zip(&marked) {
                 reader.unmark(marked);
             }
         }
+        let quarters = quarters(output, quarter).ok_or_else(corrupt)?;
         for ((mut bits, quarter), end) in readers.into_iter().zip(quarters).zip(ends) {
             self.rest(&mut bits, quarter.get_mut(end..).unwrap_or_default());
             if !bits.done() {
@@ -334,7 +475,13 @@ impl Huffman {
     /// its code.
     #[inline(always)]
     fn marked(&self, bits: &mut Marked<'_>) -> u8 {
-        let index = usize::try_from(bits.peek(u32::from(MAX_BITS))).unwrap_or_default();
+        self.looked(ahead(bits), bits)
+    }
+
+    /// Decodes and returns the symbol at `index`, which the next bits of
+    /// `bits` were [`ahead`], and reads past its code.
+    #[inline(always)]
+    fn looked(&self, index: usize, bits: &mut Marked<'_>) -> u8 {
         let code = self.codes.get(index).copied().unwrap_or_default();
         bits.consume(u32::from(code));
         symbol(code).0
@@ -363,7 +510,7 @@ impl Huffman {
 
 /// Decodes from the four streams of `bits` onto `quarters` from
 /// `ends`, which it moves on, while each stream is far from its start
-/// and each quarter has room: five symbols of each a round, by `huffman`,
+/// and each quarter has room: four symbols of each a round, by `huffman`,
 /// stored as they are decoded. With `intrinsics`, it is built for BMI2
 /// too, whose shifts take any register, and taken where the CPU has it.
 #[cfg_attr(
@@ -377,7 +524,14 @@ fn singly(
     ends: &mut [usize; 4],
 ) {
     loop {
-        let rounds = rounds(bits, quarters, ends, PER_REFILL);
+        let left = [0, 1, 2, 3].map(|nth: usize| {
+            let (quarter, end) = (quarters.get(nth), ends.get(nth));
+            let left = quarter
+                .zip(end)
+                .map(|(quarter, end)| quarter.len().saturating_sub(*end));
+            left.unwrap_or_default()
+        });
+        let rounds = rounds(bits, left, PER_ROUND);
         if rounds == 0 {
             return;
         }
@@ -392,10 +546,20 @@ fn singly(
         let [mut e, mut f, mut g, mut h] = *bits;
         let mut taken = 0_usize;
         for (((w, x), y), z) in rooms.take(rounds) {
-            // Each has bytes for as many refills as there are rounds.
+            let ([w0, w @ ..], [x0, x @ ..], [y0, y @ ..], [z0, z @ ..]) = (w, x, y, z);
+            // Each one's first code is looked up in what it holds, and
+            // read past once all are refilled, for which each has bytes
+            // for as many rounds as there are: none is read past unless
+            // all are, as the four are counted as one.
+            let first = [ahead(&e), ahead(&f), ahead(&g), ahead(&h)];
             if !(e.refill() && f.refill() && g.refill() && h.refill()) {
                 break;
             }
+            let [p, q, r, s] = first;
+            *w0 = huffman.looked(p, &mut e);
+            *x0 = huffman.looked(q, &mut f);
+            *y0 = huffman.looked(r, &mut g);
+            *z0 = huffman.looked(s, &mut h);
             let each = w.iter_mut().zip(x).zip(y).zip(z);
             for (((w, x), y), z) in each {
                 *w = huffman.marked(&mut e);
@@ -403,7 +567,7 @@ fn singly(
                 *y = huffman.marked(&mut g);
                 *z = huffman.marked(&mut h);
             }
-            taken = taken.wrapping_add(PER_REFILL);
+            taken = taken.wrapping_add(PER_ROUND);
         }
         *bits = [e, f, g, h];
         for end in ends.iter_mut() {
@@ -415,9 +579,21 @@ fn singly(
     }
 }
 
-/// Decodes from the four streams of `bits` onto `quarters` from
-/// `ends`, which it moves on, while each stream is far from its start
-/// and each quarter has room: five of `runs` of each a round. With
+/// Returns the four quarters of `output`, each of `quarter` bytes but the
+/// last, which is of the rest, if it holds as many.
+fn quarters(output: &mut [u8], quarter: usize) -> Option<[&mut [u8]; 4]> {
+    let (first, rest) = output.split_at_mut_checked(quarter)?;
+    let (second, rest) = rest.split_at_mut_checked(quarter)?;
+    let (third, fourth) = rest.split_at_mut_checked(quarter)?;
+    Some([first, second, third, fourth])
+}
+
+/// Decodes from the four streams of `bits` onto the quarters of `output`,
+/// each of `quarter` bytes but the last, from `ends`, which it moves on,
+/// while each stream is far from its start and each quarter has room:
+/// four of `runs` of each a round. The quarters are written where they
+/// lie in `output`, not each as a slice of its own, so that one register
+/// holds where for all four, of the few that x86-64 has. With
 /// `intrinsics`, it is built for BMI2 too, and taken where the CPU has it.
 #[cfg_attr(
     all(feature = "intrinsics", target_arch = "x86_64"),
@@ -426,42 +602,102 @@ fn singly(
 fn several(
     runs: &Several,
     bits: &mut [Marked<'_>; 4],
-    quarters: &mut [&mut [u8]; 4],
+    output: &mut [u8],
+    quarter: usize,
     ends: &mut [usize; 4],
 ) {
+    // Where each quarter starts in the output, and how long it is.
+    let [first, second, third, fourth] = [0, 1, 2, 3].map(|nth: usize| quarter.saturating_mul(nth));
+    let last = output.len().saturating_sub(fourth);
+    // The last place a run may be written.
+    let Some(limit) = output.len().checked_sub(4) else {
+        return;
+    };
     loop {
-        let rounds = rounds(bits, quarters, ends, RUNS_ROOM);
+        let [w, x, y, z] = *ends;
+        let left = [(quarter, w), (quarter, x), (quarter, y), (last, z)];
+        let rounds = rounds(
+            bits,
+            left.map(|(len, end)| len.saturating_sub(end)),
+            RUNS_ROOM,
+        );
         if rounds == 0 {
             return;
         }
         let before = *ends;
-        let [first, second, third, fourth] = quarters;
-        let [mut i, mut j, mut k, mut l] = *ends;
+        // Where each quarter's next run goes in the output: none of
+        // these wraps, as each end lies within its quarter.
+        let [mut i, mut j, mut k, mut l] = [
+            first.wrapping_add(w),
+            second.wrapping_add(x),
+            third.wrapping_add(y),
+            fourth.wrapping_add(z),
+        ];
         // The readers held apart, so that they stay in registers:
         // behind a reference, each store of a run might be to one.
         let [mut e, mut f, mut g, mut h] = *bits;
-        for _ in 0..rounds {
-            let (Some(w), Some(x), Some(y), Some(z)) = (
-                room(first, i),
-                room(second, j),
-                room(third, k),
-                room(fourth, l),
-            ) else {
-                break;
-            };
-            // Each has bytes for as many refills as there are rounds.
-            if !(e.refill() && f.refill() && g.refill() && h.refill()) {
+        'rounds: for _ in 0..rounds {
+            // Each one's first run is looked up in what it holds, and
+            // read past once refilled, for which each has bytes for as
+            // many rounds as there are.
+            let first = ahead(&e);
+            if !e.refill() {
                 break;
             }
-            let readers = [&mut e, &mut f, &mut g, &mut h];
-            let [m, n, o, p] = round(runs, readers, [w, x, y, z]);
-            i = i.wrapping_add(m);
-            j = j.wrapping_add(n);
-            k = k.wrapping_add(o);
-            l = l.wrapping_add(p);
+            let Some(end) = take(runs, first, &mut e, output, limit, i) else {
+                break;
+            };
+            i = end;
+            let first = ahead(&f);
+            if !f.refill() {
+                break;
+            }
+            let Some(end) = take(runs, first, &mut f, output, limit, j) else {
+                break;
+            };
+            j = end;
+            let first = ahead(&g);
+            if !g.refill() {
+                break;
+            }
+            let Some(end) = take(runs, first, &mut g, output, limit, k) else {
+                break;
+            };
+            k = end;
+            let first = ahead(&h);
+            if !h.refill() {
+                break;
+            }
+            let Some(end) = take(runs, first, &mut h, output, limit, l) else {
+                break;
+            };
+            l = end;
+            for _ in 1..PER_ROUND {
+                let Some(end) = run(runs, &mut e, output, limit, i) else {
+                    break 'rounds;
+                };
+                i = end;
+                let Some(end) = run(runs, &mut f, output, limit, j) else {
+                    break 'rounds;
+                };
+                j = end;
+                let Some(end) = run(runs, &mut g, output, limit, k) else {
+                    break 'rounds;
+                };
+                k = end;
+                let Some(end) = run(runs, &mut h, output, limit, l) else {
+                    break 'rounds;
+                };
+                l = end;
+            }
         }
         *bits = [e, f, g, h];
-        *ends = [i, j, k, l];
+        *ends = [
+            i.wrapping_sub(first),
+            j.wrapping_sub(second),
+            k.wrapping_sub(third),
+            l.wrapping_sub(fourth),
+        ];
         if *ends == before {
             return;
         }
@@ -493,104 +729,60 @@ fn deal(entries: &mut [Code], symbols: &[u8], each: usize, len: u8) {
     }
 }
 
-/// Returns the room that a refill's runs take of `quarter` from `end`, if
-/// it has as much.
-fn room(quarter: &mut [u8], end: usize) -> Option<&mut [u8; RUNS_ROOM]> {
-    quarter.get_mut(end..)?.first_chunk_mut()
-}
-
-/// Returns the rooms of a refill's symbols each that `quarter` holds whole
+/// Returns the rooms of a round's symbols each that `quarter` holds whole
 /// from `end` on.
-fn whole(quarter: &mut [u8], end: usize) -> core::slice::IterMut<'_, [u8; PER_REFILL]> {
+fn whole(quarter: &mut [u8], end: usize) -> core::slice::IterMut<'_, [u8; PER_ROUND]> {
     let rest = quarter.get_mut(end..).unwrap_or_default();
     let (whole, _) = rest.as_chunks_mut();
     whole.iter_mut()
 }
 
-/// Returns how many rounds the four streams of `bits`, and `quarters`,
-/// decoded as far as `ends`, have room for, at the least: a round refills
-/// each stream once, and takes up to `room` of each quarter.
-fn rounds(
-    bits: &[Marked<'_>; 4],
-    quarters: &[&mut [u8]; 4],
-    ends: &[usize; 4],
-    room: usize,
-) -> usize {
+/// Returns how many rounds the four streams of `bits`, and their
+/// quarters, which have as many bytes `left`, have room for, at the
+/// least: a round refills each stream once, and takes up to `room` of
+/// each quarter.
+fn rounds(bits: &[Marked<'_>; 4], left: [usize; 4], room: usize) -> usize {
     let streams = bits.iter().map(Marked::refills);
-    let rooms = quarters.iter().zip(ends);
-    let rooms = rooms.map(|(quarter, &end)| {
-        let left = quarter.len().saturating_sub(end);
-        left.checked_div(room).unwrap_or_default()
-    });
+    let rooms = left.map(|left| left.checked_div(room).unwrap_or_default());
     streams.chain(rooms).min().unwrap_or_default()
 }
 
-/// Sets `runs` to those of `codes`: for each 11 bits, the codes they hold
-/// whole, one at least, up to three, each looked up past the one before,
-/// and counted in if it ends within the 11 bits; without a branch, as
-/// which do varies from one index to the next.
-fn runs(codes: &[Code; MAX_CODES], runs: &mut Several) {
-    let all = u32::from(MAX_BITS);
-    let mask = u32::try_from(MAX_CODES.wrapping_sub(1)).unwrap_or_default();
-    let look = |window: u32| {
-        let at = usize::try_from(window & mask).unwrap_or_default();
-        symbol(codes.get(at).copied().unwrap_or_default())
-    };
-    for (index, run) in (0_u32..).zip(runs) {
-        // The bits left, from the top, with zeros after them.
-        let (first, one) = look(index);
-        let window = index.wrapping_shl(one);
-        let (second, two) = look(window);
-        let two = one.wrapping_add(two);
-        let (third, three) = look(window.wrapping_shl(two.wrapping_sub(one)));
-        let three = two.wrapping_add(three);
-        let (pair, triple) = (two <= all, three <= all);
-        let used = if triple {
-            three
-        } else if pair {
-            two
-        } else {
-            one
-        };
-        let count = 1_u32
-            .wrapping_add(u32::from(pair))
-            .wrapping_add(u32::from(triple));
-        let symbols = u32::from_le_bytes([first, second, third, 0]);
-        *run = used | symbols << RUN_BITS | count << RUN_COUNT;
-    }
-}
+/// The weights decoded from a refill, each state reading up to 6 bits of
+/// the 57 it holds.
+const WEIGHTS_PER_REFILL: usize = 9;
 
 /// Decodes weights coded with FSE (RFC 8878 §4.2.1.2) from `bytes` onto
 /// `weights`: a table's description, and a stream that two states read in
 /// turn, until one's next state would read past its start, after which
-/// the other's symbol is the last.
+/// the other's symbol is the last. The bits left are counted down, which
+/// tells such a read without a refill, so that the stream is refilled
+/// once for several weights.
 fn fse(bytes: &[u8], weights: &mut [u8; ROOM]) -> Result<usize, Error> {
     let symbols = usize::from(MAX_BITS).saturating_add(1);
     let (distribution, used) = Distribution::read(bytes, Table::MAX_LOG, symbols)?;
     let table = Table::new(&distribution)?;
     let mut bits = Backward::new(bytes.get(used..).unwrap_or_default())?;
-    let mut states = [table.start(&mut bits), table.start(&mut bits)];
+    // The state whose turn it is, and the other's.
+    let (mut state, mut other) = (table.start(&mut bits), table.start(&mut bits));
+    let mut left = bits.left();
     let mut len = 0_usize;
-    for turn in [0, 1].into_iter().cycle() {
-        if len >= MAX_WEIGHTS {
-            return Err(corrupt());
-        }
-        let state = states.get_mut(turn).ok_or_else(corrupt)?;
-        let entry = table.entry(*state);
-        *weights.get_mut(len).ok_or_else(corrupt)? = entry.symbol;
-        len = len.saturating_add(1);
+    loop {
         bits.refill();
-        *state = Table::next(entry, &mut bits);
-        if bits.overflowed() {
-            let other = states
-                .get(1_usize.saturating_sub(turn))
-                .ok_or_else(corrupt)?;
-            *weights.get_mut(len).ok_or_else(corrupt)? = table.entry(*other).symbol;
+        for _ in 0..WEIGHTS_PER_REFILL {
+            if len >= MAX_WEIGHTS {
+                return Err(corrupt());
+            }
+            let entry = table.entry(state);
+            *weights.get_mut(len).ok_or_else(corrupt)? = entry.symbol;
             len = len.saturating_add(1);
-            break;
+            left = left.and_then(|left| left.checked_sub(usize::from(entry.bits)));
+            if left.is_none() {
+                *weights.get_mut(len).ok_or_else(corrupt)? = table.entry(other).symbol;
+                return Ok(len.saturating_add(1));
+            }
+            (state, other) = (other, Table::next(entry, &mut bits));
         }
     }
-    Ok(len)
 }
 
 #[cfg(test)]
@@ -602,8 +794,10 @@ mod tests {
     /// and 1, and so 1 for byte 5, coded directly.
     #[test]
     fn deals_codes_as_the_rfc_does() {
-        let (huffman, used) = Huffman::read(&[127 + 5, 0x43, 0x20, 0x10]).unwrap();
+        let mut table = None;
+        let used = Huffman::read(&mut table, &[127 + 5, 0x43, 0x20, 0x10]).unwrap();
         assert_eq!(used, 4);
+        let huffman = table.unwrap();
         let code = |of: u8| {
             let at = huffman.codes.iter().position(|&code| symbol(code).0 == of);
             (at.unwrap() >> 7, symbol(huffman.codes[at.unwrap()]).1)

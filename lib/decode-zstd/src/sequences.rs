@@ -8,7 +8,7 @@
 use super::{
     bits::{Backward, Counted},
     corrupt,
-    fse::{Distribution, MAX_STATES, MAX_SYMBOLS},
+    fse::{Distribution, MAX_STATES, MAX_SYMBOLS, Numbers},
     window::Cursor,
 };
 use crate::Error;
@@ -412,24 +412,43 @@ impl Decoding {
     };
 
     /// Sets it to the table of `distribution`, of `kind`: each state as
-    /// its symbol's share has it, and worth what its symbol is, which is
+    /// its symbol's number has it, and worth what its symbol is, which is
     /// looked up once a symbol, not once a state.
     fn build(&mut self, distribution: &Distribution, kind: &Kind) -> Result<(), Error> {
         let mut symbols = [0; MAX_STATES];
         let states = distribution.spread(&mut symbols)?;
-        let mut shares = distribution.shares();
-        let mut values = [(Worth::default(), 0_u8); MAX_SYMBOLS];
+        let mut numbers = distribution.numbers();
+        // What each symbol is worth, and its counts but for a state's
+        // bits: of as many symbols as numbers are, so that none is
+        // checked.
+        let mut values = [(Worth::default(), Counts::default()); Numbers::ROOM];
         for (symbol, value) in (0_u8..).zip(&mut values).take(distribution.symbols()) {
-            *value = kind.worth(symbol);
+            let (worth, extra) = kind.worth(symbol);
+            *value = (worth, Counts::new(extra, 0));
         }
-        for (state, &symbol) in states.iter().enumerate() {
-            let (bits, base) = shares.take(symbol);
-            let (value, extra) = values.get(usize::from(symbol)).copied().unwrap_or_default();
-            let step = Step {
-                next: u32::from(base),
-                mask: mask(bits),
+        // A state's number, under a bit that marks its top, shifted up
+        // by its bits, is its base, past the table's size, under the bit
+        // past its mask: both follow from one shift, and are stored as
+        // one word.
+        let log = distribution.log();
+        let top = 1_u64 << u32::BITS;
+        let whole = top | 1_u64.wrapping_shl(u32::from(log));
+        let slots = self.steps.iter_mut().zip(&mut self.worths);
+        let counts = self.extras.iter_mut().zip(&mut self.shorts);
+        let slots = slots.zip(counts.zip(&mut self.longs));
+        for (((step, worth), ((extra, short), long)), &symbol) in slots.zip(states) {
+            let number = numbers.take(symbol);
+            let bits = Numbers::bits(number, log);
+            let both = (top | u64::from(number)).wrapping_shl(u32::from(bits));
+            let both = both.wrapping_sub(whole);
+            let at = Numbers::index(symbol);
+            let (value, counts) = values.get(at).copied().unwrap_or_default();
+            *step = Step {
+                next: u32::try_from(both & u64::from(u32::MAX)).unwrap_or_default(),
+                mask: u32::try_from(both >> u32::BITS).unwrap_or_default(),
             };
-            self.set(state, step, Counts::new(extra, bits), value);
+            (*worth, *extra, *short) = (value, counts.extra, counts.short);
+            *long = counts.short.wrapping_sub(bits);
         }
         Ok(())
     }

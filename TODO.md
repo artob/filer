@@ -628,34 +628,43 @@ crate's name until its first code, which moves it to `lib/`.
   tested only against blocks built by hand (2026-11-07). Done when it
   decodes blocks that the Linux kernel's `lzo-rle` writes, through F2FS
   with `compress_algorithm=lzo-rle` on comet, to what was written.
-- [ ] **DEC-22: zstd on Zen 5, and what still lags.** By a timer's best
-  of runs over the corpus, whole, at levels 1, 3, 9, 19, and 22
-  (2026-11-11), `decode-zstd` decodes at 0.93 to 0.94 times libzstd's
-  speed on Granite Rapids and 0.92 to 0.97 on Neoverse V3, within 1.1
-  times; and at 0.89 to 0.90 on Zen 5, 1.11 to 1.12 times, and in pieces
-  of 4 and 64 KiB at 0.82 to 0.84 there, by the harness's check;
+- [ ] **DEC-22: zstd in pieces, and what still lags.** By a timer's best
+  of runs over the corpus at levels 1, 3, 9, and 19 (2026-11-11),
+  `decode-zstd` decodes whole streams at 0.92 to 0.95 times libzstd's
+  speed on Zen 5, 0.95 to 0.97 on Granite Rapids, and 0.97 to 1.00 on
+  Neoverse V3, each within 1.1 times; but given and taken in pieces of
+  4 or 64 KiB, at 0.86 to 0.92 on Zen 5, 0.88 to 0.94 on Granite
+  Rapids, and 0.90 to 0.98 on Neoverse V3, the least at level 19;
   `BENCH.md`'s tables, of before, are due again (BENCH-02). What is
-  left, by `perf` and by each pass run alone: reading a sequence takes
-  12.6 cycles on Zen 5, where its states' chains of loads, sums, and
-  shifts add up to 9 or 10: a core shifts two words a cycle and loads
-  four, and LLVM orders both; settling a batch whose offsets repeat by
-  turns takes 6 to 7 cycles a sequence, of 36 instructions, which is
-  most of `ptt5`'s 0.74 on Zen 5, where it is at 1.0 on Granite Rapids;
-  matches from fewer than 32 bytes back go through a call, a quarter to
-  two fifths of `kennedy.xls`'s and `sum`'s at level 19, at 0.66; four
-  Huffman streams by runs end when the first quarter is full, and the
-  rest goes a symbol at a time, 6% of `silesia/mr`'s time at level 1;
-  a frame of a few kilobytes reads its tables' descriptions in twice
-  libzstd's time on Neoverse V3, `grammar.lsp` at 0.68 there; and with
-  a window of 128 MiB, Neoverse V3 is at 0.86, where libzstd asks
-  memory for its matches ahead. Tried, and lost: a pass that loads each
-  match's source before its batch runs, 3 to 16% slower on every
-  machine; a branch for the repeat of one less than the latest offset,
-  5 to 20% slower on binaries; runs of codes of more than 6 bits a
-  literal, 17% slower on `silesia/x-ray`; and the fields' counts
-  summed in the bytes of one word, which takes three more shifts. Done
-  when Zen 5's figures, over the corpus, are within 1.1 times
-  libzstd's too, or its crate's docs say why not.
+  left in pieces: a frame that says what it decodes to, less than its
+  window and two blocks, has its buffer grown for its last block, which
+  copies all it decoded, and glibc then trims its heap, so that it
+  takes fresh pages each time: 2,100 page faults for 8 MiB, where
+  libzstd takes two; and a block stored as it is, or of one byte
+  repeated, is gathered, set to zeros, and copied twice,
+  `synthetic/random` at 0.59 to 0.63 on Zen 5. What is left whole, by
+  `perf` and by each pass run alone: reading a sequence takes 12.6
+  cycles on Zen 5, where its states' chains of loads, sums, and shifts
+  add up to 9: a core shifts two words a cycle and loads four, and LLVM
+  orders both; settling a batch whose offsets repeat by turns takes 6
+  to 7 cycles a sequence, of 36 instructions, which is most of `ptt5`'s
+  0.76 to 0.80 on Zen 5, where Granite Rapids is at 1.1 to 1.2; matches
+  from fewer than 32 bytes back go through a call, a quarter to two
+  fifths of `kennedy.xls`'s and `sum`'s at level 19, at 0.68 there;
+  a frame of a few kilobytes still reads its tables' descriptions more
+  slowly than libzstd on Neoverse V3, `grammar.lsp` at 0.76 to 0.79
+  there; and with a window of 128 MiB, Neoverse V3 is at 0.89, where
+  libzstd asks memory for its matches ahead. Tried, and lost: a pass
+  that loads each match's source before its batch runs, 3 to 16% slower
+  on every machine; a branch for the repeat of one less than the latest
+  offset, 5 to 20% slower on binaries; runs of codes of more than 6
+  bits a literal, 17% slower on `silesia/x-ray`; the fields' counts
+  summed in the bytes of one word, which takes three more shifts; runs
+  of four symbols, whose table takes longer to build than they save;
+  a round's runs written to a buffer and copied out, which waits on
+  its stores; and the wide copy's cases widened, 1% slower on each
+  machine. Done when streams in pieces are within 1.1 times libzstd's
+  on each default machine too, or the crate's docs say why not.
 - [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
   `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
   names, never run in CI, checked against a reference decoder, or for

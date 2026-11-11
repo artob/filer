@@ -123,6 +123,21 @@ so any release may break compatibility.
   0.90 times libzstd's speed, not 0.82 to 0.85; on Granite Rapids, 0.93
   to 0.94, not 0.79 to 0.84; and on Neoverse V3, 0.94 to 0.97, not 0.86
   to 0.90.
+- `decode-zstd`: a block's tables are read without a branch on what
+  they hold. A distribution's counts are read from bits looked at
+  ahead; its states are laid out in a row, then spread, and each takes
+  its symbol's next number, as RFC 8878 defines them; a Huffman table's
+  weights decode nine to a refill, its symbols are sorted by counts
+  that each quarter of them keeps, and it is set where a frame keeps
+  it, not moved there. Four Huffman streams look up each round's first
+  code while they refill, four codes a round; their runs are written
+  where the quarters lie in the output, which one register holds; and
+  on x86-64 a run's bits and count are bytes in arrays of their own,
+  loaded, not shifted out, so that a frame's runs take 12 KiB there,
+  not 8. By a timer's best of runs over the corpus, at levels 1, 3, 9,
+  and 19: on Zen 5, 0.92 to 0.95 times libzstd's speed, not 0.89 to
+  0.90; on Granite Rapids, 0.95 to 0.97, not 0.93 to 0.94; and on
+  Neoverse V3, 0.97 to 1.00, not 0.94 to 0.97.
 - `decode-zstd`: the buffer of a block's literals grows by doubling, up
   to the block's most, freeing the old first, as its literals are not
   kept: on Zen 1, over the corpus, at most 1.63 times libzstd's peak,

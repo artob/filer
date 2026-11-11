@@ -290,14 +290,14 @@ enum State {
 /// unless the input holds it whole, so it holds at most a block of packed
 /// bytes; and of what they decode to, the frame's window and two blocks,
 /// in a buffer that decoding goes round, allocated as it fills; and its
-/// tables, some 41 KiB at the most: 4 KiB allocated once a frame, 29 KiB
-/// by its first block that has sequences, and 8 KiB by the first whose
-/// literals are enough for their codes to decode several at a time. A
-/// frame that the input
-/// holds whole, and whose header says what it decodes to, which the
-/// output has room for, it decodes straight into the output, holding no
-/// window, as libzstd does. A frame whose window passes 128 MiB, the most
-/// zstd itself decodes by default, or that needs a dictionary is
+/// tables, some 41 KiB at the most, or 45 on x86-64: 4 KiB allocated once
+/// a frame, 29 KiB by its first block that has sequences, and 8 KiB, or
+/// 12 on x86-64, by the first whose literals are enough for their codes
+/// to decode several at a time. A frame that the input holds whole, and
+/// whose header says what it decodes to, which the output has room for,
+/// it decodes straight into the output, holding no window, as libzstd
+/// does. A frame whose window passes 128 MiB, the most zstd itself
+/// decodes by default, or that needs a dictionary is
 /// [`Unsupported`](Error::Unsupported). What follows the last frame must
 /// be another, as zstd requires.
 ///

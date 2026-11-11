@@ -17,6 +17,10 @@ pub(super) const MAX_STATES: usize = 1 << MAX_LOG;
 /// The most symbols of any distribution: those of match lengths.
 pub(super) const MAX_SYMBOLS: usize = 53;
 
+/// As many of a symbol as are laid at once, before they are spread: more
+/// than most symbols' counts, so that few take a second turn.
+const LAID: usize = 32;
+
 /// A distribution: each symbol's count of a table's `1 << log` states,
 /// or -1 for "less than 1", which takes one.
 #[derive(Clone, Debug)]
@@ -50,18 +54,23 @@ impl Distribution {
             len = len.saturating_add(1);
             Ok(())
         };
+        // Each count is read from bits looked at ahead, and one more is
+        // read past or not by what they are, not by a branch on them, as
+        // which it is varies; so whether the stream holds them is told
+        // once they are all read, of bits that are zeros past its end.
         while left > 0 {
             let max = left.saturating_add(1);
             let width = u32::BITS.saturating_sub(max.leading_zeros());
             let short = mask(width).saturating_sub(max);
-            let low = bits.read(width.saturating_sub(1))?;
-            let low = u32::try_from(low).map_err(|_| corrupt())?;
-            let value = if low < short || bits.read(1)? == 0 {
-                low
-            } else {
-                let high = 1_u32.wrapping_shl(width.saturating_sub(1));
-                low.saturating_add(high).saturating_sub(short)
-            };
+            let ahead = u32::try_from(bits.peek() & u64::from(u32::MAX)).unwrap_or_default();
+            let high = 1_u32.wrapping_shl(width.saturating_sub(1));
+            let low = ahead & high.wrapping_sub(1);
+            // A value below the short ones' count takes a bit less; any
+            // other is past them if its last bit is set.
+            let small = low < short;
+            let more = !small & (ahead & high != 0);
+            let value = low.wrapping_add(if more { high.wrapping_sub(short) } else { 0 });
+            bits.skip(width.wrapping_sub(u32::from(small)));
             // A probability of -1, "less than 1", takes a point too.
             let count = i16::try_from(value)
                 .map_err(|_| corrupt())?
@@ -73,7 +82,8 @@ impl Distribution {
             // Zeros are followed by how many more follow, in twos.
             if count == 0 {
                 loop {
-                    let repeat = bits.read(2)?;
+                    let repeat = bits.peek() & 3;
+                    bits.skip(2);
                     for _ in 0..repeat {
                         push(0)?;
                     }
@@ -82,6 +92,9 @@ impl Distribution {
                     }
                 }
             }
+        }
+        if !bits.within() {
+            return Err(corrupt());
         }
         // The points are all distributed, so the counts take every state.
         Ok((Self { counts, len, log }, bits.bytes()))
@@ -129,107 +142,117 @@ impl Distribution {
     /// each state's, in order: those of less than 1 take the last states,
     /// from the end, and the others are spread over the rest, by a step
     /// that visits each state once.
+    ///
+    /// The others are first laid out in a row, each as many times as its
+    /// count, and then each state that the step visits below the last
+    /// ones takes the next of the row: so that neither a count nor a
+    /// state above is branched on, which vary as distributions do.
     pub(super) fn spread<'a>(&self, symbols: &'a mut [u8; MAX_STATES]) -> Result<&'a [u8], Error> {
         let size = 1_usize.wrapping_shl(u32::from(self.log)).min(MAX_STATES);
         let last = size.wrapping_sub(1);
-        let mut high = size;
-        for (symbol, _) in (0_u8..)
-            .zip(self.counts())
-            .filter(|&(_, &count)| count == -1)
-        {
-            high = high.checked_sub(1).ok_or_else(corrupt)?;
-            *symbols.get_mut(high).ok_or_else(corrupt)? = symbol;
-        }
-        let step = (size >> 1).wrapping_add(size >> 3).wrapping_add(3);
-        let mut at = 0_usize;
+        // Each by copies of a fixed size, whose excess the next overwrites;
+        // and those of less than 1 apart, each over the last that was not.
+        let mut row = [0_u8; MAX_STATES + LAID];
+        let mut lows = [0_u8; MAX_SYMBOLS];
+        let (mut laid, mut low) = (0_usize, 0_usize);
         for (symbol, &count) in (0_u8..).zip(self.counts()) {
-            for _ in 0..count.max(0) {
-                // Within the array, as `last` is.
-                if let Some(slot) = symbols.get_mut(at & last) {
-                    *slot = symbol;
-                }
-                at = at.wrapping_add(step) & last;
-                // Some state lies below `high`: this symbol's.
-                while at >= high {
-                    at = at.wrapping_add(step) & last;
+            if let Some(slot) = lows.get_mut(low) {
+                *slot = symbol;
+            }
+            low = low.wrapping_add(usize::from(count == -1));
+            let mut at = laid;
+            laid = laid.saturating_add(usize::try_from(count).unwrap_or_default());
+            loop {
+                let copy = row.get_mut(at..).and_then(<[u8]>::first_chunk_mut);
+                *copy.ok_or_else(corrupt)? = [symbol; LAID];
+                at = at.saturating_add(LAID);
+                if at >= laid {
+                    break;
                 }
             }
         }
-        if at != 0 {
+        // The row takes every state below the last ones.
+        let high = size.checked_sub(low).ok_or_else(corrupt)?;
+        if laid != high {
             return Err(corrupt());
+        }
+        // An odd step, which visits each state once before the first again.
+        let step = (size >> 1).wrapping_add(size >> 3).wrapping_add(3);
+        let mut next = 0_usize;
+        for visit in 0..size {
+            let at = visit.wrapping_mul(step) & last;
+            // Within both, as `last` is, and as no more are taken than
+            // visited: a state at the end takes one that the next takes
+            // too, and then its own.
+            if let (Some(slot), Some(&symbol)) = (symbols.get_mut(at), row.get(next)) {
+                *slot = symbol;
+            }
+            next = next.wrapping_add(usize::from(at < high));
+        }
+        let top = symbols.get_mut(high..size).ok_or_else(corrupt)?;
+        for (slot, &symbol) in top.iter_mut().rev().zip(&lows) {
+            *slot = symbol;
         }
         symbols.get(..size).ok_or_else(corrupt)
     }
 
-    /// Returns how each symbol's states share the next state's range.
-    pub(super) fn shares(&self) -> Shares {
-        let mut shares = [Share::default(); MAX_SYMBOLS];
-        for (share, &count) in shares.iter_mut().zip(self.counts()) {
-            // A symbol of less than 1 has one state, which reads a whole
-            // state's bits.
-            let count = u32::from(count.unsigned_abs());
-            let Some(most) = count.checked_ilog2() else {
-                continue;
-            };
-            let bits = u32::from(self.log).saturating_sub(most);
-            let whole = 1_u32.wrapping_shl(u32::from(self.log));
-            let base = count.wrapping_shl(bits).wrapping_sub(whole);
-            *share = Share {
-                base: u16::try_from(base).unwrap_or_default(),
-                by: u16::try_from(1_u32.wrapping_shl(bits)).unwrap_or_default(),
-                bits: u8::try_from(bits).unwrap_or_default(),
-            };
+    /// Returns the number of each symbol's first state.
+    pub(super) fn numbers(&self) -> Numbers {
+        let mut numbers = [0_u16; Numbers::ROOM];
+        for (number, &count) in numbers.iter_mut().zip(self.counts()) {
+            // A symbol of less than 1 has one state.
+            *number = count.unsigned_abs();
         }
-        Shares {
-            shares,
-            whole: 1_u16.wrapping_shl(u32::from(self.log)),
-        }
+        Numbers { numbers }
     }
 }
 
-/// How a symbol's next state, in the order of its states, finds the state
-/// after it: from `bits` more read and added to `base`.
+/// The number of each symbol's next state, in the order of its states,
+/// from its count on: which tells how the state finds the one after it,
+/// from the bits that it reads more, added to a base.
 ///
 /// A symbol of `count` states has them take shares of the next state's
 /// range, as its numbers from `count` to twice that, less one, would:
 /// each reads as many bits as bring its number to the table's size, and
 /// adds them to what its number, shifted so, is past that size. So the
 /// first of them, up to the next power of two, read a bit more than the
-/// rest, their bases a step of that many bits apart, up to the range's
-/// end; and the rest start over from the range's start, by half the step.
-#[derive(Clone, Copy, Debug, Default)]
-struct Share {
-    base: u16,
-    by: u16,
-    bits: u8,
-}
-
-/// Each symbol's [`Share`] of a table, as states are dealt them.
+/// rest, and start where the range does once the rest have their share.
 #[derive(Clone, Debug)]
-pub(super) struct Shares {
-    shares: [Share; MAX_SYMBOLS],
-    /// The table's states, which a range's end is.
-    whole: u16,
+pub(super) struct Numbers {
+    /// Of a power of two of symbols, so that none is checked.
+    numbers: [u16; Self::ROOM],
 }
 
-impl Shares {
-    /// Returns the bits that the next of `symbol`'s states reads, and the
-    /// base it adds them to: the states' in order, one each time.
+impl Numbers {
+    /// More than the most symbols.
+    pub(super) const ROOM: usize = MAX_SYMBOLS.next_power_of_two();
+
+    /// Returns where `symbol` lies among as many as there is room for.
     #[inline(always)]
-    pub(super) fn take(&mut self, symbol: u8) -> (u8, u16) {
-        let Some(share) = self.shares.get_mut(usize::from(symbol)) else {
-            return (0, 0);
+    pub(super) fn index(symbol: u8) -> usize {
+        usize::from(symbol) & Self::ROOM.wrapping_sub(1)
+    }
+
+    /// Returns the number of the next of `symbol`'s states: the states'
+    /// in order, one each time.
+    #[inline(always)]
+    pub(super) fn take(&mut self, symbol: u8) -> u32 {
+        let Some(next) = self.numbers.get_mut(Self::index(symbol)) else {
+            return 0;
         };
-        let taken = (share.bits, share.base);
-        share.base = share.base.wrapping_add(share.by);
-        if share.base == self.whole {
-            *share = Share {
-                base: 0,
-                by: share.by >> 1,
-                bits: share.bits.wrapping_sub(1),
-            };
-        }
-        taken
+        let number = *next;
+        *next = number.wrapping_add(1);
+        u32::from(number)
+    }
+
+    /// Returns the bits that a state of `number` reads, in a table of an
+    /// accuracy of `log`: as many as bring its number to the table's
+    /// size. A number is at least 1, of a symbol that has states, and less
+    /// than twice that size, so this never wraps.
+    #[inline(always)]
+    pub(super) fn bits(number: u32, log: u8) -> u8 {
+        let most = u8::try_from((number | 1).ilog2()).unwrap_or_default();
+        log.wrapping_sub(most)
     }
 }
 
@@ -264,10 +287,14 @@ impl Table {
         }
         let mut symbols = [0; MAX_STATES];
         let states = distribution.spread(&mut symbols)?;
-        let mut shares = distribution.shares();
+        let mut numbers = distribution.numbers();
         let mut entries = [Entry::default(); Self::STATES];
         for (entry, &symbol) in entries.iter_mut().zip(states) {
-            let (bits, base) = shares.take(symbol);
+            let number = numbers.take(symbol);
+            let bits = Numbers::bits(number, distribution.log);
+            let whole = 1_u32.wrapping_shl(u32::from(distribution.log));
+            let base = number.wrapping_shl(u32::from(bits)).wrapping_sub(whole);
+            let base = u16::try_from(base).unwrap_or_default();
             *entry = Entry { symbol, bits, base };
         }
         Ok(Self {
@@ -306,18 +333,41 @@ mod tests {
     use super::*;
     use alloc::vec::Vec;
 
+    /// Each state's symbol, as RFC 8878 §4.1.1 defines it: those of less
+    /// than 1 from the end, and the others each placed a step past the
+    /// last, skipping the states at the end.
+    fn placed(counts: &[i16], log: u8) -> Vec<u8> {
+        let size = 1_usize << log;
+        let mut symbols = alloc::vec![0_u8; size];
+        let mut high = size;
+        for (symbol, _) in counts.iter().enumerate().filter(|(_, count)| **count == -1) {
+            high -= 1;
+            symbols[high] = symbol as u8;
+        }
+        let step = (size >> 1) + (size >> 3) + 3;
+        let mut at = 0;
+        for (symbol, &count) in counts.iter().enumerate() {
+            for _ in 0..count.max(0) {
+                symbols[at] = symbol as u8;
+                at = (at + step) & (size - 1);
+                while at >= high {
+                    at = (at + step) & (size - 1);
+                }
+            }
+        }
+        assert_eq!(at, 0);
+        symbols
+    }
+
     /// Each state's entry, as RFC 8878 §4.1.1 defines it: a symbol's
     /// states numbered from its count, in their order, each reading as
     /// many bits as bring its number to the table's size.
     fn defined(counts: &[i16], log: u8) -> Vec<Entry> {
-        let distribution = Distribution::new(counts, log).unwrap();
-        let mut symbols = [0; MAX_STATES];
-        let states = distribution.spread(&mut symbols).unwrap();
         let mut numbers: Vec<u32> = counts
             .iter()
             .map(|count| count.unsigned_abs().into())
             .collect();
-        let entries = states.iter().map(|&symbol| {
+        let entries = placed(counts, log).into_iter().map(|symbol| {
             let number = &mut numbers[usize::from(symbol)];
             let bits = u32::from(log) - number.ilog2();
             let base = (*number << bits) - (1 << log);
@@ -331,14 +381,16 @@ mod tests {
         entries.collect()
     }
 
-    /// The entries that shares deal out, each state's in order.
+    /// The entries that a distribution deals out, each state's in order.
     fn dealt(counts: &[i16], log: u8) -> Vec<Entry> {
         let distribution = Distribution::new(counts, log).unwrap();
         let mut symbols = [0; MAX_STATES];
         let states = distribution.spread(&mut symbols).unwrap();
-        let mut shares = distribution.shares();
+        let mut numbers = distribution.numbers();
         let entries = states.iter().map(|&symbol| {
-            let (bits, base) = shares.take(symbol);
+            let number = numbers.take(symbol);
+            let bits = Numbers::bits(number, log);
+            let base = ((number << bits) - (1 << log)) as u16;
             Entry { symbol, bits, base }
         });
         entries.collect()
@@ -347,7 +399,7 @@ mod tests {
     /// RFC 8878 §4.1.1's example, a symbol of 5 states of 128: their
     /// bits and bases, from Table 21, in the order of the states.
     #[test]
-    fn shares_states_as_the_rfc_does() {
+    fn numbers_states_as_the_rfc_does() {
         let fives: Vec<_> = dealt(&[5, 123], 7)
             .iter()
             .filter(|entry| entry.symbol == 0)
@@ -360,7 +412,7 @@ mod tests {
     /// none, and a symbol that takes every state; at every accuracy a
     /// description may have, from 5 up.
     #[test]
-    fn deals_shares_as_states_are_numbered() {
+    fn deals_states_as_the_rfc_defines() {
         let mut seed = 0x9E37_79B9_u32;
         let mut below = move |n: u32| {
             seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);

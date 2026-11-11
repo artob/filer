@@ -85,10 +85,10 @@ pub(super) fn read<'a>(
     let end = header.saturating_add(compressed);
     let mut streams = block.get(header..end).ok_or_else(corrupt)?;
     if kind == 2 {
-        let (table, used) = Huffman::read(streams)?;
-        streams = streams.get(used..).ok_or_else(corrupt)?;
-        *huffman = Some(table);
+        // Whatever comes of it, the runs are of a table that is no more.
         runs.clear();
+        let used = Huffman::read(huffman, streams)?;
+        streams = streams.get(used..).ok_or_else(corrupt)?;
     }
     let huffman = huffman.as_ref().ok_or_else(corrupt)?;
     let runs = runs.of(huffman, regenerated, streams.len());

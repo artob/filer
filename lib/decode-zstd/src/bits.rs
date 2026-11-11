@@ -57,6 +57,26 @@ impl<'a> Forward<'a> {
         Ok(value)
     }
 
+    /// Returns the next bits, 57 at the least, the first lowest, without
+    /// reading them: those past the end are zeros.
+    pub(super) fn peek(&self) -> u64 {
+        let shift = u32::try_from(self.at & 7).unwrap_or_default();
+        word(self.bytes, self.at >> 3).wrapping_shr(shift)
+    }
+
+    /// Reads past `n` bits, wherever the end lies, which
+    /// [`within`](Self::within) tells of.
+    pub(super) fn skip(&mut self, n: u32) {
+        self.at = self
+            .at
+            .saturating_add(usize::try_from(n).unwrap_or(usize::MAX));
+    }
+
+    /// Returns whether every bit read, or skipped, lies before the end.
+    pub(super) const fn within(&self) -> bool {
+        self.at <= self.bytes.len().saturating_mul(8)
+    }
+
     /// Returns the bytes read, the last perhaps in part.
     pub(super) const fn bytes(&self) -> usize {
         self.at.div_ceil(8)
@@ -178,7 +198,7 @@ impl<'a> Backward<'a> {
 
     /// Returns the bits left to read, or `None` if a read went past the
     /// start.
-    fn left(&self) -> Option<usize> {
+    pub(super) fn left(&self) -> Option<usize> {
         let held = self.at.saturating_mul(8).saturating_add(64);
         let consumed = usize::try_from(self.consumed).unwrap_or(usize::MAX);
         held.checked_sub(consumed)
@@ -204,11 +224,6 @@ impl<'a> Backward<'a> {
         self.consumed = marked.unread.trailing_zeros();
         let word = word(self.bytes, self.at);
         self.unread = word.checked_shl(self.consumed).unwrap_or_default();
-    }
-
-    /// Returns whether a read went past the start.
-    pub(super) fn overflowed(&self) -> bool {
-        self.left().is_none()
     }
 
     /// Returns whether every bit has been read, and none past the start.
@@ -364,7 +379,7 @@ mod tests {
         resumed.recount(&counted);
         while !refilled.done() {
             assert_eq!(resumed.read(1), refilled.read(1));
-            assert!(!refilled.overflowed());
+            assert!(refilled.left().is_some());
         }
         assert!(resumed.done());
         // A stream shorter than a container has none whole.
@@ -385,7 +400,7 @@ mod tests {
         assert_eq!(bits.read(4), 0b0000);
         assert!(bits.done());
         assert_eq!(bits.read(3), 0);
-        assert!(bits.overflowed() && !bits.done());
+        assert!(bits.left().is_none() && !bits.done());
         assert!(Backward::new(&[1, 0]).is_err());
         assert!(Backward::new(&[]).is_err());
         assert!(Backward::new(&[1]).unwrap().done());
