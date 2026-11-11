@@ -2705,6 +2705,12 @@ quarter faster on Apple M4, `decode-xz` checked by SHA-256 a quarter
 and by CRC-32 a tenth, and `decode-lzo` checked by CRC-32 an eighth; the
 others gain nothing, their checksums having no instruction or too small
 a share, and their own loops within 5% built for the CPU (2026-11-05).
+`decode-zstd` is the exception since 2026-11-11: it calls no intrinsic,
+but its loops are built for x86-64's BMI2 and AVX2 too, through the
+same dependency, and taken where the CPU has both, as Intel's cores
+shift by a register in one operation only by BMI2, and a sequence's
+fields are six such shifts: 6 to 8% faster on Granite Rapids, and no
+faster on Zen 5, whose shifts are one operation either way.
 `filer-api` forwards it for its `checksum`s, and `filer-pack` for those
 and its decoders'; their `std` features forward to their dependencies',
 without which the instructions would not be chosen at run time.
@@ -2715,7 +2721,8 @@ Every crate with `intrinsics` enables it by default, beside `all` and
 `filer-ext4`, `filer-xfs`, `filer-zip`, `filer-tar`, `filer-cpio`,
 `filer-squashfs`, `filer-archive`, `filer-volume`, `filer-system`, and
 `filer-cli`; and, since `compute-adler32` has it (2026-11-10),
-`decode-zlib` and `filer-cdfs`. As it builds by default is how a crate
+`decode-zlib` and `filer-cdfs`; and `decode-zstd`, for its loops
+(2026-11-11). As it builds by default is how a crate
 is measured and compared (`bench/METHOD.md`). Who wants no
 dependencies, every line of it ours and public domain, builds with
 `default-features = false, features = ["all", "std"]`: no
@@ -2727,7 +2734,9 @@ multiplication (D68) and Adler-32's vectors changed, on Zen 5, Granite
 Rapids, and Apple M4, by the harness or a timer of a mebibyte and by
 each crate's `decodes_a_corpus` over Canterbury, best of three runs
 (2026-11-10); and on Neoverse V3, the default ARM machine (D67), all
-of it by the harness and by those tests (2026-11-11):
+of it by the harness and by those tests (2026-11-11); and
+`decode-zstd`'s by a timer's best of runs over the corpus, built both
+ways, by the geometric mean of each level's files (2026-11-11):
 
 | Crate | Without `intrinsics`, on Apple M4 | On x86-64 | On Neoverse V3 |
 | --- | --- | --- | --- |
@@ -2739,11 +2748,12 @@ of it by the harness and by those tests (2026-11-11):
 | `decode-zlib` | No slower: Canterbury 843 MB/s | 3% slower on Zen 5: Canterbury 656 MB/s, not 673; 4% on Granite Rapids: 439, not 458 | 2% slower: Canterbury 521 MB/s, not 530 |
 | `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-64, 4%; by CRC-32, 2% | By SHA-256, 29% slower: 112 MB/s, not 144, on Zen 5; 85, not 109, on Granite Rapids; by CRC-64, 2%; by CRC-32, within 1% | By SHA-256, 29% slower: 95 MB/s, not 133; by CRC-64, 4%; by CRC-32, 3% |
 | `decode-lzo` | lzop's files checked by CRC-32 16% slower: 962 MB/s, not 1,152; by Adler-32, its default, 5%: 1,098, not 1,157; raw blocks no slower | lzop's files checked by CRC-32 15% slower on Zen 5: 854 MB/s, not 982; 10% on Granite Rapids: 614, not 678; by Adler-32, 6% and 3%: 942, not 1,000, and 648, not 669; raw blocks no slower | lzop's files checked by CRC-32 19% slower: 797 MB/s, not 985; by Adler-32, 3%: 956, not 988 |
+| `decode-zstd` | No slower: nothing differs on ARM | 6 to 8% slower on Granite Rapids, at levels 1 to 22; 2% with a window of 128 MiB; no slower on Zen 5 | No slower: nothing differs on ARM |
 | `filer-api`, `filer-fs`, `filer-system`, `filer-cli` | Their checksums, as `compute-crc`'s | As `compute-crc`'s | As `compute-crc`'s |
 | `filer-ext4`, `filer-xfs` | Estimated: each 4 KiB block of metadata checked by CRC-32C takes some 3 µs more, beside reading it | Estimated: some 0.7 µs more a block | Estimated: some 0.9 µs more a block |
-| `filer-pack`, `filer-tar`, `filer-cpio` | Their gzip and xz streams, as `decode-gzip`'s and `decode-xz`'s | As theirs | As theirs |
+| `filer-pack`, `filer-tar`, `filer-cpio` | Their gzip, xz, and zstd streams, as `decode-gzip`'s, `decode-xz`'s, and `decode-zstd`'s | As theirs | As theirs |
 | `filer-zip` | Deflated members, as `decode-gzip`'s; stored ones bound by CRC-32, as `compute-crc`'s | As on Apple M4 | As on Apple M4 |
-| `filer-squashfs` | xz's, LZO's, and zlib's blocks as `decode-xz`'s, `decode-lzo`'s, and `decode-zlib`'s | As theirs | As theirs |
+| `filer-squashfs` | xz's, LZO's, zlib's, and zstd's blocks as `decode-xz`'s, `decode-lzo`'s, `decode-zlib`'s, and `decode-zstd`'s | As theirs | As theirs |
 | `filer-cdfs` | zisofs's files as `decode-zlib`'s | As its | As its |
 | `filer-archive`, `filer-volume` | Those of what they open | As theirs | As theirs |
 

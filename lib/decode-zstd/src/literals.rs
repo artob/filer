@@ -95,7 +95,7 @@ pub(super) fn read<'a>(
     ready(buffer, regenerated, max, 0);
     let literals = buffer.get_mut(..regenerated).ok_or_else(corrupt)?;
     if format == 0 {
-        huffman.decode(runs, streams, literals)?;
+        huffman.decode(streams, literals)?;
         return Ok((buffer, regenerated, end));
     }
 

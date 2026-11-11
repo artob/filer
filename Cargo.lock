@@ -230,6 +230,7 @@ dependencies = [
 name = "decode-zstd"
 version = "0.0.4"
 dependencies = [
+ "compute-multiversion",
  "compute-xxhash",
  "filer-spec",
  "ruzstd",

@@ -22,11 +22,16 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = []
-std = ["compute-xxhash/std"]
+std = ["compute-xxhash/std", "compute-multiversion?/std"]
+# Its loops built for BMI2 and AVX2 too, on x86-64, and taken where the CPU
+# has them: chosen at run time with `std`, else where the build enables
+# them.
+intrinsics = ["dep:compute-multiversion"]
 
 [dependencies]
+compute-multiversion = { workspace = true, optional = true }
 compute-xxhash = { workspace = true, features = ["xxh64"] }
 
 [dev-dependencies]

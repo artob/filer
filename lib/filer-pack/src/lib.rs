@@ -58,11 +58,12 @@
 //! - `zstd` enables [`Zstd`];
 //! - `intrinsics` computes checks by the CPU's instructions where it has
 //!   them, chosen at run time with `std` (D66): `filer-api`'s checksums,
-//!   gzip's CRC-32, and xz's CRC-32 and SHA-256. Without it, its
-//!   dependencies are ours alone, all of them public domain, and gzip
-//!   decodes a tenth slower on x86-64 and on ARM (Neoverse V3), and xz
-//!   checked by SHA-256 29%, as `decode-gzip`'s and `decode-xz`'s docs
-//!   say.
+//!   gzip's CRC-32, and xz's CRC-32 and SHA-256; and takes zstd's loops
+//!   as built for them. Without it, its dependencies are ours alone, all
+//!   of them public domain, and gzip decodes a tenth slower on x86-64
+//!   and on ARM (Neoverse V3), xz checked by SHA-256 29%, and zstd 6 to
+//!   8% on Granite Rapids, as `decode-gzip`'s, `decode-xz`'s, and
+//!   `decode-zstd`'s docs say.
 //!
 //! [`ReadAt`]: filer_api::ReadAt
 //! [`Driver`]: filer_api::Driver

@@ -159,14 +159,14 @@ impl<'a> Backward<'a> {
     pub(super) fn counted(&self) -> Option<Counted<'a>> {
         self.left().map(|left| Counted {
             bytes: self.bytes,
-            left,
+            spare: left.wrapping_sub(Counted::SPARED),
         })
     }
 
     /// Goes on from where `counted`, which
     /// [`counted`](Self::counted) returned of it, has read to.
     pub(super) fn recount(&mut self, counted: &Counted<'_>) {
-        let left = counted.left;
+        let left = counted.left();
         // The container ends with the byte of the next bit, or lies at
         // the start, of a stream that has less before it.
         self.at = left.div_ceil(8).saturating_sub(8);
@@ -184,23 +184,23 @@ impl<'a> Backward<'a> {
         held.checked_sub(consumed)
     }
 
-    /// Returns it as a [`Marked`] reader, refilled, its stream lying from
-    /// `start` of the bytes the marked reader is given, unless its stream
-    /// is shorter than its container.
-    pub(super) fn mark(&self, start: usize) -> Option<Marked> {
+    /// Returns it as a [`Marked`] reader, refilled, unless its stream is
+    /// shorter than its container.
+    pub(super) fn mark(&self) -> Option<Marked<'a>> {
         let back = usize::try_from(self.consumed >> 3).unwrap_or_default();
         let at = self.at.checked_sub(back)?;
-        let word = self.bytes.get(at..).and_then(<[u8]>::first_chunk)?;
+        let held = self.bytes.get(..at.checked_add(8)?)?;
+        let word = held.last_chunk()?;
         Some(Marked {
             unread: (u64::from_le_bytes(*word) | 1).wrapping_shl(self.consumed & 7),
-            at: start.saturating_add(at),
+            held,
         })
     }
 
     /// Goes on from where `marked`, which [`mark`](Self::mark) returned of
-    /// it, at `start`, has read to.
-    pub(super) fn unmark(&mut self, marked: Marked, start: usize) {
-        self.at = marked.at.saturating_sub(start);
+    /// it, has read to.
+    pub(super) fn unmark(&mut self, marked: &Marked<'_>) {
+        self.at = marked.held.len().saturating_sub(8);
         self.consumed = marked.unread.trailing_zeros();
         let word = word(self.bytes, self.at);
         self.unread = word.checked_shl(self.consumed).unwrap_or_default();
@@ -220,57 +220,99 @@ impl<'a> Backward<'a> {
 /// A [`Backward`] reader for a loop that reads a whole sequence from one
 /// container: no more than how many bits are left to read, from which it
 /// loads the container anew each time, so that reading waits on nothing
-/// but that count.
+/// but that count; which it holds less the 57 bits that a container
+/// holds at the least, so that where the container lies is one shift
+/// away.
 #[derive(Clone, Copy)]
 pub(super) struct Counted<'a> {
     bytes: &'a [u8],
-    left: usize,
+    /// The bits left, less those that a container holds at the least:
+    /// past zero, it wraps.
+    spare: usize,
 }
 
 impl Counted<'_> {
+    /// The bits that a container holds at the least: all but those of
+    /// its top byte that are read already, up to 7.
+    pub(super) const HELD: u32 = 57;
+
+    /// As many, of a count of bits left.
+    const SPARED: usize = 57;
+
     /// Returns a container whose top holds the next bits, 57 at least, if
     /// the stream holds it whole: until it has fewer than 57 left.
     #[inline(always)]
     pub(super) fn container(&self) -> Option<u64> {
-        // The eight bytes that end with the next bit's; short of them, the
-        // subtraction wraps past the stream's end.
-        let at = (self.left.wrapping_sub(1) >> 3).wrapping_sub(7);
+        // The eight bytes that end with the next bit's; short of them,
+        // what is spare has wrapped, past the stream's end.
+        let at = self.spare >> 3;
         let word = self.bytes.get(at..)?.first_chunk()?;
-        let above = u32::try_from(self.left.wrapping_neg() & 7).unwrap_or_default();
+        // The bits of its top byte read already: as many as bring those
+        // left to whole bytes, and so what is spare to one bit less.
+        let above = u32::try_from(!self.spare & 7).unwrap_or_default();
         Some(u64::from_le_bytes(*word).wrapping_shl(above))
     }
 
-    /// Reads past the next `n` bits, no more than a container held.
+    /// Reads past the bits that three counts are of, no more than a
+    /// container held: each count as what it leaves of 64 bits, the
+    /// `first` one's, known first, and the `others`' two, summed. In two
+    /// steps, each of what is known by then, so that the next container
+    /// waits on one addition.
     #[inline(always)]
-    pub(super) fn consume(&mut self, n: u32) {
-        // A container holds no more than are left, so this never wraps.
-        let n = usize::try_from(n).unwrap_or_default();
-        self.left = self.left.wrapping_sub(n);
+    pub(super) fn consume(&mut self, first: u32, others: u32) {
+        // A container holds no more than are left, so the steps never
+        // wrap past where the other brings them back.
+        let first = usize::try_from(first).unwrap_or_default();
+        let others = usize::try_from(others).unwrap_or_default();
+        let spare = self.spare.wrapping_add(first).wrapping_sub(3 * 64);
+        self.spare = spare.wrapping_add(others);
+    }
+
+    /// Returns the bits left to read.
+    const fn left(&self) -> usize {
+        self.spare.wrapping_add(Self::SPARED)
     }
 }
 
 /// A [`Backward`] reader for loops that read several streams at once,
 /// with few registers to spare: its container is marked by a set bit
 /// below its unread bits, whose place tells how many it has read, and it
-/// lies at `at` of the bytes that it is given, which all the streams lie
-/// in. Read no more than 56 bits from a refill, it reads only its own
-/// stream's while it lies at least eight bytes from that stream's start.
+/// is the last eight bytes of those it holds, its stream from its start,
+/// so that a refill checks no more than that it still holds eight. Read
+/// no more than 56 bits from a refill.
 #[derive(Clone, Copy)]
-pub(super) struct Marked {
+pub(super) struct Marked<'a> {
     unread: u64,
-    pub(super) at: usize,
+    held: &'a [u8],
 }
 
-impl Marked {
-    /// Moves the container back over the whole bytes read, in `bytes`.
+impl Marked<'_> {
+    /// The most bytes that a refill moves back over: those of the 56 bits
+    /// read since the last, and of the 7 before them.
+    const BACK: usize = 7;
+
+    /// Moves the container back over the whole bytes read, and returns
+    /// whether it did: unless fewer than eight are left before them, when
+    /// nothing has moved.
     #[inline(always)]
-    pub(super) fn refill(&mut self, bytes: &[u8]) {
+    pub(super) fn refill(&mut self) -> bool {
         let consumed = self.unread.trailing_zeros();
         let back = usize::try_from(consumed >> 3).unwrap_or_default();
-        self.at = self.at.wrapping_sub(back);
-        let word = bytes.get(self.at..).and_then(<[u8]>::first_chunk);
-        let word = word.copied().map_or(0, u64::from_le_bytes);
-        self.unread = (word | 1).wrapping_shl(consumed & 7);
+        let len = self.held.len().wrapping_sub(back);
+        let Some(held) = self.held.get(..len) else {
+            return false;
+        };
+        let Some(word) = held.last_chunk() else {
+            return false;
+        };
+        self.held = held;
+        self.unread = (u64::from_le_bytes(*word) | 1).wrapping_shl(consumed & 7);
+        true
+    }
+
+    /// Returns how many refills it has bytes for, at the least.
+    pub(super) const fn refills(&self) -> usize {
+        self.held.len().saturating_sub(8) / Self::BACK
     }
 
     /// Returns the next `n` bits, from 1 to 56, without reading them.
@@ -301,8 +343,6 @@ mod tests {
         assert!(bits.read(1).is_err());
     }
 
-    /// RFC 8878 §4.2.2's example: "0145" coded as `1`, `01`, `0001`, and
-    /// `0000`, as its Table 26 has them, read from the top.
     /// A counted reader's containers hold what refills do, and a reader
     /// goes on from where one has read to.
     #[test]
@@ -316,11 +356,11 @@ mod tests {
         let (mut n, mut whole) = (1, 0);
         while let Some(container) = counted.container() {
             assert_eq!(container >> (64 - n), refilled.read(n));
-            counted.consume(n);
+            counted.consume(64 - n, 128);
             (n, whole) = (n % 57 + 3, whole + 1);
         }
         // Until fewer than 57 bits are left; the rest by refills.
-        assert!(whole > 4 && counted.left < 57);
+        assert!(whole > 4 && counted.left() < 57);
         resumed.recount(&counted);
         while !refilled.done() {
             assert_eq!(resumed.read(1), refilled.read(1));
@@ -332,6 +372,8 @@ mod tests {
         assert!(short.counted().unwrap().container().is_none());
     }
 
+    /// RFC 8878 §4.2.2's example: "0145" coded as `1`, `01`, `0001`, and
+    /// `0000`, as its Table 26 has them, read from the top.
     #[test]
     fn reads_backward_from_the_marker() {
         let mut bits = Backward::new(&[0b0001_0000, 0b0000_1101]).unwrap();

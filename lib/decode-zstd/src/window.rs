@@ -28,6 +28,49 @@ const LONG: usize = 64;
 /// the slack past them.
 const LITERALS: usize = 48;
 
+/// The most literals, and the longest match, that copies of a fixed
+/// width take in turn: past it, a copy at once is faster.
+const TURNS: usize = 256;
+
+/// What a pattern of up to 15 bytes, held low in sixteen, is multiplied
+/// by to fill them: a one in each byte where it starts over.
+#[allow(
+    clippy::arithmetic_side_effects,
+    clippy::indexing_slicing,
+    reason = "evaluated when the crate is built, where a panic fails the build"
+)]
+const REPEATS: [u128; SHORT] = {
+    let mut repeats = [0; SHORT];
+    let mut period = 1;
+    while period < SHORT {
+        let (mut ones, mut at) = (0_u128, 0);
+        while at < SHORT {
+            ones |= 1 << (8 * at);
+            at += period;
+        }
+        repeats[period] = ones;
+        period += 1;
+    }
+    repeats
+};
+
+/// How far back a pattern of up to 15 bytes last began at least sixteen
+/// bytes back: as many whole patterns as take that.
+#[allow(
+    clippy::arithmetic_side_effects,
+    clippy::indexing_slicing,
+    reason = "evaluated when the crate is built, where a panic fails the build"
+)]
+const STRIDES: [usize; SHORT] = {
+    let mut strides = [0; SHORT];
+    let mut period = 1;
+    while period < SHORT {
+        strides[period] = SHORT.div_ceil(period) * period;
+        period += 1;
+    }
+    strides
+};
+
 /// What a frame has decoded, in a buffer of its window and two blocks,
 /// allocated as it fills, and then never again: decoding goes round it,
 /// from its start again once a block may not fit before its end, so that
@@ -311,36 +354,15 @@ impl<'a> Cursor<'a> {
     /// past them. Those that take no more than wide copies run by them,
     /// checked only for what memory they touch: the limit is checked once
     /// they have all run, which fails no later than the block does.
-    ///
-    /// A function of its own, the cursor's end and the literals held
-    /// apart in it, so that they stay in registers: no copy waits on the
-    /// one before, but where it copies what that one wrote.
-    #[inline(never)]
     pub(super) fn run<'l>(
         &mut self,
         sequences: &[Sequence],
         literals: &'l [u8],
     ) -> Result<&'l [u8], Error> {
-        let (limit, lapped, size) = (self.limit, self.lapped, self.size);
-        let bytes = &mut *self.bytes;
-        let (mut end, mut literals) = (self.end, literals);
-        for sequence in sequences {
-            if let Some((rest, to)) = wide(bytes, end, literals, sequence) {
-                (literals, end) = (rest, to);
-                continue;
-            }
-            let cursor = Cursor {
-                bytes: &mut *bytes,
-                end,
-                limit,
-                lapped,
-                size,
-            };
-            end = careful(cursor, literals, sequence)?;
-            literals = literals.get(sequence.literals..).ok_or_else(corrupt)?;
-        }
+        let within = [self.limit, self.lapped, self.size];
+        let (literals, end) = run(self.bytes, self.end, within, sequences, literals)?;
         self.end = end;
-        if end > limit {
+        if end > self.limit {
             return Err(corrupt());
         }
         Ok(literals)
@@ -456,10 +478,135 @@ fn wide<'l>(
     Some((literals.get(literal_len..)?, to))
 }
 
+/// Runs `sequences` onto `bytes` from `end`, as [`Cursor::run`] does,
+/// whose limit, lap, and size are `within`, and returns the literals past
+/// them and where they end, the limit unchecked.
+///
+/// A function of its own, the end and the literals held apart in it, so
+/// that they stay in registers: no copy waits on the one before, but
+/// where it copies what that one wrote. With `intrinsics`, it is built
+/// for AVX2 too, which copies a wide copy's bytes at once, and taken
+/// where the CPU has it.
+#[cfg_attr(
+    all(feature = "intrinsics", target_arch = "x86_64"),
+    multiversion::multiversion(targets("x86_64+avx2+bmi1+bmi2+lzcnt+popcnt"))
+)]
+#[inline(never)]
+fn run<'l>(
+    bytes: &mut [u8],
+    end: usize,
+    within: [usize; 3],
+    sequences: &[Sequence],
+    literals: &'l [u8],
+) -> Result<(&'l [u8], usize), Error> {
+    /// Runs `sequence` onto `bytes` at `end`, its literals from the start of
+    /// `literals`, as [`wide`] does, where it does not: more literals than a
+    /// wide copy, a longer match than a few, or one from fewer than a wide
+    /// copy back, which copies what it writes. It returns the literals past
+    /// them and where it ends; or nothing, having written nothing that
+    /// counts, unless both hold each copy whole, and neither the literals nor
+    /// the match are longer than copies in turn serve.
+    ///
+    /// The literals go by wide copies. A match from at least a wide copy
+    /// back does too, each from behind what the last wrote; from at least a
+    /// short copy back, by short copies likewise; and from nearer, what it
+    /// repeats, a pattern as long as it is far, is first multiplied out to a
+    /// short copy's bytes, and then copied on from where the pattern last
+    /// began a short copy back. A function of its own, not inlined, so that
+    /// the loop that calls it stays in registers; and within [`run`], so that
+    /// it is built for the instructions that `run` is.
+    #[cfg_attr(
+        all(feature = "intrinsics", target_arch = "x86_64"),
+        multiversion::inherit_target
+    )]
+    #[inline(never)]
+    fn turns<'l>(
+        bytes: &mut [u8],
+        end: usize,
+        literals: &'l [u8],
+        sequence: &Sequence,
+    ) -> Option<(&'l [u8], usize)> {
+        let (literal_len, match_len, offset) =
+            (sequence.literals, sequence.matched, sequence.offset);
+        if literal_len > TURNS || match_len > TURNS {
+            return None;
+        }
+        // None of these wraps: the lengths are below those checked, and
+        // `end` is within the buffer.
+        let mut copied = 0_usize;
+        loop {
+            let source = literals.get(copied..)?.first_chunk::<WIDE>()?;
+            let at = end.wrapping_add(copied);
+            *bytes.get_mut(at..)?.first_chunk_mut::<WIDE>()? = *source;
+            copied = copied.wrapping_add(WIDE);
+            if copied >= literal_len {
+                break;
+            }
+        }
+        let start = end.wrapping_add(literal_len);
+        let to = start.wrapping_add(match_len);
+        let mut at = start;
+        if offset >= WIDE {
+            while at < to {
+                let (before, after) = bytes.split_at_mut_checked(at)?;
+                let from = at.checked_sub(offset)?;
+                let matched = before.get(from..)?.first_chunk::<WIDE>()?;
+                *after.first_chunk_mut::<WIDE>()? = *matched;
+                at = at.wrapping_add(WIDE);
+            }
+            return Some((literals.get(literal_len..)?, to));
+        }
+        let mut stride = offset;
+        if offset < SHORT {
+            // The pattern is the last `offset` of the sixteen bytes before
+            // the match, its high ones; a pattern of none repeats nothing.
+            let (before, after) = bytes.split_at_mut_checked(at)?;
+            let last = u128::from_le_bytes(*before.last_chunk::<SHORT>()?);
+            let high = u32::try_from(SHORT.checked_sub(offset)?.wrapping_mul(8)).ok()?;
+            let pattern = last.checked_shr(high).filter(|_| offset > 0)?;
+            let repeated = pattern.wrapping_mul(*REPEATS.get(offset)?);
+            *after.first_chunk_mut::<SHORT>()? = repeated.to_le_bytes();
+            stride = *STRIDES.get(offset)?;
+            at = at.wrapping_add(SHORT);
+        }
+        while at < to {
+            let (before, after) = bytes.split_at_mut_checked(at)?;
+            let from = at.checked_sub(stride)?;
+            let matched = before.get(from..)?.first_chunk::<SHORT>()?;
+            *after.first_chunk_mut::<SHORT>()? = *matched;
+            at = at.wrapping_add(SHORT);
+        }
+        Some((literals.get(literal_len..)?, to))
+    }
+
+    let [limit, lapped, size] = within;
+    let (mut end, mut literals) = (end, literals);
+    for sequence in sequences {
+        if let Some((rest, to)) = wide(bytes, end, literals, sequence) {
+            (literals, end) = (rest, to);
+            continue;
+        }
+        if let Some((rest, to)) = turns(bytes, end, literals, sequence) {
+            (literals, end) = (rest, to);
+            continue;
+        }
+        let cursor = Cursor {
+            bytes: &mut *bytes,
+            end,
+            limit,
+            lapped,
+            size,
+        };
+        end = careful(cursor, literals, sequence)?;
+        literals = literals.get(sequence.literals..).ok_or_else(corrupt)?;
+    }
+    Ok((literals, end))
+}
+
 /// Runs `sequence` onto `cursor`, its literals from the start of
-/// `literals`, as [`wide`] does where wide copies do not serve, and
-/// returns where it ends: a free function, not inlined, so that the loop
-/// that calls it stays in registers.
+/// `literals`, as [`wide`] does, where neither it nor [`run`]'s copies in
+/// turn serve, and returns where it ends: a free function, not inlined,
+/// so that the loop that calls it stays in registers.
 #[inline(never)]
 fn careful(mut cursor: Cursor<'_>, literals: &[u8], sequence: &Sequence) -> Result<usize, Error> {
     cursor.literals(literals, sequence.literals)?;
@@ -621,13 +768,21 @@ mod tests {
             (seed % n as u64) as usize
         };
         let history: Vec<u8> = (0..300_u32).map(|n| (n * 7 % 251) as u8).collect();
-        let literals: Vec<u8> = (0..8192_u32).map(|n| (n * 13 % 253) as u8).collect();
+        let literals: Vec<u8> = (0..16384_u32).map(|n| (n * 13 % 253) as u8).collect();
         for _ in 0..300 {
             let mut expected = history.clone();
             let (mut sequences, mut taken) = (Vec::new(), 0);
-            while expected.len() < 3000 {
-                let literal_len = if below(8) == 0 { below(70) } else { below(12) };
-                let match_len = 3 + if below(8) == 0 { below(200) } else { below(30) };
+            while expected.len() < 6000 {
+                let literal_len = match below(16) {
+                    0 => below(600),
+                    1 | 2 => below(70),
+                    _ => below(12),
+                };
+                let match_len = 3 + match below(16) {
+                    0 => below(600),
+                    1 | 2 => below(200),
+                    _ => below(30),
+                };
                 let reach = expected.len() + literal_len;
                 let offset = 1 + match below(4) {
                     0 => below(20),
@@ -645,10 +800,10 @@ mod tests {
                     offset: offset.min(reach),
                 });
             }
-            let mut window = Window::new(1 << 16, 1 << 12, None);
+            let mut window = Window::new(1 << 16, 1 << 13, None);
             window.prepare().unwrap();
             window.extend(&history).unwrap();
-            let mut cursor = window.cursor(1 << 12);
+            let mut cursor = window.cursor(1 << 13);
             let rest = cursor.run(&sequences, &literals).unwrap();
             assert_eq!(rest.len(), literals.len() - taken);
             let end = cursor.end;

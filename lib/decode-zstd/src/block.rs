@@ -21,6 +21,13 @@ pub(super) struct Tables {
     codes: Codes,
 }
 
+impl Tables {
+    /// Returns the bytes it holds, allocated.
+    pub(super) fn footprint(&self) -> usize {
+        self.runs.footprint().saturating_add(self.codes.footprint())
+    }
+}
+
 /// Decodes a compressed block's `content` onto `output`, of at most `max`
 /// literals, with `scratch` to decode them into.
 pub(super) fn decode(

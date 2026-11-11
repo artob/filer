@@ -51,6 +51,12 @@ so any release may break compatibility.
   the CPU's instructions for `checksum`'s CRCs and, in `filer-pack`, for
   gzip's and xz's checks; their `std` features now also enable their
   dependencies', which lets the instructions be chosen at run time.
+- `decode-zstd`: the `intrinsics` feature, enabled by default (D66),
+  which builds its loops for x86-64's BMI2 and AVX2 too, and takes them
+  where the CPU has both, calling no intrinsic: 6 to 8% faster on
+  Granite Rapids, whose shifts by a register take two operations
+  without BMI2, and no faster on Zen 5. `filer-pack` and
+  `filer-squashfs` forward it in theirs.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
 - `decode-lzo`: `decode_block` decodes the Linux kernel's `lzo-rle`
@@ -99,6 +105,24 @@ so any release may break compatibility.
   not 0.67 to 0.69; on Granite Rapids, 0.79 to 0.84, not 0.61 to 0.63;
   and on Neoverse V3, 0.86 to 0.90, not 0.81 to 0.85. A frame's tables
   take 36 KiB, not 24.
+- `decode-zstd`: a sequence's fields are shifted down by sums of counts
+  that its tables hold as what each leaves of 64 bits, by turns, as a
+  core shifts two words a cycle, the counts loaded first that the next
+  states wait on; its tables are built from each symbol's share of
+  states, the predefined ones when the crate is; a Huffman code shifts
+  its stream by itself, four streams decode as many rounds at once as
+  they have room for, a table's codes are dealt by weight, and its runs
+  built without a branch; and matches from fewer than 32 bytes back,
+  32 literals and more, and matches of up to 256 bytes are copied in
+  turn by copies of a fixed width, a pattern shorter than 16 bytes
+  multiplied out first. A frame takes 4 KiB, and its tables for
+  sequences 29 KiB once a block has any, and 8 KiB for runs once they
+  are built: 41 KiB at the most, not 36 always, which a frame of a few
+  kilobytes took as long to write as to decode. By a timer's best of
+  runs over the corpus, at levels 1, 3, 9, and 19: on Zen 5, 0.89 to
+  0.90 times libzstd's speed, not 0.82 to 0.85; on Granite Rapids, 0.93
+  to 0.94, not 0.79 to 0.84; and on Neoverse V3, 0.94 to 0.97, not 0.86
+  to 0.90.
 - `decode-zstd`: the buffer of a block's literals grows by doubling, up
   to the block's most, freeing the old first, as its literals are not
   kept: on Zen 1, over the corpus, at most 1.63 times libzstd's peak,

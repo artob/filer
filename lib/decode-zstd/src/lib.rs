@@ -32,7 +32,18 @@
 //! checksum; zstd's and xxHash's own code is not copied, nor any other
 //! decoder's. It is pure, safe Rust, its XXH64 `compute-xxhash`'s, written
 //! likewise, and builds with `#![no_std]`, with an allocator. The `std`
-//! feature, enabled by default, currently adds nothing.
+//! feature, enabled by default, adds nothing by itself.
+//!
+//! The `intrinsics` feature, enabled by default (D66), builds its loops
+//! for x86-64's BMI2 and AVX2 too, and takes them where the CPU has
+//! both: chosen at run time with `std`, else where the build enables
+//! them. It calls no intrinsic: the same safe code is compiled twice,
+//! through `compute-multiversion`, whose dispatch is the only `unsafe`
+//! code. Without it, as `default-features = false, features = ["all",
+//! "std"]` builds it, its dependencies are ours alone, all of them public
+//! domain, and it decodes 6 to 8% slower on Granite Rapids at levels 1 to
+//! 22, whose shifts by a register take two operations without BMI2; and
+//! no slower on Zen 5, nor on ARM, where nothing differs (2026-11-11).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.
@@ -72,7 +83,8 @@
 
 extern crate alloc;
 
-#[cfg(test)]
+// Detecting the CPU's instructions at run time takes `std`.
+#[cfg(any(test, all(feature = "intrinsics", feature = "std")))]
 extern crate std;
 
 // The crate's own tests share its integration tests' helpers.
