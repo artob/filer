@@ -12,6 +12,11 @@ const P5: u32 = 0x1656_67B1;
 /// The bytes the accumulators take at a time.
 const STRIPE: usize = 16;
 
+/// The stripes an accumulator takes at a turn, where each takes its own:
+/// few enough that the processor has all four's under way at once. Of 2
+/// to 8, Neoverse V3 is fastest by 3, and Apple M4 as fast by any.
+const TURN: usize = 3;
+
 /// XXH32 of the bytes fed so far, from a seed.
 ///
 /// ```
@@ -73,9 +78,7 @@ impl Xxh32 {
             self.tailed = 0;
         }
         let (stripes, rest) = bytes.as_chunks::<STRIPE>();
-        for stripe in stripes {
-            self.stripe(stripe);
-        }
+        self.stripes(stripes);
         if let Some(slot) = self.tail.get_mut(..rest.len()) {
             slot.copy_from_slice(rest);
         }
@@ -88,6 +91,34 @@ impl Xxh32 {
     pub fn chain(mut self, bytes: &[u8]) -> Self {
         self.update(bytes);
         self
+    }
+
+    /// Takes whole stripes, a lane of each into each accumulator.
+    ///
+    /// On ARM, an accumulator takes its lane of a few stripes before the
+    /// next takes its own: taken together, the four are made a vector,
+    /// whose multiplications each wait twice as long as a register's, and
+    /// the stripes with them; taken apart, each waits on its own alone,
+    /// and the processor runs the four at once.
+    fn stripes(&mut self, stripes: &[[u8; STRIPE]]) {
+        if !cfg!(target_arch = "aarch64") {
+            for stripe in stripes {
+                self.stripe(stripe);
+            }
+            return;
+        }
+        for turn in stripes.chunks(TURN) {
+            for (lane, acc) in self.acc.iter_mut().enumerate() {
+                let mut now = *acc;
+                for stripe in turn {
+                    let (lanes, _) = stripe.as_chunks::<4>();
+                    if let Some(word) = lanes.get(lane) {
+                        now = round(now, u32::from_le_bytes(*word));
+                    }
+                }
+                *acc = now;
+            }
+        }
     }
 
     /// Takes a stripe, a lane into each accumulator.

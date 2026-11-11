@@ -626,14 +626,6 @@ crate's name until its first code, which moves it to `lib/`.
   that came through general registers (D68). Done when it is within 10%
   of `ring` over a mebibyte on the default ARM machine, or the crate's
   docs say why not.
-- [ ] **COMP-10: XXH32 over long inputs on ARM.** On Neoverse V3,
-  `compute-xxhash`'s XXH32 takes 4.4 GB/s from 4 KiB up, half the 8.5
-  that it takes over 256 bytes, where xxHash's C takes 8 to 9: 1.8 to
-  2.0 times ours, and 1.5 by the geometric mean over sizes.
-  `xxhash-rust` and `twox-hash` slow as ours does, and XXH64 does not
-  (`BENCH.md`, 2026-11-11). Done when XXH32 is within 10% of xxHash
-  over a mebibyte on the default ARM machine, or the crate's docs say
-  why not.
 - [ ] **DEC-09: LZO1X version 1, checked.** `decode_block` decodes the
   Linux kernel's `lzo-rle` blocks, version 1, from its description,
   tested only against blocks built by hand (2026-11-07). Done when it

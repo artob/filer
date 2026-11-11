@@ -150,6 +150,12 @@ so any release may break compatibility.
   to 28, and the tables the other two at 3 to 6. The streams now take
   only fewer than 384 bytes, or 256 of CRC-32/BZIP2, and 128 built for
   Apple's targets.
+- `compute-xxhash`: on ARM, each of XXH32's four accumulators takes its
+  lane of three stripes in turn, where the four taken together were made
+  a vector, whose multiplications each wait twice as long as a
+  register's: over a mebibyte, 9.4 GB/s on Neoverse V3, not 4.4, where
+  xxHash's C takes 8.0, and 16 bytes, hash after hash, in 6 ns, not 14;
+  on Apple M4, 12.9 GB/s, not 6.4.
 - `compute-adler32`: fewer than 48 bytes are summed one at a time, not
   by the lanes: updates of 7 bytes are twice as fast, 2.0 GB/s on Zen 5,
   not 1.0.
