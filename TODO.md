@@ -660,24 +660,27 @@ crate's name until its first code, which moves it to `lib/`.
   on Zen 5, where Granite Rapids is at 1.1 to 1.2; matches from fewer
   than 32 bytes back go through a call, a quarter to two fifths of
   `kennedy.xls`'s and `sum`'s at level 19, at 0.66 to 0.67 there; and a
-  frame of a few kilobytes still reads its tables' descriptions more
-  slowly than libzstd on Neoverse V3, `grammar.lsp` at 0.76 to 0.79
-  there. On Zen 5, the same instructions take 2 to 7% more cycles from
-  one build to the next, as where its loops lie decides how many miss
-  its op cache, four times as many in one build as in another: its
-  figures are of one build each, and a change is judged there by turns
-  and by what it executes. Tried, and lost: a branch for the repeat of
-  one less than the latest offset, 5 to 20% slower on binaries; runs of
-  codes of more than 6 bits a literal, 17% slower on `silesia/x-ray`;
-  the fields' counts summed in the bytes of one word, which takes three
-  more shifts; runs of four symbols, whose table takes longer to build
-  than they save; a round's runs written to a buffer and copied out,
-  which waits on its stores; the wide copy's cases widened, 1% slower on
-  each machine; a match of the previous lap told before its copies in
-  turn are tried, which executes 1 to 2% more whole; and the stream
-  loaded a kilobyte or a page ahead as it is read, which gains half as
-  much on Zen 5 and loses 2 to 5% on Granite Rapids. Done when those two
-  are within 1.1 times libzstd's too, or the crate's docs say why not.
+  frame of a few kilobytes still sets its tables up more slowly than
+  libzstd on Neoverse V3: `grammar.lsp`, at 0.76 to 0.79 there, executes
+  86,000 instructions at level 1, where libzstd executes 60,000, and
+  spends 45% of its time on its tables, half of that filling the states
+  of its sequences' tables. On Zen 5, the same instructions take 2 to 7%
+  more cycles from one build to the next, as where its loops lie decides
+  how many miss its op cache, four times as many in one build as in
+  another: its figures are of one build each, and a change is judged
+  there by turns and by what it executes. Tried, and lost: a branch for
+  the repeat of one less than the latest offset, 5 to 20% slower on
+  binaries; runs of codes of more than 6 bits a literal, 17% slower on
+  `silesia/x-ray`; the fields' counts summed in the bytes of one word,
+  which takes three more shifts; runs of four symbols, whose table takes
+  longer to build than they save; a round's runs written to a buffer and
+  copied out, which waits on its stores; the wide copy's cases widened,
+  1% slower on each machine; a match of the previous lap told before its
+  copies in turn are tried, which executes 1 to 2% more whole; and the
+  stream loaded a kilobyte or a page ahead as it is read, which gains
+  half as much on Zen 5 and loses 2 to 5% on Granite Rapids. Done when
+  those two are within 1.1 times libzstd's too, or the crate's docs say
+  why not.
 - [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
   `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
   names, never run in CI, checked against a reference decoder, or for

@@ -53,7 +53,7 @@ so any release may break compatibility.
   dependencies', which lets the instructions be chosen at run time.
 - `decode-zstd`: the `intrinsics` feature, enabled by default (D66),
   which builds its loops for x86-64's BMI2 and AVX2 too, and takes them
-  where the CPU has both, calling no intrinsic: 6 to 8% faster on
+  where the CPU has both, calling no intrinsic: 6 to 9% faster on
   Granite Rapids, whose shifts by a register take two operations
   without BMI2, and no faster on Zen 5. `filer-pack` and
   `filer-squashfs` forward it in theirs.

@@ -41,9 +41,10 @@
 //! through `compute-multiversion`, whose dispatch is the only `unsafe`
 //! code. Without it, as `default-features = false, features = ["all",
 //! "std"]` builds it, its dependencies are ours alone, all of them public
-//! domain, and it decodes 6 to 8% slower on Granite Rapids at levels 1 to
+//! domain, and it decodes 6 to 9% slower on Granite Rapids at levels 1 to
 //! 22, whose shifts by a register take two operations without BMI2; and
-//! no slower on Zen 5, nor on ARM, where nothing differs (2026-11-11).
+//! within 2% either way on Zen 5, as one build differs from the next
+//! there, and no slower on ARM, where nothing differs (2026-11-12).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.
