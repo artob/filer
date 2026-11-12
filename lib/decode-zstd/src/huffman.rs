@@ -514,7 +514,11 @@ impl Huffman {
 /// stored as they are decoded. With `intrinsics`, it is built for BMI2
 /// too, whose shifts take any register, and taken where the CPU has it.
 #[cfg_attr(
-    all(feature = "intrinsics", target_arch = "x86_64"),
+    all(
+        feature = "intrinsics",
+        target_arch = "x86_64",
+        target_feature = "sse2"
+    ),
     multiversion::multiversion(targets("x86_64+avx2+bmi1+bmi2+lzcnt+popcnt"))
 )]
 fn singly(
@@ -596,7 +600,11 @@ fn quarters(output: &mut [u8], quarter: usize) -> Option<[&mut [u8]; 4]> {
 /// holds where for all four, of the few that x86-64 has. With
 /// `intrinsics`, it is built for BMI2 too, and taken where the CPU has it.
 #[cfg_attr(
-    all(feature = "intrinsics", target_arch = "x86_64"),
+    all(
+        feature = "intrinsics",
+        target_arch = "x86_64",
+        target_feature = "sse2"
+    ),
     multiversion::multiversion(targets("x86_64+avx2+bmi1+bmi2+lzcnt+popcnt"))
 )]
 fn several(

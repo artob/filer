@@ -639,7 +639,11 @@ pub(super) fn decode(
 /// of its own, of few values, so that they stay in registers: the bits
 /// left, and the states.
 #[cfg_attr(
-    all(feature = "intrinsics", target_arch = "x86_64"),
+    all(
+        feature = "intrinsics",
+        target_arch = "x86_64",
+        target_feature = "sse2"
+    ),
     multiversion::multiversion(targets("x86_64+avx2+bmi1+bmi2+lzcnt+popcnt"))
 )]
 #[inline(never)]

@@ -561,7 +561,11 @@ fn wide<'l>(
 /// for AVX2 too, which copies a wide copy's bytes at once, and taken
 /// where the CPU has it.
 #[cfg_attr(
-    all(feature = "intrinsics", target_arch = "x86_64"),
+    all(
+        feature = "intrinsics",
+        target_arch = "x86_64",
+        target_feature = "sse2"
+    ),
     multiversion::multiversion(targets("x86_64+avx2+bmi1+bmi2+lzcnt+popcnt"))
 )]
 #[inline(never)]
@@ -591,7 +595,11 @@ fn run<'l>(
     /// the loop that calls it stays in registers; and within [`run`], so
     /// that it is built for the instructions that `run` is.
     #[cfg_attr(
-        all(feature = "intrinsics", target_arch = "x86_64"),
+        all(
+            feature = "intrinsics",
+            target_arch = "x86_64",
+            target_feature = "sse2"
+        ),
         multiversion::inherit_target
     )]
     #[inline(never)]
@@ -667,7 +675,11 @@ fn run<'l>(
     /// buffer does not hold a wide copy past. A function of its own, as
     /// only a buffer that decoding goes round has such matches.
     #[cfg_attr(
-        all(feature = "intrinsics", target_arch = "x86_64"),
+        all(
+            feature = "intrinsics",
+            target_arch = "x86_64",
+            target_feature = "sse2"
+        ),
         multiversion::inherit_target
     )]
     #[inline(never)]

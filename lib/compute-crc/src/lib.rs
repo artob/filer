@@ -220,7 +220,7 @@ macro_rules! crc {
                 // from the tables.
                 #[cfg(all(
                 feature = "intrinsics",
-                any(target_arch = "x86_64", target_arch = "aarch64")
+                any(all(target_arch = "x86_64", target_feature = "sse2"), all(target_arch = "aarch64", target_feature = "neon"))
             ))]
                 let bytes = if bytes.len() < Self::LEAST {
                     bytes
@@ -230,7 +230,7 @@ macro_rules! crc {
                     bytes
                 };
                 $(
-                    #[cfg(feature = "intrinsics")]
+                    #[cfg(all(feature = "intrinsics", any(all(target_arch = "x86_64", target_feature = "sse2"), all(target_arch = "aarch64", target_feature = "neon"))))]
                     if let Some(state) = $instructions(self.state, bytes) {
                         self.state = state;
                         return;
@@ -242,7 +242,7 @@ macro_rules! crc {
             /// The fewest bytes that `multiplied` takes.
             #[cfg(all(
                 feature = "intrinsics",
-                any(target_arch = "x86_64", target_arch = "aarch64")
+                any(all(target_arch = "x86_64", target_feature = "sse2"), all(target_arch = "aarch64", target_feature = "neon"))
             ))]
             const LEAST: usize = {
                 let least = carryless::LEAST;
@@ -268,7 +268,7 @@ macro_rules! crc {
             /// to take, in bits.
             #[cfg(all(
                 feature = "intrinsics",
-                any(target_arch = "x86_64", target_arch = "aarch64")
+                any(all(target_arch = "x86_64", target_feature = "sse2"), all(target_arch = "aarch64", target_feature = "neon"))
             ))]
             #[inline(never)]
             fn multiplied(mut crc: $reg, mut bytes: &[u8], widest: usize) -> ($reg, &[u8]) {
@@ -480,12 +480,24 @@ macro_rules! crc {
 #[cfg(all(feature = "intrinsics", feature = "std"))]
 extern crate std;
 
-#[cfg(feature = "intrinsics")]
+// The CPU's instructions are taken only where a target takes vectors:
+// not on soft-float targets, x86-64's without SSE2 and aarch64's without
+// NEON, where Rust refuses their target features (rust-lang/rust#117938).
+#[cfg(all(
+    feature = "intrinsics",
+    any(
+        all(target_arch = "x86_64", target_feature = "sse2"),
+        all(target_arch = "aarch64", target_feature = "neon")
+    )
+))]
 mod intrinsics;
 
 #[cfg(all(
     feature = "intrinsics",
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(
+        all(target_arch = "x86_64", target_feature = "sse2"),
+        all(target_arch = "aarch64", target_feature = "neon")
+    ),
     any(
         feature = "crc16-modbus",
         feature = "crc32",
@@ -651,6 +663,10 @@ mod tests {
     /// combine, whole or with bytes to spare.
     #[cfg(all(
         feature = "intrinsics",
+        any(
+            all(target_arch = "x86_64", target_feature = "sse2"),
+            all(target_arch = "aarch64", target_feature = "neon")
+        ),
         any(feature = "crc32", feature = "crc32-bzip2", feature = "crc32c")
     ))]
     #[test]
@@ -685,7 +701,10 @@ mod tests {
     /// over as few units as stripes take, and more.
     #[cfg(all(
         feature = "intrinsics",
-        any(target_arch = "x86_64", target_arch = "aarch64")
+        any(
+            all(target_arch = "x86_64", target_feature = "sse2"),
+            all(target_arch = "aarch64", target_feature = "neon")
+        )
     ))]
     #[test]
     fn multiplication_matches_the_tables() {

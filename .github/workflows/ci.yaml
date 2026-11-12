@@ -159,6 +159,34 @@ jobs:
           for target in wasm32-unknown-unknown wasm32-wasip1 wasm32-wasip2; do
             cargo check --workspace --all-features --target "$target"
           done
+  check-soft-float:
+    name: Check soft-float targets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        # Stable, not the MSRV: Rust 1.100 first refuses vector target
+        # features on soft-float targets (rust-lang/rust#117938).
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none, aarch64-unknown-none-softfloat
+      - name: Check with intrinsics, which such targets build none of
+        run: |
+          metadata=$(cargo metadata --no-deps --format-version 1)
+          packages=$(jq -r '[.packages[].name] | sort | join(" ")' <<< "$metadata")
+          for target in x86_64-unknown-none aarch64-unknown-none-softfloat; do
+            for package in $packages; do
+              features=all
+              if jq -e --arg package "$package" '.packages[]
+                | select(.name == $package) | .features
+                | has("intrinsics")' <<< "$metadata" > /dev/null; then
+                features=all,intrinsics
+              fi
+              cargo check -p "$package" --no-default-features \
+                --features "$features" --target "$target"
+            done
+          done
   check-minimal-versions:
     name: Check minimal dependency versions
     runs-on: ubuntu-latest

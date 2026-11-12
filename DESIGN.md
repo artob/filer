@@ -2689,7 +2689,12 @@ safe, so the crate keeps `#![forbid(unsafe_code)]`; the dispatch's own
 `unsafe` code is the macro's. Upstream's 0.9.2 cannot: where the build
 enables a feature, as AArch64 does NEON and Apple's targets `crc` and
 `sha2`, or `-C target-cpu=x86-64-v2` SSE4.2, its functions lacked it and
-the intrinsics did not compile. Measured 2026-11-05: portable SIMD and
+the intrinsics did not compile. Soft-float targets, x86-64's without
+SSE2, as `x86_64-unknown-none`, and AArch64's without NEON, take none:
+Rust refuses vector target features there since 1.100
+(rust-lang/rust#117938), so the crates build no copy for the CPU there,
+and CI checks both kinds with the feature on (2026-11-12). Measured
+2026-11-05: portable SIMD and
 whole-crate multiversioning gained nothing, within 5% on Zen 1 built
 for its own CPU, and `fearless_simd` reaches SHA-NI only with AVX-512
 and ARM's SHA2 and CRC instructions not at all; the dedicated

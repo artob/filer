@@ -81,7 +81,16 @@
 #[cfg(all(feature = "intrinsics", feature = "std"))]
 extern crate std;
 
-#[cfg(feature = "intrinsics")]
+// The CPU's instructions are taken only where a target takes vectors:
+// not on soft-float targets, x86-64's without SSE2 and aarch64's without
+// NEON, where Rust refuses their target features (rust-lang/rust#117938).
+#[cfg(all(
+    feature = "intrinsics",
+    any(
+        all(target_arch = "x86_64", target_feature = "sse2"),
+        all(target_arch = "aarch64", target_feature = "neon")
+    )
+))]
 mod intrinsics;
 
 /// SHA-512's round constants (FIPS 180-4 §4.2.3): the first 64 bits of
@@ -260,7 +269,13 @@ impl State {
     /// Takes `blocks` into the hash: by the CPU's instructions, if it has
     /// them and `intrinsics` is enabled, or else by its rounds.
     fn compress_all(&mut self, blocks: &[[u8; 128]]) {
-        #[cfg(feature = "intrinsics")]
+        #[cfg(all(
+            feature = "intrinsics",
+            any(
+                all(target_arch = "x86_64", target_feature = "sse2"),
+                all(target_arch = "aarch64", target_feature = "neon")
+            )
+        ))]
         if intrinsics::compress(&mut self.hash, blocks) {
             return;
         }
@@ -472,7 +487,13 @@ mod tests {
 
     /// The CPU's instructions, where it has them, take blocks into any
     /// hash as the rounds do.
-    #[cfg(feature = "intrinsics")]
+    #[cfg(all(
+        feature = "intrinsics",
+        any(
+            all(target_arch = "x86_64", target_feature = "sse2"),
+            all(target_arch = "aarch64", target_feature = "neon")
+        )
+    ))]
     #[test]
     fn instructions_match_the_rounds() {
         let bytes: [u8; 1280] = core::array::from_fn(|n| (n * 131 % 251) as u8);

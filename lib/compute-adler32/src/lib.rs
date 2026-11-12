@@ -92,9 +92,15 @@
 #[cfg(all(feature = "intrinsics", feature = "std"))]
 extern crate std;
 
+// The CPU's instructions are taken only where a target takes vectors:
+// not on soft-float targets, x86-64's without SSE2 and aarch64's without
+// NEON, where Rust refuses their target features (rust-lang/rust#117938).
 #[cfg(all(
     feature = "intrinsics",
-    any(target_arch = "x86_64", target_arch = "aarch64")
+    any(
+        all(target_arch = "x86_64", target_feature = "sse2"),
+        all(target_arch = "aarch64", target_feature = "neon")
+    )
 ))]
 mod intrinsics;
 
@@ -143,7 +149,10 @@ impl Adler32 {
         // from the lanes.
         #[cfg(all(
             feature = "intrinsics",
-            any(target_arch = "x86_64", target_arch = "aarch64")
+            any(
+                all(target_arch = "x86_64", target_feature = "sse2"),
+                all(target_arch = "aarch64", target_feature = "neon")
+            )
         ))]
         let bytes = if bytes.len() < intrinsics::LEAST {
             bytes
@@ -159,7 +168,10 @@ impl Adler32 {
     /// bits.
     #[cfg(all(
         feature = "intrinsics",
-        any(target_arch = "x86_64", target_arch = "aarch64")
+        any(
+            all(target_arch = "x86_64", target_feature = "sse2"),
+            all(target_arch = "aarch64", target_feature = "neon")
+        )
     ))]
     #[inline(never)]
     fn vectors<'a>(&mut self, bytes: &'a [u8], widest: usize) -> &'a [u8] {
@@ -325,7 +337,10 @@ mod tests {
     /// largest.
     #[cfg(all(
         feature = "intrinsics",
-        any(target_arch = "x86_64", target_arch = "aarch64")
+        any(
+            all(target_arch = "x86_64", target_feature = "sse2"),
+            all(target_arch = "aarch64", target_feature = "neon")
+        )
     ))]
     #[test]
     fn vectors_match_the_definition() {

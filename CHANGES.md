@@ -241,6 +241,13 @@ so any release may break compatibility.
   and CRC-32C 5 to 23 times. The benchmark harness measures both builds,
   the default first.
 ### Fixed
+- `compute-adler32`, `compute-crc`, `compute-sha256`, `compute-sha512`,
+  and `decode-zstd`: with `intrinsics`, as by default, they build again
+  for soft-float targets with Rust 1.100, x86-64's without SSE2, as
+  `x86_64-unknown-none`, and AArch64's without NEON, as
+  `aarch64-unknown-none-softfloat`, which refuses their copies built for
+  the CPU's vectors there (rust-lang/rust#117938): those targets build
+  none, and decode and checksum as without the feature.
 - `decode-bzip2`: a block that ended with a run of four bytes, decoded
   into room for exactly what it held, never ended, and `finish` found the
   stream corrupt, as bzip2 writes Canterbury's `sum` and Silesia's `nci`.
