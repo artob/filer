@@ -36,15 +36,28 @@
 //!
 //! The `intrinsics` feature, enabled by default (D66), builds its loops
 //! for x86-64's BMI2 and AVX2 too, and takes them where the CPU has
-//! both: chosen at run time with `std`, else where the build enables
-//! them. It calls no intrinsic: the same safe code is compiled twice,
-//! through `compute-multiversion`, whose dispatch is the only `unsafe`
-//! code. Without it, as `default-features = false, features = ["all",
-//! "std"]` builds it, its dependencies are ours alone, all of them public
-//! domain, and it decodes 6 to 9% slower on Granite Rapids at levels 1 to
-//! 22, whose shifts by a register take two operations without BMI2; and
-//! within 2% either way on Zen 5, as one build differs from the next
-//! there, and no slower on ARM, where nothing differs (2026-11-12).
+//! both; and on AMD's cores, which alone have SSE4a, loads each block's
+//! sequences ahead of reading them from their end back, which Zen 5
+//! asks memory for ahead of less well: each chosen at run time with
+//! `std`, else where the build enables it. It calls no intrinsic: the
+//! same safe code is compiled twice, through `compute-multiversion`,
+//! whose dispatch is the only `unsafe` code. Without it, as
+//! `default-features = false, features = ["all", "std"]` builds it, its
+//! dependencies are ours alone, all of them public domain, and it
+//! decodes 6 to 9% slower on Granite Rapids at levels 1 to 22, whose
+//! shifts by a register take two operations without BMI2; 0.3 to 2.4%
+//! slower on Zen 5, and 5% with a window of 128 MiB; and no slower on
+//! ARM, where nothing differs (2026-11-12).
+//!
+//! By a timer's best of runs over the benchmark corpus (`bench/`), it
+//! decodes at 0.91 to 1.01 times libzstd's speed on the default machines
+//! (D67), Zen 5, Granite Rapids, and Neoverse V3, at levels 1 to 22,
+//! whole and given and taken in pieces of 4 and 64 KiB (2026-11-12): but
+//! for Neoverse V3 with a window of 128 MiB, whole, at 0.90. Its matches
+//! lie farther back than any cache holds, and safe, stable Rust has no
+//! instruction that asks memory for them ahead without waiting for it;
+//! loading each one's first byte ahead, which waits, made such streams
+//! 3 to 17% slower on every machine.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

@@ -2710,7 +2710,13 @@ but its loops are built for x86-64's BMI2 and AVX2 too, through the
 same dependency, and taken where the CPU has both, as Intel's cores
 shift by a register in one operation only by BMI2, and a sequence's
 fields are six such shifts: 6 to 9% faster on Granite Rapids, and no
-faster on Zen 5, whose shifts are one operation either way.
+faster on Zen 5, whose shifts are one operation either way. Since
+2026-11-12 it also loads a block's sequences ahead of reading them
+from their end back, on AMD's cores alone, told by SSE4a, which only
+they have: Zen 5 asks memory for them ahead of less well, and decodes
+0.4% faster whole so, 4% with a window of 128 MiB; where Granite
+Rapids and Neoverse V3 decoded 0.4 to 1.2% slower, and Zen 1 neither
+faster nor slower beyond its timings' noise.
 `filer-api` forwards it for its `checksum`s, and `filer-pack` for those
 and its decoders'; their `std` features forward to their dependencies',
 without which the instructions would not be chosen at run time.
@@ -2748,7 +2754,7 @@ ways, by the geometric mean of each level's files (2026-11-12):
 | `decode-zlib` | No slower: Canterbury 843 MB/s | 3% slower on Zen 5: Canterbury 656 MB/s, not 673; 4% on Granite Rapids: 439, not 458 | 2% slower: Canterbury 521 MB/s, not 530 |
 | `decode-xz` | Checked by SHA-256, 22% slower: 120 MB/s, not 154; by CRC-64, 4%; by CRC-32, 2% | By SHA-256, 29% slower: 112 MB/s, not 144, on Zen 5; 85, not 109, on Granite Rapids; by CRC-64, 2%; by CRC-32, within 1% | By SHA-256, 29% slower: 95 MB/s, not 133; by CRC-64, 4%; by CRC-32, 3% |
 | `decode-lzo` | lzop's files checked by CRC-32 16% slower: 962 MB/s, not 1,152; by Adler-32, its default, 5%: 1,098, not 1,157; raw blocks no slower | lzop's files checked by CRC-32 15% slower on Zen 5: 854 MB/s, not 982; 10% on Granite Rapids: 614, not 678; by Adler-32, 6% and 3%: 942, not 1,000, and 648, not 669; raw blocks no slower | lzop's files checked by CRC-32 19% slower: 797 MB/s, not 985; by Adler-32, 3%: 956, not 988 |
-| `decode-zstd` | No slower: nothing differs on ARM | 6 to 9% slower on Granite Rapids, at levels 1 to 22, and with a window of 128 MiB; within 2% either way on Zen 5, as one build differs from the next there | No slower: nothing differs on ARM |
+| `decode-zstd` | No slower: nothing differs on ARM | 6 to 9% slower on Granite Rapids, at levels 1 to 22, and with a window of 128 MiB; 0.3 to 2.4% slower on Zen 5, and 5% with a window of 128 MiB | No slower: nothing differs on ARM |
 | `filer-api`, `filer-fs`, `filer-system`, `filer-cli` | Their checksums, as `compute-crc`'s | As `compute-crc`'s | As `compute-crc`'s |
 | `filer-ext4`, `filer-xfs` | Estimated: each 4 KiB block of metadata checked by CRC-32C takes some 3 µs more, beside reading it | Estimated: some 0.7 µs more a block | Estimated: some 0.9 µs more a block |
 | `filer-pack`, `filer-tar`, `filer-cpio` | Their gzip, xz, and zstd streams, as `decode-gzip`'s, `decode-xz`'s, and `decode-zstd`'s | As theirs | As theirs |

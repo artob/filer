@@ -152,6 +152,15 @@ so any release may break compatibility.
   to 0.95 times libzstd's speed, not 0.87 to 0.92; on Granite Rapids,
   0.96 to 0.98, not 0.89 to 0.94; and on Neoverse V3, 0.97 to 1.01, not
   0.91 to 0.98.
+- `decode-zstd`: with `intrinsics`, on AMD's cores, which alone have
+  SSE4a, a block's sequences are loaded ahead of being read, a byte of
+  each cache line from their start on, as Zen 5 asks memory for them
+  ahead of less well read from their end back. By turns over the corpus
+  on Zen 5: whole, 0.4% faster, 4% with a window of 128 MiB, and
+  `webster` at level 22 11%; in pieces of 64 KiB, 1.3% faster at level
+  19. Granite Rapids and Neoverse V3, which decoded 0.4 to 1.2% slower
+  so, execute as before; and Zen 1 decodes neither faster nor slower
+  beyond a few percent.
 - `decode-zstd`: the buffer of a block's literals grows by doubling, up
   to the block's most, freeing the old first, as its literals are not
   kept: on Zen 1, over the corpus, at most 1.63 times libzstd's peak,

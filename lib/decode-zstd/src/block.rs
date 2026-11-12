@@ -40,5 +40,53 @@ pub(super) fn decode(
     let (literals, len, used) =
         literals::read(content, &mut tables.huffman, &mut tables.runs, scratch, max)?;
     let section = content.get(used..).unwrap_or_default();
+    if ahead() {
+        touch(section);
+    }
     sequences::decode(section, &mut tables.codes, literals, len, output)
+}
+
+/// Returns whether a block's sequences are to be loaded ahead, a byte of
+/// each cache line from their start on, before they are read: on AMD's
+/// cores, told by SSE4a, which only they have, with `intrinsics`, as the
+/// CPU is told at run time with `std`, else where the build enables it.
+///
+/// A block's sequences are read from their end back, which Zen 5 asks
+/// memory for ahead of less well than from their start on, where no
+/// cache holds them, as where a block is decoded straight from where a
+/// caller holds it. Loaded so, the corpus decodes there 0.4% faster
+/// whole, 4% with a window of 128 MiB, and `webster` at level 22 11%;
+/// and in pieces of 64 KiB, 1.3% faster at level 19. Granite Rapids and
+/// Neoverse V3 decoded 0.4 to 1.2% slower so, as it put out of their
+/// first caches what they would have had there; and Zen 1 decodes
+/// neither faster nor slower so beyond a few percent, as much as its
+/// timings vary (2026-11-12).
+fn ahead() -> bool {
+    #[cfg(all(feature = "intrinsics", feature = "std", target_arch = "x86_64"))]
+    {
+        std::arch::is_x86_feature_detected!("sse4a")
+    }
+    #[cfg(all(feature = "intrinsics", not(feature = "std"), target_arch = "x86_64"))]
+    {
+        cfg!(target_feature = "sse4a")
+    }
+    #[cfg(not(all(feature = "intrinsics", target_arch = "x86_64")))]
+    {
+        false
+    }
+}
+
+/// The bytes of a cache line.
+const LINE: usize = 64;
+
+/// Loads a byte of each cache line of `bytes`, from their start on, for
+/// the loads' sake: a function of its own, not inlined, so that they are
+/// all under way before what follows waits on any.
+#[inline(never)]
+fn touch(bytes: &[u8]) {
+    let mut loaded = 0_u8;
+    for line in bytes.chunks(LINE) {
+        loaded ^= line.first().copied().unwrap_or_default();
+    }
+    core::hint::black_box(loaded);
 }

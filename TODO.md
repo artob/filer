@@ -628,59 +628,6 @@ crate's name until its first code, which moves it to `lib/`.
   tested only against blocks built by hand (2026-11-07). Done when it
   decodes blocks that the Linux kernel's `lzo-rle` writes, through F2FS
   with `compress_algorithm=lzo-rle` on comet, to what was written.
-- [ ] **DEC-22: zstd, and what still lags.** By a timer's best of runs
-  over the corpus at levels 1, 3, 9, and 19 (2026-11-12), `decode-zstd`
-  decodes whole streams at 0.92 to 0.93 times libzstd's speed on Zen 5,
-  0.96 to 0.98 on Granite Rapids, and 0.97 to 1.00 on Neoverse V3; given
-  and taken in pieces of 4 KiB, at 0.93 to 0.95, 0.96 to 0.98, and 0.97
-  to 1.01; and of 64 KiB, at 0.90 to 0.94, 0.95 to 0.97, and 0.96 to
-  1.00. All are within 1.1 times but two: Zen 5's in pieces of 64 KiB at
-  levels 9 and 19, at 0.905, and Neoverse V3's with a window of 128 MiB,
-  at 0.90; `BENCH.md`'s tables, of before, are due again (BENCH-02). Of
-  the first: a block decoded straight from where a caller holds it has
-  its sequences' stream read from its end back, and Zen 5 asks memory
-  for nothing ahead of that, where Granite Rapids and Neoverse V3 do.
-  Loading a byte of each of the stream's cache lines from its start on
-  first, as blocks gathered from pieces of 4 KiB are by their copy,
-  decodes whole streams 1 to 2% faster there, 3 to 5% at level 22 and
-  with windows of 128 MiB, and `enwik8` and `webster` at level 19 8 to
-  12%; and 0.4 to 1.2% slower on the other two, as it puts out of their
-  first caches what they would have had there. It would have to be for
-  AMD's cores alone, told by SSE4a, which is the user's to decide. Of
-  the second: a match from so far back is in no cache, and loading each
-  one's first byte before its batch runs decodes such streams 3 to 17%
-  slower on each machine, as a load must end before what follows it
-  retires, where an instruction that only asks for memory, which safe
-  code has none of, need not. What else is left, by `perf` and by each
-  pass run alone: reading a sequence takes 12.6 cycles on Zen 5, where
-  its states' chains of loads, sums, and shifts add up to 9: a core
-  shifts two words a cycle and loads four, and LLVM orders both;
-  settling a batch whose offsets repeat by turns takes 6 to 7 cycles a
-  sequence, of 36 instructions, which is most of `ptt5`'s 0.76 to 0.78
-  on Zen 5, where Granite Rapids is at 1.1 to 1.2; matches from fewer
-  than 32 bytes back go through a call, a quarter to two fifths of
-  `kennedy.xls`'s and `sum`'s at level 19, at 0.66 to 0.67 there; and a
-  frame of a few kilobytes still sets its tables up more slowly than
-  libzstd on Neoverse V3: `grammar.lsp`, at 0.76 to 0.79 there, executes
-  86,000 instructions at level 1, where libzstd executes 60,000, and
-  spends 45% of its time on its tables, half of that filling the states
-  of its sequences' tables. On Zen 5, the same instructions take 2 to 7%
-  more cycles from one build to the next, as where its loops lie decides
-  how many miss its op cache, four times as many in one build as in
-  another: its figures are of one build each, and a change is judged
-  there by turns and by what it executes. Tried, and lost: a branch for
-  the repeat of one less than the latest offset, 5 to 20% slower on
-  binaries; runs of codes of more than 6 bits a literal, 17% slower on
-  `silesia/x-ray`; the fields' counts summed in the bytes of one word,
-  which takes three more shifts; runs of four symbols, whose table takes
-  longer to build than they save; a round's runs written to a buffer and
-  copied out, which waits on its stores; the wide copy's cases widened,
-  1% slower on each machine; a match of the previous lap told before its
-  copies in turn are tried, which executes 1 to 2% more whole; and the
-  stream loaded a kilobyte or a page ahead as it is read, which gains
-  half as much on Zen 5 and loses 2 to 5% on Granite Rapids. Done when
-  those two are within 1.1 times libzstd's too, or the crate's docs say
-  why not.
 - [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
   `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
   names, never run in CI, checked against a reference decoder, or for
