@@ -138,6 +138,20 @@ so any release may break compatibility.
   and 19: on Zen 5, 0.92 to 0.95 times libzstd's speed, not 0.89 to
   0.90; on Granite Rapids, 0.95 to 0.97, not 0.93 to 0.94; and on
   Neoverse V3, 0.97 to 1.00, not 0.94 to 0.97.
+- `decode-zstd`: a stream given and taken in pieces decodes faster. A
+  frame that says what it decodes to, no more than its window and two
+  blocks, takes a buffer of just that, once: its last block had the
+  buffer grown, which copied all it had decoded, and had glibc trim its
+  heap at each free, so that every decoder took fresh pages. The buffer
+  is set to zeros a block at a time, as each is decoded, not at once; a
+  block stored as it is, or of one byte repeated, goes onto it with no
+  zeros set first, and one stored, given in part, is taken as it comes,
+  not gathered; and a match that lies wholly in the buffer's previous
+  lap is copied by wide copies. By a timer's best of runs over the
+  corpus in pieces of 4 KiB, at levels 1, 3, 9, and 19: on Zen 5, 0.93
+  to 0.95 times libzstd's speed, not 0.87 to 0.92; on Granite Rapids,
+  0.96 to 0.98, not 0.89 to 0.94; and on Neoverse V3, 0.97 to 1.01, not
+  0.91 to 0.98.
 - `decode-zstd`: the buffer of a block's literals grows by doubling, up
   to the block's most, freeing the old first, as its literals are not
   kept: on Zen 1, over the corpus, at most 1.63 times libzstd's peak,

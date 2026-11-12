@@ -75,7 +75,14 @@ const STRIDES: [usize; SHORT] = {
 /// allocated as it fills, and then never again: decoding goes round it,
 /// from its start again once a block may not fit before its end, so that
 /// what is decoded past there, the previous lap, is still copied from,
-/// until the current lap reaches it.
+/// until the current lap reaches it. A frame that says what it decodes
+/// to, no more than the buffer may hold, takes a buffer of just that,
+/// and never goes round.
+///
+/// The buffer is set to zeros, as memory that is written to must be,
+/// only as far as the next block may reach: so that the zeros are still
+/// in the cache when the block is decoded over them, and a frame is not
+/// held up for those of blocks that it never comes to.
 #[derive(Clone)]
 pub(super) struct Window {
     bytes: Vec<u8>,
@@ -117,25 +124,46 @@ impl Window {
         self.size.saturating_add(block.saturating_mul(2))
     }
 
+    /// Returns where the frame ends in the buffer, if it says what it
+    /// decodes to and the buffer may hold that, with its slack: no block
+    /// then decodes past there, and no lap starts over.
+    fn bound(&self) -> Option<usize> {
+        let fits = |expected: &usize| expected.saturating_add(SLACK) <= self.capacity();
+        self.expected.filter(fits)
+    }
+
+    /// Returns the most that a block which starts at the end may reach.
+    fn reach(&self) -> usize {
+        let reach = self.end.saturating_add(self.block);
+        self.bound().map_or(reach, |bound| reach.min(bound))
+    }
+
     /// Makes room for a block at the end, once everything decoded has
     /// been produced: by growing the buffer, to what the frame decodes to
-    /// if it says, or else doubling it, up to its capacity; or else by
-    /// starting a lap.
+    /// if it says, or else doubling it, up to its capacity, zeros as far
+    /// as the block may reach; or else by starting a lap.
     pub(super) fn prepare(&mut self) -> Result<(), Error> {
-        let need = self.end.saturating_add(self.block).saturating_add(SLACK);
-        if need <= self.bytes.len() {
-            return Ok(());
+        let need = self.reserve()?;
+        if need > self.bytes.len() {
+            self.bytes.resize(need, 0);
         }
+        Ok(())
+    }
+
+    /// Allocates room for a block at the end, or else starts a lap, as
+    /// [`prepare`](Self::prepare) does, and returns how far the buffer
+    /// must reach for the block: what it allocates is yet to be set.
+    fn reserve(&mut self) -> Result<usize, Error> {
+        let need = self.reach().saturating_add(SLACK);
         let len = self.bytes.len();
-        if len < self.capacity() {
-            let expected = self.expected.unwrap_or_default();
-            let grown = len.saturating_mul(2).max(need).max(4096).max(expected);
-            let grown = grown.min(self.capacity());
-            self.bytes.reserve_exact(grown.saturating_sub(len));
-            self.bytes.resize(grown, 0);
-            if need <= grown {
-                return Ok(());
+        if need <= self.capacity() {
+            if need > self.bytes.capacity() {
+                let expected = self.expected.unwrap_or_default().saturating_add(SLACK);
+                let grown = len.saturating_mul(2).max(need).max(4096).max(expected);
+                let grown = grown.min(self.capacity());
+                self.bytes.reserve_exact(grown.saturating_sub(len));
             }
+            return Ok(need);
         }
         // A lap starts over only once all is produced; the last ended past
         // the window, a block, and its slack, so that the window is left
@@ -144,7 +172,49 @@ impl Window {
             return Err(corrupt());
         }
         (self.lapped, self.end, self.produced) = (self.end, 0, 0);
-        Ok(())
+        Ok(self.reach().saturating_add(SLACK))
+    }
+
+    /// Returns where a block of `n` bytes that starts at the end ends, if
+    /// it may: no more than a block, nor past what the frame decodes to.
+    fn ends(&self, n: usize) -> Result<usize, Error> {
+        let to = self.end.checked_add(n).filter(|&to| to <= self.reach());
+        to.ok_or_else(corrupt)
+    }
+
+    /// Appends `bytes`, a block stored as it is, once everything decoded
+    /// has been produced, and returns where it starts: over what the
+    /// buffer holds, and onto its end past that, so that nothing is set
+    /// to zeros to be written over.
+    pub(super) fn append(&mut self, bytes: &[u8]) -> Result<usize, Error> {
+        self.reserve()?;
+        let (start, to) = (self.end, self.ends(bytes.len())?);
+        let held = self.bytes.len().min(to).saturating_sub(start);
+        let (over, onto) = bytes.split_at_checked(held).ok_or_else(corrupt)?;
+        let room = self.bytes.get_mut(start..).unwrap_or_default();
+        room.get_mut(..held)
+            .ok_or_else(corrupt)?
+            .copy_from_slice(over);
+        self.bytes.extend_from_slice(onto);
+        self.end = to;
+        Ok(start)
+    }
+
+    /// Appends `n` of `byte`, a block of one byte repeated, as
+    /// [`append`](Self::append) does a block stored as it is.
+    pub(super) fn repeat(&mut self, byte: u8, n: usize) -> Result<usize, Error> {
+        self.reserve()?;
+        let (start, to) = (self.end, self.ends(n)?);
+        let held = self.bytes.len().min(to);
+        self.bytes
+            .get_mut(start..held)
+            .unwrap_or_default()
+            .fill(byte);
+        if to > held {
+            self.bytes.resize(to, byte);
+        }
+        self.end = to;
+        Ok(start)
     }
 
     /// Where the current lap ends: where a block about to decode starts.
@@ -175,12 +245,15 @@ impl Window {
     }
 
     /// Returns a cursor at the end, to decode a block of at most `max`
-    /// bytes onto, which [`advance`](Self::advance) then takes the end of.
+    /// bytes onto, and no further than the frame says it decodes to,
+    /// which [`advance`](Self::advance) then takes the end of.
     pub(super) fn cursor(&mut self, max: usize) -> Cursor<'_> {
+        let limit = self.end.saturating_add(max);
+        let limit = self.bound().map_or(limit, |bound| limit.min(bound));
         Cursor {
             bytes: &mut self.bytes,
             end: self.end,
-            limit: self.end.saturating_add(max),
+            limit,
             lapped: self.lapped,
             size: self.size,
         }
@@ -512,9 +585,11 @@ fn run<'l>(
     /// short copy back, by short copies likewise; and from nearer, what it
     /// repeats, a pattern as long as it is far, is first multiplied out to a
     /// short copy's bytes, and then copied on from where the pattern last
-    /// began a short copy back. A function of its own, not inlined, so that
-    /// the loop that calls it stays in registers; and within [`run`], so that
-    /// it is built for the instructions that `run` is.
+    /// began a short copy back. A match from before the buffer's start
+    /// lies in its previous lap, which ended at `lapped`, and is copied
+    /// from there by `behind`. A function of its own, not inlined, so that
+    /// the loop that calls it stays in registers; and within [`run`], so
+    /// that it is built for the instructions that `run` is.
     #[cfg_attr(
         all(feature = "intrinsics", target_arch = "x86_64"),
         multiversion::inherit_target
@@ -523,6 +598,7 @@ fn run<'l>(
     fn turns<'l>(
         bytes: &mut [u8],
         end: usize,
+        lapped: usize,
         literals: &'l [u8],
         sequence: &Sequence,
     ) -> Option<(&'l [u8], usize)> {
@@ -549,7 +625,9 @@ fn run<'l>(
         if offset >= WIDE {
             while at < to {
                 let (before, after) = bytes.split_at_mut_checked(at)?;
-                let from = at.checked_sub(offset)?;
+                let Some(from) = at.checked_sub(offset) else {
+                    return behind(bytes, start, lapped, literals, sequence);
+                };
                 let matched = before.get(from..)?.first_chunk::<WIDE>()?;
                 *after.first_chunk_mut::<WIDE>()? = *matched;
                 at = at.wrapping_add(WIDE);
@@ -579,6 +657,47 @@ fn run<'l>(
         Some((literals.get(literal_len..)?, to))
     }
 
+    /// Copies `sequence`'s match onto `bytes` at `start`, past its
+    /// literals, as `turns` does, where it lies wholly in the buffer's
+    /// previous lap, which ended at `lapped`: by wide copies too, as what
+    /// that lap left of the window lies past all that this one writes, a
+    /// block and its slack away. It returns the `literals` past the
+    /// sequence's and where it ends; or nothing, having written nothing
+    /// that counts, for a match that reaches into this lap, or that the
+    /// buffer does not hold a wide copy past. A function of its own, as
+    /// only a buffer that decoding goes round has such matches.
+    #[cfg_attr(
+        all(feature = "intrinsics", target_arch = "x86_64"),
+        multiversion::inherit_target
+    )]
+    #[inline(never)]
+    fn behind<'l>(
+        bytes: &mut [u8],
+        start: usize,
+        lapped: usize,
+        literals: &'l [u8],
+        sequence: &Sequence,
+    ) -> Option<(&'l [u8], usize)> {
+        let (literal_len, match_len, offset) =
+            (sequence.literals, sequence.matched, sequence.offset);
+        // As far before the previous lap's end as the match starts before
+        // this one's start, if there is one, and if it ends there too.
+        let back = offset
+            .checked_sub(start)
+            .filter(|&back| back >= match_len)?;
+        let mut from = lapped.checked_sub(back).filter(|_| back > 0)?;
+        // Neither wraps: the match is no longer than copies in turn
+        // serve, and `start` is within the buffer.
+        let to = start.wrapping_add(match_len);
+        let mut at = start;
+        while at < to {
+            let matched = *bytes.get(from..)?.first_chunk::<WIDE>()?;
+            *bytes.get_mut(at..)?.first_chunk_mut::<WIDE>()? = matched;
+            (from, at) = (from.wrapping_add(WIDE), at.wrapping_add(WIDE));
+        }
+        Some((literals.get(literal_len..)?, to))
+    }
+
     let [limit, lapped, size] = within;
     let (mut end, mut literals) = (end, literals);
     for sequence in sequences {
@@ -586,7 +705,7 @@ fn run<'l>(
             (literals, end) = (rest, to);
             continue;
         }
-        if let Some((rest, to)) = turns(bytes, end, literals, sequence) {
+        if let Some((rest, to)) = turns(bytes, end, lapped, literals, sequence) {
             (literals, end) = (rest, to);
             continue;
         }
@@ -713,7 +832,10 @@ mod tests {
         let mut window = Window::new(10, 4, None);
         let bytes: Vec<u8> = (0..84).collect();
         assert_eq!(decode(&mut window, &bytes), bytes);
-        assert_eq!(window.bytes.len(), 10 + 2 * (4 + SLACK));
+        // Allocated whole, and zeros as far as the last block before
+        // the lap might have reached.
+        assert!(window.bytes.capacity() >= 10 + 2 * (4 + SLACK));
+        assert_eq!(window.bytes.len(), 76 + 4 + SLACK);
         // The current lap holds 80 to 83, the previous still 4 to 79.
         assert_eq!((window.end, window.lapped), (4, 80));
         window.prepare().unwrap();
@@ -825,6 +947,97 @@ mod tests {
             };
             let mut cursor = window.cursor(0);
             assert!(cursor.run(&[more], &literals).is_err());
+        }
+    }
+
+    /// Blocks of sequences made up at random, and blocks stored as they
+    /// are and of one byte repeated between them, round a buffer of few
+    /// blocks, lap after lap, as copying each byte in turn does: whether
+    /// the frame says what it decodes to or not.
+    #[test]
+    fn runs_blocks_across_laps_as_copying_each_byte_does() {
+        let mut seed = 0x2545_F491_4F6C_DD1D_u64;
+        let mut below = move |n: usize| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed % n as u64) as usize
+        };
+        let literals: Vec<u8> = (0..4096_u32).map(|n| (n * 13 % 253) as u8).collect();
+        let (size, block) = (1024, 256);
+        for total in [200, 1000, 1500, 1700, 40_000] {
+            for says in [false, true] {
+                let mut window = Window::new(size, block, says.then_some(total));
+                let (mut expected, mut produced) = (Vec::new(), Vec::new());
+                while expected.len() < total {
+                    let left = (total - expected.len()).min(block);
+                    let start = expected.len();
+                    match below(8) {
+                        0 => {
+                            let stored: Vec<u8> = (0..1 + below(left)).map(|n| n as u8).collect();
+                            expected.extend_from_slice(&stored);
+                            assert_eq!(window.append(&stored).unwrap(), window.end - stored.len());
+                        },
+                        1 => {
+                            let n = 1 + below(left);
+                            expected.resize(start + n, 0xAA);
+                            assert_eq!(window.repeat(0xAA, n).unwrap(), window.end - n);
+                        },
+                        _ => {
+                            let (mut sequences, mut taken) = (Vec::new(), 0);
+                            while expected.len() - start + 40 < left {
+                                let literal_len = below(12);
+                                let match_len = 3 + below(24);
+                                let reach = (expected.len() + literal_len).min(size);
+                                if reach == 0 {
+                                    expected.push(literals[taken]);
+                                    taken += 1;
+                                    sequences.push(Sequence {
+                                        literals: 1,
+                                        matched: 0,
+                                        offset: 1,
+                                    });
+                                    continue;
+                                }
+                                let offset = 1 + match below(4) {
+                                    0 => below(20).min(reach - 1),
+                                    _ => below(reach),
+                                };
+                                expected.extend_from_slice(&literals[taken..taken + literal_len]);
+                                for _ in 0..match_len {
+                                    expected.push(expected[expected.len() - offset]);
+                                }
+                                taken += literal_len;
+                                sequences.push(Sequence {
+                                    literals: literal_len,
+                                    matched: match_len,
+                                    offset,
+                                });
+                            }
+                            window.prepare().unwrap();
+                            let mut cursor = window.cursor(block);
+                            cursor.run(&sequences, &literals).unwrap();
+                            let end = cursor.end;
+                            window.advance(end);
+                        },
+                    }
+                    let mut output = vec![0; expected.len() - start];
+                    assert_eq!(window.produce(&mut output), output.len());
+                    assert!(!window.pending());
+                    produced.extend_from_slice(&output);
+                }
+                assert_eq!(produced, expected, "{total} said: {says}");
+                // No more than a frame that the buffer holds whole says,
+                // which then takes no more than that, nor than a block.
+                if says && total + SLACK <= size + 2 * (block + SLACK) {
+                    assert!(window.append(&[0]).is_err() && window.repeat(0, 1).is_err());
+                    assert_eq!((window.lapped, window.end), (0, total));
+                    assert!(window.bytes.len() <= total + SLACK);
+                } else if total > size + 2 * (block + SLACK) {
+                    assert!(window.lapped > 0);
+                }
+                assert!(window.append(&vec![0; block + 1]).is_err());
+            }
         }
     }
 
