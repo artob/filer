@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Read-only volumes of any supported file system for the Filer API."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["filesystem", "ext4", "ntfs", "vfs", "public-domain"]

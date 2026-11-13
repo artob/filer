@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "A clean-room, public-domain xz decoder, in safe Rust."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["xz", "lzma2", "lzma", "decoder", "public-domain"]

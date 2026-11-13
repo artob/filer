@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Executable specification of the Filer driver contract, for testing drivers."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true

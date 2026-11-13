@@ -8,4 +8,8 @@
 
 #![forbid(unsafe_code)]
 
+// The CLI is to work through `filer-system` (D30); until it does, this
+// keeps Cargo from warning that the dependency goes unused.
+use filer_system as _;
+
 fn main() {}

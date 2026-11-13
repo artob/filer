@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Clean-room, public-domain BLAKE2b, BLAKE2s, and BLAKE2sp, in safe Rust (planned)."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["blake2", "blake2b", "blake2s", "hash", "public-domain"]

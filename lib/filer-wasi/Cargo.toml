@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "WASI backend for the Filer API on WebAssembly System Interface targets."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true

@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Cross-platform Filer API over the native filesystem driver."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true
@@ -24,6 +23,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["all", "std", "intrinsics"]
 all = []
 std = [
+  "dep:filer-posix",
+  "dep:filer-wasi",
+  "dep:filer-whatwg",
+  "dep:filer-windows",
   "filer-api/std",
   "filer-posix/std",
   "filer-wasi/std",
@@ -36,14 +39,16 @@ intrinsics = ["filer-api/intrinsics"]
 [dependencies]
 filer-api.workspace = true
 
+# Each backend only under its `cfg`, and only with `std`, which `System`
+# takes.
 [target.'cfg(unix)'.dependencies]
-filer-posix.workspace = true
+filer-posix = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "wasi")'.dependencies]
-filer-wasi.workspace = true
+filer-wasi = { workspace = true, optional = true }
 
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
-filer-whatwg.workspace = true
+filer-whatwg = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
-filer-windows.workspace = true
+filer-windows = { workspace = true, optional = true }

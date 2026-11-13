@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Read-only SquashFS file system driver for the Filer API."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["squashfs", "appimage", "snap", "filesystem", "public-domain"]

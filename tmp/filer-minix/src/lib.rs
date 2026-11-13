@@ -61,3 +61,7 @@
         clippy::unwrap_used
     )
 )]
+
+// The driver is to read through `filer-fs` (D58); until it does, this
+// keeps Cargo from warning that the dependency goes unused.
+use filer_fs as _;

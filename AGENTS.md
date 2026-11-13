@@ -21,6 +21,11 @@
 # Rust code
 - Don't ever directly read the contents of `Cargo.lock`, it can very large.
 - Our current MSRV is Rust 1.99; update and enforce everywhere as needed.
+- Keep Rust 1.100's Cargo lints clean: a dependency used only on some
+  targets goes in a `[target.'cfg(...)'.dependencies]` table; one used
+  only with a feature is optional, enabled by it with `dep:`; one a stub
+  keeps for later, or that a feature leaves idle, gets `use name as _;`
+  and a comment saying why.
 - Our crates collect their default features under an `all` feature, and
   their `[features]` should start with the line `default = ["all", "std"]`;
   a crate with `intrinsics`, or above one, adds it there, our performance

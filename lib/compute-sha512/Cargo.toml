@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "A clean-room, public-domain SHA-512 and SHA-512/256, in safe Rust."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["sha512", "sha2", "hash", "checksum", "public-domain"]
@@ -28,5 +27,7 @@ std = ["compute-multiversion?/std"]
 # with `std`, else where the build enables them.
 intrinsics = ["dep:compute-multiversion"]
 
-[dependencies]
+# Only where `intrinsics` builds anything: x86-64 with SSE2 and aarch64 with
+# NEON, not soft-float targets (rust-lang/rust#117938) or others.
+[target.'cfg(any(all(target_arch = "x86_64", target_feature = "sse2"), all(target_arch = "aarch64", target_feature = "neon")))'.dependencies]
 compute-multiversion = { workspace = true, optional = true }

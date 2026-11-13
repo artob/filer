@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Read-only ext2, ext3, and ext4 file system driver for the Filer API."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["ext4", "ext3", "ext2", "filesystem", "public-domain"]

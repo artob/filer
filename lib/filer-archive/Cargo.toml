@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Read-only archives of any supported format for the Filer API."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["archive", "tar", "zip", "vfs", "public-domain"]

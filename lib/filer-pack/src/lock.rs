@@ -1,5 +1,10 @@
 // This is free and unencumbered software released into the public domain.
 
+// Cargo cannot leave a dependency out where a feature is on: `spin` locks
+// only without `std`.
+#[cfg(feature = "std")]
+use spin as _;
+
 /// A lock for short, synchronous critical sections that never span an
 /// `.await` (`DESIGN.md` §7.7): the standard mutex under `std`, and a spin
 /// lock without it.

@@ -240,6 +240,14 @@ so any release may break compatibility.
   price its docs give: on Apple M4, gzip 12% to 18% slower, and CRC-32
   and CRC-32C 5 to 23 times. The benchmark harness measures both builds,
   the default first.
+- Every crate: Rust 1.100's Cargo finds no dependency unused and no field
+  redundant. `compute-adler32`, `compute-crc`, `compute-sha256`, and
+  `compute-sha512` depend on `compute-multiversion` only for x86-64 with
+  SSE2 and AArch64 with NEON, and `decode-zstd` only for x86-64 with SSE2,
+  where `intrinsics` builds anything; `filer-posix` and `filer-windows`
+  depend on nothing but on their own systems with `std`, and
+  `filer-system` on its backends only with `std`; and no crate names a
+  `homepage`, which was its repository.
 ### Fixed
 - `compute-adler32`, `compute-crc`, `compute-sha256`, `compute-sha512`,
   and `decode-zstd`: with `intrinsics`, as by default, they build again

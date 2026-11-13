@@ -16,6 +16,13 @@ type Native = filer_windows::Windows;
 #[cfg(not(any(unix, windows)))]
 type Native = crate::unsupported::Unsupported;
 
+// WASI's and the browsers' drivers are to stand in for the stub (D37);
+// until they do, this keeps Cargo from warning that they go unused.
+#[cfg(target_os = "wasi")]
+use filer_wasi as _;
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
+use filer_whatwg as _;
+
 /// The platform's native filesystem driver.
 ///
 /// `System` delegates every operation to the driver for the target it is

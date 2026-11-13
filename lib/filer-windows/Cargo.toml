@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Windows backend for the Filer API."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true
@@ -25,14 +24,21 @@ default-target = "x86_64-pc-windows-msvc"
 [features]
 default = ["all", "std"]
 all = []
-std = ["filer-api/std", "filer-fs/std", "filer-msft/std", "dep:windows-sys"]
+std = [
+  "dep:filer-api",
+  "dep:filer-fs",
+  "dep:filer-msft",
+  "dep:windows-sys",
+  "filer-api/std",
+  "filer-fs/std",
+  "filer-msft/std",
+]
 
-[dependencies]
-filer-api.workspace = true
-filer-fs.workspace = true
-filer-msft.workspace = true
-
+# Only on Windows and with `std`, where the driver is.
 [target.'cfg(windows)'.dependencies]
+filer-api = { workspace = true, optional = true }
+filer-fs = { workspace = true, optional = true }
+filer-msft = { workspace = true, optional = true }
 windows-sys = { workspace = true, optional = true, features = [
     "Wdk_Foundation",
     "Wdk_Storage_FileSystem",
@@ -44,4 +50,7 @@ windows-sys = { workspace = true, optional = true, features = [
 ] }
 
 [dev-dependencies]
+# For the directory listings' tests, which run on every target.
+filer-fs = { workspace = true, features = ["std"] }
+filer-msft = { workspace = true, features = ["std"] }
 filer-spec = { workspace = true, features = ["std"] }

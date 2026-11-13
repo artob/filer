@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Shared machinery of archive drivers for the Filer API."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["archive", "unpack", "vfs", "public-domain"]

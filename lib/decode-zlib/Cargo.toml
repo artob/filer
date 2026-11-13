@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "A clean-room, public-domain zlib decoder, in safe Rust."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["zlib", "deflate", "inflate", "decoder", "public-domain"]

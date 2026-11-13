@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "A clean-room, public-domain gzip decoder, in safe Rust."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["gzip", "gz", "deflate", "decoder", "public-domain"]

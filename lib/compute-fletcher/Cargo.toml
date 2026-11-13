@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Clean-room, public-domain Fletcher checksums, as ZFS and APFS stamp them, in safe Rust."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["fletcher", "checksum", "zfs", "apfs", "public-domain"]

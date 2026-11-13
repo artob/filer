@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Read-only 7z archive driver for the Filer API."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["7z", "lzma", "archive", "vfs", "public-domain"]

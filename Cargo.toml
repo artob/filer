@@ -10,10 +10,8 @@ version = "0.0.4"
 authors = ["Arto Bendiken"]
 edition = "2024"
 rust-version = "1.99"
-description = "Filesystem API with platform-specific backends."
 #documentation = "https://docs.rs/filer-api/"
 readme = true
-homepage = "https://github.com/artob/filer"
 repository = "https://github.com/artob/filer"
 license = "Unlicense"
 keywords = ["public-domain"]
@@ -45,37 +43,30 @@ decode-bzip2 = { version = "0.0.4", path = "lib/decode-bzip2", default-features 
 decode-zlib = { version = "0.0.4", path = "lib/decode-zlib", default-features = false }
 decode-zstd = { version = "0.0.4", path = "lib/decode-zstd", default-features = false }
 filer-7z = { version = "0.0.4", path = "tmp/filer-7z", default-features = false }
-filer-apfs = { version = "0.0.4", path = "tmp/filer-apfs", default-features = false }
 filer-api = { version = "0.0.4", path = "lib/filer-api", default-features = false }
 filer-ar = { version = "0.0.4", path = "lib/filer-ar", default-features = false }
 filer-archive = { version = "0.0.4", path = "lib/filer-archive", default-features = false }
-filer-btrfs = { version = "0.0.4", path = "tmp/filer-btrfs", default-features = false }
 filer-cdfs = { version = "0.0.4", path = "lib/filer-cdfs", default-features = false }
 filer-cpio = { version = "0.0.4", path = "lib/filer-cpio", default-features = false }
-filer-exfat = { version = "0.0.4", path = "tmp/filer-exfat", default-features = false }
 filer-ext4 = { version = "0.0.4", path = "lib/filer-ext4", default-features = false }
 filer-fat = { version = "0.0.4", path = "lib/filer-fat", default-features = false }
 filer-fs = { version = "0.0.4", path = "lib/filer-fs", default-features = false }
 filer-heap = { version = "0.0.4", path = "lib/filer-heap", default-features = false }
-filer-minix = { version = "0.0.4", path = "tmp/filer-minix", default-features = false }
 filer-msft = { version = "0.0.4", path = "lib/filer-msft", default-features = false }
 filer-ntfs = { version = "0.0.4", path = "lib/filer-ntfs", default-features = false }
 filer-pack = { version = "0.0.4", path = "lib/filer-pack", default-features = false }
 filer-posix = { version = "0.0.4", path = "lib/filer-posix", default-features = false }
 filer-rar = { version = "0.0.4", path = "tmp/filer-rar", default-features = false }
-filer-refs = { version = "0.0.4", path = "tmp/filer-refs", default-features = false }
 filer-spec = { version = "0.0.4", path = "lib/filer-spec", default-features = false }
 filer-squashfs = { version = "0.0.4", path = "lib/filer-squashfs", default-features = false }
 filer-system = { version = "0.0.4", path = "lib/filer-system", default-features = false }
 filer-tar = { version = "0.0.4", path = "lib/filer-tar", default-features = false }
 filer-udf = { version = "0.0.4", path = "lib/filer-udf", default-features = false }
-filer-ufs = { version = "0.0.4", path = "tmp/filer-ufs", default-features = false }
 filer-volume = { version = "0.0.4", path = "lib/filer-volume", default-features = false }
 filer-wasi = { version = "0.0.4", path = "lib/filer-wasi", default-features = false }
 filer-whatwg = { version = "0.0.4", path = "lib/filer-whatwg", default-features = false }
 filer-windows = { version = "0.0.4", path = "lib/filer-windows", default-features = false }
 filer-xfs = { version = "0.0.4", path = "lib/filer-xfs", default-features = false }
-filer-zfs = { version = "0.0.4", path = "tmp/filer-zfs", default-features = false }
 filer-zip = { version = "0.0.4", path = "lib/filer-zip", default-features = false }
 known-codepages = { version = "0.0.4", path = "lib/known-codepages", default-features = false }
 bitflags = { version = "2.13", default-features = false }

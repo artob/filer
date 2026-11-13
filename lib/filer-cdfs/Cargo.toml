@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Read-only ISO 9660 (CD-ROM) file system driver for the Filer API."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["iso9660", "iso", "cdrom", "filesystem", "public-domain"]

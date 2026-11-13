@@ -55,3 +55,7 @@
         clippy::unwrap_used
     )
 )]
+
+// The driver is to build on `filer-api` (D58); until it does, this keeps
+// Cargo from warning that the dependency goes unused.
+use filer_api as _;

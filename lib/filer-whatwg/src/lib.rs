@@ -53,3 +53,7 @@
         clippy::unwrap_used
     )
 )]
+
+// The backend is to implement `filer-api` (D38); until it does, this keeps
+// Cargo from warning that the dependency goes unused.
+use filer_api as _;

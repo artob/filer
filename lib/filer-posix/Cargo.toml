@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "POSIX backend for the Filer API on Unix platforms."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true
@@ -23,12 +22,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = ["all", "std"]
 all = []
-std = ["filer-api/std", "dep:rustix"]
+std = ["dep:filer-api", "filer-api/std", "dep:rustix"]
 
-[dependencies]
-filer-api.workspace = true
-
+# Only on Unix and with `std`, where the driver is.
 [target.'cfg(unix)'.dependencies]
+filer-api = { workspace = true, optional = true }
 rustix = { workspace = true, optional = true, features = ["fs", "std"] }
 
 [dev-dependencies]

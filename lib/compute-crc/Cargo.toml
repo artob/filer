@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Clean-room, public-domain CRCs: CRC-32, CRC-32C, CRC-64/XZ, and more, in safe Rust."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["crc", "crc32", "crc32c", "checksum", "public-domain"]
@@ -34,5 +33,7 @@ crc32-bzip2 = []
 crc32c = []
 crc64-xz = []
 
-[dependencies]
+# Only where `intrinsics` builds anything: x86-64 with SSE2 and aarch64 with
+# NEON, not soft-float targets (rust-lang/rust#117938) or others.
+[target.'cfg(any(all(target_arch = "x86_64", target_feature = "sse2"), all(target_arch = "aarch64", target_feature = "neon")))'.dependencies]
 compute-multiversion = { workspace = true, optional = true }

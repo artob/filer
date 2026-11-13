@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "WHATWG File System Standard backend for the Filer API, for browsers (OPFS)."
 readme.workspace = true
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["opfs", "browser", "wasm", "file-system-access", "public-domain"]

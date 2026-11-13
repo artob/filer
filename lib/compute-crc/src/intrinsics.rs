@@ -20,6 +20,17 @@
 //! may hold are tables, taken bit by bit at compile time: the integer
 //! instructions alone, never carry-less multiplication.
 
+// `intrinsics` without a CRC builds nothing twice; this keeps Cargo from
+// warning that `compute-multiversion` goes unused.
+#[cfg(not(any(
+    feature = "crc16-modbus",
+    feature = "crc32",
+    feature = "crc32-bzip2",
+    feature = "crc32c",
+    feature = "crc64-xz"
+)))]
+use multiversion as _;
+
 /// The bytes that each of the three streams takes before they combine:
 /// enough that combining costs little beside them, and few enough that
 /// short inputs take three. On Apple M4, 256 came within 10% of 1,024's

@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "A clean-room, public-domain zstd decoder, in safe Rust."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["zstd", "zstandard", "decompression", "decoder", "public-domain"]
@@ -31,8 +30,12 @@ std = ["compute-xxhash/std", "compute-multiversion?/std"]
 intrinsics = ["dep:compute-multiversion"]
 
 [dependencies]
-compute-multiversion = { workspace = true, optional = true }
 compute-xxhash = { workspace = true, features = ["xxh64"] }
+
+# Only where `intrinsics` builds anything: x86-64 with SSE2, not soft-float
+# targets (rust-lang/rust#117938) or others.
+[target.'cfg(all(target_arch = "x86_64", target_feature = "sse2"))'.dependencies]
+compute-multiversion = { workspace = true, optional = true }
 
 [dev-dependencies]
 # Mutates streams for `tests/fuzz.rs`. A path alone, without a version, so

@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Clean-room, public-domain xxHash hashes: XXH32 and XXH64, in safe Rust."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["xxhash", "xxh32", "xxh64", "hash", "public-domain"]

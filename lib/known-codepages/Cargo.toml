@@ -6,7 +6,6 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Single-byte DOS and Windows code pages, decoded by table."
 readme = "README.md"
-homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["codepage", "cp437", "encoding", "oem", "public-domain"]
