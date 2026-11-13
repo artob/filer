@@ -88,8 +88,8 @@ pub(crate) fn compress(hash: &mut [u32; 8], blocks: &[[u8; 64]]) -> bool {
     #[multiversion::inherit_target]
     fn rounds(hash: &mut [u32; 8], blocks: &[[u8; 64]]) -> bool {
         use core::arch::aarch64::{
-            uint32x4_t, vaddq_u32, vdupq_n_u32, veorq_u32, vgetq_lane_u32, vsetq_lane_u32,
-            vsha256h2q_u32, vsha256hq_u32, vsha256su0q_u32, vsha256su1q_u32,
+            uint32x4_t, vaddq_u32, vdupq_n_u32, vgetq_lane_u32, vsetq_lane_u32, vsha256h2q_u32,
+            vsha256hq_u32, vsha256su0q_u32, vsha256su1q_u32,
         };
         let set = |[a, b, c, d]: [u32; 4]| {
             let v = vsetq_lane_u32::<1>(b, vdupq_n_u32(a));
@@ -109,24 +109,37 @@ pub(crate) fn compress(hash: &mut [u32; 8], blocks: &[[u8; 64]]) -> bool {
         }
         let [a, b, c, d, e, f, g, h] = *hash;
         let (mut abcd, mut efgh) = (set([a, b, c, d]), set([e, f, g, h]));
-        // Zeros that the compiler does not know for zeros: each of the
-        // two instructions of four rounds overwrites the half of the
-        // state it takes on, and needs the other's as it was, so one half
-        // is copied each time. Left to it, the compiler copies the half
-        // that the first instruction overwrites, and the rounds wait on
-        // the copy, each four on the four before. Summed with these, the
-        // copy is the second instruction's, which waits on less.
-        let zeros = vdupq_n_u32(core::hint::black_box(0));
+        // Each of the two instructions of four rounds overwrites the half
+        // of the state it takes on, and needs the other's as it was, so
+        // one half is copied each time. Left to it, the compiler unrolls
+        // the rounds and copies the half that the first instruction
+        // overwrites, and the rounds wait on the copy, each four on the
+        // four before. Summed with zeros that the compiler does not know
+        // for zeros, the copy is the second instruction's, which waits on
+        // less: 100 cycles a block on Neoverse V3, not 130. Apple's cores
+        // wait on that sum too, but not on a plain copy that the second
+        // instruction reads, as a loop carries it: there the rounds are a
+        // loop of a count the compiler does not know, which it leaves
+        // rolled, 83 cycles a block on M4, not 98. Each shape is the
+        // slower on the other's cores (2026-11-13).
+        #[cfg(target_vendor = "apple")]
+        let groups = core::hint::black_box(k.len());
+        #[cfg(not(target_vendor = "apple"))]
+        let (groups, zeros) = (k.len(), vdupq_n_u32(core::hint::black_box(0)));
         for block in blocks {
             let (abcd0, efgh0) = (abcd, efgh);
             let mut w = quads(block).map(set);
-            for &k in &k {
+            for &k in k.iter().take(groups) {
                 let [w0, w1, w2, w3] = w;
                 let wk = vaddq_u32(w0, k);
-                let before = veorq_u32(abcd, zeros);
+                #[cfg(target_vendor = "apple")]
+                let before = abcd;
+                #[cfg(not(target_vendor = "apple"))]
+                let before = core::arch::aarch64::veorq_u32(abcd, zeros);
                 abcd = vsha256hq_u32(abcd, efgh, wk);
                 efgh = vsha256h2q_u32(efgh, before, wk);
-                // The schedule's next four words, from the last sixteen.
+                // The schedule's next four words, from the last sixteen;
+                // those of the last four rounds go unused.
                 w = [w1, w2, w3, vsha256su1q_u32(vsha256su0q_u32(w0, w1), w2, w3)];
             }
             abcd = vaddq_u32(abcd, abcd0);

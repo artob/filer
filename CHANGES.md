@@ -217,7 +217,10 @@ so any release may break compatibility.
   copy is the second instruction's, not the first's, which the next
   four wait on: over a mebibyte, 2.10 GB/s on Neoverse V3, as `ring`,
   not 1.62, and xz's streams checked by it decode Canterbury at 133
-  MB/s there, not 131.
+  MB/s there, not 131. On Apple's targets the rounds are a loop
+  instead, which the compiler leaves rolled, and whose plain copy
+  Apple's cores do not wait on: 3.35 GB/s on Apple M4, within 2% of
+  `ring`'s 3.40, not 2.88.
 - `compute-xxhash`: on ARM, each of XXH32's four accumulators takes its
   lane of three stripes in turn, where the four taken together were made
   a vector, whose multiplications each wait twice as long as a

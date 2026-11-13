@@ -616,13 +616,6 @@ crate's name until its first code, which moves it to `lib/`.
   counterpart over a mebibyte on the default ARM machine, never by
   folding (`LEGAL.md`), with x86-64 no slower, or the crate's docs say
   why not.
-- [ ] **COMP-11: SHA-256 on Apple M4.** With `intrinsics`,
-  `compute-sha256` takes 2.88 GB/s over long inputs on Apple M4, where
-  `ring` takes 3.40, 1.18 times ours; on Neoverse V3, Zen 5, and
-  Granite Rapids the two are equal (COMP-09, 2026-11-11). Which half of
-  the state each four rounds copy makes no difference there, as it did
-  on Neoverse V3. Done when it is within 10% of `ring` over a mebibyte
-  on Apple M4, or the crate's docs say why not.
 - [ ] **DEC-09: LZO1X version 1, checked.** `decode_block` decodes the
   Linux kernel's `lzo-rle` blocks, version 1, from its description,
   tested only against blocks built by hand (2026-11-07). Done when it

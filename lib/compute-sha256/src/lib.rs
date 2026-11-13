@@ -18,9 +18,10 @@
 //! `multiversion` that lets their intrinsics be called without `unsafe`
 //! code here. Without it, as `default-features = false, features =
 //! ["all", "std"]` builds it, it has no dependencies, all of it public
-//! domain, and is 6.2 times slower on Apple M4, 459 MB/s, not 2,859, and
-//! 7.7 times on x86-64 (Zen 1), 159 MB/s, not 1,228 (2026-11-08); and 7.5
-//! times on Neoverse V3, 0.28 GB/s, not 2.10 (2026-11-11).
+//! domain, and is 7.3 times slower on Apple M4, 456 MB/s, not 3,350
+//! (2026-11-13); 7.7 times on x86-64 (Zen 1), 159 MB/s, not 1,228
+//! (2026-11-08); and 7.5 times on Neoverse V3, 0.28 GB/s, not 2.10
+//! (2026-11-11).
 //!
 //! It is one of the `compute-*` crates: clean-room, public-domain
 //! checksums and hashes, each of the same shape: `new`, `update`, `chain`,

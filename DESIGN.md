@@ -2747,13 +2747,15 @@ each crate's `decodes_a_corpus` over Canterbury, best of three runs
 (2026-11-10); and on Neoverse V3, the default ARM machine (D67), all
 of it by the harness and by those tests (2026-11-11); and
 `decode-zstd`'s by a timer's best of runs over the corpus, built both
-ways, by the geometric mean of each level's files (2026-11-12):
+ways, by the geometric mean of each level's files (2026-11-12); and
+`compute-sha256`'s on Apple M4 by a timer's best of runs over a
+mebibyte, built both ways (2026-11-13):
 
 | Crate | Without `intrinsics`, on Apple M4 | On x86-64 | On Neoverse V3 |
 | --- | --- | --- | --- |
 | `compute-adler32` | 3 times slower: 23 GB/s, not 74 | 7 times slower on Zen 5: 18 GB/s, not 121; and on Granite Rapids: 13, not 86 | 2.7 times slower: 18 GB/s, not 48 |
 | `compute-crc` | Every CRC 12 to 17 times slower: 4.6 to 5.8 GB/s, not 58 to 80 | Every CRC, over long inputs, 9 to 15 times slower on Zen 5: 4.6 to 7.1 GB/s, not 66 to 67; and 16 to 23 times on Granite Rapids: 3.8 to 5.3, not 78 to 101 | Every CRC 11 to 13 times slower: 3.4 to 4.2 GB/s, not 38 to 46 |
-| `compute-sha256` | 6.2 times slower: 459 MB/s, not 2,859 | 7.7 times slower: 159 MB/s, not 1,228 | 7.5 times slower: 0.28 GB/s, not 2.10 |
+| `compute-sha256` | 7.3 times slower: 456 MB/s, not 3,350 | 7.7 times slower: 159 MB/s, not 1,228 | 7.5 times slower: 0.28 GB/s, not 2.10 |
 | `compute-sha512` | 2.6 times slower: 733 MB/s, not 1,900 | No slower | 2.8 times slower: 0.45 GB/s, not 1.24 |
 | `decode-gzip` | 15% slower: Canterbury 732 MB/s, not 864 | A tenth slower: Canterbury 619 MB/s, not 685, on Zen 5; 429, not 467, on Granite Rapids | 11% slower: Canterbury 476 MB/s, not 534 |
 | `decode-zlib` | No slower: Canterbury 843 MB/s | 3% slower on Zen 5: Canterbury 656 MB/s, not 673; 4% on Granite Rapids: 439, not 458 | 2% slower: Canterbury 521 MB/s, not 530 |
