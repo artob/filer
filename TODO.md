@@ -564,17 +564,17 @@ crate's name until its first code, which moves it to `lib/`.
   hand, the default ones (`bench/METHOD.md`) each an EC2 instance with a
   core of its own: the current AMD and Intel cores, Zen 5 and Granite
   Rapids, and the Neoverse server's, Neoverse V3 (Graviton5). Each
-  filled `decode-zstd`'s and `decode-bzip2`'s tables whole, their
-  memory, every crate's code size, and the `compute-*` crates' hashes:
-  Zen 5 and Granite Rapids at `037ffbb` (2026-11-10), Neoverse V3 at
-  `b674208` (2026-11-11). Their passes in pieces of 64 KiB and of 4 KiB,
-  and those of the build for the CPU, whole and in pieces, are deferred:
-  on the x86 hosts stopped 8 and 7 inputs into the first (2026-11-10),
-  on the ARM host not begun; `~/campaign.sh <cpu>` on each host takes
-  them up. Zen 1's speed tables are older, of `9c5f5fc`,
-  before DEC-19's work, and every machine's `decode-zstd` tables are of
-  before its sequences were decoded in batches. Done when each
-  `BENCH.md` of a written decoder holds them all.
+  filled `decode-zstd`'s and `decode-bzip2`'s tables whole: Zen 5 and
+  Granite Rapids at `037ffbb` (2026-11-10), Neoverse V3 at `b674208`
+  (2026-11-11), every machine's `decode-zstd` tables of before its
+  sequences were decoded in batches. A campaign of every measure on all
+  three, at `de4f027`, began 2026-11-13 (`~/campaign.sh <cpu>` on each
+  host): it has filled their memory, every crate's code size, and the
+  `compute-*` crates' hashes; its passes of both decoders, of the
+  baseline build and of the build for the CPU, whole and in pieces of
+  64 KiB and of 4 KiB, run. Zen 1's speed tables are older, of
+  `9c5f5fc`, before DEC-19's work. Done when each `BENCH.md` of a
+  written decoder holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
   `intrinsics` takes ARMv8.2's SHA-512 instructions, but not x86-64's,
   which only Intel's newest CPUs have, from Arrow Lake and Lunar Lake on,

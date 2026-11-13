@@ -924,7 +924,7 @@ Ours relative to libbzip2's peak: 1.13x at the median, and at most
 
 ### AMD EPYC 9R45 (1 vCPU under EC2 Nitro), whole
 
-Measured 2026-11-10, at `037ffbb`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -958,7 +958,7 @@ libbz2-rs-sys 8 B, bzip2-rs 632 B.
 | ooffice | 9 | 4041.1 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7044.8 KiB, 12 |
 | osdb | 1 | 519.7 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.0 KiB, 109 |
 | osdb | 9 | 4034.7 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7038.3 KiB, 17 |
-| reymont | 1 | 519.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1954.5 KiB, 73 |
+| reymont | 1 | 519.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1954.4 KiB, 73 |
 | reymont | 9 | 3779.7 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5281.6 KiB, 12 |
 | samba | 1 | 648.6 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.0 KiB, 207 |
 | samba | 9 | 4555.4 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 10555.5 KiB, 29 |
@@ -993,7 +993,7 @@ libbz2-rs-sys 8 B, bzip2-rs 632 B.
 | fields.c | 1 | 67.1 KiB, 5 | 453.4 KiB, 3 | 450.2 KiB, 3 | 393.7 KiB, 3 |
 | fields.c | 9 | 67.1 KiB, 5 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3518.7 KiB, 3 |
 | grammar.lsp | 1 | 17.3 KiB, 3 | 453.4 KiB, 3 | 450.2 KiB, 3 | 391.9 KiB, 3 |
-| grammar.lsp | 9 | 17.3 KiB, 3 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3516.9 KiB, 3 |
+| grammar.lsp | 9 | 17.3 KiB, 3 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3517.0 KiB, 3 |
 | kennedy.xls | 1 | 455.2 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 586.5 KiB, 14 |
 | kennedy.xls | 9 | 3648.3 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3715.6 KiB, 5 |
 | lcet10.txt | 1 | 455.9 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 587.2 KiB, 8 |
@@ -1029,7 +1029,7 @@ Ours relative to libbzip2's peak: 1.13x at the median, and at most
 
 ### AMD EPYC 9R45 (1 vCPU under EC2 Nitro), in pieces of 4 KiB
 
-Measured 2026-11-10, at `037ffbb`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -1134,7 +1134,7 @@ Ours relative to libbzip2's peak: 1.01x at the median, and at most
 
 ### AMD EPYC 9R45 (1 vCPU under EC2 Nitro), in pieces of 64 KiB
 
-Measured 2026-11-10, at `037ffbb`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -1239,7 +1239,7 @@ Ours relative to libbzip2's peak: 1.13x at the median, and at most
 
 ### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), whole
 
-Measured 2026-11-10, at `b674208`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -1273,7 +1273,7 @@ libbz2-rs-sys 8 B, bzip2-rs 632 B.
 | ooffice | 9 | 4041.1 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7044.8 KiB, 12 |
 | osdb | 1 | 519.7 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.0 KiB, 109 |
 | osdb | 9 | 4034.7 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7038.3 KiB, 17 |
-| reymont | 1 | 519.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1954.5 KiB, 73 |
+| reymont | 1 | 519.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1954.4 KiB, 73 |
 | reymont | 9 | 3779.7 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5281.6 KiB, 12 |
 | samba | 1 | 648.6 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.0 KiB, 207 |
 | samba | 9 | 4555.4 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 10555.5 KiB, 29 |
@@ -1344,7 +1344,7 @@ Ours relative to libbzip2's peak: 1.13x at the median, and at most
 
 ### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), in pieces of 4 KiB
 
-Measured 2026-11-10, at `b674208`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -1397,7 +1397,7 @@ libbz2-rs-sys 8 B, bzip2-rs 632 B.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | enwik8 | 1 | 456.0 KiB, 18 | 453.4 KiB, 3 | 450.2 KiB, 3 | 33164.0 KiB, 1014 |
 | enwik8 | 9 | 4038.8 KiB, 26 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 36298.8 KiB, 126 |
-| linux-6.12.tar | 1 | 456.1 KiB, 14 | 453.4 KiB, 3 | 450.2 KiB, 3 | 33159.8 KiB, 886 |
+| linux-6.12.tar | 1 | 456.1 KiB, 14 | 453.4 KiB, 3 | 450.2 KiB, 3 | 33163.8 KiB, 886 |
 | linux-6.12.tar | 9 | 3782.2 KiB, 19 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 19910.2 KiB, 111 |
 
 #### Canterbury
@@ -1422,7 +1422,7 @@ libbz2-rs-sys 8 B, bzip2-rs 632 B.
 | plrabn12.txt | 9 | 2937.8 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3778.1 KiB, 9 |
 | ptt5 | 1 | 455.9 KiB, 12 | 453.4 KiB, 3 | 450.2 KiB, 3 | 455.9 KiB, 8 |
 | ptt5 | 9 | 577.6 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3581.2 KiB, 7 |
-| sum | 1 | 272.5 KiB, 9 | 453.4 KiB, 3 | 450.2 KiB, 3 | 407.1 KiB, 5 |
+| sum | 1 | 272.4 KiB, 9 | 453.4 KiB, 3 | 450.2 KiB, 3 | 407.1 KiB, 5 |
 | sum | 9 | 272.4 KiB, 9 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3532.1 KiB, 5 |
 | xargs.1 | 1 | 33.8 KiB, 4 | 453.4 KiB, 3 | 450.2 KiB, 3 | 392.4 KiB, 3 |
 | xargs.1 | 9 | 33.8 KiB, 4 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3517.4 KiB, 3 |
@@ -1449,7 +1449,7 @@ Ours relative to libbzip2's peak: 1.01x at the median, and at most
 
 ### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), in pieces of 64 KiB
 
-Measured 2026-11-10, at `b674208`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -1554,7 +1554,7 @@ Ours relative to libbzip2's peak: 1.13x at the median, and at most
 
 ### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), whole
 
-Measured 2026-11-10, at `037ffbb`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -1588,7 +1588,7 @@ libbz2-rs-sys 8 B, bzip2-rs 632 B.
 | ooffice | 9 | 4041.1 KiB, 15 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7044.8 KiB, 12 |
 | osdb | 1 | 519.7 KiB, 10 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.0 KiB, 109 |
 | osdb | 9 | 4034.7 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 7038.3 KiB, 17 |
-| reymont | 1 | 519.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1954.5 KiB, 73 |
+| reymont | 1 | 519.9 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 1954.4 KiB, 73 |
 | reymont | 9 | 3779.7 KiB, 14 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 5281.6 KiB, 12 |
 | samba | 1 | 648.6 KiB, 15 | 453.4 KiB, 3 | 450.2 KiB, 3 | 6642.0 KiB, 207 |
 | samba | 9 | 4555.4 KiB, 16 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 10555.5 KiB, 29 |
@@ -1623,7 +1623,7 @@ libbz2-rs-sys 8 B, bzip2-rs 632 B.
 | fields.c | 1 | 67.1 KiB, 5 | 453.4 KiB, 3 | 450.2 KiB, 3 | 393.7 KiB, 3 |
 | fields.c | 9 | 67.1 KiB, 5 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3518.7 KiB, 3 |
 | grammar.lsp | 1 | 17.3 KiB, 3 | 453.4 KiB, 3 | 450.2 KiB, 3 | 391.9 KiB, 3 |
-| grammar.lsp | 9 | 17.3 KiB, 3 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3516.9 KiB, 3 |
+| grammar.lsp | 9 | 17.3 KiB, 3 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3517.0 KiB, 3 |
 | kennedy.xls | 1 | 455.2 KiB, 8 | 453.4 KiB, 3 | 450.2 KiB, 3 | 586.5 KiB, 14 |
 | kennedy.xls | 9 | 3648.3 KiB, 12 | 3578.4 KiB, 3 | 3575.2 KiB, 3 | 3715.6 KiB, 5 |
 | lcet10.txt | 1 | 455.9 KiB, 11 | 453.4 KiB, 3 | 450.2 KiB, 3 | 587.2 KiB, 8 |
@@ -1659,7 +1659,7 @@ Ours relative to libbzip2's peak: 1.13x at the median, and at most
 
 ### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), in pieces of 4 KiB
 
-Measured 2026-11-10, at `037ffbb`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -1764,7 +1764,7 @@ Ours relative to libbzip2's peak: 1.01x at the median, and at most
 
 ### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), in pieces of 64 KiB
 
-Measured 2026-11-10, at `037ffbb`, `decode-bzip2` 0.0.4.
+Measured 2026-11-13, at `de4f027`, `decode-bzip2` 0.0.4.
 
 The size of each decoder's value: ours 160 B, libbzip2 8 B,
 libbz2-rs-sys 8 B, bzip2-rs 632 B.
@@ -1885,16 +1885,16 @@ portable with fat LTO; read-only data, such as tables, is not counted.
 | Target | `opt-level` 3 | `opt-level` "s" |
 | --- | ---: | ---: |
 | aarch64-apple-darwin | 11412 | 6980 |
-| aarch64-unknown-linux-gnu | 11148 | 7072 |
-| x86_64-unknown-linux-gnu | 13234 | 7555 |
+| aarch64-unknown-linux-gnu | 11388 | 6952 |
+| x86_64-unknown-linux-gnu | 13414 | 7572 |
 
 On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
 `decode-bzip2` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
-On aarch64-unknown-linux-gnu, measured 2026-11-10, at `b674208`,
-`decode-bzip2` 0.0.4, by rustc 1.97.0 (2d8144b78 2026-07-07).
+On aarch64-unknown-linux-gnu, measured 2026-11-13, at `de4f027`,
+`decode-bzip2` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
-On x86_64-unknown-linux-gnu, measured 2026-11-10, at `037ffbb`,
-`decode-bzip2` 0.0.4, by rustc 1.97.0 (2d8144b78 2026-07-07).
+On x86_64-unknown-linux-gnu, measured 2026-11-13, at `de4f027`,
+`decode-bzip2` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
 <!-- filer-bench: end -->
