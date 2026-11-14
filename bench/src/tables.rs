@@ -517,8 +517,6 @@ fn figures(timed: &Timed, decoder: &Decoder) -> Figures {
 /// reference, per machine, build, and way of feeding of `pieces`, a table
 /// per set of inputs; then ours relative to each counterpart, per level.
 fn timing(data: &Data, codec: Codec, order: &[String], pieces: &[Option<usize>]) -> Result<String> {
-    let decoders = codec.decoders();
-    let reference = &decoders[1];
     let mut text = String::new();
     let mut groups: Vec<(String, bool, Option<usize>)> = data
         .timed
@@ -529,6 +527,8 @@ fn timing(data: &Data, codec: Codec, order: &[String], pieces: &[Option<usize>])
     groups.sort();
     groups.dedup();
     for (machine, native, piece) in groups {
+        let decoders = codec.fed(piece.unwrap_or(usize::MAX));
+        let reference = decoders[1];
         let of = |key: &&Key| {
             key.codec == codec.name()
                 && key.machine == machine
@@ -563,12 +563,12 @@ fn timing(data: &Data, codec: Codec, order: &[String], pieces: &[Option<usize>])
         for (title, inputs) in sets(order, keys.iter().copied()) {
             writeln!(text, "#### {title}\n")?;
             write!(text, "| Input | Level | Ratio |")?;
-            for decoder in decoders {
+            for decoder in &decoders {
                 write!(text, " {} |", decoder.name)?;
             }
             writeln!(text, " ours ÷ {} |", reference.name)?;
             write!(text, "| --- | ---: | ---: |")?;
-            for _ in decoders {
+            for _ in &decoders {
                 write!(text, " ---: |")?;
             }
             writeln!(text, " ---: |")?;
@@ -667,8 +667,6 @@ fn timing(data: &Data, codec: Codec, order: &[String], pieces: &[Option<usize>])
 /// machine and way of feeding, a table per set of inputs; then ours
 /// relative to the reference's peak.
 fn memory(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
-    let decoders = codec.decoders();
-    let reference = &decoders[1];
     let mut text = String::new();
     let mut groups: Vec<(String, bool, Option<usize>)> = data
         .counted
@@ -679,6 +677,8 @@ fn memory(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
     groups.sort();
     groups.dedup();
     for (machine, native, piece) in groups {
+        let decoders = codec.fed(piece.unwrap_or(usize::MAX));
+        let reference = decoders[1];
         let of = |key: &&Key| {
             key.codec == codec.name()
                 && key.machine == machine
@@ -729,12 +729,12 @@ fn memory(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
         for (title, inputs) in sets(order, keys.iter().copied()) {
             writeln!(text, "#### {title}\n")?;
             write!(text, "| Input | Level |")?;
-            for decoder in decoders {
+            for decoder in &decoders {
                 write!(text, " {} |", decoder.name)?;
             }
             writeln!(text)?;
             write!(text, "| --- | ---: |")?;
-            for _ in decoders {
+            for _ in &decoders {
                 write!(text, " ---: |")?;
             }
             writeln!(text)?;
@@ -755,7 +755,7 @@ fn memory(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
                         .split_once('/')
                         .map_or(input.as_str(), |(_, name)| name);
                     write!(text, "| {name} | {level} |")?;
-                    for decoder in decoders {
+                    for decoder in &decoders {
                         match counted.get(decoder.name) {
                             None => write!(text, " |")?,
                             Some(Err(failure)) => {

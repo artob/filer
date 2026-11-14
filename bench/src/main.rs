@@ -38,8 +38,8 @@
 //!   and algorithms, by `size`, with a Markdown table of the code each
 //!   adds, and its results written to `bench/results/`.
 //!
-//! Every codec, `bzip2` and `zstd`, or every algorithm, such as `crc32` or
-//! `sha256`, unless some are named. For the ceiling, build with
+//! Every codec, `bzip2`, `deflate`, and `zstd`, or every algorithm, such
+//! as `crc32` or `sha256`, unless some are named. For the ceiling, build with
 //! `RUSTFLAGS="-C target-cpu=native"` into another `--target-dir`; and for
 //! ours without the CPU's instructions, as they build without
 //! dependencies, with `--no-default-features`, as `intrinsics`, on by
@@ -158,13 +158,13 @@ fn main() -> Result<()> {
 fn check(options: &Options) -> Result<()> {
     let inputs = corpus::inputs(&options.only)?;
     for &codec in &options.codecs {
-        let decoders = codec.decoders();
-        for decoder in decoders {
+        let decoders = codec.fed(options.piece);
+        for decoder in &decoders {
             let (name, krate) = (decoder.name, decoder.krate);
             println!("{name}: `{krate}`, in {}", decoder.language);
         }
         print!("{:<32} {:>8} {:>8}", codec.name(), "level", "ratio");
-        for decoder in decoders {
+        for decoder in &decoders {
             print!(" {:>13}", decoder.name);
         }
         println!();
@@ -174,7 +174,7 @@ fn check(options: &Options) -> Result<()> {
                 let packed = input.encoded(codec, level)?;
                 let ratio = original.len() as f64 / packed.len() as f64;
                 print!("{:<32} {:>8} {ratio:>8.2}", input.name, level.label());
-                for decoder in decoders {
+                for decoder in &decoders {
                     match measure::once(decoder, &packed, &original, options.piece) {
                         Ok(rate) => print!(" {rate:>13.1}"),
                         Err(failure) => print!(" {:>13}", format!("({failure})")),

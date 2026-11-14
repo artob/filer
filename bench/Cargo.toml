@@ -18,6 +18,7 @@ compute-sha256 = { path = "../lib/compute-sha256", default-features = false, fea
 compute-sha512 = { path = "../lib/compute-sha512", default-features = false, features = ["all", "std"] }
 compute-xxhash = { path = "../lib/compute-xxhash" }
 decode-bzip2 = { path = "../lib/decode-bzip2" }
+decode-deflate = { path = "../lib/decode-deflate" }
 decode-xz = { path = "../lib/decode-xz", default-features = false, features = ["all", "std"] }
 decode-zstd = { path = "../lib/decode-zstd" }
 # bzip2's counterparts: libbzip2, the reference, in C, through `bzip2`
@@ -30,6 +31,17 @@ libbz2-rs = { package = "bzip2", version = "0.6" }
 # zstd's: libzstd, the reference, in C, which also encodes; and `ruzstd`.
 ruzstd = "0.9"
 zstd = "0.13"
+# Deflate's: zlib, the reference, in C, through `libz-sys` below, which
+# also encodes; zlib-ng, in C, built as itself, its symbols prefixed;
+# libdeflate, in C, which decodes only whole streams, and encodes at its
+# level 12; and `zlib-rs`, `miniz_oxide`, `zune-inflate`, which decodes
+# only whole streams, and `yazi`.
+libdeflater = "1"
+libz-ng-sys = "1"
+miniz_oxide = "0.9"
+yazi = "0.2"
+zlib-rs = "0.6"
+zune-inflate = "0.2"
 # The checksums' and hashes' counterparts: zlib's CRC-32 and Adler-32, the
 # references, in C, built from source; `crc`, portable; `crc32fast`,
 # `crc-fast`, and `crc64fast`, with SIMD; `adler2`, and `simd-adler32`;

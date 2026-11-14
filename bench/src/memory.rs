@@ -227,7 +227,7 @@ pub fn run(options: &Options, bench: &Path) -> Result<()> {
     let inputs = corpus::inputs(&options.only)?;
     let piece = (options.piece != usize::MAX).then_some(options.piece);
     for &codec in &options.codecs {
-        let decoders = codec.decoders();
+        let decoders = codec.fed(options.piece);
         println!();
         println!("### {}", codec.name());
         println!();
@@ -238,12 +238,12 @@ pub fn run(options: &Options, bench: &Path) -> Result<()> {
         println!("The size of each decoder's value: {}.", sizes.join("; "));
         println!();
         print!("| Input | Level |");
-        for decoder in decoders {
+        for decoder in &decoders {
             print!(" {} |", decoder.name);
         }
         println!();
         print!("| --- | --- |");
-        for _ in decoders {
+        for _ in &decoders {
             print!(" ---: |");
         }
         println!();
@@ -252,7 +252,7 @@ pub fn run(options: &Options, bench: &Path) -> Result<()> {
             for level in codec.levels(original.len()) {
                 let packed = input.encoded(codec, level)?;
                 print!("| {} | {} |", input.name, level.label());
-                for decoder in decoders {
+                for decoder in &decoders {
                     let (codec, input, level) = (codec.name(), &input.name, level.label());
                     match decode(decoder, &packed, &original, options.piece) {
                         Err(failure) => {

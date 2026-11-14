@@ -111,7 +111,7 @@ pub fn sample(codec: Codec, input: &str, level: Level, piece: usize, seed: u64) 
     };
     // Those that fail are left out from then on.
     let mut decoders: Vec<&Decoder> = Vec::new();
-    for decoder in codec.decoders() {
+    for decoder in codec.fed(piece) {
         let start = Instant::now();
         let warmed = loop {
             match run(decoder) {
@@ -198,9 +198,9 @@ pub fn run(options: &Options, bench: &Path) -> Result<()> {
     let inputs = corpus::inputs(&options.only)?;
     let mut random = SplitMix(0x5EED);
     for &codec in &options.codecs {
-        let decoders = codec.decoders();
+        let decoders = codec.fed(options.piece);
         print!("{:<26} {:>8}", codec.name(), "level");
-        for decoder in decoders {
+        for decoder in &decoders {
             print!(" {:>22}", decoder.name);
         }
         println!();
@@ -227,7 +227,7 @@ pub fn run(options: &Options, bench: &Path) -> Result<()> {
                 println!();
             }
         }
-        summarize(codec, decoders, &ratios);
+        summarize(codec, &decoders, &ratios);
     }
     eprintln!("wrote {}", path.display());
     Ok(())
@@ -244,7 +244,7 @@ fn measure(
     random: &mut SplitMix,
     results: &mut fs::File,
 ) -> Result<Vec<Figures>> {
-    let decoders = codec.decoders();
+    let decoders = codec.fed(options.piece);
     let mut figures: Vec<Figures> = decoders
         .iter()
         .map(|_| Figures {
@@ -353,7 +353,7 @@ pub fn paired(ours: &Figures, theirs: &Figures) -> Option<f64> {
 
 /// Prints each counterpart's speed relative to ours, per level, as the
 /// geometric mean of the ratios over the inputs.
-fn summarize(codec: Codec, decoders: &[Decoder], ratios: &[(Level, usize, f64)]) {
+fn summarize(codec: Codec, decoders: &[&Decoder], ratios: &[(Level, usize, f64)]) {
     println!(
         "{} relative to ours: the geometric mean over inputs",
         codec.name()

@@ -25,21 +25,26 @@ pub struct Decoder {
     /// The size of the value that its caller holds as it decodes: the
     /// decoder itself, or a handle to it on the heap.
     pub value: usize,
+    /// Whether it decodes only whole streams, held in memory, and so is
+    /// left out where they are given and taken in pieces.
+    pub whole: bool,
 }
 
 /// A codec, and its decoders, ours first, then the reference.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Codec {
     Bzip2,
+    Deflate,
     Zstd,
 }
 
 impl Codec {
-    pub const ALL: [Self; 2] = [Self::Bzip2, Self::Zstd];
+    pub const ALL: [Self; 3] = [Self::Bzip2, Self::Deflate, Self::Zstd];
 
     pub fn name(self) -> &'static str {
         match self {
             Self::Bzip2 => "bzip2",
+            Self::Deflate => "deflate",
             Self::Zstd => "zstd",
         }
     }
@@ -47,8 +52,19 @@ impl Codec {
     pub fn decoders(self) -> &'static [Decoder] {
         match self {
             Self::Bzip2 => &BZIP2,
+            Self::Deflate => &DEFLATE,
             Self::Zstd => &ZSTD,
         }
+    }
+
+    /// Its decoders of streams given and taken in pieces of `piece` bytes,
+    /// or whole for `usize::MAX`: all of them whole, and in pieces those
+    /// that take them so.
+    pub fn fed(self, piece: usize) -> Vec<&'static Decoder> {
+        let decoders = self.decoders().iter();
+        decoders
+            .filter(|decoder| piece == usize::MAX || !decoder.whole)
+            .collect()
     }
 }
 
@@ -59,6 +75,7 @@ const BZIP2: [Decoder; 4] = [
         language: "Rust",
         decode: ours_bzip2,
         value: size_of::<decode_bzip2::Decoder>(),
+        whole: false,
     },
     Decoder {
         name: "libbzip2",
@@ -66,6 +83,7 @@ const BZIP2: [Decoder; 4] = [
         language: "C",
         decode: libbzip2,
         value: size_of::<bzip2_c::Decompress>(),
+        whole: false,
     },
     Decoder {
         name: "libbz2-rs-sys",
@@ -73,6 +91,7 @@ const BZIP2: [Decoder; 4] = [
         language: "Rust",
         decode: libbz2_rs,
         value: size_of::<libbz2_rs::Decompress>(),
+        whole: false,
     },
     Decoder {
         name: "bzip2-rs",
@@ -80,6 +99,74 @@ const BZIP2: [Decoder; 4] = [
         language: "Rust",
         decode: bzip2_rs,
         value: size_of::<bzip2_rs::decoder::Decoder>(),
+        whole: false,
+    },
+];
+
+const DEFLATE: [Decoder; 8] = [
+    Decoder {
+        name: "ours",
+        krate: "decode-deflate",
+        language: "Rust",
+        decode: ours_deflate,
+        value: size_of::<decode_deflate::Decoder>(),
+        whole: false,
+    },
+    Decoder {
+        name: "zlib",
+        krate: "libz-sys",
+        language: "C",
+        decode: zlib::inflate,
+        value: size_of::<libz_sys::z_stream>(),
+        whole: false,
+    },
+    Decoder {
+        name: "zlib-ng",
+        krate: "libz-ng-sys",
+        language: "C",
+        decode: zlib_ng::inflate,
+        value: size_of::<libz_ng_sys::z_stream>(),
+        whole: false,
+    },
+    Decoder {
+        name: "libdeflate",
+        krate: "libdeflater",
+        language: "C",
+        decode: libdeflate,
+        value: size_of::<libdeflater::Decompressor>(),
+        whole: true,
+    },
+    Decoder {
+        name: "zlib-rs",
+        krate: "zlib-rs",
+        language: "Rust",
+        decode: zlib_rs,
+        value: size_of::<zlib_rs::Inflate>(),
+        whole: false,
+    },
+    Decoder {
+        name: "miniz_oxide",
+        krate: "miniz_oxide",
+        language: "Rust",
+        decode: miniz_oxide,
+        value: size_of::<Box<miniz_oxide::inflate::stream::InflateState>>(),
+        whole: false,
+    },
+    Decoder {
+        name: "zune-inflate",
+        krate: "zune-inflate",
+        language: "Rust",
+        decode: zune_inflate,
+        value: size_of::<zune_inflate::DeflateDecoder<'static>>(),
+        whole: true,
+    },
+    Decoder {
+        name: "yazi",
+        krate: "yazi",
+        language: "Rust",
+        decode: yazi,
+        value: size_of::<yazi::Decoder>(),
+        whole: false,
     },
 ];
 
@@ -90,6 +177,7 @@ const ZSTD: [Decoder; 3] = [
         language: "Rust",
         decode: ours_zstd,
         value: size_of::<decode_zstd::Decoder>(),
+        whole: false,
     },
     Decoder {
         name: "libzstd",
@@ -97,6 +185,7 @@ const ZSTD: [Decoder; 3] = [
         language: "C",
         decode: libzstd,
         value: size_of::<zstd::stream::raw::Decoder<'static>>(),
+        whole: false,
     },
     Decoder {
         name: "ruzstd",
@@ -104,6 +193,7 @@ const ZSTD: [Decoder; 3] = [
         language: "Rust",
         decode: ruzstd,
         value: size_of::<ruzstd::decoding::FrameDecoder>(),
+        whole: false,
     },
 ];
 
@@ -140,6 +230,229 @@ fn ours_zstd(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Fai
     let written = sans_io(|i, o| decoder.decode(i, o), input, output, piece)?;
     decoder.finish().map_err(|error| error.to_string())?;
     Ok(written)
+}
+
+fn ours_deflate(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let mut decoder = decode_deflate::Decoder::new();
+    let written = sans_io(|i, o| decoder.decode(i, o), input, output, piece)?;
+    decoder.finish().map_err(|error| error.to_string())?;
+    Ok(written)
+}
+
+// C's own allocator, which zlib's streams are given, as the bindings ask
+// for one: on Linux with glibc, `memory`'s, which counts.
+unsafe extern "C" {
+    fn calloc(count: usize, size: usize) -> *mut std::ffi::c_void;
+    fn free(pointer: *mut std::ffi::c_void);
+}
+
+/// Drives zlib's interface, as a binding of either C library declares it:
+/// zlib's own, in `libz-sys`, or zlib-ng's, prefixed, in `libz-ng-sys`.
+macro_rules! zlib_interface {
+    ($module:ident, $krate:ident) => {
+        pub mod $module {
+            use super::Failure;
+            use $krate as z;
+
+            unsafe extern "C" fn zalloc(_: z::voidpf, items: z::uInt, size: z::uInt) -> z::voidpf {
+                unsafe { super::calloc(items as usize, size as usize) }
+            }
+
+            unsafe extern "C" fn zfree(_: z::voidpf, address: z::voidpf) {
+                unsafe { super::free(address) }
+            }
+
+            /// A stream not yet begun, which must stay where it is once it
+            /// is, as its state points back at it.
+            pub fn stream() -> z::z_stream {
+                z::z_stream {
+                    next_in: std::ptr::null_mut(),
+                    avail_in: 0,
+                    total_in: 0,
+                    next_out: std::ptr::null_mut(),
+                    avail_out: 0,
+                    total_out: 0,
+                    msg: std::ptr::null_mut(),
+                    state: std::ptr::null_mut(),
+                    zalloc,
+                    zfree,
+                    opaque: std::ptr::null_mut(),
+                    data_type: 0,
+                    adler: 0,
+                    reserved: 0,
+                }
+            }
+
+            /// Decodes raw Deflate, whole in one call that may finish it,
+            /// as zlib decodes fastest, or in pieces.
+            pub fn inflate(
+                input: &[u8],
+                output: &mut [u8],
+                piece: usize,
+            ) -> Result<usize, Failure> {
+                let mut stream = stream();
+                let size = size_of::<z::z_stream>() as std::ffi::c_int;
+                let status = unsafe { z::inflateInit2_(&mut stream, -15, z::zlibVersion(), size) };
+                if status != z::Z_OK {
+                    return Err(format!("began with {status}"));
+                }
+                let flush = match piece {
+                    usize::MAX => z::Z_FINISH,
+                    _ => z::Z_NO_FLUSH,
+                };
+                let result = loop {
+                    let (read, written) = (stream.total_in as usize, stream.total_out as usize);
+                    let into = input.len().min(read.saturating_add(piece));
+                    let room = output.len().min(written.saturating_add(piece));
+                    stream.next_in = input[read..into].as_ptr().cast_mut();
+                    stream.avail_in = (into - read) as _;
+                    stream.next_out = output[written..room].as_mut_ptr();
+                    stream.avail_out = (room - written) as _;
+                    let status = unsafe { z::inflate(&mut stream, flush) };
+                    let moved =
+                        (stream.total_in as usize, stream.total_out as usize) != (read, written);
+                    match status {
+                        z::Z_STREAM_END => break Ok(stream.total_out as usize),
+                        z::Z_OK | z::Z_BUF_ERROR if moved => {},
+                        z::Z_OK | z::Z_BUF_ERROR => break Err("cut short".into()),
+                        status => break Err(format!("failed with {status}")),
+                    }
+                };
+                unsafe { z::inflateEnd(&mut stream) };
+                result
+            }
+        }
+    };
+}
+
+zlib_interface!(zlib, libz_sys);
+zlib_interface!(zlib_ng, libz_ng_sys);
+
+fn libdeflate(input: &[u8], output: &mut [u8], _: usize) -> Result<usize, Failure> {
+    let mut decoder = libdeflater::Decompressor::new();
+    decoder
+        .deflate_decompress(input, output)
+        .map_err(|error| format!("{error:?}"))
+}
+
+fn zlib_rs(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    use zlib_rs::{InflateConfig, InflateFlush, ReturnCode, Status};
+    if piece == usize::MAX {
+        let config = InflateConfig { window_bits: -15 };
+        return match zlib_rs::decompress_slice(output, input, config) {
+            (decoded, ReturnCode::Ok) => Ok(decoded.len()),
+            (_, code) => Err(format!("{code:?}")),
+        };
+    }
+    let mut decoder = zlib_rs::Inflate::new(false, 15);
+    loop {
+        let (read, written) = (decoder.total_in() as usize, decoder.total_out() as usize);
+        let into = input.len().min(read.saturating_add(piece));
+        let room = output.len().min(written.saturating_add(piece));
+        let status = decoder
+            .decompress(
+                &input[read..into],
+                &mut output[written..room],
+                InflateFlush::NoFlush,
+            )
+            .map_err(|error| format!("{error:?}"))?;
+        if status == Status::StreamEnd {
+            return Ok(decoder.total_out() as usize);
+        }
+        if (decoder.total_in() as usize, decoder.total_out() as usize) == (read, written) {
+            return Err("cut short".into());
+        }
+    }
+}
+
+fn miniz_oxide(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    use miniz_oxide::{
+        DataFormat, MZFlush, MZStatus,
+        inflate::{self, stream::InflateState},
+    };
+    if piece == usize::MAX {
+        let input = std::iter::once(input);
+        return inflate::decompress_slice_iter_to_slice(output, input, false, true)
+            .map_err(|status| format!("{status:?}"));
+    }
+    let mut state = InflateState::new_boxed(DataFormat::Raw);
+    let (mut read, mut written) = (0_usize, 0_usize);
+    loop {
+        let into = input.len().min(read.saturating_add(piece));
+        let room = output.len().min(written.saturating_add(piece));
+        let result = inflate::stream::inflate(
+            &mut state,
+            &input[read..into],
+            &mut output[written..room],
+            MZFlush::None,
+        );
+        let (consumed, produced) = (result.bytes_consumed, result.bytes_written);
+        (read, written) = (read + consumed, written + produced);
+        match result.status {
+            Ok(MZStatus::StreamEnd) => return Ok(written),
+            _ if (consumed, produced) != (0, 0) => {},
+            Ok(_) => return Err("cut short".into()),
+            Err(error) => return Err(format!("{error:?}")),
+        }
+    }
+}
+
+/// It decodes into a buffer of its own, which is then copied into the
+/// caller's, timed with it.
+fn zune_inflate(input: &[u8], output: &mut [u8], _: usize) -> Result<usize, Failure> {
+    use zune_inflate::{DeflateDecoder, DeflateOptions};
+    let options = DeflateOptions::default()
+        .set_size_hint(output.len())
+        .set_limit(output.len());
+    let decoded = DeflateDecoder::new_with_options(input, options)
+        .decode_deflate()
+        .map_err(|error| format!("{error:?}"))?;
+    let into = output
+        .get_mut(..decoded.len())
+        .ok_or("decoded past its output")?;
+    into.copy_from_slice(&decoded);
+    Ok(decoded.len())
+}
+
+/// Where a decoder that writes what it decodes puts it: `output`, taken
+/// in pieces of at most `piece` bytes.
+struct Room<'a> {
+    output: &'a mut [u8],
+    piece: usize,
+}
+
+impl std::io::Write for Room<'_> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let len = buf.len().min(self.piece).min(self.output.len());
+        if len == 0 && !buf.is_empty() {
+            return Err(std::io::Error::other("decoded past its output"));
+        }
+        let output = std::mem::take(&mut self.output);
+        let (into, rest) = output.split_at_mut(len);
+        into.copy_from_slice(&buf[..len]);
+        self.output = rest;
+        Ok(len)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn yazi(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let failed = |error: yazi::Error| format!("{error:?}");
+    let mut decoder = yazi::Decoder::new();
+    if piece == usize::MAX {
+        let mut stream = decoder.stream_into_buf(output);
+        stream.write(input).map_err(failed)?;
+        return Ok(stream.finish().map_err(failed)?.0 as usize);
+    }
+    let mut room = Room { output, piece };
+    let mut stream = decoder.stream(&mut room);
+    for given in input.chunks(piece) {
+        stream.write(given).map_err(failed)?;
+    }
+    Ok(stream.finish().map_err(failed)?.0 as usize)
 }
 
 /// Drives a `bzip2` crate's `Decompress`, of either version, as libbzip2's

@@ -6,8 +6,9 @@ alternatives, measured by the protocol of this repository's
 and builds for every decoder, each figure a median with its 95%
 confidence interval, and every output checked against the original.
 
-**Only its code size so far**: the harness measures nothing else of it
-yet.
+The harness's `tables` command generates the figures below from its raw
+data, which stays on the machines that measured it; small streams,
+checkpoints, and Deflate64 are not measured yet.
 
 ## Counterparts
 
@@ -20,13 +21,11 @@ yet.
 | miniz_oxide | `miniz_oxide` | Rust |
 | zune-inflate | `zune-inflate` | Rust, whole buffers only |
 | yazi | `yazi` | Rust |
-| deflate64, for Deflate64 | `deflate64` | Rust |
 
 ## Inputs
 
 The protocol's corpus and synthetic cases, encoded by zlib at levels 1,
-6, and 9, and libdeflate at 12, as raw Deflate; and, for Deflate64,
-7-Zip at its levels.
+6, and 9, and libdeflate at 12, as raw Deflate.
 
 ## Machines
 
@@ -34,14 +33,32 @@ The protocol's corpus and synthetic cases, encoded by zlib at levels 1,
 cloud instance's own, and on an older AMD core, a VM's; and 64-bit ARM
 on Apple M4 and on a Neoverse server.
 
+<!-- filer-bench: machines -->
+
+Measured so far: none.
+
+<!-- filer-bench: end -->
+
 ## Whole streams
 
 MB/s of decoded output, per machine: a row per input and level, a column
 per decoder, and ours relative to the reference.
 
+<!-- filer-bench: whole -->
+
+Not measured yet.
+
+<!-- filer-bench: end -->
+
 ## Streaming
 
 MB/s with input and output in pieces of 4 KiB and of 64 KiB.
+
+<!-- filer-bench: streaming -->
+
+Not measured yet.
+
+<!-- filer-bench: end -->
 
 ## Small streams
 
@@ -52,6 +69,12 @@ decoder's construction included.
 
 Peak heap and allocations per stream, and the size of the decoder
 itself.
+
+<!-- filer-bench: memory -->
+
+Not measured yet.
+
+<!-- filer-bench: end -->
 
 ## Checkpoints
 
