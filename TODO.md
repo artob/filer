@@ -568,8 +568,9 @@ crate's name until its first code, which moves it to `lib/`.
   (`~/campaign.sh <cpu>` on each host): it has filled their memory,
   every crate's code size, the `compute-*` crates' hashes, and
   `decode-zstd`'s and `decode-bzip2`'s streams by the baseline build,
-  whole and in pieces of 64 KiB and of 4 KiB, and whole by the build
-  for the CPU; its passes of that build in pieces run. Zen 1's speed tables are
+  whole and in pieces of 64 KiB and of 4 KiB, and whole and in pieces
+  of 64 KiB by the build for the CPU; its pass of that build in pieces
+  of 4 KiB runs. Zen 1's speed tables are
   older, of `9c5f5fc`, before DEC-19's work. Done when each `BENCH.md`
   of a written decoder holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
