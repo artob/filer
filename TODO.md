@@ -564,15 +564,15 @@ crate's name until its first code, which moves it to `lib/`.
   hand, the default ones (`bench/METHOD.md`) each an EC2 instance with a
   core of its own: the current AMD and Intel cores, Zen 5 and Granite
   Rapids, and the Neoverse server's, Neoverse V3 (Graviton5). A
-  campaign of every measure on all three, at `de4f027`, began 2026-11-13
-  (`~/campaign.sh <cpu>` on each host): it has filled their memory,
-  every crate's code size, the `compute-*` crates' hashes, and
-  `decode-zstd`'s and `decode-bzip2`'s streams by the baseline build,
-  whole and in pieces of 64 KiB and of 4 KiB, and whole and in pieces
-  of 64 KiB by the build for the CPU; its pass of that build in pieces
-  of 4 KiB runs. Zen 1's speed tables are
-  older, of `9c5f5fc`, before DEC-19's work. Done when each `BENCH.md`
-  of a written decoder holds them all.
+  campaign of every measure the harness takes, at `de4f027`, filled all
+  three's tables (2026-11-13 to 14, `~/campaign.sh <cpu>` on each host):
+  memory, every crate's code size, the `compute-*` crates' hashes, and
+  `decode-zstd`'s and `decode-bzip2`'s streams, whole and in pieces of
+  64 KiB and of 4 KiB, by the baseline build and by the build for the
+  CPU. But the harness drives only those two decoders: the other
+  `decode-*` crates' `BENCH.md` hold their code size alone. Zen 1's
+  speed tables are older, of `9c5f5fc`, before DEC-19's work. Done when
+  each `BENCH.md` of a written decoder holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
   `intrinsics` takes ARMv8.2's SHA-512 instructions, but not x86-64's,
   which only Intel's newest CPUs have, from Arrow Lake and Lunar Lake on,
