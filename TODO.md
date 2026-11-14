@@ -567,9 +567,9 @@ crate's name until its first code, which moves it to `lib/`.
   campaign of every measure on all three, at `de4f027`, began 2026-11-13
   (`~/campaign.sh <cpu>` on each host): it has filled their memory,
   every crate's code size, the `compute-*` crates' hashes, and
-  `decode-zstd`'s and `decode-bzip2`'s whole streams by the baseline
-  build; its passes of both decoders in pieces of 64 KiB and of 4 KiB,
-  and those of the build for the CPU, run. Zen 1's speed tables are
+  `decode-zstd`'s and `decode-bzip2`'s streams by the baseline build,
+  whole and in pieces of 64 KiB; its pass of both decoders in pieces of
+  4 KiB, and those of the build for the CPU, run. Zen 1's speed tables are
   older, of `9c5f5fc`, before DEC-19's work. Done when each `BENCH.md`
   of a written decoder holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
