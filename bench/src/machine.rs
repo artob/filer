@@ -35,8 +35,9 @@ pub struct Machine {
     pub cc: String,
     pub cflags: String,
     pub packages: Vec<String>,
-    /// The harness's features: `intrinsics`, by default, for our checksums
-    /// with the CPU's instructions; none, for ours without dependencies.
+    /// The harness's features: `intrinsics`, by default, for ours with the
+    /// CPU's instructions, the checksums' and the loops the decoders build
+    /// for them; none, for ours without dependencies.
     pub features: Vec<String>,
     /// The SHA-256 of `corpus.toml` and of `packed.toml`.
     pub corpus: String,
