@@ -107,6 +107,10 @@ so any release may break compatibility.
   taken by two shifts that read their counts from the entry, as BMI2
   does: 3 to 3.4% faster on Granite Rapids and Neoverse V3, and 0.7% on
   Zen 5.
+- `decode-deflate`: once a call has produced a window, its codes decode
+  straight into the output, from which every match then copies, the
+  window keeping the latest bytes only once it takes more or the call
+  returns, as stored blocks do: whole, 1.3 to 2.9% faster.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

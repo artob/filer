@@ -633,6 +633,17 @@ impl Decoder {
                 owed = owed.saturating_add(went);
                 continue;
             }
+            // Codes straight into the output, once it holds a window of what
+            // this call produced, from which every match then copies.
+            if let Some((end, more)) = self.direct(&mut input, output, produced)? {
+                owed = owed.saturating_add(end.saturating_sub(produced));
+                produced = end;
+                if more {
+                    self.settle(output, produced, owed);
+                    return Ok((input.taken, produced));
+                }
+                continue;
+            }
             // The window keeps the latest bytes before it takes more, of a
             // stored block's or of codes, which copy from it.
             let takes = match self.state {
@@ -824,6 +835,50 @@ impl Decoder {
                 State::End => return Ok(Flow::Done),
             }
         }
+    }
+
+    /// Decodes codes straight into `output` past `produced`, where it has
+    /// produced a window at least in this call, and room for a match past
+    /// a chunk more: until a match may not fit, the block ends, or it needs
+    /// more input; and returns the new end of what it produced, and whether
+    /// it needs more input; or `None` where it may not.
+    fn direct(
+        &mut self,
+        input: &mut Input<'_>,
+        output: &mut [u8],
+        produced: usize,
+    ) -> Result<Option<(usize, bool)>, Error> {
+        let length = match self.state {
+            State::Literal => None,
+            State::Distance(length) => Some(length),
+            _ => return Ok(None),
+        };
+        let format = self.window.format;
+        let reach = format.longest().saturating_add(SLACK);
+        let room = output.len().saturating_sub(produced);
+        if produced < format.window() || room < reach.saturating_add(CHUNK) {
+            return Ok(None);
+        }
+        let at = Cursor {
+            bits: self.bits,
+            end: produced,
+            taken: input.taken,
+            length,
+        };
+        let limit = output.len().saturating_sub(reach);
+        let tables = (&self.literals, &self.distances);
+        let (stop, at) = codes(at, tables, output, limit, input.bytes);
+        (self.bits, input.taken) = (at.bits, at.taken);
+        self.state = at.length.map_or(State::Literal, State::Distance);
+        let more = match stop? {
+            Stop::More => true,
+            Stop::Full => false,
+            Stop::End => {
+                self.ended();
+                false
+            },
+        };
+        Ok(Some((at.end, more)))
     }
 
     /// Decodes codes until it holds a chunk, the block ends, or it needs
