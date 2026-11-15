@@ -9,8 +9,11 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 
-/// The most a call decodes before it produces what it decoded.
+/// The most a call decodes before it produces what it decoded; and the
+/// least of a decoder's first, which is as large as its caller has room
+/// for, so that a small stream takes little.
 const CHUNK: usize = 32 * 1024;
+const FIRST_CHUNK: usize = 1024;
 
 /// How much input left at a block's start has a decoder pair the block's
 /// literals at once, as a block likely long enough for pairing them to
@@ -308,6 +311,9 @@ struct Window {
     end: usize,
     /// How many of the bytes have been produced.
     produced: usize,
+    /// How much it decodes before it produces it, which `prepare` makes
+    /// room for: `CHUNK`, or less for its first.
+    chunk: usize,
 }
 
 impl Window {
@@ -327,12 +333,17 @@ impl Window {
         n
     }
 
-    /// Makes room to decode a chunk: moves the latest window, and what is
-    /// not yet produced, to the buffer's start, if the buffer has no room
-    /// past them; or grows the buffer, doubling, so that small streams
-    /// take little.
-    fn prepare(&mut self) {
-        let need = CHUNK
+    /// Makes room to decode a chunk, the first as large as `room`, what the
+    /// caller has room for, within bounds: moves the latest window, and
+    /// what is not yet produced, to the buffer's start, if the buffer has
+    /// no room past them; or grows the buffer, doubling.
+    fn prepare(&mut self, room: usize) {
+        self.chunk = match self.buf.is_empty() {
+            true => CHUNK.min(FIRST_CHUNK.max(room)),
+            false => CHUNK,
+        };
+        let need = self
+            .chunk
             .saturating_add(self.format.longest())
             .saturating_add(SLACK);
         let buffer = self.format.buffer();
@@ -364,7 +375,7 @@ impl Window {
                 (self.end, self.produced) = (window, window);
             },
             None => {
-                self.prepare();
+                self.prepare(bytes.len());
                 let to = self.end..self.end.saturating_add(bytes.len());
                 if let Some(to) = self.buf.get_mut(to) {
                     to.copy_from_slice(bytes);
@@ -671,7 +682,7 @@ impl Decoder {
             // Whether a stored block may go straight to the output.
             let room = output.len().saturating_sub(produced);
             let straight = room >= self.window.format.window() && input.taken < input.bytes.len();
-            self.window.prepare();
+            self.window.prepare(room);
             if let Flow::More = self.run(&mut input, straight, owed > 0)? {
                 self.settle(output, produced, owed);
                 // Every bit it holds is part of what it needs next; what it
@@ -757,7 +768,7 @@ impl Decoder {
     /// take bytes into the window, if it is `owed` bytes produced straight.
     fn run(&mut self, input: &mut Input<'_>, straight: bool, owed: bool) -> Result<Flow, Error> {
         loop {
-            if self.window.held() >= CHUNK {
+            if self.window.held() >= self.window.chunk {
                 return Ok(Flow::Done);
             }
             match &mut self.state {
@@ -800,7 +811,7 @@ impl Decoder {
                 },
                 State::Stored(_) if owed => return Ok(Flow::Done),
                 State::Stored(left) => {
-                    let room = CHUNK.saturating_sub(self.window.held());
+                    let room = self.window.chunk.saturating_sub(self.window.held());
                     let want = usize::try_from(*left).unwrap_or_default().min(room);
                     let window = &mut self.window;
                     // What the bits hold first, whole bytes as they are.
@@ -913,7 +924,8 @@ impl Decoder {
             _ => None,
         };
         let begun = self.window.end;
-        let limit = self.pairing(self.window.produced.saturating_add(CHUNK), begun);
+        let chunk = self.window.chunk;
+        let limit = self.pairing(self.window.produced.saturating_add(chunk), begun);
         let window = &mut self.window;
         let at = Cursor {
             bits,

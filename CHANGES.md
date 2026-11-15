@@ -138,6 +138,9 @@ so any release may break compatibility.
   has decoded 2 KiB; and its tables are built in the room the last ones
   took, not allocated anew: a stream of 459 bytes decodes 1.45 times as
   fast on Zen 5, and one of 2 KiB 5% faster.
+- `decode-deflate`: a decoder's first buffer holds as much as its caller
+  has room for, from 1 KiB up, not always a chunk of 32 KiB, zeroed: a
+  stream of 122 bytes decodes 1.5 times as fast on Zen 5, in 0.19 µs.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
