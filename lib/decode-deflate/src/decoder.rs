@@ -2,7 +2,10 @@
 
 use crate::{
     Error, corrupt,
-    huffman::{Code, Kind, Table},
+    huffman::{
+        self, Code, DOUBLE_ENTRY, END, Entry, Kind, LINK, LITERAL, LITERAL_ENTRY, NEVER, SPECIAL,
+        Table, end_length, ends,
+    },
 };
 use alloc::{boxed::Box, vec::Vec};
 
@@ -91,13 +94,6 @@ impl Format {
     }
 }
 
-/// The kinds of literal/length and distance symbols, beside how many extra
-/// bits follow a length's or a distance's base, 16 at most: a literal, the
-/// block's end, and a symbol that never occurs.
-const LITERAL: u8 = 0x40;
-const END: u8 = 0x20;
-const NEVER: u8 = 0x80;
-
 /// Each length code's base and extra bits, from code 257 (RFC 1951
 /// §3.2.5), but for 285, which the format gives; codes 286 and 287 never
 /// occur.
@@ -176,10 +172,13 @@ const ORDER: [usize; 19] = [
     16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
 ];
 
-/// The bits that index each table before its tables of longer codes.
+/// The bits that index each table before its tables of longer codes, and
+/// how many entries they index.
 const LITERAL_BITS: u32 = 10;
 const DISTANCE_BITS: u32 = 8;
 const LENGTH_BITS: u32 = 7;
+const LITERAL_SIZE: usize = 1 << LITERAL_BITS;
+const DISTANCE_SIZE: usize = 1 << DISTANCE_BITS;
 
 /// The most literal/length and distance codes a dynamic block may have.
 const MAX_LITERALS: usize = 286;
@@ -249,8 +248,8 @@ impl Bits {
     #[inline]
     fn refill_word(&mut self, word: [u8; 8], taken: &mut usize) {
         self.value |= u64::from_le_bytes(word).wrapping_shl(self.count);
-        let take = 63_u32.wrapping_sub(self.count) >> 3;
-        *taken = taken.wrapping_add(usize::try_from(take).unwrap_or_default());
+        let take = usize::try_from((63_u32.wrapping_sub(self.count) >> 3) & 7).unwrap_or_default();
+        *taken = taken.wrapping_add(take);
         self.count |= 56;
     }
 
@@ -261,6 +260,17 @@ impl Bits {
     fn consume(&mut self, n: u32) {
         self.value = self.value.wrapping_shr(n);
         self.count = self.count.wrapping_sub(n);
+    }
+
+    /// Reads past the bits that the symbol of `entry` takes, its length
+    /// byte, as `fast` does: subtracting the whole entry from `count`,
+    /// whose low byte is all that `fast` reads, and keeps true, so that
+    /// none is taken out of the entry first. `fast` clears the rest once
+    /// it is done.
+    #[inline(always)]
+    fn skip(&mut self, entry: Entry) {
+        self.value = self.value.wrapping_shr(entry);
+        self.count = self.count.wrapping_sub(entry);
     }
 
     /// Reads the next `n` bits, up to 32, which it holds, as a number.
@@ -735,8 +745,7 @@ impl Decoder {
             length,
         };
         let tables = (&self.literals, &self.distances);
-        let format = window.format;
-        let (stop, at) = codes(at, tables, format, &mut window.buf, limit, input.bytes);
+        let (stop, at) = codes(at, tables, &mut window.buf, limit, input.bytes);
         (self.bits, window.end, input.taken) = (at.bits, at.end, at.taken);
         length = at.length;
         self.state = length.map_or(State::Literal, State::Distance);
@@ -805,19 +814,23 @@ struct Cursor {
 fn codes(
     mut at: Cursor,
     (literals, distances): (&Table, &Table),
-    format: Format,
     buf: &mut [u8],
     limit: usize,
     input: &[u8],
 ) -> (Result<Stop, Error>, Cursor) {
-    if at.length.is_none() {
-        match fast(&mut at, (literals, distances), format, buf, limit, input) {
-            Ok(None) => {},
-            Ok(Some(stop)) => return (Ok(stop), at),
-            Err(error) => return (Err(error), at),
-        }
-    }
+    // Fast, once no length waits for its distance, as one may from input
+    // given before; and once only, as it stops short only where the input
+    // runs short.
+    let mut tried = false;
     let stop = loop {
+        if !tried && at.length.is_none() {
+            tried = true;
+            match fast(&mut at, (literals, distances), buf, limit, input) {
+                Ok(None) => {},
+                Ok(Some(stop)) => break Ok(stop),
+                Err(error) => break Err(error),
+            }
+        }
         if at.end >= limit {
             break Ok(Stop::Full);
         }
@@ -830,21 +843,18 @@ fn codes(
                     Code::Short => break Ok(Stop::More),
                     Code::Invalid => break Err(corrupt()),
                 };
-                if kind == u32::from(LITERAL) {
-                    let Some(slot) = buf.get_mut(at.end) else {
-                        break Err(corrupt());
-                    };
-                    [*slot, ..] = value.to_le_bytes();
+                // A literal, or two.
+                if kind & u32::from(LITERAL) != 0 {
+                    let entry = value.wrapping_shl(16) | kind.wrapping_shl(8);
+                    if let Err(error) = literal(buf, &mut at.end, entry) {
+                        break Err(error);
+                    }
                     at.bits.consume(n);
-                    at.end = at.end.wrapping_add(1);
                     continue;
                 }
                 if kind == u32::from(END) {
                     at.bits.consume(n);
                     break Ok(Stop::End);
-                }
-                if kind & u32::from(NEVER) != 0 {
-                    break Err(corrupt());
                 }
                 if at.bits.count < n.saturating_add(kind) {
                     break Ok(Stop::More);
@@ -862,9 +872,6 @@ fn codes(
             },
             Code::Invalid => break Err(corrupt()),
         };
-        if extra & u32::from(NEVER) != 0 {
-            break Err(corrupt());
-        }
         if at.bits.count < n.saturating_add(extra) {
             at.length = Some(len);
             break Ok(Stop::More);
@@ -874,7 +881,7 @@ fn codes(
         let (Ok(distance), Ok(len)) = (usize::try_from(distance), usize::try_from(len)) else {
             break Err(corrupt());
         };
-        match copy(buf, at.end, distance, len, format.window()) {
+        match copy(buf, at.end, distance, len) {
             Ok(end) => at.end = end,
             Err(error) => break Err(error),
         }
@@ -882,108 +889,155 @@ fn codes(
     (stop, at)
 }
 
-/// Decodes codes as `codes` does, while the input holds two words past
-/// what is taken, so that every refill leaves at least 56 bits: enough for
-/// two literal/length codes, and a length's extra bits, and, refilled
-/// again if they run short, a distance code and its own. So no code can
-/// find too few. Its tables hold each symbol's meaning, so that a length
-/// or distance takes no lookup of its own, and its refills take no branch,
-/// leaving above the bits they need the input's next. It returns why it
-/// stopped, or nothing once the input runs short, for `codes` to go on
-/// carefully.
-#[inline]
+/// Decodes codes as `codes` does, while the input holds a word past what
+/// is taken, so that every refill leaves 56 bits at least, and 64 that are
+/// the stream's: enough for four literal codes of the table's index or
+/// shorter, then the index of the next code; or for a code of any length,
+/// a length and its extra bits, then a distance code and its own, 49 bits
+/// at most, then the next index. So no code can find too few, and each
+/// turn takes literals or a match, after a refill. Its tables hold each
+/// symbol's meaning, so that a length or distance takes no lookup of its
+/// own, and how many bits it takes, extra bits too, so that one shift
+/// reads past them; a literal's entry says so in one bit, and one test
+/// tells every other entry that is not a length's or a distance's; and its
+/// refills take no branch, leaving above the bits they need the input's
+/// next. It looks up the next code before it copies a match, so that the
+/// two overlap. It returns why it stopped, or nothing once the input runs
+/// short, for `codes` to go on carefully. Out of line, so that its loop
+/// has registers enough for what it carries.
+#[inline(never)]
 fn fast(
     at: &mut Cursor,
     (literals, distances): (&Table, &Table),
-    format: Format,
     buf: &mut [u8],
     limit: usize,
     input: &[u8],
 ) -> Result<Option<Stop>, Error> {
-    while at.end < limit {
-        let rest = input.get(at.taken..).unwrap_or_default();
-        let Some((word, more)) = rest.split_first_chunk::<8>() else {
-            return Ok(None);
-        };
-        if more.len() < 8 {
-            return Ok(None);
+    let (Some(lit), Some(dist)) = (
+        literals.primary::<LITERAL_SIZE>(),
+        distances.primary::<DISTANCE_SIZE>(),
+    ) else {
+        return Ok(None);
+    };
+    // In locals, which the loop keeps in registers.
+    let (mut bits, mut end, mut taken) = (at.bits, at.end, at.taken);
+    // The next code's entry, looked up ahead, once the bits are refilled.
+    let Some(&word) = input.get(taken..).and_then(<[u8]>::first_chunk::<8>) else {
+        return Ok(None);
+    };
+    bits.refill_word(word, &mut taken);
+    let mut entry = huffman::at(lit, bits.value);
+    let stop = loop {
+        if end >= limit {
+            break Ok(Some(Stop::Full));
         }
-        at.bits.refill_word(*word, &mut at.taken);
-        let (mut value, mut kind, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
-        at.bits.consume(n);
-        if kind == u32::from(LITERAL) {
-            [*buf.get_mut(at.end).ok_or_else(corrupt)?, ..] = value.to_le_bytes();
-            at.end = at.end.wrapping_add(1);
-            // A second code needs no refill, leaving 26 bits at least, and
-            // after a second literal, a third, as a length code and its
-            // extra bits take 20 at most.
-            let n;
-            (value, kind, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
-            at.bits.consume(n);
-            if kind == u32::from(LITERAL) {
-                [*buf.get_mut(at.end).ok_or_else(corrupt)?, ..] = value.to_le_bytes();
-                at.end = at.end.wrapping_add(1);
-                let n;
-                (value, kind, n) = literals.decode(at.bits.value).ok_or_else(corrupt)?;
-                at.bits.consume(n);
-                if kind == u32::from(LITERAL) {
-                    [*buf.get_mut(at.end).ok_or_else(corrupt)?, ..] = value.to_le_bytes();
-                    at.end = at.end.wrapping_add(1);
-                    continue;
+        let Some(&word) = input.get(taken..).and_then(<[u8]>::first_chunk::<8>) else {
+            break Ok(None);
+        };
+        bits.refill_word(word, &mut taken);
+        if entry & LITERAL_ENTRY != 0 {
+            literal(buf, &mut end, entry)?;
+            bits.skip(entry);
+            entry = huffman::at(lit, bits.value);
+            if entry & LITERAL_ENTRY != 0 {
+                literal(buf, &mut end, entry)?;
+                bits.skip(entry);
+                entry = huffman::at(lit, bits.value);
+                if entry & LITERAL_ENTRY != 0 {
+                    literal(buf, &mut end, entry)?;
+                    bits.skip(entry);
+                    entry = huffman::at(lit, bits.value);
+                    if entry & LITERAL_ENTRY != 0 {
+                        literal(buf, &mut end, entry)?;
+                        bits.skip(entry);
+                        entry = huffman::at(lit, bits.value);
+                    }
                 }
             }
+            continue;
         }
-        if kind == u32::from(END) {
-            return Ok(Some(Stop::End));
+        // A code longer than the index, which may be a literal's too, the
+        // block's end, or none.
+        if entry & SPECIAL != 0 {
+            if entry & LINK != 0 {
+                entry = literals.sub(entry, bits.value);
+            }
+            if entry & LITERAL_ENTRY != 0 {
+                literal(buf, &mut end, entry)?;
+                bits.skip(entry);
+                entry = huffman::at(lit, bits.value);
+                continue;
+            }
+            if ends(entry) {
+                bits.consume(end_length(entry));
+                break Ok(Some(Stop::End));
+            }
+            if entry & SPECIAL != 0 {
+                break Err(corrupt());
+            }
         }
-        if kind & u32::from(NEVER) != 0 {
-            return Err(corrupt());
+        let len = huffman::meaning(entry, bits.value);
+        bits.skip(entry);
+        let mut entry_of_distance = huffman::at(dist, bits.value);
+        if entry_of_distance & SPECIAL != 0 {
+            if entry_of_distance & LINK != 0 {
+                entry_of_distance = distances.sub(entry_of_distance, bits.value);
+            }
+            if entry_of_distance & SPECIAL != 0 {
+                break Err(corrupt());
+            }
         }
-        let length = value.wrapping_add(at.bits.take(kind));
-        // A distance code and its extra bits take up to 29.
-        if at.bits.count < 29 {
-            let rest = input.get(at.taken..).unwrap_or_default();
-            let Some(word) = rest.first_chunk::<8>() else {
-                at.length = Some(length);
-                return Ok(None);
-            };
-            at.bits.refill_word(*word, &mut at.taken);
-        }
-        let (base, extra, n) = distances.decode(at.bits.value).ok_or_else(corrupt)?;
-        if extra & u32::from(NEVER) != 0 {
-            return Err(corrupt());
-        }
-        at.bits.consume(n);
-        let distance = base.wrapping_add(at.bits.take(extra));
+        let distance = huffman::meaning(entry_of_distance, bits.value);
+        bits.skip(entry_of_distance);
+        entry = huffman::at(lit, bits.value);
         let distance = usize::try_from(distance).map_err(|_| corrupt())?;
-        let length = usize::try_from(length).map_err(|_| corrupt())?;
-        at.end = copy(buf, at.end, distance, length, format.window())?;
-    }
-    Ok(Some(Stop::Full))
+        let len = usize::try_from(len).map_err(|_| corrupt())?;
+        end = copy(buf, end, distance, len)?;
+    };
+    // What `skip` left above the count's byte.
+    bits.count &= 0xFF;
+    (at.bits, at.end, at.taken) = (bits, end, taken);
+    stop
 }
 
-/// Copies to `buf` past `end` `length` bytes from `distance` back, no
-/// further than `window`, which they may overlap, repeating what they
-/// copy, and returns the new end. It may write up to `SLACK` bytes past
-/// that end.
+/// Writes the literal of `entry`, or its two, at `end`, and moves `end`
+/// past them. It writes two bytes either way, the second, of one, past
+/// `end`, to be written over.
 #[inline(always)]
-fn copy(
-    buf: &mut [u8],
-    end: usize,
-    distance: usize,
-    length: usize,
-    window: usize,
-) -> Result<usize, Error> {
-    let from = end.checked_sub(distance);
-    let mut from = from.filter(|_| distance <= window).ok_or_else(corrupt)?;
-    let stop = end.saturating_add(length);
+fn literal(buf: &mut [u8], end: &mut usize, entry: Entry) -> Result<(), Error> {
+    let [_, _, first, second] = entry.to_le_bytes();
+    let pair = buf.get_mut(*end..end.wrapping_add(2));
+    *pair.and_then(<[u8]>::first_chunk_mut).ok_or_else(corrupt)? = [first, second];
+    let count = usize::from(entry & DOUBLE_ENTRY != 0);
+    *end = end.wrapping_add(count).wrapping_add(1);
+    Ok(())
+}
+
+/// Copies to `buf` past `end` `length` bytes from `distance` back, which
+/// they may overlap, repeating what they copy, and returns the new end. It
+/// may write up to `SLACK` bytes past that end. A distance is never past
+/// the window, as no distance code reaches further, those of Deflate64
+/// never occurring in Deflate.
+#[inline(always)]
+fn copy(buf: &mut [u8], end: usize, distance: usize, length: usize) -> Result<usize, Error> {
+    if distance > end {
+        return Err(corrupt());
+    }
+    let mut from = end.wrapping_sub(distance);
+    // No match reaches past the buffer's length, which bounds `end`.
+    let stop = end.wrapping_add(length);
     let mut to = end;
     match distance {
+        16.. => chunks::<16>(buf, from, to, stop)?,
+        // A run of one byte: short ones in a chunk or two, without the call
+        // that filling takes, and long ones by it.
         1 => {
             let byte = buf.get(from).copied().ok_or_else(corrupt)?;
-            buf.get_mut(to..stop).ok_or_else(corrupt)?.fill(byte);
+            match length {
+                ..=32 => fill(buf, [byte; 16], to, stop)?,
+                _ => buf.get_mut(to..stop).ok_or_else(corrupt)?.fill(byte),
+            }
         },
-        16.. => chunks::<16>(buf, from, to, stop)?,
         8.. => chunks::<8>(buf, from, to, stop)?,
         _ => {
             // Byte by byte until what is written repeats with a period of
@@ -1002,26 +1056,47 @@ fn copy(
 }
 
 /// Copies to `buf` from `from` to `to`, until `stop`, in chunks of `N`
-/// bytes, up to `N` past it: chunks that do not overlap what they copy, as
-/// `to` is at least `N` past `from`, each after the last has written what
-/// it reads.
+/// bytes, up to `N` past it, one at least: chunks that do not overlap what
+/// they copy, as `to` is at least `N` past `from`, each after the last has
+/// written what it reads.
+#[inline(always)]
 fn chunks<const N: usize>(
     buf: &mut [u8],
     mut from: usize,
     mut to: usize,
     stop: usize,
 ) -> Result<(), Error> {
-    while to < stop {
-        let chunk: [u8; N] = *buf
-            .get(from..)
-            .and_then(|rest| rest.first_chunk())
-            .ok_or_else(corrupt)?;
-        *buf.get_mut(to..)
-            .and_then(|rest| rest.first_chunk_mut())
-            .ok_or_else(corrupt)? = chunk;
+    loop {
+        let chunk = buf
+            .get(from..from.wrapping_add(N))
+            .and_then(<[u8]>::first_chunk::<N>);
+        let chunk = *chunk.ok_or_else(corrupt)?;
+        let into = buf.get_mut(to..to.wrapping_add(N));
+        *into.and_then(<[u8]>::first_chunk_mut).ok_or_else(corrupt)? = chunk;
         (from, to) = (from.wrapping_add(N), to.wrapping_add(N));
+        if to >= stop {
+            return Ok(());
+        }
     }
-    Ok(())
+}
+
+/// Writes `chunk` to `buf` from `to` until `stop`, over and over, up to
+/// its length past it, once at least.
+#[inline(always)]
+fn fill<const N: usize>(
+    buf: &mut [u8],
+    chunk: [u8; N],
+    mut to: usize,
+    stop: usize,
+) -> Result<(), Error> {
+    loop {
+        let into = buf.get_mut(to..to.wrapping_add(N));
+        *into.and_then(<[u8]>::first_chunk_mut).ok_or_else(corrupt)? = chunk;
+        to = to.wrapping_add(N);
+        if to >= stop {
+            return Ok(());
+        }
+    }
 }
 
 impl Default for Decoder {

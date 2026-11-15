@@ -16,23 +16,100 @@ const LENGTHS: usize = 16;
 /// What a table holds for a run of bits, packed for speed: the symbol's
 /// meaning, a value and a kind byte, which the table's maker gives each
 /// symbol, such as a length's base and how many extra bits follow it, or
-/// where a table of longer codes begins; above a length byte, which is the
-/// code's length; or `LINK` and the bits that index that table; or
-/// `INVALID`, for bits that no code begins with. Neither of those is a
-/// length that the bits a decoder holds reach, so that one comparison
-/// tells a code decoded from the rest.
-type Entry = u32;
+/// where a table of longer codes begins; above a length byte, which is how
+/// many bits the symbol takes, its code's and the extra bits', 31 at most;
+/// or `LINK` and the bits that index that table; or `END` and the length
+/// of the code that ends a block; or `INVALID`, for bits that no code
+/// begins with, or that begin a code of a symbol that never occurs. None
+/// of those is a length that the bits a decoder holds reach, and each sets
+/// a bit of `SPECIAL`, which no symbol's length does, so that one test
+/// tells a symbol's entry from the rest; and a literal's kind byte flags
+/// it, so that one test tells a literal.
+pub(crate) type Entry = u32;
 
-/// The length byte of an entry of no code.
+/// The kinds of literal/length and distance symbols that the table's maker
+/// gives, beside how many extra bits follow a length's or a distance's
+/// base, 16 at most: a literal, the block's end, and a symbol that never
+/// occurs. Only `LITERAL` stays in an entry's kind byte.
+pub(crate) const LITERAL: u8 = 0x40;
+pub(crate) const END: u8 = 0x20;
+pub(crate) const NEVER: u8 = 0x80;
+
+/// The flag of a literal's entry, and of an entry of two literals, the
+/// second in the value's high byte, beside it.
+pub(crate) const LITERAL_ENTRY: Entry = 0x4000;
+pub(crate) const DOUBLE_ENTRY: Entry = 0x2000;
+const DOUBLE: u8 = 0x20;
+
+/// The bits of the length byte that only entries of no symbol set.
+pub(crate) const SPECIAL: Entry = 0xE0;
+
+/// The length byte of an entry of no code, or of a symbol that never
+/// occurs.
 const INVALID: u32 = 0x7F;
 
 /// The flag in the length byte of an entry that links to a table of longer
 /// codes.
-const LINK: u32 = 0x80;
+pub(crate) const LINK: u32 = 0x80;
+
+/// The flag in the length byte of the entry of the code that ends a block,
+/// beside its length.
+const END_ENTRY: u32 = 0x40;
 
 /// Returns the entry of `value`, `kind`, and the length byte `bits`.
 fn entry(value: u16, kind: u8, bits: u32) -> Entry {
     u32::from(value).wrapping_shl(16) | u32::from(kind).wrapping_shl(8) | bits
+}
+
+/// Returns an entry's value: a literal, or a length's or a distance's base.
+#[inline(always)]
+pub(crate) fn value(entry: Entry) -> u32 {
+    entry >> 16
+}
+
+/// Returns how many extra bits follow the base of a length or a distance
+/// whose entry this is.
+#[inline(always)]
+pub(crate) fn extra(entry: Entry) -> u32 {
+    entry.wrapping_shr(8) & 0x1F
+}
+
+/// Returns an entry's length byte: how many bits its symbol takes, its
+/// code's and the extra bits', if it is a symbol's.
+#[inline(always)]
+pub(crate) fn length(entry: Entry) -> u32 {
+    entry & 0xFF
+}
+
+/// Returns what the symbol of `entry` means, a length's or a distance's
+/// base and the extra bits after its code in `bits`, the next bits of the
+/// stream, as a number: its length, or its distance.
+#[inline(always)]
+pub(crate) fn meaning(entry: Entry, bits: u64) -> u32 {
+    let extra = extra(entry);
+    let code = length(entry).wrapping_sub(extra);
+    let low = bits.wrapping_shr(code) & !u64::MAX.wrapping_shl(extra) & 0xFFFF;
+    value(entry).wrapping_add(u32::try_from(low).unwrap_or_default())
+}
+
+/// Returns the entry of `entries`, a table's first, that `value`, the next
+/// bits of the stream, indexes: masked to their count, a power of two, so
+/// that it takes no bounds check.
+#[inline(always)]
+pub(crate) fn at<const SIZE: usize>(entries: &[Entry; SIZE], value: u64) -> Entry {
+    let mask = u64::try_from(SIZE).unwrap_or_default().wrapping_sub(1);
+    let index = usize::try_from(value & mask).unwrap_or_default();
+    entries.get(index).copied().unwrap_or(INVALID)
+}
+
+/// Whether an entry is that of the code that ends a block.
+pub(crate) fn ends(entry: Entry) -> bool {
+    entry & SPECIAL == END_ENTRY && entry & 0x1F <= MAX_BITS
+}
+
+/// Returns the length of the code of an entry for which [`ends`] holds.
+pub(crate) fn end_length(entry: Entry) -> u32 {
+    entry & 0x1F
 }
 
 /// A decoded symbol's meaning, and the length of its code.
@@ -128,9 +205,17 @@ impl Table {
             *next = next.saturating_add(1);
             let reversed = code.reverse_bits() >> 16_u32.saturating_sub(u32::from(len));
             let symbol = u16::try_from(symbol).map_err(|_| corrupt())?;
-            let (value, kind) = meaning(symbol);
-            let meant = entry(value, kind, 0);
-            codes.push((meant, u32::from(len), usize::from(reversed)));
+            let len = u32::from(len);
+            // What fills each entry of the code: of `END` and `NEVER`, the
+            // length byte alone; of the rest, the code's length and the
+            // extra bits' as the length byte.
+            let meant = match meaning(symbol) {
+                (_, NEVER) => INVALID,
+                (_, END) => END_ENTRY | len,
+                (value, LITERAL) => entry(value, LITERAL, len),
+                (value, kind) => entry(value, kind, len.saturating_add(u32::from(kind & 0x1F))),
+            };
+            codes.push((meant, len, usize::from(reversed)));
         }
 
         // Codes no longer than the index fill every entry they begin.
@@ -140,7 +225,7 @@ impl Table {
         for &(meant, len, reversed) in codes.iter().filter(|(_, len, _)| *len <= bits) {
             let step = 1_usize.wrapping_shl(len);
             for slot in entries.iter_mut().skip(reversed).step_by(step) {
-                *slot = meant | len;
+                *slot = meant;
             }
         }
         // Longer ones, a table under their prefix, as long as the longest
@@ -166,8 +251,11 @@ impl Table {
             let step = 1_usize.wrapping_shl(len.saturating_sub(bits));
             let sub = entries.get_mut(start..end).unwrap_or_default();
             for slot in sub.iter_mut().step_by(step) {
-                *slot = meant | len;
+                *slot = meant;
             }
+        }
+        if kind == Kind::Literals {
+            pair(entries.get_mut(..size).unwrap_or_default(), bits);
         }
         Ok(Self {
             bits,
@@ -176,23 +264,29 @@ impl Table {
         })
     }
 
-    /// Returns the meaning and code length of the symbol that `value`, the
-    /// next bits of the stream, holding at least `MAX_BITS`, begin with, as
-    /// `(value, kind, length)`, or `None` if they begin no code.
+    /// Returns the entries that the table's index reaches, `SIZE` of them,
+    /// as many as its index bits reach, so that a caller who masks what it
+    /// indexes them with takes no bounds check; or `None` for a table of
+    /// another size, or none.
     #[inline]
-    pub(crate) fn decode(&self, value: u64) -> Option<(u32, u32, u32)> {
-        let index = usize::try_from(value & self.mask).unwrap_or_default();
-        let mut entry = self.entries.get(index).copied().unwrap_or(INVALID);
-        if entry & LINK != 0 {
-            let link = entry & !LINK & 0xFF;
-            let sub = 1_u64.wrapping_shl(link).wrapping_sub(1);
-            let index = usize::try_from(value.wrapping_shr(self.bits) & sub).unwrap_or_default();
-            let offset = usize::try_from(entry >> 16).unwrap_or_default();
-            let index = offset.saturating_add(index);
-            entry = self.entries.get(index).copied().unwrap_or(INVALID);
-        }
-        let len = entry & 0xFF;
-        (len <= MAX_BITS).then_some((entry >> 16, entry.wrapping_shr(8) & 0xFF, len))
+    pub(crate) fn primary<const SIZE: usize>(&self) -> Option<&[Entry; SIZE]> {
+        let size = 1_usize.wrapping_shl(self.bits);
+        self.entries.first_chunk().filter(|_| size == SIZE)
+    }
+
+    /// Returns the entry, in the table of longer codes that `entry` links
+    /// to, of the code that `value`, the next bits of the stream, begins
+    /// with, or one of no code.
+    #[inline]
+    pub(crate) fn sub(&self, entry: Entry, value: u64) -> Entry {
+        let link = entry & !LINK & 0xFF;
+        let sub = 1_u64.wrapping_shl(link).wrapping_sub(1);
+        let index = usize::try_from(value.wrapping_shr(self.bits) & sub).unwrap_or_default();
+        let offset = usize::try_from(entry >> 16).unwrap_or_default();
+        self.entries
+            .get(offset.saturating_add(index))
+            .copied()
+            .unwrap_or(INVALID)
     }
 
     /// Decodes the code that `value`, the next `count` bits of the stream,
@@ -208,22 +302,25 @@ impl Table {
     }
 
     /// Decodes a code longer than the table's index, or one the bits do
-    /// not yet hold, or none.
+    /// not yet hold, or the block's end, or none.
     #[cold]
     fn slow(&self, mut entry: Entry, value: u64, count: u32) -> Code {
         if entry & LINK != 0 {
-            let link = entry & !LINK & 0xFF;
-            let sub = 1_u64.wrapping_shl(link).wrapping_sub(1);
-            let index = usize::try_from(value.wrapping_shr(self.bits) & sub).unwrap_or_default();
-            let offset = usize::try_from(entry >> 16).unwrap_or_default();
-            entry = self
-                .entries
-                .get(offset.saturating_add(index))
-                .copied()
-                .unwrap_or(INVALID);
+            entry = self.sub(entry, value);
             if entry & 0xFF <= count {
                 return symbol(entry);
             }
+        }
+        if ends(entry) {
+            let bits = end_length(entry);
+            return match bits <= count {
+                true => Code::Symbol {
+                    value: 0,
+                    kind: u32::from(END),
+                    bits,
+                },
+                false => Code::Short,
+            };
         }
         // Past the bits there are, a longer code may yet begin.
         if entry & 0xFF == INVALID && count >= MAX_BITS {
@@ -234,12 +331,41 @@ impl Table {
     }
 }
 
+/// Makes each entry of a literal whose code, and the next literal's after
+/// it, fit the index of `entries`, of `bits` bits, the entry of both, so
+/// that one lookup decodes two literals. Entries are visited from the
+/// last, as each reads one that is no later, and so not yet paired.
+fn pair(entries: &mut [Entry], bits: u32) {
+    for index in (0..entries.len()).rev() {
+        let Some(&first) = entries.get(index) else {
+            continue;
+        };
+        if first & (LITERAL_ENTRY | DOUBLE_ENTRY) != LITERAL_ENTRY {
+            continue;
+        }
+        let len = length(first);
+        let Some(&second) = entries.get(index.wrapping_shr(len)) else {
+            continue;
+        };
+        let both = len.saturating_add(length(second));
+        if second & (LITERAL_ENTRY | DOUBLE_ENTRY) != LITERAL_ENTRY || both > bits {
+            continue;
+        }
+        let [_, _, first, _] = first.to_le_bytes();
+        let [_, _, second, _] = second.to_le_bytes();
+        let value = u16::from_le_bytes([first, second]);
+        if let Some(slot) = entries.get_mut(index) {
+            *slot = entry(value, LITERAL | DOUBLE, both);
+        }
+    }
+}
+
 /// Returns the meaning and code length of an entry that has them.
 fn symbol(entry: Entry) -> Code {
     Code::Symbol {
         value: entry >> 16,
         kind: entry.wrapping_shr(8) & 0xFF,
-        bits: entry & 0xFF,
+        bits: length(entry).saturating_sub(extra(entry)),
     }
 }
 

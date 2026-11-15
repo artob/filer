@@ -570,9 +570,9 @@ crate's name until its first code, which moves it to `lib/`.
   `decode-zstd`'s and `decode-bzip2`'s streams, whole and in pieces of
   64 KiB and of 4 KiB, by the baseline build and by the build for the
   CPU. The harness drives `decode-deflate` too, since `e35879b`: a
-  campaign of it, at `9e96979`, began 2026-11-15 and has filled its
-  memory and its whole streams by the baseline build, and its other
-  passes run. The other `decode-*` crates' `BENCH.md`
+  campaign of it, at `9e96979`, filled its memory and its whole streams
+  by the baseline build (2026-11-15), and was stopped for DEC-24, whose
+  rework its tables precede. The other `decode-*` crates' `BENCH.md`
   hold their code size alone. Zen 1's
   speed tables are older, of `9c5f5fc`, before DEC-19's work. Done when
   each `BENCH.md` of a written decoder holds them all.
@@ -646,15 +646,26 @@ crate's name until its first code, which moves it to `lib/`.
   Done when a stream allocates once, its block state and tables reused
   from block to block, its speed timed before and after.
 - [ ] **DEC-24: `decode-deflate`'s speed.** Whole, on the default
-  machines' real inputs, ours leads zlib by 1.29 to 1.33 times and
-  `miniz_oxide` by 1.12 to 1.37, but has 0.52 to 0.62 of libdeflate's
-  speed, 0.70 to 0.86 of `zlib-rs`'s, 0.72 to 0.90 of zlib-ng's, 0.76
-  to 0.93 of `zune-inflate`'s, and 0.78 to 0.85 of `yazi`'s (geometric
-  means, `BENCH.md`, 2026-11-15). It copies stored blocks at 0.54 to
-  0.84 of zlib's speed, and long matches at distances of 1 and 28, the
-  synthetic `zeros` and `pattern` at level 1, at 0.31 to 0.48 of it on
-  x86-64. Done when it is competitive with each counterpart on each
-  default machine, whole and in pieces, its time profiled first.
+  machines' real inputs, it trailed libdeflate, `zlib-rs`, zlib-ng,
+  `zune-inflate`, and `yazi`, at 0.52 to 0.93 of their speed (`BENCH.md`,
+  2026-11-15, of the code before). Profiled, its loop executed 2.4 times
+  libdeflate's instructions, through bounds checks, a branch for each
+  kind of entry, and values spilled to the stack; and in pieces it fell
+  back to the careful path for whole calls. Reworked, by a quick timer's
+  best of runs over Silesia and the large files at levels 1 to 12, it
+  decodes 28 to 33% faster whole, and 49 to 58% in pieces of 4 KiB:
+  whole, at 0.87 to 0.92 of zlib-ng's and `zlib-rs`'s speed on Zen 5,
+  0.95 to 1.13 on Granite Rapids, and 1.12 to 1.25 on Neoverse V3; in
+  pieces of 4 KiB, 1.34 to 1.69 of both; and at 0.67 to 0.83 of
+  libdeflate's, which decodes only whole streams. Stored blocks are still
+  copied twice, into the window and out. Left to try: BMI2 by
+  `intrinsics` (2.7% on Granite Rapids built for it, none on Zen 5), and
+  whole streams decoded straight into the output. Tried and lost: the
+  bits two places up, so that loads take no scaled index (+0.8% on Zen
+  5, -4.8% on Granite Rapids); literal indexes of 11 bits, and distance
+  ones of 9 or 10; the bits reloaded by position each turn; the rare
+  paths out of line. Done when it is competitive with each counterpart
+  on each default machine, whole and in pieces.
 
 ## Virtual drivers
 
