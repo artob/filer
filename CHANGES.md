@@ -124,6 +124,12 @@ so any release may break compatibility.
   copied by chunks that each read what the one before wrote: the
   corpus's `pattern` decodes 3 to 5 times as fast, and real inputs as
   fast as before.
+- `decode-deflate`: a table pairs its literals by setting, for each
+  literal short enough, the entries its code begins, from the table as it
+  was, not by visiting every entry by branches that follow no pattern;
+  and counts its lengths four ways at once: at level 12, whose blocks are
+  many, 3% faster on Granite Rapids and Neoverse V3, and the Canterbury
+  corpus's `ptt5` 24% faster.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

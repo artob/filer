@@ -190,10 +190,30 @@ impl Table {
         kind: Kind,
         meaning: impl Fn(u16) -> (u16, u8),
     ) -> Result<Self, Error> {
+        // Counted four ways at once, each a count of every fourth length,
+        // as a count waits on the one before of the same length. A length
+        // past the longest, which none counts, has no place among the
+        // symbols sorted below.
+        let mut four = [[0_u32; LENGTHS]; 4];
+        let (quads, rest) = lengths.as_chunks::<4>();
+        for quad in quads {
+            for (counts, &len) in four.iter_mut().zip(quad) {
+                if let Some(count) = counts.get_mut(usize::from(len & 0xF)) {
+                    *count = count.wrapping_add(1);
+                }
+            }
+        }
+        for (counts, &len) in four.iter_mut().zip(rest) {
+            if let Some(count) = counts.get_mut(usize::from(len & 0xF)) {
+                *count = count.wrapping_add(1);
+            }
+        }
         let mut counts = [0_u32; LENGTHS];
-        for &len in lengths {
-            let count = counts.get_mut(usize::from(len)).ok_or_else(corrupt)?;
-            *count = count.saturating_add(1);
+        for (len, count) in counts.iter_mut().enumerate() {
+            *count = four
+                .iter()
+                .map(|counts| counts.get(len).copied().unwrap_or_default())
+                .sum();
         }
         // The codes left at each length, after those shorter take theirs:
         // none may be over-subscribed, and only some may leave any.
@@ -255,6 +275,9 @@ impl Table {
         let mut entries = vec![INVALID; size];
         let mut width = 2_usize;
         let mut long = Vec::new();
+        // Literals short enough to pair, with their codes' reversals.
+        let mut short = [(0_usize, 0_u32, 0_u8); 256];
+        let mut shorts = 0_usize;
         for &symbol in sorted {
             let len = lengths
                 .get(usize::from(symbol))
@@ -280,6 +303,12 @@ impl Table {
             if len > bits {
                 long.push((meant, len, reversed));
                 continue;
+            }
+            if let (Kind::Literals, Ok(byte), Some(slot)) =
+                (kind, u8::try_from(symbol), short.get_mut(shorts))
+            {
+                *slot = (reversed, len, byte);
+                shorts = shorts.saturating_add(1);
             }
             let wide = 1_usize.wrapping_shl(len);
             while width < wide {
@@ -322,8 +351,11 @@ impl Table {
                 *slot = meant;
             }
         }
-        if kind == Kind::Literals {
-            pair(entries.get_mut(..size).unwrap_or_default(), bits);
+        if let Some(primary) = entries.first_chunk_mut::<{ 1 << MAX_INDEX }>()
+            && kind == Kind::Literals
+            && bits == MAX_INDEX
+        {
+            pair(primary, short.get(..shorts).unwrap_or_default());
         }
         Ok(Self {
             bits,
@@ -400,30 +432,40 @@ impl Table {
 }
 
 /// Makes each entry of a literal whose code, and the next literal's after
-/// it, fit the index of `entries`, of `bits` bits, the entry of both, so
-/// that one lookup decodes two literals. Entries are visited from the
-/// last, as each reads one that is no later, and so not yet paired.
-fn pair(entries: &mut [Entry], bits: u32) {
-    for index in (0..entries.len()).rev() {
-        let Some(&first) = entries.get(index) else {
-            continue;
-        };
-        if first & (LITERAL_ENTRY | DOUBLE_ENTRY) != LITERAL_ENTRY {
-            continue;
+/// it, fit the index of `entries` the entry of both, so that one lookup
+/// decodes two literals: for each of the literals `short`, as `(reversed
+/// code, length, byte)`, in order of length, those its code begins, whose
+/// next bits index the entry of the second as they index the table, read
+/// from it as it was.
+fn pair(entries: &mut [Entry; 1 << MAX_INDEX], short: &[(usize, u32, u8)]) {
+    let Some(&(_, shortest, _)) = short.first() else {
+        return;
+    };
+    let seconds = *entries;
+    for &(reversed, len, byte) in short {
+        let room = MAX_INDEX.saturating_sub(len);
+        if shortest > room {
+            break;
         }
-        let len = length(first);
-        let Some(&second) = entries.get(index.wrapping_shr(len)) else {
-            continue;
-        };
-        let both = len.saturating_add(length(second));
-        if second & (LITERAL_ENTRY | DOUBLE_ENTRY) != LITERAL_ENTRY || both > bits {
-            continue;
-        }
-        let [_, _, first, _] = first.to_le_bytes();
-        let [_, _, second, _] = second.to_le_bytes();
-        let value = u16::from_le_bytes([first, second]);
-        if let Some(slot) = entries.get_mut(index) {
-            *slot = entry(value, LITERAL | DOUBLE, both);
+        let first = entry(u16::from(byte), LITERAL, len);
+        let next = 1_usize.wrapping_shl(room);
+        for (bits, &second) in seconds.iter().take(next).enumerate() {
+            let both = len.wrapping_add(length(second));
+            let single = second & (LITERAL_ENTRY | DOUBLE_ENTRY) == LITERAL_ENTRY;
+            let [_, _, second_byte, _] = second.to_le_bytes();
+            let paired = entry(
+                u16::from_le_bytes([byte, second_byte]),
+                LITERAL | DOUBLE,
+                both,
+            );
+            let index = reversed | bits.wrapping_shl(len);
+            if let Some(slot) = entries.get_mut(index & ((1 << MAX_INDEX) - 1)) {
+                *slot = if single && both <= MAX_INDEX {
+                    paired
+                } else {
+                    first
+                };
+            }
         }
     }
 }
