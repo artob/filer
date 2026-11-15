@@ -657,8 +657,9 @@ crate's name until its first code, which moves it to `lib/`.
   whole, at 0.87 to 0.92 of zlib-ng's and `zlib-rs`'s speed on Zen 5,
   0.95 to 1.13 on Granite Rapids, and 1.12 to 1.25 on Neoverse V3; in
   pieces of 4 KiB, 1.34 to 1.69 of both; and at 0.67 to 0.83 of
-  libdeflate's, which decodes only whole streams. Stored blocks are still
-  copied twice, into the window and out. Left to try: BMI2 by
+  libdeflate's, which decodes only whole streams. Stored blocks go
+  straight to the output where it has room for a window: whole, at 0.88
+  to 1.00 of each counterpart's speed. Left to try: BMI2 by
   `intrinsics` (2.7% on Granite Rapids built for it, none on Zen 5), and
   whole streams decoded straight into the output. Tried and lost: the
   bits two places up, so that loads take no scaled index (+0.8% on Zen
