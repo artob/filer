@@ -73,6 +73,24 @@ so any release may break compatibility.
   in, not up to 4 MiB, and keeps its buffers from block to block: a
   stream at level 9 takes at most 4.5 MiB, not 11, libbzip2's 3.6 and a
   block's packed bytes, in at most 22 allocations, not 48,000.
+- `decode-deflate`: its tables' entries hold how many bits a symbol
+  takes, extra bits too, flag a literal in one bit, and every entry of
+  no literal, length, or distance in one test; two literals whose codes
+  fit the index together share one entry. Each turn of its fast loop
+  takes literals or a match after one refill without a branch, and
+  looks up the next code before it copies; the loop is a function of
+  its own, its values in registers. In pieces, a length waiting for its
+  distance no longer keeps a whole call careful. By a timer's best of
+  runs over Silesia and the large files at levels 1, 6, 9, and 12: whole,
+  28 to 33% faster on the default machines, at 0.87 to 0.92 times
+  zlib-ng's and `zlib-rs`'s speed on Zen 5, 0.95 to 1.13 on Granite
+  Rapids, and 1.12 to 1.25 on Neoverse V3; and in pieces of 4 KiB, 49 to
+  58% faster.
+- `decode-deflate`: a stored block goes straight to the output, where it
+  has room for a window, which keeps the latest bytes only once codes
+  may copy from them or the call returns: whole, the corpus's
+  incompressible inputs decode 20 to 103% faster, at 0.88 to 1.00 times
+  each counterpart's speed.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
