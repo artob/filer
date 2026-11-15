@@ -154,6 +154,10 @@ so any release may break compatibility.
   mispredicts: on Zen 5, the Canterbury corpus's `E.coli` decodes 1.45
   times as fast, Silesia's `x-ray` and `mozilla` 5% faster, and text 2
   to 6% slower. Intel's cores, which it slows, and ARM's keep the branch.
+- `decode-deflate`: once a call reaches the stream's end, the window no
+  longer keeps the latest bytes produced straight to the output, which no
+  match copies from any more: a whole stream of 100 KB to 10 MB decodes 1
+  to 1.7% faster on Granite Rapids.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

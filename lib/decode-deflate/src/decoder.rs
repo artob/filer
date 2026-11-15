@@ -845,7 +845,8 @@ impl Decoder {
     /// Has the window keep the latest of the `owed` bytes produced last,
     /// straight to `output`, below `produced`.
     fn settle(&mut self, output: &[u8], produced: usize, owed: usize) {
-        if owed > 0 {
+        // Past the stream's end, no match copies from them.
+        if owed > 0 && !matches!(self.state, State::End) {
             let from = produced.saturating_sub(owed)..produced;
             self.window.keep(output.get(from).unwrap_or_default());
         }
