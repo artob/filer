@@ -115,6 +115,10 @@ so any release may break compatibility.
   32 bytes at once, so that one of up to 32 takes one turn: 2.2% faster
   on Granite Rapids and 1.1% on Zen 5; Neoverse V3, 2% slower so, keeps
   to 16.
+- `decode-deflate`: its fast loop bounds its input and its writes once,
+  each by the last place a read or a write may begin, found by a
+  subtraction that may not wrap, so that each turn compares with it
+  alone: 2.8% faster on Granite Rapids and 1.8% on Zen 5.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

@@ -650,26 +650,28 @@ crate's name until its first code, which moves it to `lib/`.
   `zune-inflate`, and `yazi`, at 0.52 to 0.93 of their speed (`BENCH.md`,
   2026-11-15, of the code before). Profiled, its loop executed 2.4 times
   libdeflate's instructions, through bounds checks, a branch for each
-  kind of entry, and values spilled to the stack; and in pieces it fell
-  back to the careful path for whole calls. Reworked, by a quick timer's
-  best of runs over Silesia and the large files at levels 1 to 12, it
-  decodes 28 to 33% faster whole, and 49 to 58% in pieces of 4 KiB:
-  whole, at 0.87 to 0.92 of zlib-ng's and `zlib-rs`'s speed on Zen 5,
-  0.95 to 1.13 on Granite Rapids, and 1.12 to 1.25 on Neoverse V3; in
-  pieces of 4 KiB, 1.34 to 1.69 of both; and at 0.67 to 0.83 of
-  libdeflate's, which decodes only whole streams. Stored blocks go
-  straight to the output where it has room for a window: whole, at 0.88
-  to 1.00 of each counterpart's speed. Its `intrinsics` builds the loop
-  for BMI2 too: 6% faster on Granite Rapids, as fast on Zen 5, timed in
-  one build, whose layout moves Zen 5's timings more. Left to try: whole
-  streams decoded straight into the output. Tried and lost: the
-  bits two places up, so that loads take no scaled index (+0.8% on Zen
-  5, -4.8% on Granite Rapids); literal indexes of 11 bits, and distance
-  ones of 9 or 10; the bits reloaded by position each turn; the rare
-  paths out of line; long matches from near copied from their period
-  laid out once (`pattern` 30% faster, but at 0.2 of zlib-ng's speed,
-  and `x-ray` 2 to 7% slower on Zen 5). Done when it is competitive with
-  each counterpart on each default machine, whole and in pieces.
+  kind of entry, and values spilled to the stack; in pieces it fell back
+  to the careful path for whole calls; and stored blocks were copied
+  twice. Reworked (`CHANGES.md`), by a quick timer's best of runs over
+  Silesia, the large files, and Canterbury at levels 1 to 12, whole, it
+  decodes at 1.03 to 1.05 of zlib-ng's speed and 1.01 to 1.04 of
+  `zlib-rs`'s on Zen 5, 1.32 to 1.41 and 1.19 to 1.27 on Granite Rapids,
+  and 1.32 to 1.38 and 1.25 to 1.30 on Neoverse V3; in pieces of 4 KiB,
+  1.43 to 1.73 of both; and at 0.86 to 0.87 of libdeflate's on x86-64,
+  0.92 to 0.94 on Neoverse V3. The synthetic `pattern`, matches of 258
+  bytes from 28 back, decodes at a fifth of zlib-ng's speed, whose long
+  matches from near are filled from vectors. What is left of libdeflate
+  is mostly two table loads in turn a match, on which Zen 5 waits, and
+  a block's literal pairs, 1 to 3% of decoding. Tried and lost: the
+  bits two places up, so that loads take no scaled index; literal
+  indexes of 9 or 11 bits, and distance ones of 9 or 10; the bits
+  reloaded by position each turn; the rare paths out of line; long
+  matches from near copied from their period laid out once (`pattern`
+  30% faster, `x-ray` 2 to 7% slower on Zen 5); far matches by 32 bytes
+  on Neoverse V3 (2% slower); and a test of AMD before the BMI2 loop,
+  which Zen 5 takes no slower, timed in one build. Done when it is
+  competitive with each counterpart on each default machine, whole and
+  in pieces.
 
 ## Virtual drivers
 
