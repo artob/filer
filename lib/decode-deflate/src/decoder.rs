@@ -12,6 +12,13 @@ use alloc::{boxed::Box, vec::Vec};
 /// The most a call decodes before it produces what it decoded.
 const CHUNK: usize = 32 * 1024;
 
+/// How much input left at a block's start has a decoder pair the block's
+/// literals at once, as a block likely long enough for pairing them to
+/// pay; and how much of a block it decodes before it pairs them, if it
+/// did not: pairing takes about as long as decoding that much saves.
+const PAIR_NOW: usize = 2048;
+const PAIR_AFTER: usize = 2048;
+
 /// How far past its end a match may write, as it copies in chunks of up
 /// to 32.
 const SLACK: usize = 32;
@@ -406,18 +413,20 @@ impl Dynamic {
         }
     }
 
-    /// Reads what it can of the description, and returns the block's
-    /// literal/length and distance codes once it has read it all.
+    /// Reads what it can of the description, and makes `literal_table` and
+    /// `distance_table` the block's literal/length and distance codes once
+    /// it has read it all, and returns whether it has.
     fn read(
         &mut self,
         bits: &mut Bits,
         input: &mut Input<'_>,
         format: Format,
-    ) -> Result<Option<(Table, Table)>, Error> {
+        (literal_table, distance_table): (&mut Table, &mut Table),
+    ) -> Result<bool, Error> {
         bits.refill(input);
         let (literals, distances, count) = match self.counts {
             Some(counts) => counts,
-            None if bits.count < 14 => return Ok(None),
+            None if bits.count < 14 => return Ok(false),
             None => {
                 let literals = usize::try_from(bits.take(5)).map_err(|_| corrupt())?;
                 let distances = usize::try_from(bits.take(5)).map_err(|_| corrupt())?;
@@ -438,7 +447,7 @@ impl Dynamic {
             while self.read < count {
                 bits.refill(input);
                 if bits.count < 3 {
-                    return Ok(None);
+                    return Ok(false);
                 }
                 let symbol = ORDER.get(self.read).copied().ok_or_else(corrupt)?;
                 let length = u8::try_from(bits.take(3)).map_err(|_| corrupt())?;
@@ -462,7 +471,7 @@ impl Dynamic {
             bits.refill(input);
             let (symbol, len) = match code.lookup(bits.value, bits.count) {
                 Code::Symbol { value, bits, .. } => (value, bits),
-                Code::Short => return Ok(None),
+                Code::Short => return Ok(false),
                 Code::Invalid => return Err(corrupt()),
             };
             // A length, or a length repeated: the last, or zeros.
@@ -473,7 +482,7 @@ impl Dynamic {
                 _ => (7, 11),
             };
             if bits.count < len.saturating_add(extra) {
-                return Ok(None);
+                return Ok(false);
             }
             bits.consume(len);
             let repeat =
@@ -502,13 +511,13 @@ impl Dynamic {
         if literal_lengths.get(256).is_none_or(|&length| length == 0) {
             return Err(corrupt());
         }
-        let literals = Table::new(literal_lengths, LITERAL_BITS, Kind::Literals, |symbol| {
+        literal_table.build(literal_lengths, LITERAL_BITS, Kind::Literals, |symbol| {
             format.literal(symbol)
         })?;
-        let distances = Table::new(distance_lengths, DISTANCE_BITS, Kind::Distances, |symbol| {
+        distance_table.build(distance_lengths, DISTANCE_BITS, Kind::Distances, |symbol| {
             format.distance(symbol)
         })?;
-        Ok(Some((literals, distances)))
+        Ok(true)
     }
 }
 
@@ -570,6 +579,9 @@ pub struct Decoder {
     window: Window,
     literals: Table,
     distances: Table,
+    /// How much the block being decoded has decoded, while its literals
+    /// are not paired.
+    unpaired: usize,
 }
 
 impl Decoder {
@@ -583,6 +595,7 @@ impl Decoder {
             window: Window::default(),
             literals: Table::default(),
             distances: Table::default(),
+            unpaired: 0,
         }
     }
 
@@ -818,12 +831,17 @@ impl Decoder {
                     *left = left.saturating_sub(u32::try_from(n).unwrap_or(u32::MAX));
                 },
                 State::Dynamic(dynamic) => {
-                    let Some((literals, distances)) =
-                        dynamic.read(&mut self.bits, input, self.window.format)?
-                    else {
+                    let tables = (&mut self.literals, &mut self.distances);
+                    if !dynamic.read(&mut self.bits, input, self.window.format, tables)? {
                         return Ok(Flow::More);
-                    };
-                    (self.literals, self.distances) = (literals, distances);
+                    }
+                    self.unpaired = 0;
+                    // At once, where the input given holds enough for a block
+                    // whose pairs pay; else once it has decoded enough.
+                    let left = input.bytes.len().saturating_sub(input.taken);
+                    if left >= PAIR_NOW {
+                        self.literals.pair();
+                    }
                     self.state = State::Literal;
                 },
                 State::Literal | State::Distance(_) if owed => return Ok(Flow::Done),
@@ -865,9 +883,12 @@ impl Decoder {
             taken: input.taken,
             length,
         };
-        let limit = output.len().saturating_sub(reach);
+        let limit = self.pairing(output.len().saturating_sub(reach), produced);
         let tables = (&self.literals, &self.distances);
         let (stop, at) = codes(at, tables, output, limit, input.bytes);
+        self.unpaired = self
+            .unpaired
+            .saturating_add(at.end.saturating_sub(produced));
         (self.bits, input.taken) = (at.bits, at.taken);
         self.state = at.length.map_or(State::Literal, State::Distance);
         let more = match stop? {
@@ -891,8 +912,9 @@ impl Decoder {
             State::Distance(length) => Some(length),
             _ => None,
         };
+        let begun = self.window.end;
+        let limit = self.pairing(self.window.produced.saturating_add(CHUNK), begun);
         let window = &mut self.window;
-        let limit = window.produced.saturating_add(CHUNK);
         let at = Cursor {
             bits,
             end: window.end,
@@ -902,6 +924,7 @@ impl Decoder {
         let tables = (&self.literals, &self.distances);
         let (stop, at) = codes(at, tables, &mut window.buf, limit, input.bytes);
         (self.bits, window.end, input.taken) = (at.bits, at.end, at.taken);
+        self.unpaired = self.unpaired.saturating_add(at.end.saturating_sub(begun));
         length = at.length;
         self.state = length.map_or(State::Literal, State::Distance);
         match stop? {
@@ -910,6 +933,22 @@ impl Decoder {
             Stop::End => {
                 self.ended();
                 Ok(true)
+            },
+        }
+    }
+
+    /// Returns how far to decode, up to `limit`, from `end`: no further
+    /// than `PAIR_AFTER` into a block whose literals are not paired, which
+    /// it pairs once the block has decoded that much.
+    fn pairing(&mut self, limit: usize, end: usize) -> usize {
+        if self.literals.paired() {
+            return limit;
+        }
+        match PAIR_AFTER.checked_sub(self.unpaired) {
+            Some(left @ 1..) => limit.min(end.saturating_add(left)),
+            _ => {
+                self.literals.pair();
+                limit
             },
         }
     }
@@ -932,12 +971,14 @@ impl Decoder {
             };
         }
         let format = self.window.format;
-        self.literals = Table::new(&literals, LITERAL_BITS, Kind::Literals, |symbol| {
-            format.literal(symbol)
-        })?;
-        self.distances = Table::new(&[5; 32], DISTANCE_BITS, Kind::Distances, |symbol| {
-            format.distance(symbol)
-        })?;
+        self.literals
+            .build(&literals, LITERAL_BITS, Kind::Literals, |symbol| {
+                format.literal(symbol)
+            })?;
+        self.distances
+            .build(&[5; 32], DISTANCE_BITS, Kind::Distances, |symbol| {
+                format.distance(symbol)
+            })?;
         Ok(())
     }
 

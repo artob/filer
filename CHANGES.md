@@ -133,6 +133,11 @@ so any release may break compatibility.
 - `decode-deflate`: Deflate's fixed codes' tables are made at compile
   time, not for each block of them: a stream of 122 bytes, one block of
   fixed codes, decodes 5.6 times as fast on Zen 5, in 0.29 µs.
+- `decode-deflate`: a block's literals are paired only where that pays:
+  at once where the input given holds 2 KiB more, else once the block
+  has decoded 2 KiB; and its tables are built in the room the last ones
+  took, not allocated anew: a stream of 459 bytes decodes 1.45 times as
+  fast on Zen 5, and one of 2 KiB 5% faster.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

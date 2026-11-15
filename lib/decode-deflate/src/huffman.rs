@@ -5,7 +5,7 @@
 //! a table under each of their prefixes.
 
 use crate::{Error, corrupt};
-use alloc::{borrow::Cow, vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 
 /// The longest a code may be.
 pub(crate) const MAX_BITS: u32 = 15;
@@ -171,13 +171,27 @@ pub(crate) enum Kind {
 
 /// A decoding table: `1 << bits` entries indexed by the next bits of the
 /// stream, the first read in the lowest, then the tables of longer codes.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Table {
     bits: u32,
     /// The low `bits` bits set.
     mask: u64,
     /// Its own, or the fixed codes', made at compile time.
     entries: Cow<'static, [Entry]>,
+    /// Whether its literals are paired, or need not be.
+    paired: bool,
+    /// Its literals whose codes its index holds, `shorts` of them, in
+    /// order of length, each its code's reversal, its length, and its byte,
+    /// in bits 0 to 9, 16 to 19, and 24 to 31; made once, for the first
+    /// table of literals, and kept for the next.
+    short: Option<Box<[u32; 256]>>,
+    shorts: usize,
+}
+
+impl Default for Table {
+    fn default() -> Self {
+        Self::fixed(&[], 0)
+    }
 }
 
 impl Table {
@@ -191,6 +205,19 @@ impl Table {
         kind: Kind,
         meaning: impl Fn(u16) -> (u16, u8),
     ) -> Result<Self, Error> {
+        let mut table = Self::default();
+        table.build(lengths, bits, kind, meaning)?;
+        Ok(table)
+    }
+
+    /// Makes it the table that `new` returns, in the room it has.
+    pub(crate) fn build(
+        &mut self,
+        lengths: &[u8],
+        bits: u32,
+        kind: Kind,
+        meaning: impl Fn(u16) -> (u16, u8),
+    ) -> Result<(), Error> {
         // Counted four ways at once, each a count of every fourth length,
         // as a count waits on the one before of the same length. A length
         // past the longest, which none counts, has no place among the
@@ -273,11 +300,18 @@ impl Table {
         // tell nothing of it. Longer ones wait for their tables.
         let size = 1_usize.wrapping_shl(bits);
         let mask = size.wrapping_sub(1);
-        let mut entries = vec![INVALID; size];
+        let mut entries = match core::mem::take(&mut self.entries) {
+            Cow::Owned(entries) => entries,
+            Cow::Borrowed(_) => Vec::new(),
+        };
+        entries.clear();
+        entries.resize(size, INVALID);
         let mut width = 2_usize;
         let mut long = Vec::new();
-        // Literals short enough to pair, with their codes' reversals.
-        let mut short = [(0_usize, 0_u32, 0_u8); 256];
+        let mut short = match kind {
+            Kind::Literals => Some(self.short.get_or_insert_with(|| Box::new([0; 256]))),
+            _ => None,
+        };
         let mut shorts = 0_usize;
         for &symbol in sorted {
             let len = lengths
@@ -305,10 +339,12 @@ impl Table {
                 long.push((meant, len, reversed));
                 continue;
             }
-            if let (Kind::Literals, Ok(byte), Some(slot)) =
-                (kind, u8::try_from(symbol), short.get_mut(shorts))
-            {
-                *slot = (reversed, len, byte);
+            if let (Ok(byte), Some(slot)) = (
+                u8::try_from(symbol),
+                short.as_mut().and_then(|short| short.get_mut(shorts)),
+            ) {
+                let at = u32::try_from(reversed).unwrap_or_default();
+                *slot = u32::from(byte).wrapping_shl(24) | len.wrapping_shl(16) | at;
                 shorts = shorts.saturating_add(1);
             }
             let wide = 1_usize.wrapping_shl(len);
@@ -352,17 +388,12 @@ impl Table {
                 *slot = meant;
             }
         }
-        if let Some(primary) = entries.first_chunk_mut::<{ 1 << MAX_INDEX }>()
-            && kind == Kind::Literals
-            && bits == MAX_INDEX
-        {
-            pair(primary, short.get(..shorts).unwrap_or_default());
-        }
-        Ok(Self {
-            bits,
-            mask: 1_u64.wrapping_shl(bits).wrapping_sub(1),
-            entries: Cow::Owned(entries),
-        })
+        self.bits = bits;
+        self.mask = 1_u64.wrapping_shl(bits).wrapping_sub(1);
+        self.entries = Cow::Owned(entries);
+        self.paired = kind != Kind::Literals;
+        self.shorts = shorts;
+        Ok(())
     }
 
     /// Returns the table of `entries`, made at compile time, indexed by
@@ -372,6 +403,31 @@ impl Table {
             bits,
             mask: 1_u64.wrapping_shl(bits).wrapping_sub(1),
             entries: Cow::Borrowed(entries),
+            paired: true,
+            short: None,
+            shorts: 0,
+        }
+    }
+
+    /// Whether its literals are paired, or need not be.
+    pub(crate) const fn paired(&self) -> bool {
+        self.paired
+    }
+
+    /// Pairs its literals, as `pair` does, which pays once a block has
+    /// decoded enough of them.
+    pub(crate) fn pair(&mut self) {
+        self.paired = true;
+        let Cow::Owned(entries) = &mut self.entries else {
+            return;
+        };
+        let Some(primary) = entries.first_chunk_mut::<{ 1 << MAX_INDEX }>() else {
+            return;
+        };
+        if let Some(short) = &self.short
+            && self.bits == MAX_INDEX
+        {
+            pair(primary, short.get(..self.shorts).unwrap_or_default());
         }
     }
 
@@ -444,16 +500,20 @@ impl Table {
 
 /// Makes each entry of a literal whose code, and the next literal's after
 /// it, fit the index of `entries` the entry of both, so that one lookup
-/// decodes two literals: for each of the literals `short`, as `(reversed
-/// code, length, byte)`, in order of length, those its code begins, whose
-/// next bits index the entry of the second as they index the table, read
-/// from it as it was.
-fn pair(entries: &mut [Entry; 1 << MAX_INDEX], short: &[(usize, u32, u8)]) {
-    let Some(&(_, shortest, _)) = short.first() else {
+/// decodes two literals: for each of the literals `short`, as `Table`
+/// holds them, in order of length, those its code begins, whose next bits
+/// index the entry of the second as they index the table, read from it as
+/// it was.
+fn pair(entries: &mut [Entry; 1 << MAX_INDEX], short: &[u32]) {
+    let Some(&first) = short.first() else {
         return;
     };
+    let shortest = first.wrapping_shr(16) & 0xF;
     let seconds = *entries;
-    for &(reversed, len, byte) in short {
+    for &literal in short {
+        let [_, _, _, byte] = literal.to_le_bytes();
+        let len = literal.wrapping_shr(16) & 0xF;
+        let reversed = usize::try_from(literal & 0x3FF).unwrap_or_default();
         let room = MAX_INDEX.saturating_sub(len);
         if shortest > room {
             break;
