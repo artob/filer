@@ -96,6 +96,12 @@ so any release may break compatibility.
   may copy from them or the call returns: whole, the corpus's
   incompressible inputs decode 20 to 103% faster, at 0.88 to 1.00 times
   each counterpart's speed.
+- `decode-deflate`: a block's tables are built by setting each length's
+  codes in a table as wide as it, then doubling it, not by filling each
+  code's every entry; its codes are reversed by a table of bytes, and its
+  symbols sorted on the stack, not gathered in a vector: by a timer's best
+  of runs over Silesia, the large files, and Canterbury at levels 1, 6,
+  and 12, 4 to 6% faster on the default machines.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
