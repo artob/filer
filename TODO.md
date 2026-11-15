@@ -571,7 +571,8 @@ crate's name until its first code, which moves it to `lib/`.
   64 KiB and of 4 KiB, by the baseline build and by the build for the
   CPU. The harness drives `decode-deflate` too, since `e35879b`: a
   campaign of it, at `9e96979`, began 2026-11-15 and has filled its
-  memory, and its passes run. The other `decode-*` crates' `BENCH.md`
+  memory and its whole streams by the baseline build, and its other
+  passes run. The other `decode-*` crates' `BENCH.md`
   hold their code size alone. Zen 1's
   speed tables are older, of `9c5f5fc`, before DEC-19's work. Done when
   each `BENCH.md` of a written decoder holds them all.
@@ -644,6 +645,16 @@ crate's name until its first code, which moves it to `lib/`.
   where zlib holds 7 whole and 39 in pieces (`BENCH.md`, 2026-11-15).
   Done when a stream allocates once, its block state and tables reused
   from block to block, its speed timed before and after.
+- [ ] **DEC-24: `decode-deflate`'s speed.** Whole, on the default
+  machines' real inputs, ours leads zlib by 1.29 to 1.33 times and
+  `miniz_oxide` by 1.12 to 1.37, but has 0.52 to 0.62 of libdeflate's
+  speed, 0.70 to 0.86 of `zlib-rs`'s, 0.72 to 0.90 of zlib-ng's, 0.76
+  to 0.93 of `zune-inflate`'s, and 0.78 to 0.85 of `yazi`'s (geometric
+  means, `BENCH.md`, 2026-11-15). It copies stored blocks at 0.54 to
+  0.84 of zlib's speed, and long matches at distances of 1 and 28, the
+  synthetic `zeros` and `pattern` at level 1, at 0.31 to 0.48 of it on
+  x86-64. Done when it is competitive with each counterpart on each
+  default machine, whole and in pieces, its time profiled first.
 
 ## Virtual drivers
 
