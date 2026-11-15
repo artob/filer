@@ -3,8 +3,8 @@
 use crate::{
     Error, corrupt,
     huffman::{
-        self, Code, DOUBLE_ENTRY, END, Entry, Kind, LINK, LITERAL, LITERAL_ENTRY, NEVER, SPECIAL,
-        Table, end_length, ends,
+        self, Code, DOUBLE_ENTRY, END, END_ENTRY, Entry, INVALID, Kind, LINK, LITERAL,
+        LITERAL_ENTRY, NEVER, SPECIAL, Table, end_length, ends,
     },
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -916,7 +916,13 @@ impl Decoder {
 
     /// Takes on the fixed codes (§3.2.6): the literal/length codes 286 and
     /// 287, and the distance codes 30 and 31, take part, but never occur.
+    /// Deflate's tables are made at compile time, Deflate64's here.
     fn fixed(&mut self) -> Result<(), Error> {
+        if self.window.format == Format::Deflate {
+            self.literals = Table::fixed(&FIXED_LITERALS, LITERAL_BITS);
+            self.distances = Table::fixed(&FIXED_DISTANCES, DISTANCE_BITS);
+            return Ok(());
+        }
         let mut literals = [8_u8; 288];
         for (symbol, length) in literals.iter_mut().enumerate() {
             *length = match symbol {
@@ -940,6 +946,72 @@ impl Decoder {
         self.state = if self.last { State::End } else { State::Header };
     }
 }
+
+/// The tables of Deflate's fixed codes (§3.2.6), made at compile time as
+/// `Table::new` makes them: no code is longer than the index, and none of a
+/// literal so short that two fit it.
+#[allow(
+    clippy::as_conversions,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    reason = "made at compile time, of the fixed codes alone"
+)]
+static FIXED_LITERALS: [Entry; LITERAL_SIZE] = {
+    let mut entries = [INVALID; LITERAL_SIZE];
+    let mut symbol = 0;
+    while symbol < 288 {
+        // Each length's codes in turn, from the first of its length.
+        let (len, code) = match symbol {
+            0..=143 => (8, 0x30 + symbol),
+            144..=255 => (9, 0x190 + symbol - 144),
+            256..=279 => (7, symbol - 256),
+            _ => (8, 0xC0 + symbol - 280),
+        };
+        let entry = match symbol {
+            0..=255 => (symbol as u32) << 16 | (LITERAL as u32) << 8 | len,
+            256 => END_ENTRY | len,
+            257..=285 => {
+                let (base, extra) = LENGTHS[symbol - 257];
+                (base as u32) << 16 | len << 8 | (len + extra as u32)
+            },
+            _ => INVALID,
+        };
+        let mut at = (code as u16).reverse_bits() as usize >> (16 - len);
+        while at < LITERAL_SIZE {
+            entries[at] = entry;
+            at += 1 << len;
+        }
+        symbol += 1;
+    }
+    entries
+};
+
+#[allow(
+    clippy::as_conversions,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    reason = "made at compile time, of the fixed codes alone"
+)]
+static FIXED_DISTANCES: [Entry; DISTANCE_SIZE] = {
+    let mut entries = [INVALID; DISTANCE_SIZE];
+    let mut symbol = 0;
+    while symbol < 32 {
+        let entry = match symbol {
+            0..30 => {
+                let (base, extra) = DISTANCES[symbol];
+                (base as u32) << 16 | 5 << 8 | (5 + extra as u32)
+            },
+            _ => INVALID,
+        };
+        let mut at = (symbol as u8).reverse_bits() as usize >> 3;
+        while at < DISTANCE_SIZE {
+            entries[at] = entry;
+            at += 32;
+        }
+        symbol += 1;
+    }
+    entries
+};
 
 /// Why decoding codes stopped.
 enum Stop {
@@ -1364,6 +1436,30 @@ impl core::fmt::Debug for Decoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Deflate's fixed codes' tables, made at compile time, are those that
+    /// `Table::new` makes of the fixed lengths.
+    #[test]
+    fn makes_the_fixed_tables() {
+        let lengths: Vec<u8> = (0..288)
+            .map(|symbol| match symbol {
+                0..=143 | 280.. => 8,
+                144..=255 => 9,
+                _ => 7,
+            })
+            .collect();
+        let format = Format::Deflate;
+        let literals = Table::new(&lengths, LITERAL_BITS, Kind::Literals, |s| {
+            format.literal(s)
+        })
+        .unwrap();
+        assert_eq!(literals.primary::<LITERAL_SIZE>(), Some(&FIXED_LITERALS));
+        let distances = Table::new(&[5; 32], DISTANCE_BITS, Kind::Distances, |s| {
+            format.distance(s)
+        })
+        .unwrap();
+        assert_eq!(distances.primary::<DISTANCE_SIZE>(), Some(&FIXED_DISTANCES));
+    }
 
     /// The most a run decodes past the window, once compacted: a chunk
     /// and the longest match, less one; and then room for as much again.

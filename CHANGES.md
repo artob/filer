@@ -130,6 +130,9 @@ so any release may break compatibility.
   and counts its lengths four ways at once: at level 12, whose blocks are
   many, 3% faster on Granite Rapids and Neoverse V3, and the Canterbury
   corpus's `ptt5` 24% faster.
+- `decode-deflate`: Deflate's fixed codes' tables are made at compile
+  time, not for each block of them: a stream of 122 bytes, one block of
+  fixed codes, decodes 5.6 times as fast on Zen 5, in 0.29 µs.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

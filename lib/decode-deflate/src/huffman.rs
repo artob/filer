@@ -5,7 +5,7 @@
 //! a table under each of their prefixes.
 
 use crate::{Error, corrupt};
-use alloc::{vec, vec::Vec};
+use alloc::{borrow::Cow, vec, vec::Vec};
 
 /// The longest a code may be.
 pub(crate) const MAX_BITS: u32 = 15;
@@ -77,7 +77,7 @@ pub(crate) const SPECIAL: Entry = 0xE0;
 
 /// The length byte of an entry of no code, or of a symbol that never
 /// occurs.
-const INVALID: u32 = 0x7F;
+pub(crate) const INVALID: u32 = 0x7F;
 
 /// The flag in the length byte of an entry that links to a table of longer
 /// codes.
@@ -85,7 +85,7 @@ pub(crate) const LINK: u32 = 0x80;
 
 /// The flag in the length byte of the entry of the code that ends a block,
 /// beside its length.
-const END_ENTRY: u32 = 0x40;
+pub(crate) const END_ENTRY: u32 = 0x40;
 
 /// Returns the entry of `value`, `kind`, and the length byte `bits`.
 fn entry(value: u16, kind: u8, bits: u32) -> Entry {
@@ -176,7 +176,8 @@ pub(crate) struct Table {
     bits: u32,
     /// The low `bits` bits set.
     mask: u64,
-    entries: Vec<Entry>,
+    /// Its own, or the fixed codes', made at compile time.
+    entries: Cow<'static, [Entry]>,
 }
 
 impl Table {
@@ -360,8 +361,18 @@ impl Table {
         Ok(Self {
             bits,
             mask: 1_u64.wrapping_shl(bits).wrapping_sub(1),
-            entries,
+            entries: Cow::Owned(entries),
         })
+    }
+
+    /// Returns the table of `entries`, made at compile time, indexed by
+    /// `bits` bits, with no tables of longer codes.
+    pub(crate) fn fixed(entries: &'static [Entry], bits: u32) -> Self {
+        Self {
+            bits,
+            mask: 1_u64.wrapping_shl(bits).wrapping_sub(1),
+            entries: Cow::Borrowed(entries),
+        }
     }
 
     /// Returns the entries that the table's index reaches, `SIZE` of them,
