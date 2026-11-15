@@ -983,7 +983,8 @@ impl Decoder {
             taken: input.taken,
             length,
         };
-        let limit = self.pairing(output.len().saturating_sub(reach), produced);
+        let left = input.bytes.len().saturating_sub(input.taken);
+        let limit = self.pairing(output.len().saturating_sub(reach), produced, left);
         let tables = (&self.literals, &self.distances);
         let (stop, at) = codes(at, tables, output, limit, input.bytes);
         self.unpaired = self
@@ -1014,7 +1015,8 @@ impl Decoder {
         };
         let begun = self.window.end;
         let chunk = self.window.chunk;
-        let limit = self.pairing(self.window.produced.saturating_add(chunk), begun);
+        let left = input.bytes.len().saturating_sub(input.taken);
+        let limit = self.pairing(self.window.produced.saturating_add(chunk), begun, left);
         let window = &mut self.window;
         let at = Cursor {
             bits,
@@ -1040,17 +1042,19 @@ impl Decoder {
 
     /// Returns how far to decode, up to `limit`, from `end`: no further
     /// than `PAIR_AFTER` into a block whose literals are not paired, which
-    /// it pairs once the block has decoded that much.
-    fn pairing(&mut self, limit: usize, end: usize) -> usize {
+    /// it pairs once the block has decoded that much, if `left`, the input
+    /// left to decode it from, holds `PAIR_NOW` more.
+    fn pairing(&mut self, limit: usize, end: usize, left: usize) -> usize {
         if self.literals.paired() {
             return limit;
         }
         match PAIR_AFTER.checked_sub(self.unpaired) {
-            Some(left @ 1..) => limit.min(end.saturating_add(left)),
-            _ => {
+            Some(more @ 1..) => limit.min(end.saturating_add(more)),
+            _ if left >= PAIR_NOW => {
                 self.literals.pair();
                 limit
             },
+            _ => limit,
         }
     }
 

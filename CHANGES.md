@@ -135,9 +135,11 @@ so any release may break compatibility.
   fixed codes, decodes 5.6 times as fast on Zen 5, in 0.29 µs.
 - `decode-deflate`: a block's literals are paired only where that pays:
   at once where the input given holds 2 KiB more, else once the block
-  has decoded 2 KiB; and its tables are built in the room the last ones
-  took, not allocated anew: a stream of 459 bytes decodes 1.45 times as
-  fast on Zen 5, and one of 2 KiB 5% faster.
+  has decoded 2 KiB, if the input left holds 2 KiB more; and its tables
+  are built in the room the last ones took, not allocated anew: a stream
+  of 459 bytes decodes 1.45 times as fast on Zen 5, one of 2 KiB 5%
+  faster, and the Canterbury corpus's `grammar.lsp` and `xargs.1` 10 to
+  14% faster.
 - `decode-deflate`: a decoder's first buffer holds as much as its caller
   has room for, from 1 KiB up, not always a chunk of 32 KiB, zeroed: a
   stream of 122 bytes decodes 1.5 times as fast on Zen 5, in 0.19 µs.
