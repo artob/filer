@@ -146,6 +146,12 @@ so any release may break compatibility.
   they are, so that its table need not count them; and a table assigns
   each length's codes in turn: a stream of 459 bytes decodes 1.17 times
   as fast on Zen 5.
+- `decode-deflate`: with `intrinsics`, on AMD's cores, a match of 32
+  bytes or fewer that does not overlap what it copies copies in one chunk,
+  whatever its distance, not by a branch on it, which a mix of distances
+  mispredicts: on Zen 5, the Canterbury corpus's `E.coli` decodes 1.45
+  times as fast, Silesia's `x-ray` and `mozilla` 5% faster, and text 2
+  to 6% slower. Intel's cores, which it slows, and ARM's keep the branch.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

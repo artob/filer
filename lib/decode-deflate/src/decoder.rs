@@ -1254,7 +1254,7 @@ fn codes(
         let (Ok(distance), Ok(len)) = (usize::try_from(distance), usize::try_from(len)) else {
             break Err(corrupt());
         };
-        match copy(buf, at.end, distance, len, edge) {
+        match copy(buf, at.end, distance, len, edge, false) {
             Ok(end) => at.end = end,
             Err(error) => break Err(error),
         }
@@ -1279,14 +1279,18 @@ fn codes(
 /// short, for `codes` to go on carefully. Out of line, so that its loop
 /// has registers enough for what it carries. With `intrinsics`, it is
 /// built for BMI2 too, whose shifts take any register, and taken where the
-/// CPU has it.
+/// CPU has it; and for AMD's cores, which alone have SSE4a too, where its
+/// matches copy flat.
 #[cfg_attr(
     all(
         feature = "intrinsics",
         target_arch = "x86_64",
         target_feature = "sse2"
     ),
-    multiversion::multiversion(targets("x86_64+bmi1+bmi2+lzcnt+popcnt"))
+    multiversion::multiversion(targets(
+        "x86_64+bmi1+bmi2+lzcnt+popcnt+sse4a",
+        "x86_64+bmi1+bmi2+lzcnt+popcnt"
+    ))
 )]
 #[inline(never)]
 fn fast(
@@ -1302,6 +1306,19 @@ fn fast(
     ) else {
         return Ok(None);
     };
+    // On AMD's cores, which alone have SSE4a, matches copy flat (`copy`).
+    #[cfg(all(
+        feature = "intrinsics",
+        target_arch = "x86_64",
+        target_feature = "sse2"
+    ))]
+    let flat = multiversion::target::target_cfg_f!(target_feature = "sse4a");
+    #[cfg(not(all(
+        feature = "intrinsics",
+        target_arch = "x86_64",
+        target_feature = "sse2"
+    )))]
+    let flat = false;
     // In locals, which the loop keeps in registers.
     let (mut bits, mut end, mut taken) = (at.bits, at.end, at.taken);
     // The last place a word may be read from, which bounds `taken` once a
@@ -1382,7 +1399,7 @@ fn fast(
         entry = huffman::at(lit, bits.value);
         let distance = usize::try_from(distance).map_err(|_| corrupt())?;
         let len = usize::try_from(len).map_err(|_| corrupt())?;
-        end = copy(buf, end, distance, len, edge)?;
+        end = copy(buf, end, distance, len, edge, flat)?;
     };
     // What `skip` left above the count's byte.
     bits.count &= 0xFF;
@@ -1413,7 +1430,13 @@ fn literal(buf: &mut [u8], end: &mut usize, entry: Entry, last: usize) -> Result
 /// they may overlap, repeating what they copy, and returns the new end. It
 /// may write up to `SLACK` bytes past that end. A distance is never past
 /// the window, as no distance code reaches further, those of Deflate64
-/// never occurring in Deflate.
+/// never occurring in Deflate. If `flat`, a match of 32 bytes or fewer that
+/// does not overlap what it copies, as most do, copies in one chunk of 32,
+/// whatever its distance, so that it takes no branch on that, where a mix
+/// of distances makes those mispredict: on Zen 5, the Canterbury corpus's
+/// `E.coli` decodes a third faster, Silesia's `x-ray` and `mozilla` 5%,
+/// and text 2 to 6% slower; on Granite Rapids text decodes 5% slower, by
+/// the registers it takes, so that only AMD's cores take it.
 #[inline(always)]
 fn copy(
     buf: &mut [u8],
@@ -1421,6 +1444,7 @@ fn copy(
     distance: usize,
     length: usize,
     edge: usize,
+    flat: bool,
 ) -> Result<usize, Error> {
     if distance > end {
         return Err(corrupt());
@@ -1429,6 +1453,13 @@ fn copy(
     // No match reaches past the buffer's length, which bounds `end`.
     let stop = end.wrapping_add(length);
     let mut to = end;
+    // What it reads past its bytes, which may be past `to`, it writes past
+    // `stop`.
+    if flat && length <= distance.min(32) {
+        let chunk = *chunk::<32>(buf, from, edge).ok_or_else(corrupt)?;
+        *chunk_mut::<32>(buf, to, edge).ok_or_else(corrupt)? = chunk;
+        return Ok(stop);
+    }
     match distance {
         // On x86-64, by 32 at once where they may, so that a match of up to
         // 32 bytes takes one turn: 1 to 2% faster there, and 2% slower on
