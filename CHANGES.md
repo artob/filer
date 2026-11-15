@@ -102,6 +102,11 @@ so any release may break compatibility.
   symbols sorted on the stack, not gathered in a vector: by a timer's best
   of runs over Silesia, the large files, and Canterbury at levels 1, 6,
   and 12, 4 to 6% faster on the default machines.
+- `decode-deflate`: a length's or a distance's entry holds its code's
+  length, not how many extra bits follow it, so that its extra bits are
+  taken by two shifts that read their counts from the entry, as BMI2
+  does: 3 to 3.4% faster on Granite Rapids and Neoverse V3, and 0.7% on
+  Zen 5.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

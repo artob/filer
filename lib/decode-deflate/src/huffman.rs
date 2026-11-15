@@ -45,10 +45,10 @@ fn reverse(code: u32, len: u32) -> usize {
 }
 
 /// What a table holds for a run of bits, packed for speed: the symbol's
-/// meaning, a value and a kind byte, which the table's maker gives each
-/// symbol, such as a length's base and how many extra bits follow it, or
-/// where a table of longer codes begins; above a length byte, which is how
-/// many bits the symbol takes, its code's and the extra bits', 31 at most;
+/// meaning, a value, such as a literal, or a length's base, or where a
+/// table of longer codes begins; above a kind byte, a literal's flags, or
+/// else its code's length; above a length byte, which is how many bits the
+/// symbol takes, its code's and the extra bits', 31 at most;
 /// or `LINK` and the bits that index that table; or `END` and the length
 /// of the code that ends a block; or `INVALID`, for bits that no code
 /// begins with, or that begin a code of a symbol that never occurs. None
@@ -98,10 +98,10 @@ pub(crate) fn value(entry: Entry) -> u32 {
     entry >> 16
 }
 
-/// Returns how many extra bits follow the base of a length or a distance
-/// whose entry this is.
+/// Returns the length of the code of a length or a distance whose entry
+/// this is, or of a symbol other than a literal.
 #[inline(always)]
-pub(crate) fn extra(entry: Entry) -> u32 {
+pub(crate) fn code(entry: Entry) -> u32 {
     entry.wrapping_shr(8) & 0x1F
 }
 
@@ -114,13 +114,15 @@ pub(crate) fn length(entry: Entry) -> u32 {
 
 /// Returns what the symbol of `entry` means, a length's or a distance's
 /// base and the extra bits after its code in `bits`, the next bits of the
-/// stream, as a number: its length, or its distance.
+/// stream, as a number: its length, or its distance. The bits it takes,
+/// below its length byte, past those of its code, below its kind byte,
+/// are the extra bits; each byte as a shift's count, which takes its low
+/// bits alone, the rest of the entry above them, as BMI2's `bzhi` and
+/// `shrx` do.
 #[inline(always)]
-pub(crate) fn meaning(entry: Entry, bits: u64) -> u32 {
-    let extra = extra(entry);
-    let code = length(entry).wrapping_sub(extra);
-    let low = bits.wrapping_shr(code) & !u64::MAX.wrapping_shl(extra) & 0xFFFF;
-    value(entry).wrapping_add(u32::try_from(low).unwrap_or_default())
+pub(crate) fn meaning(entry: Entry, bits: u64) -> u64 {
+    let taken = bits & !u64::MAX.wrapping_shl(entry);
+    u64::from(value(entry)).wrapping_add(taken.wrapping_shr(entry.wrapping_shr(8)))
 }
 
 /// Returns the entry of `entries`, a table's first, that `value`, the next
@@ -270,7 +272,10 @@ impl Table {
                 (_, NEVER) => INVALID,
                 (_, END) => END_ENTRY | len,
                 (value, LITERAL) => entry(value, LITERAL, len),
-                (value, kind) => entry(value, kind, len.saturating_add(u32::from(kind & 0x1F))),
+                (value, extra) => {
+                    let code = u8::try_from(len).map_err(|_| corrupt())?;
+                    entry(value, code, len.saturating_add(u32::from(extra & 0x1F)))
+                },
             };
             if len > bits {
                 long.push((meant, len, reversed));
@@ -425,10 +430,14 @@ fn pair(entries: &mut [Entry], bits: u32) {
 
 /// Returns the meaning and code length of an entry that has them.
 fn symbol(entry: Entry) -> Code {
+    let (kind, bits) = match entry & LITERAL_ENTRY {
+        0 => (length(entry).saturating_sub(code(entry)), code(entry)),
+        _ => (entry.wrapping_shr(8) & 0xFF, length(entry)),
+    };
     Code::Symbol {
         value: entry >> 16,
-        kind: entry.wrapping_shr(8) & 0xFF,
-        bits: length(entry).saturating_sub(extra(entry)),
+        kind,
+        bits,
     }
 }
 
