@@ -37,12 +37,14 @@
 //! The `intrinsics` feature, enabled by default (D66), computes CRC-32 by
 //! the CPU's instructions where it has them, ARM's `crc` extension and
 //! x86-64's carry-less multiplication, as `compute-crc`'s feature of that
-//! name does: chosen at run time with `std`. Without it, as
+//! name does; and builds `decode-deflate`'s loop for BMI2 too, as its
+//! does: chosen at run time with `std`. Without it, as
 //! `default-features = false, features = ["all", "std"]` builds it, its
 //! dependencies are ours alone, all of them public domain, and it decodes
 //! a tenth slower on x86-64: Canterbury at 619 MB/s, not 685, on Zen 5,
 //! and at 429, not 467, on Granite Rapids; 11% slower on Neoverse V3, at
-//! 476, not 534; and 15% on Apple M4, at 732, not 864 (2026-11-11).
+//! 476, not 534; and 15% on Apple M4, at 732, not 864 (2026-11-11); and on
+//! Granite Rapids slower again by as much as `decode-deflate`'s docs say.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

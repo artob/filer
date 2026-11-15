@@ -34,12 +34,14 @@
 //!
 //! The `intrinsics` feature, enabled by default (D66), computes Adler-32
 //! in the CPU's vectors where it has them, as `compute-adler32`'s feature
-//! of that name does: chosen at run time with `std`. Without it, as
+//! of that name does; and builds `decode-deflate`'s loop for BMI2 too, as
+//! its does: chosen at run time with `std`. Without it, as
 //! `default-features = false, features = ["all", "std"]` builds it, its
 //! dependencies are ours alone, all of them public domain, and it decodes
 //! 3% to 4% slower on x86-64: Canterbury at 656 MB/s, not 673, on Zen 5,
 //! and at 439, not 458, on Granite Rapids; and 2% slower on Neoverse V3,
-//! at 521, not 530 (2026-11-11).
+//! at 521, not 530 (2026-11-11); and on Granite Rapids slower again by as
+//! much as `decode-deflate`'s docs say.
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.

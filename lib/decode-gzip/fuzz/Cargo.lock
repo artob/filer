@@ -63,6 +63,9 @@ dependencies = [
 [[package]]
 name = "decode-deflate"
 version = "0.0.4"
+dependencies = [
+ "compute-multiversion",
+]
 
 [[package]]
 name = "decode-gzip"

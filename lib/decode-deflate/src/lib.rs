@@ -36,9 +36,20 @@
 //! Its source is RFC 1951, and for Deflate64, which PKWARE does not
 //! document, how it differs from Deflate, checked against what 7-Zip
 //! writes; zlib's own code is not copied, nor any other decoder's. It is
-//! pure, safe Rust without dependencies, and builds with `#![no_std]`,
-//! with an allocator. The `std` feature, enabled by default, currently
-//! adds nothing.
+//! pure, safe Rust, and builds with `#![no_std]`, with an allocator. The
+//! `std` feature, enabled by default, adds nothing by itself.
+//!
+//! The `intrinsics` feature, enabled by default (D66), builds its fast
+//! loop for x86-64's BMI2 too, and takes it where the CPU has it: chosen
+//! at run time with `std`, else where the build enables it. It calls no
+//! intrinsic: the same safe code is compiled twice, through
+//! `compute-multiversion`, whose dispatch is the only `unsafe` code.
+//! Without it, as `default-features = false, features = ["all", "std"]`
+//! builds it, it depends on nothing, and it decodes 6% slower on Granite
+//! Rapids, whose shifts by a register take two operations without BMI2;
+//! as fast on Zen 5, where each loop of one build decodes within 1% of
+//! the other, less than its timings move from one build to the next; and
+//! no slower on ARM, where nothing differs (2026-11-15).
 //!
 //! It is one of the `decode-*` crates: clean-room, public-domain decoders
 //! of common codecs, each of the same shape.
@@ -77,6 +88,10 @@
 )]
 
 extern crate alloc;
+
+// Detecting the CPU's instructions at run time takes `std`.
+#[cfg(all(feature = "intrinsics", feature = "std"))]
+extern crate std;
 
 mod decoder;
 pub use decoder::*;

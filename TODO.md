@@ -659,14 +659,17 @@ crate's name until its first code, which moves it to `lib/`.
   pieces of 4 KiB, 1.34 to 1.69 of both; and at 0.67 to 0.83 of
   libdeflate's, which decodes only whole streams. Stored blocks go
   straight to the output where it has room for a window: whole, at 0.88
-  to 1.00 of each counterpart's speed. Left to try: BMI2 by
-  `intrinsics` (2.7% on Granite Rapids built for it, none on Zen 5), and
-  whole streams decoded straight into the output. Tried and lost: the
+  to 1.00 of each counterpart's speed. Its `intrinsics` builds the loop
+  for BMI2 too: 6% faster on Granite Rapids, as fast on Zen 5, timed in
+  one build, whose layout moves Zen 5's timings more. Left to try: whole
+  streams decoded straight into the output. Tried and lost: the
   bits two places up, so that loads take no scaled index (+0.8% on Zen
   5, -4.8% on Granite Rapids); literal indexes of 11 bits, and distance
   ones of 9 or 10; the bits reloaded by position each turn; the rare
-  paths out of line. Done when it is competitive with each counterpart
-  on each default machine, whole and in pieces.
+  paths out of line; long matches from near copied from their period
+  laid out once (`pattern` 30% faster, but at 0.2 of zlib-ng's speed,
+  and `x-ray` 2 to 7% slower on Zen 5). Done when it is competitive with
+  each counterpart on each default machine, whole and in pieces.
 
 ## Virtual drivers
 

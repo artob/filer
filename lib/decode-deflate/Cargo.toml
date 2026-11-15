@@ -21,10 +21,18 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["all", "std"]
+default = ["all", "std", "intrinsics"]
 all = ["deflate64"]
-std = []
+std = ["compute-multiversion?/std"]
 deflate64 = []
+# Its fast loop built for BMI2 too, on x86-64, and taken where the CPU has
+# it: chosen at run time with `std`, else where the build enables it.
+intrinsics = ["dep:compute-multiversion"]
+
+# Only where `intrinsics` builds anything: x86-64 with SSE2, not soft-float
+# targets (rust-lang/rust#117938) or others.
+[target.'cfg(all(target_arch = "x86_64", target_feature = "sse2"))'.dependencies]
+compute-multiversion = { workspace = true, optional = true }
 
 [dev-dependencies]
 # Mutates streams for `tests/fuzz.rs`. A path alone, without a version, so

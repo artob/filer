@@ -4,8 +4,8 @@ A Deflate decoder, written clean room from RFC 1951 alone and dedicated to
 the public domain. It decodes raw Deflate streams, as ZIP stores its
 members and gzip and zlib frame them, and consumes a stream to its end and
 no further, so that a container reads on from what follows; it never
-compresses. It is pure, safe Rust without dependencies, builds with
-`#![no_std]` and an allocator, never panics on any input, and refuses what
+compresses. It is pure, safe Rust, builds with `#![no_std]` and an
+allocator, never panics on any input, and refuses what
 zlib refuses, holding at most its 32 KiB window and twice as much again.
 
 Its `Decoder` is sans-I/O: `decode` takes what input there is, fills what

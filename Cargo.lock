@@ -160,6 +160,7 @@ dependencies = [
 name = "decode-deflate"
 version = "0.0.4"
 dependencies = [
+ "compute-multiversion",
  "deflate64",
  "filer-spec",
  "miniz_oxide",

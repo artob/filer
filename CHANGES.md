@@ -57,6 +57,11 @@ so any release may break compatibility.
   Granite Rapids, whose shifts by a register take two operations
   without BMI2, and no faster on Zen 5. `filer-pack` and
   `filer-squashfs` forward it in theirs.
+- `decode-deflate`: the `intrinsics` feature, enabled by default (D66),
+  which builds its fast loop for x86-64's BMI2 too, and takes it where
+  the CPU has it, calling no intrinsic: 6% faster on Granite Rapids, and
+  as fast on Zen 5 and ARM. `decode-gzip`, `decode-zlib`, and
+  `filer-pack` forward it in theirs.
 - `filer-api`: `RelPathBuf::normalize_lexically`, reading a path typed by
   a user leniently, with `Separators` and `NormalizeError`.
 - `decode-lzo`: `decode_block` decodes the Linux kernel's `lzo-rle`

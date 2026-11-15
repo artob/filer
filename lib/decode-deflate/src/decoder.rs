@@ -1004,7 +1004,17 @@ fn codes(
 /// next. It looks up the next code before it copies a match, so that the
 /// two overlap. It returns why it stopped, or nothing once the input runs
 /// short, for `codes` to go on carefully. Out of line, so that its loop
-/// has registers enough for what it carries.
+/// has registers enough for what it carries. With `intrinsics`, it is
+/// built for BMI2 too, whose shifts take any register, and taken where the
+/// CPU has it.
+#[cfg_attr(
+    all(
+        feature = "intrinsics",
+        target_arch = "x86_64",
+        target_feature = "sse2"
+    ),
+    multiversion::multiversion(targets("x86_64+bmi1+bmi2+lzcnt+popcnt"))
+)]
 #[inline(never)]
 fn fast(
     at: &mut Cursor,
