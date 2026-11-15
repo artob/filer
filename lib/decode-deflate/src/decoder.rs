@@ -973,6 +973,10 @@ fn codes(
     limit: usize,
     input: &[u8],
 ) -> (Result<Stop, Error>, Cursor) {
+    // The last place a write may begin, as `fast` finds it.
+    let Some(edge) = buf.len().checked_sub(SLACK) else {
+        return (Err(corrupt()), at);
+    };
     // Fast, once no length waits for its distance, as one may from input
     // given before; and once only, as it stops short only where the input
     // runs short.
@@ -1001,7 +1005,7 @@ fn codes(
                 // A literal, or two.
                 if kind & u32::from(LITERAL) != 0 {
                     let entry = value.wrapping_shl(16) | kind.wrapping_shl(8);
-                    if let Err(error) = literal(buf, &mut at.end, entry) {
+                    if let Err(error) = literal(buf, &mut at.end, entry, edge) {
                         break Err(error);
                     }
                     at.bits.consume(n);
@@ -1036,7 +1040,7 @@ fn codes(
         let (Ok(distance), Ok(len)) = (usize::try_from(distance), usize::try_from(len)) else {
             break Err(corrupt());
         };
-        match copy(buf, at.end, distance, len) {
+        match copy(buf, at.end, distance, len, edge) {
             Ok(end) => at.end = end,
             Err(error) => break Err(error),
         }
@@ -1091,6 +1095,11 @@ fn fast(
     let Some(last) = input.len().checked_sub(8).filter(|&last| taken <= last) else {
         return Ok(None);
     };
+    // The last place a write may begin, the most it writes past it being
+    // `SLACK`, which bounds each write once, rather than its end too.
+    let Some(edge) = buf.len().checked_sub(SLACK) else {
+        return Ok(None);
+    };
     // The next code's entry, looked up ahead, once the bits are refilled.
     bits.refill_word(word(input, taken), &mut taken);
     let mut entry = huffman::at(lit, bits.value);
@@ -1103,19 +1112,19 @@ fn fast(
         }
         bits.refill_word(word(input, taken), &mut taken);
         if entry & LITERAL_ENTRY != 0 {
-            literal(buf, &mut end, entry)?;
+            literal(buf, &mut end, entry, edge)?;
             bits.skip(entry);
             entry = huffman::at(lit, bits.value);
             if entry & LITERAL_ENTRY != 0 {
-                literal(buf, &mut end, entry)?;
+                literal(buf, &mut end, entry, edge)?;
                 bits.skip(entry);
                 entry = huffman::at(lit, bits.value);
                 if entry & LITERAL_ENTRY != 0 {
-                    literal(buf, &mut end, entry)?;
+                    literal(buf, &mut end, entry, edge)?;
                     bits.skip(entry);
                     entry = huffman::at(lit, bits.value);
                     if entry & LITERAL_ENTRY != 0 {
-                        literal(buf, &mut end, entry)?;
+                        literal(buf, &mut end, entry, edge)?;
                         bits.skip(entry);
                         entry = huffman::at(lit, bits.value);
                     }
@@ -1130,7 +1139,7 @@ fn fast(
                 entry = literals.sub(entry, bits.value);
             }
             if entry & LITERAL_ENTRY != 0 {
-                literal(buf, &mut end, entry)?;
+                literal(buf, &mut end, entry, edge)?;
                 bits.skip(entry);
                 entry = huffman::at(lit, bits.value);
                 continue;
@@ -1159,7 +1168,7 @@ fn fast(
         entry = huffman::at(lit, bits.value);
         let distance = usize::try_from(distance).map_err(|_| corrupt())?;
         let len = usize::try_from(len).map_err(|_| corrupt())?;
-        end = copy(buf, end, distance, len)?;
+        end = copy(buf, end, distance, len, edge)?;
     };
     // What `skip` left above the count's byte.
     bits.count &= 0xFF;
@@ -1178,10 +1187,9 @@ fn word(input: &[u8], at: usize) -> [u8; 8] {
 /// past them. It writes two bytes either way, the second, of one, past
 /// `end`, to be written over.
 #[inline(always)]
-fn literal(buf: &mut [u8], end: &mut usize, entry: Entry) -> Result<(), Error> {
+fn literal(buf: &mut [u8], end: &mut usize, entry: Entry, last: usize) -> Result<(), Error> {
     let [_, _, first, second] = entry.to_le_bytes();
-    let pair = buf.get_mut(*end..end.wrapping_add(2));
-    *pair.and_then(<[u8]>::first_chunk_mut).ok_or_else(corrupt)? = [first, second];
+    *chunk_mut::<2>(buf, *end, last).ok_or_else(corrupt)? = [first, second];
     let count = usize::from(entry & DOUBLE_ENTRY != 0);
     *end = end.wrapping_add(count).wrapping_add(1);
     Ok(())
@@ -1193,7 +1201,13 @@ fn literal(buf: &mut [u8], end: &mut usize, entry: Entry) -> Result<(), Error> {
 /// the window, as no distance code reaches further, those of Deflate64
 /// never occurring in Deflate.
 #[inline(always)]
-fn copy(buf: &mut [u8], end: usize, distance: usize, length: usize) -> Result<usize, Error> {
+fn copy(
+    buf: &mut [u8],
+    end: usize,
+    distance: usize,
+    length: usize,
+    edge: usize,
+) -> Result<usize, Error> {
     if distance > end {
         return Err(corrupt());
     }
@@ -1206,18 +1220,18 @@ fn copy(buf: &mut [u8], end: usize, distance: usize, length: usize) -> Result<us
         // 32 bytes takes one turn: 1 to 2% faster there, and 2% slower on
         // Neoverse V3, which keeps to 16.
         #[cfg(target_arch = "x86_64")]
-        32.. => chunks::<32>(buf, from, to, stop)?,
-        16.. => chunks::<16>(buf, from, to, stop)?,
+        32.. => chunks::<32>(buf, from, to, stop, edge)?,
+        16.. => chunks::<16>(buf, from, to, stop, edge)?,
         // A run of one byte: short ones in a chunk or two, without the call
         // that filling takes, and long ones by it.
         1 => {
             let byte = buf.get(from).copied().ok_or_else(corrupt)?;
             match length {
-                ..=32 => fill(buf, [byte; 16], to, stop)?,
+                ..=32 => fill(buf, [byte; 16], to, stop, edge)?,
                 _ => buf.get_mut(to..stop).ok_or_else(corrupt)?.fill(byte),
             }
         },
-        8.. => chunks::<8>(buf, from, to, stop)?,
+        8.. => chunks::<8>(buf, from, to, stop, edge)?,
         _ => {
             // Byte by byte until what is written repeats with a period of
             // 8 or more, a multiple of the distance; then in chunks.
@@ -1228,7 +1242,7 @@ fn copy(buf: &mut [u8], end: usize, distance: usize, length: usize) -> Result<us
                     buf.get(from).copied().ok_or_else(corrupt)?;
                 (from, to) = (from.saturating_add(1), to.saturating_add(1));
             }
-            chunks::<8>(buf, to.saturating_sub(period), to, stop)?;
+            chunks::<8>(buf, to.saturating_sub(period), to, stop, edge)?;
         },
     }
     Ok(stop)
@@ -1244,14 +1258,11 @@ fn chunks<const N: usize>(
     mut from: usize,
     mut to: usize,
     stop: usize,
+    edge: usize,
 ) -> Result<(), Error> {
     loop {
-        let chunk = buf
-            .get(from..from.wrapping_add(N))
-            .and_then(<[u8]>::first_chunk::<N>);
-        let chunk = *chunk.ok_or_else(corrupt)?;
-        let into = buf.get_mut(to..to.wrapping_add(N));
-        *into.and_then(<[u8]>::first_chunk_mut).ok_or_else(corrupt)? = chunk;
+        let chunk = *self::chunk::<N>(buf, from, edge).ok_or_else(corrupt)?;
+        *chunk_mut::<N>(buf, to, edge).ok_or_else(corrupt)? = chunk;
         (from, to) = (from.wrapping_add(N), to.wrapping_add(N));
         if to >= stop {
             return Ok(());
@@ -1267,14 +1278,35 @@ fn fill<const N: usize>(
     chunk: [u8; N],
     mut to: usize,
     stop: usize,
+    edge: usize,
 ) -> Result<(), Error> {
     loop {
-        let into = buf.get_mut(to..to.wrapping_add(N));
-        *into.and_then(<[u8]>::first_chunk_mut).ok_or_else(corrupt)? = chunk;
+        *chunk_mut::<N>(buf, to, edge).ok_or_else(corrupt)? = chunk;
         to = to.wrapping_add(N);
         if to >= stop {
             return Ok(());
         }
+    }
+}
+
+/// Returns the `N` bytes of `buf` at `at`, `SLACK` at most, if `at` is no
+/// further than `edge`, the last place a write may begin, which `buf`
+/// holds `SLACK` bytes past: one comparison, so that taking them takes no
+/// other check.
+#[inline(always)]
+fn chunk<const N: usize>(buf: &[u8], at: usize, edge: usize) -> Option<&[u8; N]> {
+    match at <= edge {
+        true => buf.get(at..)?.first_chunk(),
+        false => None,
+    }
+}
+
+/// Returns the `N` bytes of `buf` at `at`, as [`chunk`] does, to write.
+#[inline(always)]
+fn chunk_mut<const N: usize>(buf: &mut [u8], at: usize, edge: usize) -> Option<&mut [u8; N]> {
+    match at <= edge {
+        true => buf.get_mut(at..)?.first_chunk_mut(),
+        false => None,
     }
 }
 
