@@ -1086,20 +1086,22 @@ fn fast(
     };
     // In locals, which the loop keeps in registers.
     let (mut bits, mut end, mut taken) = (at.bits, at.end, at.taken);
-    // The next code's entry, looked up ahead, once the bits are refilled.
-    let Some(&word) = input.get(taken..).and_then(<[u8]>::first_chunk::<8>) else {
+    // The last place a word may be read from, which bounds `taken` once a
+    // turn, so that reading it takes no other check.
+    let Some(last) = input.len().checked_sub(8).filter(|&last| taken <= last) else {
         return Ok(None);
     };
-    bits.refill_word(word, &mut taken);
+    // The next code's entry, looked up ahead, once the bits are refilled.
+    bits.refill_word(word(input, taken), &mut taken);
     let mut entry = huffman::at(lit, bits.value);
     let stop = loop {
         if end >= limit {
             break Ok(Some(Stop::Full));
         }
-        let Some(&word) = input.get(taken..).and_then(<[u8]>::first_chunk::<8>) else {
+        if taken > last {
             break Ok(None);
-        };
-        bits.refill_word(word, &mut taken);
+        }
+        bits.refill_word(word(input, taken), &mut taken);
         if entry & LITERAL_ENTRY != 0 {
             literal(buf, &mut end, entry)?;
             bits.skip(entry);
@@ -1163,6 +1165,13 @@ fn fast(
     bits.count &= 0xFF;
     (at.bits, at.end, at.taken) = (bits, end, taken);
     stop
+}
+
+/// Returns the word of `input` at `at`, which holds one there.
+#[inline(always)]
+fn word(input: &[u8], at: usize) -> [u8; 8] {
+    let word = input.get(at..).and_then(<[u8]>::first_chunk::<8>);
+    word.copied().unwrap_or_default()
 }
 
 /// Writes the literal of `entry`, or its two, at `end`, and moves `end`
