@@ -158,6 +158,11 @@ so any release may break compatibility.
   longer keeps the latest bytes produced straight to the output, which no
   match copies from any more: a whole stream of 100 KB to 10 MB decodes 1
   to 1.7% faster on Granite Rapids.
+- `decode-deflate`: where a stored block that goes straight to the output
+  is followed by another, the next block's header is read there, from its
+  five bytes, not by a turn of the decoder through its bits: whole, the
+  corpus's incompressible inputs decode 13% faster on Zen 5, at 1.01
+  times zlib-ng's speed, and 16% faster on Neoverse V3.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

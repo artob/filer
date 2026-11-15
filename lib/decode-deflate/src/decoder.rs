@@ -830,16 +830,37 @@ impl Decoder {
         if few || self.bits.count > 0 || self.window.held() > 0 {
             return 0;
         }
-        let rest = input.bytes.get(input.taken..).unwrap_or_default();
-        let left_now = usize::try_from(*left).unwrap_or(usize::MAX);
-        let n = left_now.min(rest.len()).min(output.len());
-        let (Some(from), Some(to)) = (rest.get(..n), output.get_mut(..n)) else {
-            return 0;
-        };
-        to.copy_from_slice(from);
-        input.taken = input.taken.saturating_add(n);
-        *left = left.saturating_sub(u32::try_from(n).unwrap_or(u32::MAX));
-        n
+        let mut went = 0_usize;
+        loop {
+            let rest = input.bytes.get(input.taken..).unwrap_or_default();
+            let room = output.get_mut(went..).unwrap_or_default();
+            let left_now = usize::try_from(*left).unwrap_or(usize::MAX);
+            let n = left_now.min(rest.len()).min(room.len());
+            let (Some(from), Some(to)) = (rest.get(..n), room.get_mut(..n)) else {
+                return went;
+            };
+            to.copy_from_slice(from);
+            input.taken = input.taken.saturating_add(n);
+            *left = left.saturating_sub(u32::try_from(n).unwrap_or(u32::MAX));
+            went = went.saturating_add(n);
+            // The next block's header, where it is another stored block's,
+            // whole and sound, read here: its bits begin a byte, as this
+            // block's end did. Any other is left to `run`.
+            if *left > 0 || self.last {
+                return went;
+            }
+            let rest = input.bytes.get(input.taken..).unwrap_or_default();
+            let Some(&[head, low, high, not_low, not_high]) = rest.first_chunk::<5>() else {
+                return went;
+            };
+            let len = u16::from_le_bytes([low, high]);
+            if head & 0b110 != 0 || len != !u16::from_le_bytes([not_low, not_high]) {
+                return went;
+            }
+            self.last = head & 1 != 0;
+            *left = u32::from(len);
+            input.taken = input.taken.saturating_add(5);
+        }
     }
 
     /// Has the window keep the latest of the `owed` bytes produced last,
