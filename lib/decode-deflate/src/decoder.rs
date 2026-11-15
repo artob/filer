@@ -13,8 +13,8 @@ use alloc::{boxed::Box, vec::Vec};
 const CHUNK: usize = 32 * 1024;
 
 /// How far past its end a match may write, as it copies in chunks of up
-/// to 16.
-const SLACK: usize = 16;
+/// to 32.
+const SLACK: usize = 32;
 
 /// What a decoder decodes: Deflate, or Deflate64, PKWARE's variant of it,
 /// with a 64 KiB window, length code 285 as 3 and 16 extra bits, and
@@ -1193,6 +1193,11 @@ fn copy(buf: &mut [u8], end: usize, distance: usize, length: usize) -> Result<us
     let stop = end.wrapping_add(length);
     let mut to = end;
     match distance {
+        // On x86-64, by 32 at once where they may, so that a match of up to
+        // 32 bytes takes one turn: 1 to 2% faster there, and 2% slower on
+        // Neoverse V3, which keeps to 16.
+        #[cfg(target_arch = "x86_64")]
+        32.. => chunks::<32>(buf, from, to, stop)?,
         16.. => chunks::<16>(buf, from, to, stop)?,
         // A run of one byte: short ones in a chunk or two, without the call
         // that filling takes, and long ones by it.
