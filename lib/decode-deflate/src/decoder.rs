@@ -1221,6 +1221,9 @@ fn copy(
         // Neoverse V3, which keeps to 16.
         #[cfg(target_arch = "x86_64")]
         32.. => chunks::<32>(buf, from, to, stop, edge)?,
+        // A long match from fewer than 32 bytes back, whose chunks would
+        // each read what the one before wrote: by a pattern of its period.
+        16..32 if length > 32 => repeat(buf, from, distance, to, stop, edge)?,
         16.. => chunks::<16>(buf, from, to, stop, edge)?,
         // A run of one byte: short ones in a chunk or two, without the call
         // that filling takes, and long ones by it.
@@ -1264,6 +1267,39 @@ fn chunks<const N: usize>(
         let chunk = *self::chunk::<N>(buf, from, edge).ok_or_else(corrupt)?;
         *chunk_mut::<N>(buf, to, edge).ok_or_else(corrupt)? = chunk;
         (from, to) = (from.wrapping_add(N), to.wrapping_add(N));
+        if to >= stop {
+            return Ok(());
+        }
+    }
+}
+
+/// Copies to `buf` from `to` until `stop` what repeats from `from` with a
+/// period of `distance`, 16 to 31: 32 bytes of it laid out once, from two
+/// chunks before `to` and the first again a period on, then written over
+/// and over a period apart, so that no write waits on reading the one
+/// before; up to 32 bytes past `stop`, once at least.
+fn repeat(
+    buf: &mut [u8],
+    from: usize,
+    distance: usize,
+    mut to: usize,
+    stop: usize,
+    edge: usize,
+) -> Result<(), Error> {
+    let head = *chunk::<16>(buf, from, edge).ok_or_else(corrupt)?;
+    let tail = *chunk::<16>(buf, from.wrapping_add(16), edge).ok_or_else(corrupt)?;
+    let mut pattern = [0_u8; 48];
+    let (low, high) = pattern.split_at_mut(16);
+    low.copy_from_slice(&head);
+    *high.first_chunk_mut::<16>().ok_or_else(corrupt)? = tail;
+    let again = pattern
+        .get_mut(distance & 31..)
+        .and_then(<[u8]>::first_chunk_mut::<16>);
+    *again.ok_or_else(corrupt)? = head;
+    let pattern = *pattern.first_chunk::<32>().ok_or_else(corrupt)?;
+    loop {
+        *chunk_mut::<32>(buf, to, edge).ok_or_else(corrupt)? = pattern;
+        to = to.wrapping_add(distance);
         if to >= stop {
             return Ok(());
         }

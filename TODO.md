@@ -659,19 +659,22 @@ crate's name until its first code, which moves it to `lib/`.
   and 1.32 to 1.38 and 1.25 to 1.30 on Neoverse V3; in pieces of 4 KiB,
   1.43 to 1.73 of both; and at 0.86 to 0.87 of libdeflate's on x86-64,
   0.92 to 0.94 on Neoverse V3. The synthetic `pattern`, matches of 258
-  bytes from 28 back, decodes at a fifth of zlib-ng's speed, whose long
-  matches from near are filled from vectors. What is left of libdeflate
-  is mostly two table loads in turn a match, on which Zen 5 waits, and
-  a block's literal pairs, 1 to 3% of decoding. Tried and lost: the
-  bits two places up, so that loads take no scaled index; literal
-  indexes of 9 or 11 bits, and distance ones of 9 or 10; the bits
-  reloaded by position each turn; the rare paths out of line; long
-  matches from near copied from their period laid out once (`pattern`
-  30% faster, `x-ray` 2 to 7% slower on Zen 5); far matches by 32 bytes
-  on Neoverse V3 (2% slower); and a test of AMD before the BMI2 loop,
-  which Zen 5 takes no slower, timed in one build. Done when it is
-  competitive with each counterpart on each default machine, whole and
-  in pieces.
+  bytes from 28 back, decodes 3 to 5 times as fast as it did, by its
+  period laid out once and written over and over. What is left of
+  libdeflate is mostly two table loads in turn a match, on which Zen 5
+  waits, and a block's literal pairs, 1 to 3% of decoding. Tried and
+  lost: the bits two places up, so that loads take an entry by its place
+  in bytes, which Zen 5 does in 4 cycles, not 5 by its index (3.1%
+  faster there, timed in one build, but 3.1% slower on Granite Rapids,
+  and a loop of each, one taken on AMD, lost both the checks the
+  compiler had dropped); literal indexes of 9 or 11 bits, and distance
+  ones of 9 or 10; the bits reloaded by position each turn; the rare
+  paths out of line; matches from 2 to 31 back copied byte by byte from
+  a period laid out (`pattern` 30% faster, `x-ray` 2 to 7% slower on
+  Zen 5); far matches by 32 bytes on Neoverse V3 (2% slower); and a test
+  of AMD before the BMI2 loop, which Zen 5 takes no slower, timed in one
+  build. Done when it is competitive with each counterpart on each
+  default machine, whole and in pieces.
 
 ## Virtual drivers
 

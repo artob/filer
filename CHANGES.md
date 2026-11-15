@@ -119,6 +119,11 @@ so any release may break compatibility.
   each by the last place a read or a write may begin, found by a
   subtraction that may not wrap, so that each turn compares with it
   alone: 2.8% faster on Granite Rapids and 1.8% on Zen 5.
+- `decode-deflate`: a match of more than 32 bytes from 16 to 31 back is
+  written from 32 bytes of its period laid out once, a period apart, not
+  copied by chunks that each read what the one before wrote: the
+  corpus's `pattern` decodes 3 to 5 times as fast, and real inputs as
+  fast as before.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
