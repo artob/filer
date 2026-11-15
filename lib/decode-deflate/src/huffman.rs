@@ -11,7 +11,7 @@ use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub(crate) const MAX_BITS: u32 = 15;
 
 /// The lengths a code may have, from 0, none, to the longest.
-const LENGTHS: usize = 16;
+pub(crate) const LENGTHS: usize = 16;
 
 /// The most symbols a code may have: the fixed literal/length code's 288.
 const SYMBOLS: usize = 288;
@@ -218,31 +218,19 @@ impl Table {
         kind: Kind,
         meaning: impl Fn(u16) -> (u16, u8),
     ) -> Result<(), Error> {
-        // Counted four ways at once, each a count of every fourth length,
-        // as a count waits on the one before of the same length. A length
-        // past the longest, which none counts, has no place among the
-        // symbols sorted below.
-        let mut four = [[0_u32; LENGTHS]; 4];
-        let (quads, rest) = lengths.as_chunks::<4>();
-        for quad in quads {
-            for (counts, &len) in four.iter_mut().zip(quad) {
-                if let Some(count) = counts.get_mut(usize::from(len & 0xF)) {
-                    *count = count.wrapping_add(1);
-                }
-            }
-        }
-        for (counts, &len) in four.iter_mut().zip(rest) {
-            if let Some(count) = counts.get_mut(usize::from(len & 0xF)) {
-                *count = count.wrapping_add(1);
-            }
-        }
-        let mut counts = [0_u32; LENGTHS];
-        for (len, count) in counts.iter_mut().enumerate() {
-            *count = four
-                .iter()
-                .map(|counts| counts.get(len).copied().unwrap_or_default())
-                .sum();
-        }
+        self.build_counted(lengths, count(lengths), bits, kind, meaning)
+    }
+
+    /// Makes it the table that `new` returns, in the room it has, of
+    /// `lengths`, `counts[len]` of which are `len`.
+    pub(crate) fn build_counted(
+        &mut self,
+        lengths: &[u8],
+        counts: [u32; LENGTHS],
+        bits: u32,
+        kind: Kind,
+        meaning: impl Fn(u16) -> (u16, u8),
+    ) -> Result<(), Error> {
         // The codes left at each length, after those shorter take theirs:
         // none may be over-subscribed, and only some may leave any.
         let mut left = 1_i64;
@@ -313,16 +301,14 @@ impl Table {
             _ => None,
         };
         let mut shorts = 0_usize;
-        for &symbol in sorted {
-            let len = lengths
-                .get(usize::from(symbol))
-                .copied()
-                .ok_or_else(corrupt)?;
-            let next = next.get_mut(usize::from(len)).ok_or_else(corrupt)?;
+        // Each length's codes in turn, from the first of that length.
+        let groups = (1_u32..).zip(next.iter().zip(&counts).skip(1));
+        let symbols = groups.flat_map(|(len, (&first, &count))| {
+            (first..first.saturating_add(count)).map(move |code| (len, code))
+        });
+        for (&symbol, (len, code)) in sorted.iter().zip(symbols) {
             // Read from the stream first bit first, so reversed.
-            let reversed = reverse(*next, u32::from(len));
-            *next = next.saturating_add(1);
-            let len = u32::from(len);
+            let reversed = reverse(code, len);
             // What fills each entry of the code: of `END` and `NEVER`, the
             // length byte alone; of the rest, the code's length and the
             // extra bits' as the length byte.
@@ -496,6 +482,35 @@ impl Table {
             Code::Short
         }
     }
+}
+
+/// Returns how many of `lengths` are each length: counted four ways at
+/// once, each a count of every fourth length, as a count waits on the one
+/// before of the same length. A length past the longest, which none
+/// counts, has no place among the symbols that a table sorts.
+fn count(lengths: &[u8]) -> [u32; LENGTHS] {
+    let mut four = [[0_u32; LENGTHS]; 4];
+    let (quads, rest) = lengths.as_chunks::<4>();
+    for quad in quads {
+        for (counts, &len) in four.iter_mut().zip(quad) {
+            if let Some(count) = counts.get_mut(usize::from(len & 0xF)) {
+                *count = count.wrapping_add(1);
+            }
+        }
+    }
+    for (counts, &len) in four.iter_mut().zip(rest) {
+        if let Some(count) = counts.get_mut(usize::from(len & 0xF)) {
+            *count = count.wrapping_add(1);
+        }
+    }
+    let mut counts = [0_u32; LENGTHS];
+    for (len, count) in counts.iter_mut().enumerate() {
+        *count = four
+            .iter()
+            .map(|counts| counts.get(len).copied().unwrap_or_default())
+            .sum();
+    }
+    counts
 }
 
 /// Makes each entry of a literal whose code, and the next literal's after

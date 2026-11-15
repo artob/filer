@@ -141,6 +141,11 @@ so any release may break compatibility.
 - `decode-deflate`: a decoder's first buffer holds as much as its caller
   has room for, from 1 KiB up, not always a chunk of 32 KiB, zeroed: a
   stream of 122 bytes decodes 1.5 times as fast on Zen 5, in 0.19 µs.
+- `decode-deflate`: a dynamic block's code lengths are read four to a
+  refill without a branch while a word of input is left, and tallied as
+  they are, so that its table need not count them; and a table assigns
+  each length's codes in turn: a stream of 459 bytes decodes 1.17 times
+  as fast on Zen 5.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

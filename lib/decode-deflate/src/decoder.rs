@@ -399,6 +399,15 @@ impl Window {
     }
 }
 
+/// Adds `n` to the tally of `length`, 15 at most.
+macro_rules! tally {
+    ($tally:expr, $length:expr, $n:expr) => {
+        if let Some(count) = $tally.get_mut(usize::from($length)) {
+            *count = count.wrapping_add(u32::try_from($n).unwrap_or_default());
+        }
+    };
+}
+
 /// A dynamic block's description of its codes (§3.2.7), read so far.
 #[derive(Clone, Debug)]
 struct Dynamic {
@@ -411,9 +420,57 @@ struct Dynamic {
     lengths: [u8; MAX_LITERALS + MAX_DISTANCES],
     /// How many lengths have been read, of either kind.
     read: usize,
+    /// How many of them are each length.
+    tally: [u32; huffman::LENGTHS],
 }
 
 impl Dynamic {
+    /// Reads a length, or a length repeated, from `bits`, which hold all
+    /// its bits, into `lengths` at `read`, up to `total`, with `code`, the
+    /// code length code, and returns where the next goes.
+    #[inline(always)]
+    fn length(
+        (lengths, tally): (
+            &mut [u8; MAX_LITERALS + MAX_DISTANCES],
+            &mut [u32; huffman::LENGTHS],
+        ),
+        read: usize,
+        total: usize,
+        code: &Table,
+        bits: &mut Bits,
+    ) -> Result<usize, Error> {
+        let (symbol, len) = match code.lookup(bits.value, bits.count) {
+            Code::Symbol { value, bits, .. } => (value, bits),
+            _ => return Err(corrupt()),
+        };
+        bits.consume(len);
+        let (length, repeat) = match symbol {
+            0..=15 => {
+                let length = u8::try_from(symbol).map_err(|_| corrupt())?;
+                *lengths
+                    .get_mut(read)
+                    .filter(|_| read < total)
+                    .ok_or_else(corrupt)? = length;
+                tally!(tally, length, 1);
+                return Ok(read.saturating_add(1));
+            },
+            16 => {
+                let last = read.checked_sub(1).ok_or_else(corrupt)?;
+                let last = lengths.get(last).copied().ok_or_else(corrupt)?;
+                (last, bits.take(2).saturating_add(3))
+            },
+            17 => (0, bits.take(3).saturating_add(3)),
+            _ => (0, bits.take(7).saturating_add(11)),
+        };
+        let end = read.saturating_add(usize::try_from(repeat).map_err(|_| corrupt())?);
+        if end > total {
+            return Err(corrupt());
+        }
+        lengths.get_mut(read..end).ok_or_else(corrupt)?.fill(length);
+        tally!(tally, length, repeat);
+        Ok(end)
+    }
+
     fn new() -> Self {
         Self {
             counts: None,
@@ -421,6 +478,7 @@ impl Dynamic {
             code: None,
             lengths: [0; MAX_LITERALS + MAX_DISTANCES],
             read: 0,
+            tally: [0; huffman::LENGTHS],
         }
     }
 
@@ -479,6 +537,25 @@ impl Dynamic {
         let code = self.code.as_ref().ok_or_else(corrupt)?;
         let total = literals.saturating_add(distances);
         while self.read < total {
+            // While a word of input is left, four symbols to a refill without
+            // a branch, each 14 bits at most.
+            if let Some(word) = input
+                .bytes
+                .get(input.taken..)
+                .and_then(<[u8]>::first_chunk::<8>)
+            {
+                bits.refill_word(*word, &mut input.taken);
+                for _ in 0..4 {
+                    if self.read >= total {
+                        break;
+                    }
+                    let into = (&mut self.lengths, &mut self.tally);
+                    self.read = Self::length(into, self.read, total, code, bits)?;
+                }
+                // What `refill_word` left above the count's bits.
+                bits.value &= mask(bits.count);
+                continue;
+            }
             bits.refill(input);
             let (symbol, len) = match code.lookup(bits.value, bits.count) {
                 Code::Symbol { value, bits, .. } => (value, bits),
@@ -514,6 +591,7 @@ impl Dynamic {
                 .get_mut(self.read..end)
                 .ok_or_else(corrupt)?
                 .fill(length);
+            tally!(self.tally, length, repeat);
             self.read = end;
         }
         let lengths = self.lengths.get(..total).ok_or_else(corrupt)?;
@@ -522,9 +600,20 @@ impl Dynamic {
         if literal_lengths.get(256).is_none_or(|&length| length == 0) {
             return Err(corrupt());
         }
-        literal_table.build(literal_lengths, LITERAL_BITS, Kind::Literals, |symbol| {
-            format.literal(symbol)
-        })?;
+        // The tally less the distances' lengths, which are few.
+        let mut literal_counts = self.tally;
+        for &length in distance_lengths {
+            if let Some(count) = literal_counts.get_mut(usize::from(length)) {
+                *count = count.wrapping_sub(1);
+            }
+        }
+        literal_table.build_counted(
+            literal_lengths,
+            literal_counts,
+            LITERAL_BITS,
+            Kind::Literals,
+            |symbol| format.literal(symbol),
+        )?;
         distance_table.build(distance_lengths, DISTANCE_BITS, Kind::Distances, |symbol| {
             format.distance(symbol)
         })?;
