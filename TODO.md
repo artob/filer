@@ -569,8 +569,10 @@ crate's name until its first code, which moves it to `lib/`.
   memory, every crate's code size, the `compute-*` crates' hashes, and
   `decode-zstd`'s and `decode-bzip2`'s streams, whole and in pieces of
   64 KiB and of 4 KiB, by the baseline build and by the build for the
-  CPU. But the harness drives only those two decoders: the other
-  `decode-*` crates' `BENCH.md` hold their code size alone. Zen 1's
+  CPU. The harness drives `decode-deflate` too, since `e35879b`: a
+  campaign of it, at `9e96979`, began 2026-11-15 and has filled its
+  memory, and its passes run. The other `decode-*` crates' `BENCH.md`
+  hold their code size alone. Zen 1's
   speed tables are older, of `9c5f5fc`, before DEC-19's work. Done when
   each `BENCH.md` of a written decoder holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
@@ -635,6 +637,13 @@ crate's name until its first code, which moves it to `lib/`.
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse
   malformed input, or a note here of why it cannot be reached.
+- [ ] **DEC-23: `decode-deflate`'s allocations.** Each dynamic block
+  boxes its state anew and builds its three Huffman tables of three new
+  vectors each: Silesia's `dickens` takes 1,515 to 1,731 allocations a
+  stream, where zlib takes one, and ours holds 129 to 157 KiB at most,
+  where zlib holds 7 whole and 39 in pieces (`BENCH.md`, 2026-11-15).
+  Done when a stream allocates once, its block state and tables reused
+  from block to block, its speed timed before and after.
 
 ## Virtual drivers
 
