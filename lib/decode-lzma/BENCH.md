@@ -64,10 +64,10 @@ portable with fat LTO; read-only data, such as tables, is not counted.
 On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
 `decode-lzma` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
-On aarch64-unknown-linux-gnu, measured 2026-11-13, at `de4f027`,
+On aarch64-unknown-linux-gnu, measured 2026-11-16, at `d73cac4`,
 `decode-lzma` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
-On x86_64-unknown-linux-gnu, measured 2026-11-13, at `de4f027`,
+On x86_64-unknown-linux-gnu, measured 2026-11-16, at `d73cac4`,
 `decode-lzma` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
 <!-- filer-bench: end -->

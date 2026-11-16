@@ -616,9 +616,9 @@ itself.
 
 ### AMD EPYC 9R45 (1 vCPU under EC2 Nitro), whole
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 libdeflate 8 B, zlib-rs 128 B, miniz_oxide 8 B, zune-inflate 11520 B,
 yazi 7296 B.
 
@@ -626,522 +626,522 @@ yazi 7296 B.
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16388.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 1 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16388.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 6 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 9 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 12 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 1 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 6 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 9 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 12 | 71.6 KiB, 61 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 1 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 6 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 9 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 12 | 71.6 KiB, 61 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 1 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 6 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 9 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 12 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19908.0 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 1 | 77.6 KiB, 1170 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19908.0 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 6 | 77.6 KiB, 1027 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 9 | 77.6 KiB, 1018 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 12 | 77.6 KiB, 448 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 1 | 80.6 KiB, 6772 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 6 | 80.6 KiB, 5875 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 9 | 80.6 KiB, 5830 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 12 | 80.6 KiB, 12522 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mr | 1 | 80.6 KiB, 967 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 6 | 80.6 KiB, 1033 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 9 | 80.6 KiB, 1011 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 12 | 80.6 KiB, 605 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| nci | 1 | 77.6 KiB, 1158 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 6 | 77.1 KiB, 940 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 9 | 77.1 KiB, 924 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 12 | 77.1 KiB, 1885 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 1 | 80.6 KiB, 1108 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 6 | 78.6 KiB, 986 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 9 | 78.6 KiB, 977 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 12 | 80.6 KiB, 759 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 1 | 78.6 KiB, 1594 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 6 | 78.6 KiB, 1427 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 9 | 78.6 KiB, 1393 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 12 | 78.6 KiB, 338 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 1 | 77.6 KiB, 592 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 6 | 77.1 KiB, 394 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 9 | 77.1 KiB, 389 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 12 | 76.7 KiB, 191 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| samba | 1 | 80.6 KiB, 1687 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 6 | 80.6 KiB, 1506 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 9 | 80.6 KiB, 1524 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 12 | 78.6 KiB, 3436 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 1 | 76.9 KiB, 918 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 6 | 76.7 KiB, 956 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 9 | 76.7 KiB, 967 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 12 | 76.7 KiB, 109 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 1 | 77.6 KiB, 3913 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 6 | 77.6 KiB, 3364 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 9 | 77.6 KiB, 3305 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 12 | 77.6 KiB, 1373 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 1 | 77.6 KiB, 240 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 6 | 77.6 KiB, 186 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 9 | 77.6 KiB, 189 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 12 | 77.6 KiB, 337 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 1 | 140.2 KiB, 851 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 6 | 76.9 KiB, 873 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 9 | 76.9 KiB, 873 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 12 | 77.1 KiB, 146 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 1 | 78.6 KiB, 13593 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 6 | 78.6 KiB, 12643 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 9 | 78.6 KiB, 12617 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 12 | 78.6 KiB, 29162 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 80.6 KiB, 6255 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 77.6 KiB, 5152 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 78.6 KiB, 5278 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 78.6 KiB, 13561 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.5 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 1 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 6 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 9 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 12 | 59.6 KiB, 25 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 6 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 9 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 12 | 74.6 KiB, 38 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.4 KiB, 799 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 77.1 KiB, 26 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 75.6 KiB, 20 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 76.9 KiB, 22 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 75.6 KiB, 22 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 1 | 67.3 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 6 | 67.3 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 9 | 67.3 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 12 | 67.3 KiB, 19 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 1 | 54.2 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 6 | 53.2 KiB, 10 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 9 | 53.2 KiB, 10 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 12 | 54.2 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 78.6 KiB, 103 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 78.6 KiB, 96 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 78.6 KiB, 88 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 77.1 KiB, 368 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 77.6 KiB, 59 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 77.1 KiB, 47 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 77.1 KiB, 47 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 77.1 KiB, 49 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 77.6 KiB, 72 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 77.1 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 77.1 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 77.1 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 1 | 78.6 KiB, 34 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 6 | 78.6 KiB, 33 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 9 | 78.6 KiB, 34 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 12 | 77.6 KiB, 101 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| sum | 1 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 6 | 75.6 KiB, 16 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 9 | 75.6 KiB, 16 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 12 | 75.6 KiB, 31 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 1 | 76.9 KiB, 277 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 6 | 76.9 KiB, 325 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 9 | 76.9 KiB, 295 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 12 | 76.9 KiB, 116 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 1 | 77.6 KiB, 379 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 6 | 77.6 KiB, 285 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 9 | 77.6 KiB, 273 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 12 | 77.6 KiB, 172 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 1 | 77.1 KiB, 235 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 6 | 77.1 KiB, 187 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 9 | 77.1 KiB, 185 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 12 | 77.1 KiB, 293 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 1 | 80.6 KiB, 101 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 6 | 77.6 KiB, 82 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 9 | 77.6 KiB, 83 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 12 | 77.6 KiB, 120 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 80.6 KiB, 19545 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 80.6 KiB, 16823 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 80.6 KiB, 16434 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 80.6 KiB, 16162 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 1 | 80.6 KiB, 5219 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 6 | 80.6 KiB, 4513 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 9 | 80.6 KiB, 4403 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 12 | 80.6 KiB, 5803 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 22.38x at the median, and at most 22.38x.
+Ours relative to zlib's peak: 11.03x at the median, and at most 20.04x.
 
 ### AMD EPYC 9R45 (1 vCPU under EC2 Nitro), in pieces of 4 KiB
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 zlib-rs 128 B, miniz_oxide 8 B, yazi 7296 B.
 
 #### Synthetic
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 1 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 6 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 9 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 12 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 1 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 6 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 9 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 12 | 152.3 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 1 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 6 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 9 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 12 | 152.4 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 1 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 6 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 9 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 12 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 1 | 158.2 KiB, 1172 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 6 | 158.2 KiB, 1029 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 9 | 158.2 KiB, 1020 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 12 | 158.2 KiB, 450 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 1 | 161.2 KiB, 6774 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 6 | 161.2 KiB, 5877 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 9 | 161.2 KiB, 5832 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 12 | 161.2 KiB, 12524 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 1 | 161.2 KiB, 969 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 6 | 161.2 KiB, 1035 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 9 | 161.2 KiB, 1013 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 12 | 161.2 KiB, 607 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 1 | 158.3 KiB, 1160 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 6 | 157.8 KiB, 942 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 9 | 157.8 KiB, 926 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 12 | 157.8 KiB, 1887 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 1 | 161.2 KiB, 1110 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 6 | 159.2 KiB, 988 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 9 | 159.2 KiB, 979 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 12 | 161.2 KiB, 761 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 1 | 159.2 KiB, 1596 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 6 | 159.2 KiB, 1429 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 9 | 159.2 KiB, 1395 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 12 | 159.2 KiB, 340 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 1 | 158.2 KiB, 594 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 6 | 157.7 KiB, 396 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 9 | 157.7 KiB, 391 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 12 | 157.4 KiB, 193 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 1 | 161.2 KiB, 1689 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 6 | 161.2 KiB, 1508 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 9 | 161.2 KiB, 1526 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 12 | 159.2 KiB, 3438 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 1 | 157.4 KiB, 920 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 6 | 157.3 KiB, 958 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 9 | 157.3 KiB, 969 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 12 | 157.3 KiB, 111 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 1 | 158.2 KiB, 3915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 6 | 158.2 KiB, 3366 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 9 | 158.2 KiB, 3307 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 12 | 158.2 KiB, 1375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 1 | 158.2 KiB, 242 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 6 | 158.2 KiB, 188 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 9 | 158.5 KiB, 191 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 12 | 158.5 KiB, 339 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 1 | 157.7 KiB, 852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 6 | 157.4 KiB, 875 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 9 | 157.4 KiB, 875 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 12 | 157.7 KiB, 148 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 1 | 159.2 KiB, 13595 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 6 | 159.2 KiB, 12645 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 9 | 159.2 KiB, 12619 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 12 | 159.2 KiB, 29164 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 161.2 KiB, 6257 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 158.2 KiB, 5154 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 159.2 KiB, 5280 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 159.2 KiB, 13563 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 1 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 6 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 9 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 12 | 91.9 KiB, 26 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 6 | 139.1 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 9 | 139.1 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 12 | 92.0 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.5 KiB, 799 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 157.7 KiB, 28 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 156.2 KiB, 22 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 157.4 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 156.2 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 1 | 83.6 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 6 | 83.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 9 | 83.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 12 | 83.6 KiB, 20 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 1 | 47.3 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 6 | 46.3 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 9 | 46.3 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 12 | 47.3 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 159.2 KiB, 105 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 159.2 KiB, 98 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 159.2 KiB, 90 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 157.7 KiB, 370 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 158.2 KiB, 61 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 157.7 KiB, 49 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 157.7 KiB, 49 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 157.7 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 158.2 KiB, 74 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 157.7 KiB, 65 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 157.7 KiB, 65 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 157.7 KiB, 41 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 1 | 159.3 KiB, 36 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 6 | 159.3 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 9 | 159.3 KiB, 36 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 12 | 158.3 KiB, 103 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 1 | 82.6 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 6 | 83.6 KiB, 17 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 9 | 83.6 KiB, 17 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 12 | 85.7 KiB, 32 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 1 | 157.4 KiB, 279 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 6 | 157.4 KiB, 327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 9 | 157.4 KiB, 297 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 12 | 157.4 KiB, 118 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 1 | 158.2 KiB, 381 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 6 | 158.2 KiB, 287 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 9 | 158.2 KiB, 275 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 12 | 158.2 KiB, 174 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 1 | 157.7 KiB, 237 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 6 | 157.7 KiB, 189 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 9 | 157.7 KiB, 187 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 12 | 157.7 KiB, 295 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 1 | 161.2 KiB, 103 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 6 | 158.2 KiB, 84 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 9 | 158.2 KiB, 85 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 12 | 158.2 KiB, 122 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 161.2 KiB, 19547 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 161.2 KiB, 16825 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 161.2 KiB, 16436 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 161.2 KiB, 16164 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 1 | 161.2 KiB, 5221 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 6 | 161.2 KiB, 4515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 9 | 161.2 KiB, 4405 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 12 | 161.2 KiB, 5805 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 4.01x at the median, and at most 4.01x.
+Ours relative to zlib's peak: 4.05x at the median, and at most 4.13x.
 
 ### AMD EPYC 9R45 (1 vCPU under EC2 Nitro), in pieces of 64 KiB
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 zlib-rs 128 B, miniz_oxide 8 B, yazi 7296 B.
 
 #### Synthetic
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 1 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 6 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 9 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 12 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 1 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 6 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 9 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 12 | 136.2 KiB, 62 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 1 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 6 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 9 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 12 | 136.2 KiB, 62 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 1 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 6 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 9 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 12 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 1 | 142.2 KiB, 1171 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 6 | 142.2 KiB, 1028 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 9 | 142.2 KiB, 1019 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 12 | 142.2 KiB, 449 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 1 | 145.2 KiB, 6773 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 6 | 145.2 KiB, 5876 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 9 | 145.2 KiB, 5831 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 12 | 145.2 KiB, 12523 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 1 | 145.2 KiB, 968 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 6 | 145.2 KiB, 1034 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 9 | 145.2 KiB, 1012 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 12 | 145.2 KiB, 606 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 1 | 142.2 KiB, 1159 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 6 | 141.7 KiB, 941 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 9 | 141.7 KiB, 925 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 12 | 141.7 KiB, 1886 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 1 | 145.2 KiB, 1109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 6 | 143.2 KiB, 987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 9 | 143.2 KiB, 978 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 12 | 145.2 KiB, 760 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 1 | 143.2 KiB, 1595 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 6 | 143.2 KiB, 1428 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 9 | 143.2 KiB, 1394 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 12 | 143.2 KiB, 339 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 1 | 142.2 KiB, 593 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 6 | 141.7 KiB, 395 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 9 | 141.7 KiB, 390 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 12 | 141.3 KiB, 192 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 1 | 145.2 KiB, 1688 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 6 | 145.2 KiB, 1507 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 9 | 145.2 KiB, 1525 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 12 | 143.2 KiB, 3437 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 1 | 141.4 KiB, 919 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 6 | 141.3 KiB, 957 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 9 | 141.3 KiB, 968 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 12 | 141.3 KiB, 110 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 1 | 142.2 KiB, 3914 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 6 | 142.2 KiB, 3365 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 9 | 142.2 KiB, 3306 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 12 | 142.2 KiB, 1374 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 1 | 142.2 KiB, 241 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 6 | 142.2 KiB, 187 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 9 | 142.2 KiB, 190 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 12 | 142.2 KiB, 338 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 1 | 141.7 KiB, 851 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 6 | 141.4 KiB, 874 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 9 | 141.4 KiB, 874 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 12 | 141.7 KiB, 147 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 1 | 143.2 KiB, 13594 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 6 | 143.2 KiB, 12644 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 9 | 143.2 KiB, 12618 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 12 | 143.2 KiB, 29163 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 145.2 KiB, 6256 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 142.2 KiB, 5153 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 143.2 KiB, 5279 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 143.2 KiB, 13562 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 6 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 9 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 12 | 59.6 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 6 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 9 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 12 | 74.6 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.5 KiB, 799 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 141.7 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 140.2 KiB, 21 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 140.2 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 140.2 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 1 | 67.3 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 6 | 67.3 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 9 | 67.3 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 12 | 67.3 KiB, 19 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 1 | 54.2 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 6 | 53.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 9 | 53.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 12 | 54.2 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 143.2 KiB, 104 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 143.2 KiB, 97 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 143.2 KiB, 89 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 141.7 KiB, 369 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 142.2 KiB, 60 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 141.7 KiB, 48 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 141.7 KiB, 48 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 141.7 KiB, 50 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 142.2 KiB, 73 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 141.7 KiB, 64 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 141.7 KiB, 64 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 141.7 KiB, 40 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 1 | 143.2 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 6 | 143.2 KiB, 34 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 9 | 143.2 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 12 | 142.2 KiB, 102 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 1 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 6 | 75.6 KiB, 16 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 9 | 75.6 KiB, 16 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 12 | 75.6 KiB, 31 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 1 | 141.4 KiB, 278 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 6 | 141.4 KiB, 326 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 9 | 141.4 KiB, 296 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 12 | 141.4 KiB, 117 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 1 | 142.2 KiB, 380 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 6 | 142.2 KiB, 286 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 9 | 142.2 KiB, 274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 12 | 142.2 KiB, 173 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 1 | 141.7 KiB, 236 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 6 | 141.7 KiB, 188 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 9 | 141.7 KiB, 186 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 12 | 141.7 KiB, 294 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 1 | 145.2 KiB, 102 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 6 | 142.2 KiB, 83 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 9 | 142.2 KiB, 84 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 12 | 142.2 KiB, 121 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 145.2 KiB, 19546 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 145.2 KiB, 16824 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 145.2 KiB, 16435 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 145.2 KiB, 16163 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 1 | 145.2 KiB, 5220 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 6 | 145.2 KiB, 4514 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 9 | 145.2 KiB, 4404 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 12 | 145.2 KiB, 5804 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 4.01x at the median, and at most 4.01x.
+Ours relative to zlib's peak: 3.63x at the median, and at most 3.72x.
 
 ### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), whole
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 libdeflate 8 B, zlib-rs 128 B, miniz_oxide 8 B, zune-inflate 11520 B,
 yazi 7296 B.
 
@@ -1149,522 +1149,522 @@ yazi 7296 B.
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16388.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 1 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16388.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 6 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 9 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 12 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 1 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 6 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 9 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 12 | 71.6 KiB, 61 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 1 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 6 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 9 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 12 | 71.6 KiB, 61 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 1 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 6 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 9 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 12 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19908.0 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 1 | 77.6 KiB, 1170 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19908.0 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 6 | 77.6 KiB, 1027 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 9 | 77.6 KiB, 1018 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 12 | 77.6 KiB, 448 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 1 | 80.6 KiB, 6772 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 6 | 80.6 KiB, 5875 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 9 | 80.6 KiB, 5830 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 12 | 80.6 KiB, 12522 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mr | 1 | 80.6 KiB, 967 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 6 | 80.6 KiB, 1033 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 9 | 80.6 KiB, 1011 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 12 | 80.6 KiB, 605 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| nci | 1 | 77.6 KiB, 1158 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 6 | 77.1 KiB, 940 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 9 | 77.1 KiB, 924 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 12 | 77.1 KiB, 1885 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 1 | 80.6 KiB, 1108 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 6 | 78.6 KiB, 986 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 9 | 78.6 KiB, 977 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 12 | 80.6 KiB, 759 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 1 | 78.6 KiB, 1594 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 6 | 78.6 KiB, 1427 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 9 | 78.6 KiB, 1393 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 12 | 78.6 KiB, 338 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 1 | 77.6 KiB, 592 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 6 | 77.1 KiB, 394 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 9 | 77.1 KiB, 389 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 12 | 76.7 KiB, 191 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| samba | 1 | 80.6 KiB, 1687 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 6 | 80.6 KiB, 1506 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 9 | 80.6 KiB, 1524 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 12 | 78.6 KiB, 3436 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 1 | 76.9 KiB, 918 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 6 | 76.7 KiB, 956 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 9 | 76.7 KiB, 967 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 12 | 76.7 KiB, 109 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 1 | 77.6 KiB, 3913 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 6 | 77.6 KiB, 3364 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 9 | 77.6 KiB, 3305 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 12 | 77.6 KiB, 1373 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 1 | 77.6 KiB, 240 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 6 | 77.6 KiB, 186 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 9 | 77.6 KiB, 189 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 12 | 77.6 KiB, 337 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 1 | 140.2 KiB, 851 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 6 | 76.9 KiB, 873 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 9 | 76.9 KiB, 873 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 12 | 77.1 KiB, 146 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 1 | 78.6 KiB, 13593 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 6 | 78.6 KiB, 12643 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 9 | 78.6 KiB, 12617 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 12 | 78.6 KiB, 29162 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 80.6 KiB, 6255 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 77.6 KiB, 5152 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 78.6 KiB, 5278 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 78.6 KiB, 13561 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 1 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 6 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 9 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 12 | 59.6 KiB, 25 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 6 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 9 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 12 | 74.6 KiB, 38 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.4 KiB, 799 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 77.1 KiB, 26 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 75.6 KiB, 20 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 76.9 KiB, 22 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 75.6 KiB, 22 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 1 | 67.3 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 6 | 67.3 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 9 | 67.3 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 12 | 67.3 KiB, 19 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 1 | 54.2 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 6 | 53.2 KiB, 10 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 9 | 53.2 KiB, 10 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 12 | 54.2 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 78.6 KiB, 103 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 78.6 KiB, 96 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 78.6 KiB, 88 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 77.1 KiB, 368 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 77.6 KiB, 59 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 77.1 KiB, 47 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 77.1 KiB, 47 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 77.1 KiB, 49 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 77.6 KiB, 72 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 77.1 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 77.1 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 77.1 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 1 | 78.6 KiB, 34 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 6 | 78.6 KiB, 33 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 9 | 78.6 KiB, 34 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 12 | 77.6 KiB, 101 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| sum | 1 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 6 | 75.6 KiB, 16 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 9 | 75.6 KiB, 16 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 12 | 75.6 KiB, 31 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 1 | 76.9 KiB, 277 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 6 | 76.9 KiB, 325 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 9 | 76.9 KiB, 295 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 12 | 76.9 KiB, 116 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 1 | 77.6 KiB, 379 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 6 | 77.6 KiB, 285 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 9 | 77.6 KiB, 273 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 12 | 77.6 KiB, 172 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 1 | 77.1 KiB, 235 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 6 | 77.1 KiB, 187 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 9 | 77.1 KiB, 185 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 12 | 77.1 KiB, 293 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 1 | 80.6 KiB, 101 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 6 | 77.6 KiB, 82 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 9 | 77.6 KiB, 83 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 12 | 77.6 KiB, 120 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 80.6 KiB, 19545 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 80.6 KiB, 16823 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 80.6 KiB, 16434 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 80.6 KiB, 16162 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 1 | 80.6 KiB, 5219 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 6 | 80.6 KiB, 4513 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 9 | 80.6 KiB, 4403 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 12 | 80.6 KiB, 5803 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 22.38x at the median, and at most 22.38x.
+Ours relative to zlib's peak: 11.03x at the median, and at most 20.05x.
 
 ### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), in pieces of 4 KiB
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 zlib-rs 128 B, miniz_oxide 8 B, yazi 7296 B.
 
 #### Synthetic
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 1 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 6 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 9 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 12 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 1 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 6 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 9 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 12 | 152.3 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 1 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 6 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 9 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 12 | 152.4 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 1 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 6 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 9 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 12 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 1 | 158.2 KiB, 1172 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 6 | 158.2 KiB, 1029 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 9 | 158.2 KiB, 1020 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 12 | 158.2 KiB, 450 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 1 | 161.2 KiB, 6774 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 6 | 161.2 KiB, 5877 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 9 | 161.2 KiB, 5832 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 12 | 161.2 KiB, 12524 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 1 | 161.2 KiB, 969 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 6 | 161.2 KiB, 1035 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 9 | 161.2 KiB, 1013 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 12 | 161.2 KiB, 607 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 1 | 158.3 KiB, 1160 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 6 | 157.8 KiB, 942 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 9 | 157.8 KiB, 926 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 12 | 157.8 KiB, 1887 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 1 | 161.2 KiB, 1110 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 6 | 159.2 KiB, 988 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 9 | 159.2 KiB, 979 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 12 | 161.2 KiB, 761 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 1 | 159.2 KiB, 1596 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 6 | 159.2 KiB, 1429 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 9 | 159.2 KiB, 1395 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 12 | 159.2 KiB, 340 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 1 | 158.2 KiB, 594 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 6 | 157.8 KiB, 396 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 9 | 157.7 KiB, 391 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 12 | 157.4 KiB, 193 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 1 | 161.2 KiB, 1689 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 6 | 161.2 KiB, 1508 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 9 | 161.2 KiB, 1526 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 12 | 159.2 KiB, 3438 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 1 | 157.4 KiB, 920 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 6 | 157.3 KiB, 958 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 9 | 157.3 KiB, 969 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 12 | 157.3 KiB, 111 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 1 | 158.2 KiB, 3915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 6 | 158.2 KiB, 3366 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 9 | 158.2 KiB, 3307 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 12 | 158.2 KiB, 1375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 1 | 158.2 KiB, 242 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 6 | 158.2 KiB, 188 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 9 | 158.5 KiB, 191 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 12 | 158.5 KiB, 339 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 1 | 157.7 KiB, 852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 6 | 157.4 KiB, 875 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 9 | 157.4 KiB, 875 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 12 | 157.7 KiB, 148 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 1 | 159.2 KiB, 13595 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 6 | 159.2 KiB, 12645 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 9 | 159.2 KiB, 12619 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 12 | 159.2 KiB, 29164 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 161.2 KiB, 6257 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 158.2 KiB, 5154 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 159.2 KiB, 5280 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 159.2 KiB, 13563 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 1 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 6 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 9 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 12 | 91.9 KiB, 26 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 6 | 139.1 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 9 | 139.1 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 12 | 92.0 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.4 KiB, 799 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 157.7 KiB, 28 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 156.2 KiB, 22 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 157.4 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 156.2 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 1 | 83.6 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 6 | 83.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 9 | 83.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 12 | 83.6 KiB, 20 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 1 | 47.3 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 6 | 46.3 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 9 | 46.3 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 12 | 47.3 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 159.2 KiB, 105 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 159.2 KiB, 98 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 159.2 KiB, 90 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 157.7 KiB, 370 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 158.2 KiB, 61 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 157.7 KiB, 49 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 157.7 KiB, 49 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 157.7 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 158.2 KiB, 74 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 157.7 KiB, 65 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 157.7 KiB, 65 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 157.7 KiB, 41 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 1 | 159.3 KiB, 36 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 6 | 159.3 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 9 | 159.3 KiB, 36 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 12 | 158.3 KiB, 103 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 1 | 82.6 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 6 | 83.6 KiB, 17 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 9 | 83.6 KiB, 17 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 12 | 85.6 KiB, 32 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 1 | 157.4 KiB, 279 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 6 | 157.4 KiB, 327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 9 | 157.4 KiB, 297 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 12 | 157.4 KiB, 118 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 1 | 158.2 KiB, 381 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 6 | 158.2 KiB, 287 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 9 | 158.2 KiB, 275 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 12 | 158.2 KiB, 174 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 1 | 157.7 KiB, 237 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 6 | 157.7 KiB, 189 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 9 | 157.7 KiB, 187 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 12 | 157.7 KiB, 295 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 1 | 161.2 KiB, 103 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 6 | 158.2 KiB, 84 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 9 | 158.2 KiB, 85 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 12 | 158.2 KiB, 122 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 161.2 KiB, 19547 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 161.2 KiB, 16825 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 161.2 KiB, 16436 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 161.2 KiB, 16164 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 1 | 161.2 KiB, 5221 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 6 | 161.2 KiB, 4515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 9 | 161.2 KiB, 4405 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 12 | 161.2 KiB, 5805 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 4.01x at the median, and at most 4.01x.
+Ours relative to zlib's peak: 4.05x at the median, and at most 4.13x.
 
 ### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), in pieces of 64 KiB
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 zlib-rs 128 B, miniz_oxide 8 B, yazi 7296 B.
 
 #### Synthetic
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 1 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 6 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 9 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 12 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 1 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 6 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 9 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 12 | 136.2 KiB, 62 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 1 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 6 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 9 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 12 | 136.2 KiB, 62 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 1 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 6 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 9 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 12 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 1 | 142.2 KiB, 1171 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 6 | 142.2 KiB, 1028 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 9 | 142.2 KiB, 1019 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 12 | 142.2 KiB, 449 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 1 | 145.2 KiB, 6773 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 6 | 145.2 KiB, 5876 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 9 | 145.2 KiB, 5831 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 12 | 145.2 KiB, 12523 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 1 | 145.2 KiB, 968 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 6 | 145.2 KiB, 1034 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 9 | 145.2 KiB, 1012 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 12 | 145.2 KiB, 606 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 1 | 142.2 KiB, 1159 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 6 | 141.7 KiB, 941 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 9 | 141.7 KiB, 925 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 12 | 141.7 KiB, 1886 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 1 | 145.2 KiB, 1109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 6 | 143.2 KiB, 987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 9 | 143.2 KiB, 978 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 12 | 145.2 KiB, 760 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 1 | 143.2 KiB, 1595 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 6 | 143.2 KiB, 1428 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 9 | 143.2 KiB, 1394 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 12 | 143.2 KiB, 339 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 1 | 142.2 KiB, 593 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 6 | 141.7 KiB, 395 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 9 | 141.7 KiB, 390 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 12 | 141.3 KiB, 192 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 1 | 145.2 KiB, 1688 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 6 | 145.2 KiB, 1507 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 9 | 145.2 KiB, 1525 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 12 | 143.2 KiB, 3437 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 1 | 141.4 KiB, 919 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 6 | 141.3 KiB, 957 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 9 | 141.3 KiB, 968 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 12 | 141.3 KiB, 110 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 1 | 142.2 KiB, 3914 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 6 | 142.2 KiB, 3365 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 9 | 142.2 KiB, 3306 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 12 | 142.2 KiB, 1374 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 1 | 142.2 KiB, 241 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 6 | 142.2 KiB, 187 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 9 | 142.2 KiB, 190 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 12 | 142.2 KiB, 338 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 1 | 141.7 KiB, 851 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 6 | 141.4 KiB, 874 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 9 | 141.4 KiB, 874 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 12 | 141.7 KiB, 147 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 1 | 143.2 KiB, 13594 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 6 | 143.2 KiB, 12644 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 9 | 143.2 KiB, 12618 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 12 | 143.2 KiB, 29163 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 145.2 KiB, 6256 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 142.2 KiB, 5153 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 143.2 KiB, 5279 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 143.2 KiB, 13562 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 6 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 9 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 12 | 59.6 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 6 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 9 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 12 | 74.6 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.4 KiB, 799 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 141.7 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 140.2 KiB, 21 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 140.2 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 140.2 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 1 | 67.4 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 6 | 67.4 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 9 | 67.3 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 12 | 67.4 KiB, 19 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 1 | 54.2 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 6 | 53.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 9 | 53.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 12 | 54.2 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 143.2 KiB, 104 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 143.2 KiB, 97 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 143.2 KiB, 89 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 141.7 KiB, 369 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 142.2 KiB, 60 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 141.7 KiB, 48 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 141.7 KiB, 48 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 141.7 KiB, 50 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 142.2 KiB, 73 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 141.7 KiB, 64 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 141.7 KiB, 64 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 141.7 KiB, 40 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 1 | 143.2 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 6 | 143.2 KiB, 34 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 9 | 143.2 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 12 | 142.2 KiB, 102 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 1 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 6 | 75.6 KiB, 16 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 9 | 75.6 KiB, 16 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 12 | 75.6 KiB, 31 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 1 | 141.4 KiB, 278 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 6 | 141.4 KiB, 326 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 9 | 141.4 KiB, 296 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 12 | 141.4 KiB, 117 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 1 | 142.2 KiB, 380 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 6 | 142.2 KiB, 286 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 9 | 142.2 KiB, 274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 12 | 142.2 KiB, 173 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 1 | 141.7 KiB, 236 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 6 | 141.7 KiB, 188 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 9 | 141.7 KiB, 186 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 12 | 141.7 KiB, 294 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 1 | 145.2 KiB, 102 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 6 | 142.2 KiB, 83 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 9 | 142.2 KiB, 84 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 12 | 142.2 KiB, 121 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 145.2 KiB, 19546 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 145.2 KiB, 16824 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 145.2 KiB, 16435 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 145.2 KiB, 16163 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 1 | 145.2 KiB, 5220 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 6 | 145.2 KiB, 4514 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 9 | 145.2 KiB, 4404 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 12 | 145.2 KiB, 5804 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 4.01x at the median, and at most 4.01x.
+Ours relative to zlib's peak: 3.63x at the median, and at most 3.72x.
 
 ### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), whole
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 libdeflate 8 B, zlib-rs 128 B, miniz_oxide 8 B, zune-inflate 11520 B,
 yazi 7296 B.
 
@@ -1672,516 +1672,516 @@ yazi 7296 B.
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16388.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 1 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16388.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 6 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 9 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| random | 12 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 1 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 6 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 9 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| zeros | 12 | 71.6 KiB, 61 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 1 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 6 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 9 | 71.6 KiB, 9 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| pattern | 12 | 71.6 KiB, 61 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 1 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 6 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 9 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
+| far | 12 | 32.3 KiB, 1 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16384.0 KiB, 2 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19908.0 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 1 | 77.6 KiB, 1170 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19908.0 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 6 | 77.6 KiB, 1027 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 9 | 77.6 KiB, 1018 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| dickens | 12 | 77.6 KiB, 448 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19907.1 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 1 | 80.6 KiB, 6772 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 6 | 80.6 KiB, 5875 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 9 | 80.6 KiB, 5830 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mozilla | 12 | 80.6 KiB, 12522 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 100044.0 KiB, 2 | 0.0 KiB, 0 |
+| mr | 1 | 80.6 KiB, 967 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 6 | 80.6 KiB, 1033 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 9 | 80.6 KiB, 1011 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| mr | 12 | 80.6 KiB, 605 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19473.8 KiB, 2 | 0.0 KiB, 0 |
+| nci | 1 | 77.6 KiB, 1158 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 6 | 77.1 KiB, 940 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 9 | 77.1 KiB, 924 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| nci | 12 | 77.1 KiB, 1885 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 65536.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 1 | 80.6 KiB, 1108 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 6 | 78.6 KiB, 986 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 9 | 78.6 KiB, 977 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| ooffice | 12 | 80.6 KiB, 759 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12016.0 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 1 | 78.6 KiB, 1594 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 6 | 78.6 KiB, 1427 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 9 | 78.6 KiB, 1393 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| osdb | 12 | 78.6 KiB, 338 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 19698.6 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 1 | 77.6 KiB, 592 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 6 | 77.1 KiB, 394 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 9 | 77.1 KiB, 389 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| reymont | 12 | 76.7 KiB, 191 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 12943.8 KiB, 2 | 0.0 KiB, 0 |
+| samba | 1 | 80.6 KiB, 1687 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 6 | 80.6 KiB, 1506 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 9 | 80.6 KiB, 1524 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| samba | 12 | 78.6 KiB, 3436 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 42204.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 1 | 76.9 KiB, 918 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 6 | 76.7 KiB, 956 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 9 | 76.7 KiB, 967 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| sao | 12 | 76.7 KiB, 109 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 14164.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 1 | 77.6 KiB, 3913 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 6 | 77.6 KiB, 3364 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 9 | 77.6 KiB, 3305 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| webster | 12 | 77.6 KiB, 1373 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 80976.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 1 | 77.6 KiB, 240 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 6 | 77.6 KiB, 186 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 9 | 77.6 KiB, 189 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| xml | 12 | 77.6 KiB, 337 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 10440.0 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 1 | 140.2 KiB, 851 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 6 | 76.9 KiB, 873 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 9 | 76.9 KiB, 873 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
+| x-ray | 12 | 77.1 KiB, 146 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 16551.3 KiB, 2 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 1 | 78.6 KiB, 13593 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 6 | 78.6 KiB, 12643 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 9 | 78.6 KiB, 12617 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| enwik8 | 12 | 78.6 KiB, 29162 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 80.6 KiB, 6255 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 77.6 KiB, 5152 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 78.6 KiB, 5278 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 78.6 KiB, 13561 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 195316.0 KiB, 2 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.5 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 1 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 6 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 9 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| cp.html | 12 | 59.6 KiB, 25 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 6 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 9 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| sum | 12 | 74.6 KiB, 38 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.4 KiB, 799 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 77.1 KiB, 26 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 75.6 KiB, 20 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 297.1 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 76.9 KiB, 22 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 77.1 KiB, 23 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 75.6 KiB, 22 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 244.5 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 1 | 67.3 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 6 | 67.3 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 9 | 67.3 KiB, 13 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| cp.html | 12 | 67.3 KiB, 19 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 48.1 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 1 | 54.2 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 6 | 53.2 KiB, 10 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 9 | 53.2 KiB, 10 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| fields.c | 12 | 54.2 KiB, 12 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 21.8 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7.9 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 78.6 KiB, 103 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 78.6 KiB, 96 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 78.6 KiB, 88 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 77.1 KiB, 368 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 2011.2 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 77.6 KiB, 59 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 77.1 KiB, 47 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 77.1 KiB, 47 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 77.1 KiB, 49 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 833.5 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 77.6 KiB, 72 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 77.1 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 77.1 KiB, 63 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 77.1 KiB, 39 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 941.1 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 1 | 78.6 KiB, 34 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 6 | 78.6 KiB, 33 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 9 | 78.6 KiB, 34 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| ptt5 | 12 | 77.6 KiB, 101 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1002.4 KiB, 2 | 0.0 KiB, 0 |
+| sum | 1 | 74.6 KiB, 14 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 6 | 75.6 KiB, 16 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 9 | 75.6 KiB, 16 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| sum | 12 | 75.6 KiB, 31 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 74.7 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.4 KiB, 7 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 8.4 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 1 | 76.9 KiB, 277 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 6 | 76.9 KiB, 325 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 9 | 76.9 KiB, 295 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| E.coli | 12 | 76.9 KiB, 116 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 9059.9 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 1 | 77.6 KiB, 379 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 6 | 77.6 KiB, 285 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 9 | 77.6 KiB, 273 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| bible.txt | 12 | 77.6 KiB, 172 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 7905.1 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 1 | 77.1 KiB, 235 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 6 | 77.1 KiB, 187 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 9 | 77.1 KiB, 185 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
+| world192.txt | 12 | 77.1 KiB, 293 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 4830.9 KiB, 2 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | libdeflate | zlib-rs | miniz_oxide | zune-inflate | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 1 | 80.6 KiB, 101 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 6 | 77.6 KiB, 82 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 9 | 77.6 KiB, 83 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| rustc | 12 | 77.6 KiB, 120 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 1262.4 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 80.6 KiB, 19545 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 80.6 KiB, 16823 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 80.6 KiB, 16434 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 80.6 KiB, 16162 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 308356.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 1 | 80.6 KiB, 5219 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 6 | 80.6 KiB, 4513 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 9 | 80.6 KiB, 4403 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
+| cargo | 12 | 80.6 KiB, 5803 | 7.0 KiB, 1 | 41.1 KiB, 1 | 11.3 KiB, 1 | 46.4 KiB, 1 | 0.0 KiB, 0 | 83684.0 KiB, 2 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 22.38x at the median, and at most 22.38x.
+Ours relative to zlib's peak: 11.03x at the median, and at most 20.04x.
 
 ### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), in pieces of 4 KiB
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 zlib-rs 128 B, miniz_oxide 8 B, yazi 7296 B.
 
 #### Synthetic
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 1 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 6 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 9 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 12 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 1 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 6 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 9 | 152.3 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 12 | 152.3 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 1 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 6 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 9 | 152.4 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 12 | 152.4 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 1 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 6 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 9 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 12 | 145.1 KiB, 4 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 1 | 158.2 KiB, 1172 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 6 | 158.2 KiB, 1029 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 9 | 158.2 KiB, 1020 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 12 | 158.2 KiB, 450 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 1 | 161.2 KiB, 6774 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 6 | 161.2 KiB, 5877 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 9 | 161.2 KiB, 5832 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 12 | 161.2 KiB, 12524 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 1 | 161.2 KiB, 969 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 6 | 161.2 KiB, 1035 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 9 | 161.2 KiB, 1013 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 12 | 161.2 KiB, 607 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 1 | 158.3 KiB, 1160 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 6 | 157.8 KiB, 942 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 9 | 157.8 KiB, 926 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 12 | 157.8 KiB, 1887 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 1 | 161.2 KiB, 1110 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 6 | 159.2 KiB, 988 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 9 | 159.2 KiB, 979 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 12 | 161.2 KiB, 761 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 1 | 159.2 KiB, 1596 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 6 | 159.2 KiB, 1429 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 9 | 159.2 KiB, 1395 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 12 | 159.2 KiB, 340 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 1 | 158.2 KiB, 594 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 6 | 157.7 KiB, 396 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 9 | 157.7 KiB, 391 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 12 | 157.4 KiB, 193 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 1 | 161.2 KiB, 1689 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 6 | 161.2 KiB, 1508 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 9 | 161.2 KiB, 1526 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 12 | 159.2 KiB, 3438 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 1 | 157.4 KiB, 920 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 6 | 157.3 KiB, 958 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 9 | 157.3 KiB, 969 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 12 | 157.3 KiB, 111 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 1 | 158.2 KiB, 3915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 6 | 158.2 KiB, 3366 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 9 | 158.2 KiB, 3307 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 12 | 158.2 KiB, 1375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 1 | 158.2 KiB, 242 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 6 | 158.2 KiB, 188 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 9 | 158.5 KiB, 191 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 12 | 158.5 KiB, 339 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 1 | 157.7 KiB, 852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 6 | 157.4 KiB, 875 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 9 | 157.4 KiB, 875 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 12 | 157.7 KiB, 148 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 1 | 159.2 KiB, 13595 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 6 | 159.2 KiB, 12645 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 9 | 159.2 KiB, 12619 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 12 | 159.2 KiB, 29164 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 161.2 KiB, 6257 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 158.2 KiB, 5154 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 159.2 KiB, 5280 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 159.2 KiB, 13563 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 1 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 6 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 9 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 12 | 91.9 KiB, 26 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 6 | 139.1 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 9 | 139.1 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 12 | 92.0 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.5 KiB, 799 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 157.7 KiB, 28 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 156.2 KiB, 22 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 157.4 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 157.7 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 156.2 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 1 | 83.6 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 6 | 83.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 9 | 83.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 12 | 83.6 KiB, 20 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 1 | 47.3 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 6 | 46.3 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 9 | 46.3 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 12 | 47.3 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 159.2 KiB, 105 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 159.2 KiB, 98 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 159.2 KiB, 90 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 157.7 KiB, 370 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 158.2 KiB, 61 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 157.7 KiB, 49 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 157.7 KiB, 49 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 157.7 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 158.2 KiB, 74 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 157.7 KiB, 65 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 157.7 KiB, 65 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 157.7 KiB, 41 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 1 | 159.3 KiB, 36 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 6 | 159.3 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 9 | 159.3 KiB, 36 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 12 | 158.3 KiB, 103 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 1 | 82.6 KiB, 15 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 6 | 83.6 KiB, 17 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 9 | 83.6 KiB, 17 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 12 | 85.7 KiB, 32 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.3 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 1 | 157.4 KiB, 279 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 6 | 157.4 KiB, 327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 9 | 157.4 KiB, 297 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 12 | 157.4 KiB, 118 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 1 | 158.2 KiB, 381 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 6 | 158.2 KiB, 287 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 9 | 158.2 KiB, 275 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 12 | 158.2 KiB, 174 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 1 | 157.7 KiB, 237 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 6 | 157.7 KiB, 189 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 9 | 157.7 KiB, 187 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 12 | 157.7 KiB, 295 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 1 | 161.2 KiB, 103 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 6 | 158.2 KiB, 84 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 9 | 158.2 KiB, 85 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 12 | 158.2 KiB, 122 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 161.2 KiB, 19547 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 161.2 KiB, 16825 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 161.2 KiB, 16436 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 161.2 KiB, 16164 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 1 | 161.2 KiB, 5221 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 6 | 161.2 KiB, 4515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 9 | 161.2 KiB, 4405 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 12 | 161.2 KiB, 5805 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 4.01x at the median, and at most 4.01x.
+Ours relative to zlib's peak: 4.05x at the median, and at most 4.13x.
 
 ### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), in pieces of 64 KiB
 
-Measured 2026-11-15, at `9e96979`, `decode-deflate` 0.0.4.
+Measured 2026-11-16, at `d73cac4`, `decode-deflate` 0.0.4.
 
-The size of each decoder's value: ours 168 B, zlib 112 B, zlib-ng 104 B,
+The size of each decoder's value: ours 216 B, zlib 112 B, zlib-ng 104 B,
 zlib-rs 128 B, miniz_oxide 8 B, yazi 7296 B.
 
 #### Synthetic
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| random | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| random | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| zeros | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 1 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 6 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 9 | 147.5 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| pattern | 12 | 147.5 KiB, 283 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 1 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 6 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 9 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| far | 12 | 129.1 KiB, 3 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 1 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 6 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 9 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| random | 12 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 1 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 6 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 9 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| zeros | 12 | 136.2 KiB, 62 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 1 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 6 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 9 | 136.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| pattern | 12 | 136.2 KiB, 62 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 1 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 6 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 9 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| far | 12 | 64.6 KiB, 2 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Silesia
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| dickens | 1 | 156.5 KiB, 1731 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 6 | 156.5 KiB, 1527 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 9 | 156.5 KiB, 1515 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| dickens | 12 | 156.5 KiB, 639 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 1 | 156.5 KiB, 10485 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 6 | 156.5 KiB, 9989 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 9 | 156.5 KiB, 9960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mozilla | 12 | 156.5 KiB, 23342 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 1 | 156.5 KiB, 1576 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 6 | 156.5 KiB, 1662 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 9 | 156.5 KiB, 1670 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| mr | 12 | 156.5 KiB, 1362 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 1 | 156.5 KiB, 1671 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 6 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 9 | 156.5 KiB, 1311 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| nci | 12 | 156.5 KiB, 3853 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 1 | 156.5 KiB, 1635 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 6 | 156.5 KiB, 1605 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 9 | 156.5 KiB, 1597 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ooffice | 12 | 156.5 KiB, 1260 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 1 | 156.4 KiB, 2115 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 6 | 156.4 KiB, 1987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 9 | 156.4 KiB, 1982 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| osdb | 12 | 156.4 KiB, 423 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 1 | 156.5 KiB, 915 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 6 | 156.5 KiB, 702 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 9 | 156.5 KiB, 699 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| reymont | 12 | 155.5 KiB, 344 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 1 | 156.5 KiB, 2859 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 6 | 156.5 KiB, 2629 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 9 | 156.5 KiB, 2612 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| samba | 12 | 156.5 KiB, 8936 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 1 | 156.2 KiB, 3016 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 6 | 156.2 KiB, 3030 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 9 | 156.2 KiB, 3041 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sao | 12 | 156.2 KiB, 303 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 1 | 156.5 KiB, 5559 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 6 | 156.5 KiB, 4983 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 9 | 156.5 KiB, 4959 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| webster | 12 | 156.5 KiB, 1933 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 1 | 156.5 KiB, 375 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 6 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 9 | 156.5 KiB, 291 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xml | 12 | 156.5 KiB, 705 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 1 | 156.2 KiB, 2677 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 6 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 9 | 156.2 KiB, 3081 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| x-ray | 12 | 156.2 KiB, 409 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 1 | 142.2 KiB, 1171 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 6 | 142.2 KiB, 1028 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 9 | 142.2 KiB, 1019 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| dickens | 12 | 142.2 KiB, 449 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 1 | 145.2 KiB, 6773 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 6 | 145.2 KiB, 5876 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 9 | 145.2 KiB, 5831 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mozilla | 12 | 145.2 KiB, 12523 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 1 | 145.2 KiB, 968 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 6 | 145.2 KiB, 1034 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 9 | 145.2 KiB, 1012 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| mr | 12 | 145.2 KiB, 606 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 1 | 142.2 KiB, 1159 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 6 | 141.7 KiB, 941 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 9 | 141.7 KiB, 925 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| nci | 12 | 141.7 KiB, 1886 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 1 | 145.2 KiB, 1109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 6 | 143.2 KiB, 987 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 9 | 143.2 KiB, 978 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ooffice | 12 | 145.2 KiB, 760 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 1 | 143.2 KiB, 1595 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 6 | 143.2 KiB, 1428 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 9 | 143.2 KiB, 1394 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| osdb | 12 | 143.2 KiB, 339 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 1 | 142.2 KiB, 593 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 6 | 141.7 KiB, 395 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 9 | 141.7 KiB, 390 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| reymont | 12 | 141.3 KiB, 192 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 1 | 145.2 KiB, 1688 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 6 | 145.2 KiB, 1507 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 9 | 145.2 KiB, 1525 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| samba | 12 | 143.2 KiB, 3437 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 1 | 141.4 KiB, 919 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 6 | 141.3 KiB, 957 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 9 | 141.3 KiB, 968 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sao | 12 | 141.3 KiB, 110 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 1 | 142.2 KiB, 3914 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 6 | 142.2 KiB, 3365 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 9 | 142.2 KiB, 3306 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| webster | 12 | 142.2 KiB, 1374 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 1 | 142.2 KiB, 241 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 6 | 142.2 KiB, 187 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 9 | 142.2 KiB, 190 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xml | 12 | 142.2 KiB, 338 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 1 | 141.7 KiB, 851 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 6 | 141.4 KiB, 874 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 9 | 141.4 KiB, 874 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| x-ray | 12 | 141.7 KiB, 147 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Large files
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| enwik8 | 1 | 156.5 KiB, 16587 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 6 | 156.5 KiB, 15483 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 9 | 156.5 KiB, 15447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| enwik8 | 12 | 156.5 KiB, 47852 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 1 | 156.5 KiB, 9603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 6 | 156.5 KiB, 8318 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 9 | 156.5 KiB, 8258 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| linux-6.12.tar | 12 | 156.5 KiB, 32770 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 1 | 143.2 KiB, 13594 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 6 | 143.2 KiB, 12644 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 9 | 143.2 KiB, 12618 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| enwik8 | 12 | 143.2 KiB, 29163 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 1 | 145.2 KiB, 6256 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 6 | 142.2 KiB, 5153 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 9 | 143.2 KiB, 5279 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| linux-6.12.tar | 12 | 143.2 KiB, 13562 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Canterbury
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| alice29.txt | 1 | 156.4 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| alice29.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 1 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 6 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 9 | 156.4 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| asyoulik.txt | 12 | 139.1 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 6 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 9 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cp.html | 12 | 59.6 KiB, 25 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 1 | 49.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 6 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 9 | 49.6 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| fields.c | 12 | 49.7 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| grammar.lsp | 12 | 45.6 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 1 | 156.2 KiB, 134 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 6 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 9 | 156.2 KiB, 123 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| kennedy.xls | 12 | 156.2 KiB, 814 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 1 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 6 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 9 | 156.5 KiB, 63 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| lcet10.txt | 12 | 156.5 KiB, 75 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 1 | 156.4 KiB, 99 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 6 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 9 | 156.5 KiB, 87 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| plrabn12.txt | 12 | 156.4 KiB, 51 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 1 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 6 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 9 | 156.5 KiB, 39 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| ptt5 | 12 | 156.5 KiB, 202 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 1 | 73.6 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 6 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 9 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| sum | 12 | 74.6 KiB, 38 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 1 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 6 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 9 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| xargs.1 | 12 | 45.5 KiB, 11 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 1 | 156.5 KiB, 799 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 6 | 156.5 KiB, 603 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 9 | 156.5 KiB, 536 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| E.coli | 12 | 156.5 KiB, 207 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 1 | 156.5 KiB, 555 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 6 | 156.5 KiB, 459 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 9 | 156.5 KiB, 447 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| bible.txt | 12 | 156.5 KiB, 288 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 1 | 156.5 KiB, 363 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 6 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 9 | 156.5 KiB, 315 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| world192.txt | 12 | 156.5 KiB, 602 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 1 | 141.7 KiB, 27 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 6 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 9 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| alice29.txt | 12 | 140.2 KiB, 21 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 1 | 140.2 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 6 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 9 | 141.7 KiB, 24 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| asyoulik.txt | 12 | 140.2 KiB, 23 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 1 | 67.3 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 6 | 67.3 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 9 | 67.3 KiB, 13 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cp.html | 12 | 67.3 KiB, 19 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 1 | 54.2 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 6 | 53.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 9 | 53.2 KiB, 10 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| fields.c | 12 | 54.2 KiB, 12 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 1 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 6 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 9 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| grammar.lsp | 12 | 42.0 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 1 | 143.2 KiB, 104 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 6 | 143.2 KiB, 97 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 9 | 143.2 KiB, 89 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| kennedy.xls | 12 | 141.7 KiB, 369 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 1 | 142.2 KiB, 60 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 6 | 141.7 KiB, 48 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 9 | 141.7 KiB, 48 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| lcet10.txt | 12 | 141.7 KiB, 50 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 1 | 142.2 KiB, 73 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 6 | 141.7 KiB, 64 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 9 | 141.7 KiB, 64 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| plrabn12.txt | 12 | 141.7 KiB, 40 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 1 | 143.2 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 6 | 143.2 KiB, 34 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 9 | 143.2 KiB, 35 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| ptt5 | 12 | 142.2 KiB, 102 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 1 | 74.6 KiB, 14 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 6 | 75.6 KiB, 16 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 9 | 75.6 KiB, 16 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| sum | 12 | 75.6 KiB, 31 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 1 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 6 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 9 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| xargs.1 | 12 | 42.4 KiB, 7 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 1 | 141.4 KiB, 278 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 6 | 141.4 KiB, 326 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 9 | 141.4 KiB, 296 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| E.coli | 12 | 141.4 KiB, 117 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 1 | 142.2 KiB, 380 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 6 | 142.2 KiB, 286 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 9 | 142.2 KiB, 274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| bible.txt | 12 | 142.2 KiB, 173 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 1 | 141.7 KiB, 236 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 6 | 141.7 KiB, 188 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 9 | 141.7 KiB, 186 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| world192.txt | 12 | 141.7 KiB, 294 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
 #### Rust's executables
 
 | Input | Level | ours | zlib | zlib-ng | zlib-rs | miniz_oxide | yazi |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| rustc | 1 | 156.5 KiB, 144 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 6 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 9 | 156.5 KiB, 135 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| rustc | 12 | 156.5 KiB, 209 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 1 | 156.5 KiB, 32274 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 6 | 156.5 KiB, 30960 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 9 | 156.5 KiB, 30728 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| librustc_driver.so | 12 | 156.5 KiB, 32360 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 1 | 156.5 KiB, 8327 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 6 | 156.5 KiB, 7884 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 9 | 156.5 KiB, 7811 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
-| cargo | 12 | 156.5 KiB, 11109 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 1 | 145.2 KiB, 102 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 6 | 142.2 KiB, 83 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 9 | 142.2 KiB, 84 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| rustc | 12 | 142.2 KiB, 121 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 1 | 145.2 KiB, 19546 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 6 | 145.2 KiB, 16824 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 9 | 145.2 KiB, 16435 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| librustc_driver.so | 12 | 145.2 KiB, 16163 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 1 | 145.2 KiB, 5220 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 6 | 145.2 KiB, 4514 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 9 | 145.2 KiB, 4404 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
+| cargo | 12 | 145.2 KiB, 5804 | 39.0 KiB, 2 | 41.1 KiB, 1 | 46.4 KiB, 1 | 42.3 KiB, 1 | 0.0 KiB, 0 |
 
-Ours relative to zlib's peak: 4.01x at the median, and at most 4.01x.
+Ours relative to zlib's peak: 3.63x at the median, and at most 3.72x.
 
 <!-- filer-bench: end -->
 
@@ -2201,16 +2201,16 @@ portable with fat LTO; read-only data, such as tables, is not counted.
 | Target | `opt-level` 3 | `opt-level` "s" |
 | --- | ---: | ---: |
 | aarch64-apple-darwin | 6772 | 6416 |
-| aarch64-unknown-linux-gnu | 8728 | 7076 |
-| x86_64-unknown-linux-gnu | 11876 | 8860 |
+| aarch64-unknown-linux-gnu | 23672 | 20364 |
+| x86_64-unknown-linux-gnu | 31589 | 25547 |
 
 On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
 `decode-deflate` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
-On aarch64-unknown-linux-gnu, measured 2026-11-13, at `de4f027`,
+On aarch64-unknown-linux-gnu, measured 2026-11-16, at `d73cac4`,
 `decode-deflate` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
-On x86_64-unknown-linux-gnu, measured 2026-11-13, at `de4f027`,
+On x86_64-unknown-linux-gnu, measured 2026-11-16, at `d73cac4`,
 `decode-deflate` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
 <!-- filer-bench: end -->

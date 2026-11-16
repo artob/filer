@@ -66,16 +66,16 @@ portable with fat LTO; read-only data, such as tables, is not counted.
 | Target | `opt-level` 3 | `opt-level` "s" |
 | --- | ---: | ---: |
 | aarch64-apple-darwin | 11988 | 7304 |
-| aarch64-unknown-linux-gnu | 11844 | 7908 |
-| x86_64-unknown-linux-gnu | 17031 | 10051 |
+| aarch64-unknown-linux-gnu | 20748 | 17084 |
+| x86_64-unknown-linux-gnu | 28210 | 21424 |
 
 On aarch64-apple-darwin, measured 2026-11-07, at `86d2427`,
 `decode-zlib` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
-On aarch64-unknown-linux-gnu, measured 2026-11-13, at `de4f027`,
+On aarch64-unknown-linux-gnu, measured 2026-11-16, at `d73cac4`,
 `decode-zlib` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
-On x86_64-unknown-linux-gnu, measured 2026-11-13, at `de4f027`,
+On x86_64-unknown-linux-gnu, measured 2026-11-16, at `d73cac4`,
 `decode-zlib` 0.0.4, by rustc 1.99.1 (58cf8f9c3 2026-10-13).
 
 <!-- filer-bench: end -->

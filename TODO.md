@@ -639,10 +639,11 @@ crate's name until its first code, which moves it to `lib/`.
   each uncovered branch gets a test, most of all the paths that refuse
   malformed input, or a note here of why it cannot be reached.
 - [ ] **DEC-23: `decode-deflate`'s allocations.** Each dynamic block
-  boxes its state anew and builds its three Huffman tables of three new
-  vectors each: Silesia's `dickens` takes 1,515 to 1,731 allocations a
-  stream, where zlib takes one, and ours holds 129 to 157 KiB at most,
-  where zlib holds 7 whole and 39 in pieces (`BENCH.md`, 2026-11-15).
+  boxes its state anew, builds its code length code's table anew, and
+  gathers each table's codes longer than its index in a new vector:
+  Silesia's `dickens` takes 448 to 1,172 allocations a stream, where zlib
+  takes one, and ours holds 32 to 140 KiB at most whole and 42 to 161 in
+  pieces, where zlib holds 7 and 39 (`BENCH.md`, 2026-11-16).
   Done when a stream allocates once, its block state and tables reused
   from block to block, its speed timed before and after.
 - [ ] **DEC-24: `decode-deflate`'s speed.** Whole, on the default
