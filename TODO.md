@@ -646,26 +646,27 @@ crate's name until its first code, which moves it to `lib/`.
   pieces, where zlib holds 7 and 39 (`BENCH.md`, 2026-11-16).
   Done when a stream allocates once, its block state and tables reused
   from block to block, its speed timed before and after.
-- [ ] **DEC-24: `decode-deflate`'s speed.** Whole, on the default
-  machines' real inputs, it trailed libdeflate, `zlib-rs`, zlib-ng,
-  `zune-inflate`, and `yazi`, at 0.52 to 0.93 of their speed (`BENCH.md`,
-  2026-11-15, of the code before); reworked since (`CHANGES.md`). By a
-  quick timer's best of runs over every input at levels 1, 6, 9, and 12
-  (2026-11-15), it now decodes faster than zlib-ng and `zlib-rs` on each
-  default machine, whole, in pieces of 4 and 64 KiB, and in small
-  streams of 64 B to 16 KiB, but for synthetic inputs: whole, `pattern`
-  at 0.90 to 0.92 of zlib-ng's speed on x86-64, and `zeros` and
-  `pattern` at level 1 at 0.93 on Neoverse V3, whose matches of 258 bytes
-  from far back it copies by 16 bytes a turn; in pieces, `zeros` and
-  `pattern` at 0.66 to 0.84 on x86-64, decoded into its window and then
-  copied out, and stored blocks at 0.83 to 0.88, which its window's
-  buffer moves more than zlib-ng's window does, a window that goes round
-  its buffer being the cure. Of libdeflate's speed, whole, it decodes at
-  0.94 on Zen 5 and 0.93 on Granite Rapids, 0.83 to 0.88 for Silesia,
-  the large files, and Rust's executables, and at 0.97 on Neoverse V3;
-  its fast loop executes more instructions and branches than
-  libdeflate's, bounds checks among them, and changes to it move its
-  registers, which costs Granite Rapids most.
+- [ ] **DEC-24: `decode-deflate`'s speed.** Reworked since it trailed
+  libdeflate, `zlib-rs`, zlib-ng, `zune-inflate`, and `yazi`
+  (`CHANGES.md`). Whole, by the harness at `d73cac4` (`BENCH.md`,
+  2026-11-16), it decodes the default machines' real inputs 1.09 to 1.37
+  times as fast as zlib-ng and `zlib-rs`, each at least 1.02 times, but
+  trails them on synthetic ones: `pattern` at 0.88 to 0.95 of their
+  speed on x86-64 and 0.86 at level 1 on Neoverse V3, `zeros` at 0.96 to
+  0.99 on x86-64 and 0.83 to 0.95 on Neoverse V3, whose matches of 258
+  bytes from far back it copies by 16 bytes a turn, and stored blocks at
+  0.99 on Zen 5. Of libdeflate's speed it decodes at 0.94 on Zen 5 and
+  Neoverse V3 and 0.92 on Granite Rapids over every input, 0.88 to 0.94
+  over real ones, 0.74 at worst (Granite Rapids' `sum`); its fast loop
+  executes more instructions and branches than libdeflate's, bounds
+  checks among them, and changes to it move its registers, which costs
+  Granite Rapids most. By a quick timer's best of runs (2026-11-15), it
+  decodes faster than zlib-ng and `zlib-rs` in pieces of 4 and 64 KiB,
+  and in small streams of 64 B to 16 KiB, but for synthetic inputs in
+  pieces: `zeros` and `pattern` at 0.66 to 0.84 on x86-64, decoded into
+  its window and then copied out, and stored blocks at 0.83 to 0.88,
+  which its window's buffer moves more than zlib-ng's window does, a
+  window that goes round its buffer being the cure.
   Tried and lost: the bits two places up, so that loads take an entry by
   its place in bytes (3.1% faster on Zen 5, 3.1% slower on Granite
   Rapids); literal indexes of 9 or 11 bits, and distance ones of 9 or 10;
