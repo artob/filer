@@ -163,6 +163,11 @@ so any release may break compatibility.
   five bytes, not by a turn of the decoder through its bits: whole, the
   corpus's incompressible inputs decode 13% faster on Zen 5, at 1.01
   times zlib-ng's speed, and 16% faster on Neoverse V3.
+- `decode-deflate`: on x86-64, a long match from 16 to 31 back makes the
+  32 bytes of its period it writes in registers, not laid out in memory,
+  and with `intrinsics` writes them by AVX2 where the CPU has it: the
+  corpus's `pattern` decodes 1.22 times as fast on Granite Rapids, at
+  1.06 times zlib-ng's speed, and 8% faster on Zen 5.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
