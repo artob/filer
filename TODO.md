@@ -653,22 +653,32 @@ crate's name until its first code, which moves it to `lib/`.
   (2026-11-15), it now decodes faster than zlib-ng and `zlib-rs` on each
   default machine, whole, in pieces of 4 and 64 KiB, and in small
   streams of 64 B to 16 KiB, but for synthetic inputs: whole, `pattern`
-  at 0.83 to 0.90 of zlib-ng's speed on x86-64; in pieces, `zeros` and
-  `pattern` at 0.62 to 0.78 on x86-64, and stored blocks at 0.82 to 0.90,
-  which its window's buffer copies more than zlib-ng's window does. Of
-  libdeflate's speed, whole, it decodes at 0.93 on Zen 5 and Granite
-  Rapids, 0.85 to 0.89 for Silesia, the large files, and Rust's
-  executables, and at 0.975 on Neoverse V3; its fast loop executes more
-  instructions and branches than libdeflate's, bounds checks among them,
-  and changes to it move its registers, which costs Granite Rapids most.
+  at 0.90 to 0.92 of zlib-ng's speed on x86-64, and `zeros` and
+  `pattern` at level 1 at 0.93 on Neoverse V3, whose matches of 258 bytes
+  from far back it copies by 16 bytes a turn; in pieces, `zeros` and
+  `pattern` at 0.66 to 0.84 on x86-64, decoded into its window and then
+  copied out, and stored blocks at 0.83 to 0.88, which its window's
+  buffer moves more than zlib-ng's window does, a window that goes round
+  its buffer being the cure. Of libdeflate's speed, whole, it decodes at
+  0.94 on Zen 5 and 0.93 on Granite Rapids, 0.83 to 0.88 for Silesia,
+  the large files, and Rust's executables, and at 0.97 on Neoverse V3;
+  its fast loop executes more instructions and branches than
+  libdeflate's, bounds checks among them, and changes to it move its
+  registers, which costs Granite Rapids most.
   Tried and lost: the bits two places up, so that loads take an entry by
   its place in bytes (3.1% faster on Zen 5, 3.1% slower on Granite
   Rapids); literal indexes of 9 or 11 bits, and distance ones of 9 or 10;
   the bits reloaded by position each turn; the rare paths out of line;
   the tables in one block of fixed size; the input as a shrinking slice;
   a turn's writes through one view of the buffer; matches by words of 8
-  (Zen 5's `E.coli` 26% faster, Granite Rapids 7% slower); far matches by
-  32 bytes on Neoverse V3. Done when it decodes faster than zlib-ng and
+  (Zen 5's `E.coli` 26% faster, Granite Rapids 7% slower); the limit
+  derived from the last place a write may begin; on Intel's cores, short
+  matches copied flat, the rest out of line or not (2 to 3% slower);
+  direct decoding from any call, copying from the window what reaches
+  before it (synthetic inputs in pieces 40% faster, real ones 4 to 20%
+  slower); runs of one byte by AVX2 out of line (`zeros` 19% faster,
+  `sum` 15% slower); far matches by 32 bytes on Neoverse V3, or long
+  ones alone (2% slower). Done when it decodes faster than zlib-ng and
   `zlib-rs` on each default machine, every input, whole, in pieces, and
   in small streams, and at 0.95 of libdeflate's speed at least, whole.
 
