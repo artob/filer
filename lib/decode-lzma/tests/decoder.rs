@@ -129,6 +129,42 @@ fn decodes_empty_streams() {
     assert_eq!(decode_lzma2(&[0], 0).unwrap(), (vec![], 1));
 }
 
+/// Stored chunks: one larger than a dictionary of 4 KiB fills the window,
+/// and goes on once what it holds is produced; of a dictionary of 6 KiB,
+/// whose buffer is first 4 KiB, two of 3,823 bytes and of 273, the most a
+/// packet writes, end at its end, before it grows.
+#[test]
+fn copies_stored_chunks_past_the_window() {
+    let chunk = |control: u8, data: &[u8]| {
+        let len = u16::try_from(data.len() - 1).unwrap().to_be_bytes();
+        [&[control][..], &len, data].concat()
+    };
+    let data = noise(10_000, 9);
+    let stream = [chunk(0x01, &data), vec![0]].concat();
+    assert_eq!(
+        decode_lzma2(&stream, 0).unwrap(),
+        (data.clone(), stream.len())
+    );
+    assert_eq!(
+        theirs_lzma2(&stream, 0).unwrap(),
+        (data.clone(), stream.len())
+    );
+    let (first, rest) = data.split_at(3823);
+    let (second, third) = rest.split_at(273);
+    let stream = [
+        chunk(0x01, first),
+        chunk(0x02, second),
+        chunk(0x02, third),
+        vec![0],
+    ]
+    .concat();
+    assert_eq!(
+        decode_lzma2(&stream, 1).unwrap(),
+        (data.clone(), stream.len())
+    );
+    assert_eq!(theirs_lzma2(&stream, 1).unwrap(), (data, stream.len()));
+}
+
 #[test]
 fn consumes_no_byte_past_the_end() {
     let data = text(10_000, 9);
