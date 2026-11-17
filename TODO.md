@@ -652,7 +652,10 @@ crate's name until its first code, which moves it to `lib/`.
   of another length than its flags give, as it is gathered by them, and
   a content size without its flag; slices bounded just before; a frame
   ending in a call that does nothing; and states that `decode` never
-  gives `step` or `need`. Done when a
+  gives `step` or `need`. `decode-lzo`, whose untaken ones cannot be:
+  slices bounded just before, a file ending in a call that consumes
+  nothing, and output pending between files, as it reads past a block
+  only once all is produced. Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse

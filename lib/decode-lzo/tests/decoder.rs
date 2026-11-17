@@ -101,7 +101,7 @@ fn reads_files_one_after_another() {
     // Zero bytes may follow, as `lzop` ignores them, but nothing else.
     let padded = [&stream[..], &[0; 9]].concat();
     assert_eq!(decode(&padded).unwrap(), b"hellohello");
-    for trailing in [&b"garbage"[..], &[0, 0, 1], &[0, 0, 0x89]] {
+    for trailing in [&b"garbage"[..], &[0, 0, 1], &[0, 0, 0x89], &hello[..3]] {
         let bad = [&stream[..], trailing].concat();
         assert_eq!(error(&bad), Error::Corrupt, "{trailing:?}");
     }
@@ -110,6 +110,20 @@ fn reads_files_one_after_another() {
     assert_eq!(error(&[0; 4]), Error::Corrupt);
     assert_eq!(error(&hello[..hello.len() - 4]), Error::Corrupt);
     assert_eq!(error(&hello[..30]), Error::Corrupt);
+}
+
+/// A decoder by default is a new one, which says where it is, and may not
+/// finish within a file. Its errors say what they mean.
+#[test]
+fn defaults_to_a_new_decoder() {
+    let hello = file(&Header::default(), &[(false, b"hello")]);
+    let mut decoder = Decoder::default();
+    let mut output = [0; 1];
+    assert_eq!(decoder.decode(&hello, &mut output).unwrap().1, 1);
+    assert_eq!(decoder.finish(), Err(Error::Corrupt));
+    assert!(format!("{decoder:?}").starts_with("Decoder"));
+    assert_eq!(Error::Corrupt.to_string(), "corrupt LZO data");
+    assert_eq!(Error::Unsupported.to_string(), "unsupported LZO stream");
 }
 
 #[test]
