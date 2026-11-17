@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::{agree, crc32, zlib};
+use common::{agree, crc32, decode, zlib};
 use decode_deflate::{Decoder, Error};
 
 /// The fixtures are raw Deflate by zlib 1.2.12: text at levels 1, 6, and
@@ -351,6 +351,190 @@ fn offers_checkpoints_anywhere() {
         }
         checkpoint.finish().unwrap();
         assert!(rest == expected[len..], "from {from}");
+    }
+}
+
+/// Writes the header of a dynamic block, last or not, whose codes'
+/// lengths, of 0 or 1 alone, are `literals` and `distances`: in the code
+/// length code, 0 as `0`, 1 as `10`, and 18, a run of zeros, as `11`.
+fn dynamic(bits: Bits, last: bool, literals: &[u32], distances: &[u32]) -> Bits {
+    let mut bits = bits
+        .field(u32::from(last), 1)
+        .field(2, 2)
+        .field(literals.len() as u32 - 257, 5)
+        .field(distances.len() as u32 - 1, 5)
+        .field(14, 4);
+    for len in [0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2] {
+        bits = bits.field(len, 3);
+    }
+    let lengths = [literals, distances].concat();
+    let mut at = 0;
+    while at < lengths.len() {
+        let zeros = lengths[at..].iter().take_while(|&&len| len == 0).count();
+        if zeros >= 11 {
+            let zeros = zeros.min(138);
+            bits = bits.code(3, 2).field(zeros as u32 - 11, 7);
+            at += zeros;
+        } else {
+            bits = match lengths[at] {
+                0 => bits.code(0, 1),
+                _ => bits.code(2, 2),
+            };
+            at += 1;
+        }
+    }
+    bits
+}
+
+/// Blocks built by hand: one whose literal/length code is the end's
+/// alone, of one bit, whose other bit is no code; and one of matches
+/// alone, which has no literal to pair, after a literal, with more input
+/// after it than pairing at once asks.
+#[test]
+fn decodes_blocks_of_one_or_two_codes() {
+    let mut end = vec![0; 257];
+    end[256] = 1;
+    let invalid = dynamic(Bits::default(), true, &end, &[0]).code(1, 1);
+    assert_eq!(kind(&invalid.bytes), Error::Corrupt);
+    assert!(zlib(&invalid.bytes).is_none());
+    let mut matches = vec![0; 286];
+    (matches[256], matches[285]) = (1, 1);
+    let first = Bits::default()
+        .field(0, 1)
+        .field(1, 2)
+        .literal(b'a')
+        .code(0, 7);
+    let mut bits = dynamic(first, true, &matches, &[1]);
+    for _ in 0..1000 {
+        bits = bits.code(1, 1).code(0, 1);
+    }
+    let stream = bits.code(0, 1).bytes;
+    let after = [&stream[..], &[7; 4096]].concat();
+    let expected = b"a".repeat(1 + 258 * 1000);
+    let (decoded, consumed) = decode(&after, 1 << 20).unwrap();
+    assert!(decoded == expected);
+    assert_eq!(consumed, stream.len());
+    assert!(agree(&after, 13).unwrap() == (expected.clone(), stream.len()));
+    assert!(zlib(&after) == Some((expected, stream.len())));
+}
+
+/// Writes a stored block, last or not, of `bytes`, from a byte's start.
+fn stored(bits: Bits, last: bool, bytes: &[u8], nlen: u32) -> Bits {
+    let mut bits = bits.field(u32::from(last), 1).field(0, 2);
+    while !bits.count.is_multiple_of(8) {
+        bits = bits.bit(0);
+    }
+    let len = bytes.len() as u32;
+    bits = bits.field(len, 16).field(nlen, 16);
+    bytes
+        .iter()
+        .fold(bits, |bits, &byte| bits.field(u32::from(byte), 8))
+}
+
+/// Stored blocks, straight to an output with room: a second whose length's
+/// complement disagrees, read where the first is copied; one of more than
+/// a window, of which a match after it copies; and one after codes that
+/// went straight to the output, with less room left than a window.
+#[test]
+fn copies_stored_blocks_straight() {
+    let first = stored(Bits::default(), false, b"hello", !5 & 0xFFFF);
+    let bad = stored(first, true, b"world", 5);
+    assert_eq!(decode(&bad.bytes, 1 << 20), Err(Error::Corrupt));
+    assert!(zlib(&bad.bytes).is_none());
+    let long: Vec<u8> = (0..40_000_u32).map(|n| (n * 7 % 251) as u8).collect();
+    let block = stored(Bits::default(), false, &long, !40_000 & 0xFFFF);
+    let stream = block
+        .field(1, 1)
+        .field(1, 2)
+        .code(1, 7)
+        .code(0, 5)
+        .code(0, 7);
+    let expected = [&long[..], &[long[39_999]; 3]].concat();
+    let decoded = decode(&stream.bytes, 1 << 20).unwrap();
+    assert!(decoded == (expected.clone(), stream.bytes.len()));
+    assert!(agree(&stream.bytes, 13).unwrap() == (expected, stream.bytes.len()));
+    let mut runs = Bits::default().field(0, 1).field(1, 2).literal(b'a');
+    for _ in 0..400 {
+        runs = runs.code(0xC5, 8).code(0, 5);
+    }
+    let tail: Vec<u8> = (0..1000_u32).map(|n| n as u8).collect();
+    let stream = stored(runs.code(0, 7), true, &tail, !1000 & 0xFFFF).bytes;
+    let expected = [&b"a".repeat(1 + 258 * 400)[..], &tail].concat();
+    let mut decoder = Decoder::new();
+    let mut output = vec![0; expected.len()];
+    let (mut at, mut end) = (0, 0);
+    while end < output.len() {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut output[end..]).unwrap();
+        assert!(consumed + produced > 0, "stuck at {at}");
+        (at, end) = (at + consumed, end + produced);
+    }
+    decoder.finish().unwrap();
+    assert!(output == expected);
+    assert_eq!(zlib(&stream), Some((expected, stream.len())));
+}
+
+/// A stream cut short, decoded into ample room, where codes go straight
+/// to the output once it holds a window: the input ends within a block,
+/// and `finish` finds it cut short. And one whole in a byte of room: it
+/// has ended, but not produced all it decoded.
+#[test]
+fn finishes_only_whole_and_produced() {
+    let (_, stream, len, _) = FIXTURES[8];
+    let cut = &stream[..stream.len() * 9 / 10];
+    let mut decoder = Decoder::new();
+    let mut output = vec![0; 1 << 20];
+    let (_, produced) = decoder.decode(cut, &mut output).unwrap();
+    assert!(produced > 32 << 10 && produced < len, "{produced}");
+    assert_eq!(decoder.finish(), Err(Error::Corrupt));
+    let good = Bits::fixed().literal(b'a').code(1, 7).code(0, 5).code(0, 7);
+    let mut decoder = Decoder::default();
+    let mut output = [0; 1];
+    let (consumed, produced) = decoder.decode(&good.bytes, &mut output).unwrap();
+    assert_eq!((consumed, produced), (good.bytes.len(), 1));
+    assert_eq!(decoder.finish(), Err(Error::Corrupt));
+    assert_eq!(Error::Corrupt.to_string(), "corrupt Deflate stream");
+}
+
+/// Checkpoints taken within dynamic blocks' headers past the first, given
+/// a byte of input at a time, which go on to the same end.
+#[test]
+fn offers_checkpoints_within_block_headers() {
+    let data: Vec<u8> = (0..200_000_u32)
+        .map(|n| (n * 7 % 253) as u8 ^ (n >> 9) as u8)
+        .collect();
+    // Of two blocks, at level 1.
+    let stream = miniz_oxide::deflate::compress_to_vec(&data, 1);
+    let mut decoder = Decoder::new();
+    let mut output = [0; 4096];
+    let (mut at, mut decoded, mut resumed) = (0, Vec::new(), Vec::new());
+    loop {
+        let end = stream.len().min(at + 1);
+        let (consumed, produced) = decoder.decode(&stream[at..end], &mut output).unwrap();
+        if (consumed, produced) == (0, 0) {
+            break;
+        }
+        at += consumed;
+        decoded.extend_from_slice(&output[..produced]);
+        let header = format!("{decoder:?}").contains("Dynamic");
+        if header && !decoded.is_empty() && resumed.len() < 40 {
+            resumed.push((at, decoded.len(), decoder.checkpoint().unwrap()));
+        }
+    }
+    decoder.finish().unwrap();
+    assert!(decoded == data);
+    assert_eq!(resumed.len(), 40);
+    for (from, len, mut checkpoint) in resumed {
+        let (mut at, mut rest) = (from, Vec::new());
+        loop {
+            let (consumed, produced) = checkpoint.decode(&stream[at..], &mut output).unwrap();
+            if (consumed, produced) == (0, 0) {
+                break;
+            }
+            at += consumed;
+            rest.extend_from_slice(&output[..produced]);
+        }
+        checkpoint.finish().unwrap();
+        assert!(rest == data[len..], "from {from}");
     }
 }
 

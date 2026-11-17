@@ -664,7 +664,14 @@ crate's name until its first code, which moves it to `lib/`.
   lengths they were gathered to, stages the chain surely has, a block
   ending in a call that does nothing, padding before any stream, a
   stage drained before what it holds is taken, and compressed data past
-  its declared size, as the input is cut there. Done when a
+  its declared size, as the input is cut there. `decode-deflate`, whose
+  untaken ones cannot be: slices bounded just before, a symbol past 256
+  with no length, an invalid code length code, which must be complete,
+  counts past 15, conversions from `u32`, a `chunk` past the edge that
+  the loop stops at, pairing a table other than a literal table of its
+  own, the careful path's checks of extra bits, which lookups count
+  first, and whole bytes in the bits of a stored block, which are given
+  back after its length. Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse
