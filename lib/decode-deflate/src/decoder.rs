@@ -408,14 +408,17 @@ macro_rules! tally {
     };
 }
 
-/// A dynamic block's description of its codes (§3.2.7), read so far.
+/// A dynamic block's description of its codes (§3.2.7), read so far: one
+/// for a stream, begun again for each block, its table kept.
 #[derive(Clone, Debug)]
 struct Dynamic {
     /// The counts of literal/length, distance, and code length codes.
     counts: Option<(usize, usize, usize)>,
-    /// The code length code's lengths, and then the code itself.
+    /// The code length code's lengths, and then the code itself, once it
+    /// is `coded`.
     lengths_of_lengths: [u8; 19],
-    code: Option<Table>,
+    code: Table,
+    coded: bool,
     /// The lengths of the literal/length and distance codes, as one.
     lengths: [u8; MAX_LITERALS + MAX_DISTANCES],
     /// How many lengths have been read, of either kind.
@@ -475,11 +478,22 @@ impl Dynamic {
         Self {
             counts: None,
             lengths_of_lengths: [0; 19],
-            code: None,
+            code: Table::default(),
+            coded: false,
             lengths: [0; MAX_LITERALS + MAX_DISTANCES],
             read: 0,
             tally: [0; huffman::LENGTHS],
         }
+    }
+
+    /// Begins a block's description. Its lengths stay as they are: a block
+    /// writes each of its own before it reads one back.
+    fn begin(&mut self) {
+        self.counts = None;
+        self.lengths_of_lengths = [0; 19];
+        self.coded = false;
+        self.read = 0;
+        self.tally = [0; huffman::LENGTHS];
     }
 
     /// Reads what it can of the description, and makes `literal_table` and
@@ -512,7 +526,7 @@ impl Dynamic {
                 counts
             },
         };
-        if self.code.is_none() {
+        if !self.coded {
             while self.read < count {
                 bits.refill(input);
                 if bits.count < 3 {
@@ -527,14 +541,15 @@ impl Dynamic {
                 self.read = self.read.saturating_add(1);
             }
             self.read = 0;
-            self.code = Some(Table::new(
+            self.code.build(
                 &self.lengths_of_lengths,
                 LENGTH_BITS,
                 Kind::Lengths,
                 |symbol| (symbol, 0),
-            )?);
+            )?;
+            self.coded = true;
         }
-        let code = self.code.as_ref().ok_or_else(corrupt)?;
+        let code = &self.code;
         let total = literals.saturating_add(distances);
         while self.read < total {
             // While a word of input is left, four symbols to a refill without
@@ -631,7 +646,7 @@ enum State {
     /// In a stored block, with this many bytes left.
     Stored(u32),
     /// In a dynamic block's description of its codes.
-    Dynamic(Box<Dynamic>),
+    Dynamic,
     /// Before a literal/length code.
     Literal,
     /// Before the distance of a match of this length.
@@ -679,6 +694,8 @@ pub struct Decoder {
     window: Window,
     literals: Table,
     distances: Table,
+    /// The description of the codes, from the first dynamic block on.
+    dynamic: Option<Box<Dynamic>>,
     /// How much the block being decoded has decoded, while its literals
     /// are not paired.
     unpaired: usize,
@@ -695,6 +712,7 @@ impl Decoder {
             window: Window::default(),
             literals: Table::default(),
             distances: Table::default(),
+            dynamic: None,
             unpaired: 0,
         }
     }
@@ -798,13 +816,19 @@ impl Decoder {
     }
 
     /// Returns a decoder that goes on from where this one is: a copy of
-    /// it, with no more of its window than matches may copy from.
+    /// it, with no more of its window than matches may copy from, and none
+    /// of the room it keeps for blocks to come.
     #[must_use]
     pub fn checkpoint(&self) -> Option<Self> {
         let mut copy = self.clone();
         copy.window.compact();
         copy.window.buf.truncate(copy.window.end);
         copy.window.buf.shrink_to_fit();
+        if !matches!(copy.state, State::Dynamic) {
+            copy.dynamic = None;
+        }
+        copy.literals.trim();
+        copy.distances.trim();
         Some(copy)
     }
 
@@ -896,7 +920,12 @@ impl Decoder {
                             self.fixed()?;
                             State::Literal
                         },
-                        2 => State::Dynamic(Box::new(Dynamic::new())),
+                        2 => {
+                            let dynamic =
+                                self.dynamic.get_or_insert_with(|| Box::new(Dynamic::new()));
+                            dynamic.begin();
+                            State::Dynamic
+                        },
                         _ => return Err(corrupt()),
                     };
                 },
@@ -952,7 +981,8 @@ impl Decoder {
                     }
                     *left = left.saturating_sub(u32::try_from(n).unwrap_or(u32::MAX));
                 },
-                State::Dynamic(dynamic) => {
+                State::Dynamic => {
+                    let dynamic = self.dynamic.get_or_insert_with(|| Box::new(Dynamic::new()));
                     let tables = (&mut self.literals, &mut self.distances);
                     if !dynamic.read(&mut self.bits, input, self.window.format, tables)? {
                         return Ok(Flow::More);
@@ -1085,8 +1115,8 @@ impl Decoder {
     /// Deflate's tables are made at compile time, Deflate64's here.
     fn fixed(&mut self) -> Result<(), Error> {
         if self.window.format == Format::Deflate {
-            self.literals = Table::fixed(&FIXED_LITERALS, LITERAL_BITS);
-            self.distances = Table::fixed(&FIXED_DISTANCES, DISTANCE_BITS);
+            self.literals.fix(&FIXED_LITERALS, LITERAL_BITS);
+            self.distances.fix(&FIXED_DISTANCES, DISTANCE_BITS);
             return Ok(());
         }
         let mut literals = [8_u8; 288];
@@ -1116,7 +1146,7 @@ impl Decoder {
 }
 
 /// The tables of Deflate's fixed codes (§3.2.6), made at compile time as
-/// `Table::new` makes them: no code is longer than the index, and none of a
+/// `Table::build` makes them: no code is longer than the index, and none of a
 /// literal so short that two fit it.
 #[allow(
     clippy::as_conversions,

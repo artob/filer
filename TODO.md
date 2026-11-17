@@ -639,11 +639,16 @@ crate's name until its first code, which moves it to `lib/`.
   each uncovered branch gets a test, most of all the paths that refuse
   malformed input, or a note here of why it cannot be reached.
 - [ ] **DEC-23: `decode-deflate`'s allocations.** Each dynamic block
-  boxes its state anew, builds its code length code's table anew, and
-  gathers each table's codes longer than its index in a new vector:
-  Silesia's `dickens` takes 448 to 1,172 allocations a stream, where zlib
+  boxed its state anew, built its code length code's table anew, and
+  gathered each table's codes longer than its index in a new vector:
+  Silesia's `dickens` took 448 to 1,172 allocations a stream, where zlib
   takes one, and ours holds 32 to 140 KiB at most whole and 42 to 161 in
-  pieces, where zlib holds 7 and 39 (`BENCH.md`, 2026-11-16).
+  pieces, where zlib holds 7 and 39 (`BENCH.md`, 2026-11-16). A stream
+  now keeps them from block to block (`CHANGES.md`): six allocations at
+  most, its window, its description, and its tables' room, grown up to
+  five times, however many blocks it holds, by a counting allocator over
+  Canterbury (2026-11-16); not yet counted by the harness, nor timed on
+  the default machines, which a campaign holds.
   Done when a stream allocates once, its block state and tables reused
   from block to block, its speed timed before and after.
 - [ ] **DEC-24: `decode-deflate`'s speed.** Reworked since it trailed

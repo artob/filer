@@ -178,6 +178,9 @@ pub(crate) struct Table {
     mask: u64,
     /// Its own, or the fixed codes', made at compile time.
     entries: Cow<'static, [Entry]>,
+    /// The room of its own entries while it holds the fixed codes', kept
+    /// for its next table of its own.
+    spare: Vec<Entry>,
     /// Whether its literals are paired, or need not be.
     paired: bool,
     /// Its literals whose codes its index holds, `shorts` of them, in
@@ -195,10 +198,8 @@ impl Default for Table {
 }
 
 impl Table {
-    /// Returns the table of the codes that `lengths`, each symbol's in turn,
-    /// define, indexed by `bits` bits before its tables of longer codes,
-    /// each holding what `meaning` says its symbol means, as a value and a
-    /// kind.
+    /// Returns the table that `build` makes.
+    #[cfg(test)]
     pub(crate) fn new(
         lengths: &[u8],
         bits: u32,
@@ -210,7 +211,10 @@ impl Table {
         Ok(table)
     }
 
-    /// Makes it the table that `new` returns, in the room it has.
+    /// Makes it, in the room it has, the table of the codes that `lengths`,
+    /// each symbol's in turn, define, indexed by `bits` bits before its
+    /// tables of longer codes, each holding what `meaning` says its symbol
+    /// means, as a value and a kind.
     pub(crate) fn build(
         &mut self,
         lengths: &[u8],
@@ -221,8 +225,8 @@ impl Table {
         self.build_counted(lengths, count(lengths), bits, kind, meaning)
     }
 
-    /// Makes it the table that `new` returns, in the room it has, of
-    /// `lengths`, `counts[len]` of which are `len`.
+    /// Makes it the table that `build` makes, of `lengths`, `counts[len]` of
+    /// which are `len`.
     pub(crate) fn build_counted(
         &mut self,
         lengths: &[u8],
@@ -290,29 +294,32 @@ impl Table {
         let mask = size.wrapping_sub(1);
         let mut entries = match core::mem::take(&mut self.entries) {
             Cow::Owned(entries) => entries,
-            Cow::Borrowed(_) => Vec::new(),
+            Cow::Borrowed(_) => core::mem::take(&mut self.spare),
         };
         entries.clear();
         entries.resize(size, INVALID);
         let mut width = 2_usize;
-        let mut long = Vec::new();
         let mut short = match kind {
             Kind::Literals => Some(self.short.get_or_insert_with(|| Box::new([0; 256]))),
             _ => None,
         };
         let mut shorts = 0_usize;
-        // Each length's codes in turn, from the first of that length.
-        let groups = (1_u32..).zip(next.iter().zip(&counts).skip(1));
-        let symbols = groups.flat_map(|(len, (&first, &count))| {
-            (first..first.saturating_add(count)).map(move |code| (len, code))
-        });
-        for (&symbol, (len, code)) in sorted.iter().zip(symbols) {
-            // Read from the stream first bit first, so reversed.
-            let reversed = reverse(code, len);
-            // What fills each entry of the code: of `END` and `NEVER`, the
-            // length byte alone; of the rest, the code's length and the
-            // extra bits' as the length byte.
-            let meant = match meaning(symbol) {
+        // Each length's codes in turn, from the first of that length, past
+        // the `skip` shortest lengths, each with its symbol.
+        let codes = |skip: usize| {
+            let groups = (1_u32..).zip(next.iter().zip(&counts).skip(1)).skip(skip);
+            let start = starts.get(skip.saturating_add(1)).copied();
+            let symbols = sorted.get(start.unwrap_or(sorted.len())..);
+            let codes = groups.flat_map(|(len, (&first, &count))| {
+                (first..first.saturating_add(count)).map(move |code| (len, code))
+            });
+            symbols.unwrap_or_default().iter().zip(codes)
+        };
+        // What fills each entry of a code: of `END` and `NEVER`, the length
+        // byte alone; of the rest, the code's length and the extra bits' as
+        // the length byte.
+        let meant = |symbol: u16, len: u32| -> Result<Entry, Error> {
+            Ok(match meaning(symbol) {
                 (_, NEVER) => INVALID,
                 (_, END) => END_ENTRY | len,
                 (value, LITERAL) => entry(value, LITERAL, len),
@@ -320,11 +327,16 @@ impl Table {
                     let code = u8::try_from(len).map_err(|_| corrupt())?;
                     entry(value, code, len.saturating_add(u32::from(extra & 0x1F)))
                 },
-            };
+            })
+        };
+        for (&symbol, (len, code)) in codes(0) {
+            // Longer ones come last.
             if len > bits {
-                long.push((meant, len, reversed));
-                continue;
+                break;
             }
+            // Read from the stream first bit first, so reversed.
+            let reversed = reverse(code, len);
+            let meant = meant(symbol, len)?;
             if let (Ok(byte), Some(slot)) = (
                 u8::try_from(symbol),
                 short.as_mut().and_then(|short| short.get_mut(shorts)),
@@ -346,13 +358,16 @@ impl Table {
         }
         // Longer ones, a table under their prefix, as long as the longest
         // code under it, past the prefix, needs.
+        let index = usize::try_from(bits).map_err(|_| corrupt())?;
         let mut links = [0_u8; 1 << MAX_INDEX];
-        for &(_, len, reversed) in &long {
-            let link = links.get_mut(reversed & mask).ok_or_else(corrupt)?;
+        for (_, (len, code)) in codes(index) {
+            let link = links
+                .get_mut(reverse(code, len) & mask)
+                .ok_or_else(corrupt)?;
             *link = (*link).max(u8::try_from(len.saturating_sub(bits)).map_err(|_| corrupt())?);
         }
-        for &(_, _, reversed) in &long {
-            let prefix = reversed & mask;
+        for (_, (len, code)) in codes(index) {
+            let prefix = reverse(code, len) & mask;
             let link = u32::from(links.get(prefix).copied().unwrap_or_default());
             let slot = entries.get(prefix).copied().ok_or_else(corrupt)?;
             if slot & LINK == 0 {
@@ -362,7 +377,9 @@ impl Table {
                 entries.resize(entries.len().saturating_add(sub), INVALID);
             }
         }
-        for &(meant, len, reversed) in &long {
+        for (&symbol, (len, code)) in codes(index) {
+            let reversed = reverse(code, len);
+            let meant = meant(symbol, len)?;
             let link = u32::from(links.get(reversed & mask).copied().unwrap_or_default());
             let at = entries.get(reversed & mask).copied().ok_or_else(corrupt)?;
             let offset = usize::try_from(at >> 16).map_err(|_| corrupt())?;
@@ -389,10 +406,28 @@ impl Table {
             bits,
             mask: 1_u64.wrapping_shl(bits).wrapping_sub(1),
             entries: Cow::Borrowed(entries),
+            spare: Vec::new(),
             paired: true,
             short: None,
             shorts: 0,
         }
+    }
+
+    /// Makes it the table that `fixed` returns, keeping the room it has for
+    /// its next table of its own.
+    pub(crate) fn fix(&mut self, entries: &'static [Entry], bits: u32) {
+        if let Cow::Owned(own) = core::mem::replace(&mut self.entries, Cow::Borrowed(entries)) {
+            self.spare = own;
+        }
+        self.bits = bits;
+        self.mask = 1_u64.wrapping_shl(bits).wrapping_sub(1);
+        self.paired = true;
+        self.shorts = 0;
+    }
+
+    /// Drops the room it keeps for its next table of its own.
+    pub(crate) fn trim(&mut self) {
+        self.spare = Vec::new();
     }
 
     /// Whether its literals are paired, or need not be.
