@@ -307,6 +307,8 @@ fn refuses_malformed_block_headers() {
         // LZMA2's property of two bytes, or with reserved bits.
         (vec![0x00, 0x21, 2, property, 0], Error::Corrupt),
         (vec![0x00, 0x21, 1, property | 0x40], Error::Corrupt),
+        // LZMA2's dictionary of 4 GiB, past what it decodes.
+        (vec![0x00, 0x21, 1, 40], Error::Unsupported),
         // Delta alone, and Delta's distance of two bytes.
         (vec![0x00, 0x03, 1, 0], Error::Unsupported),
         (vec![0x01, 0x03, 2, 0, 0, 0x21, 1, property], Error::Corrupt),
@@ -350,6 +352,18 @@ fn checks_stream_flags_and_the_index() {
     let crc = crc32(&bad[at..end - 16]);
     bad[end - 16..end - 12].copy_from_slice(&crc.to_le_bytes());
     assert_eq!(decode(&bad), Err(Error::Corrupt));
+    // An index of no record, for a stream of a block, its CRC32 and the
+    // footer's size of it made to match.
+    let mut none = stream[..at].to_vec();
+    let index = [0, 0, 0, 0];
+    none.extend_from_slice(&index);
+    none.extend_from_slice(&crc32(&index).to_le_bytes());
+    let mut footer = stream[end - 12..].to_vec();
+    footer[4..8].copy_from_slice(&1_u32.to_le_bytes());
+    let crc = crc32(&footer[4..10]);
+    footer[..4].copy_from_slice(&crc.to_le_bytes());
+    none.extend_from_slice(&footer);
+    assert_eq!(decode(&none), Err(Error::Corrupt));
     // A count of records past nine bytes.
     let long = [&stream[..at + 1], &[0xFF; 10], &stream[at + 2..]].concat();
     assert_eq!(decode(&long), Err(Error::Corrupt));

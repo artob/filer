@@ -394,9 +394,11 @@ fn dynamic(bits: Bits, last: bool, literals: &[u32], distances: &[u32]) -> Bits 
 fn decodes_blocks_of_one_or_two_codes() {
     let mut end = vec![0; 257];
     end[256] = 1;
+    // With bytes after it, so that the bits tell it is no code.
     let invalid = dynamic(Bits::default(), true, &end, &[0]).code(1, 1);
-    assert_eq!(kind(&invalid.bytes), Error::Corrupt);
-    assert!(zlib(&invalid.bytes).is_none());
+    let invalid = [&invalid.bytes[..], &[0; 8]].concat();
+    assert_eq!(kind(&invalid), Error::Corrupt);
+    assert!(zlib(&invalid).is_none());
     let mut matches = vec![0; 286];
     (matches[256], matches[285]) = (1, 1);
     let first = Bits::default()

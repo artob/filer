@@ -223,9 +223,9 @@ fn decodes_blocks_built_by_hand() {
 }
 
 /// A decoder by default is a new one. The input may not end while a block
-/// has bytes left to write, and a checkpoint is offered neither there nor
-/// past the last stream. Its errors say what they mean, and it says where
-/// it is.
+/// has bytes left to write, in the first stream or a later one, and a
+/// checkpoint is offered neither there nor past the last stream. Its
+/// errors say what they mean, and it says where it is.
 #[test]
 fn defaults_to_a_new_decoder() {
     let stream = [&include_bytes!("data/numbers.bz2")[..], b"garbage"].concat();
@@ -235,6 +235,18 @@ fn defaults_to_a_new_decoder() {
     assert_eq!(end, 1);
     assert_eq!(decoder.finish(), Err(Error::Corrupt));
     assert!(decoder.checkpoint().is_none());
+    // All but the last byte, of the second stream's block.
+    let last = numbers().len() - 1;
+    loop {
+        let room = &mut output[end..last];
+        let (consumed, produced) = decoder.decode(&stream[at..], room).unwrap();
+        if (consumed, produced) == (0, 0) {
+            break;
+        }
+        (at, end) = (at + consumed, end + produced);
+    }
+    assert_eq!(end, last);
+    assert_eq!(decoder.finish(), Err(Error::Corrupt));
     loop {
         let (consumed, produced) = decoder.decode(&stream[at..], &mut output[end..]).unwrap();
         if (consumed, produced) == (0, 0) {

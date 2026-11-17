@@ -249,11 +249,14 @@ fn refuses_lzma2_chunks_out_of_order() {
     after.extend_from_slice(&stream);
     let decoded = decode_lzma2(&after, property).unwrap().0;
     assert!(decoded.starts_with(b"hi"));
-    // A chunk's unpacked size short of its data.
-    let mut bad = stream.clone();
-    let unpacked = u16::from_be_bytes([bad[1], bad[2]]) - 1;
-    [bad[1], bad[2]] = unpacked.to_be_bytes();
-    assert_eq!(decode_lzma2(&bad, property), Err(Error::Corrupt));
+    // A chunk's unpacked size short of its data: within a packet, or at
+    // the end of one, with its range coder not finished.
+    for less in 1..=16 {
+        let mut bad = stream.clone();
+        let unpacked = u16::from_be_bytes([bad[1], bad[2]]) - less;
+        [bad[1], bad[2]] = unpacked.to_be_bytes();
+        assert_eq!(decode_lzma2(&bad, property), Err(Error::Corrupt), "{less}");
+    }
     // An end marker, which LZMA2 has none of, in a chunk that says it goes
     // on past it.
     let data = text(5000, 12);
