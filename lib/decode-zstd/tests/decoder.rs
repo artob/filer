@@ -236,6 +236,51 @@ fn reads_headers_and_sections_built_by_hand() {
     assert_eq!(kind(&far), Error::Corrupt);
 }
 
+/// Two blocks of 16,400 literals each, built by hand, in four streams of
+/// codes of two bits, of four symbols: the first codes them by a tree
+/// whose weights are given as they are, which runs pay for; the second
+/// by the same tree, treeless, its runs kept.
+#[test]
+fn keeps_literal_runs_for_treeless_blocks() {
+    let mut seed = 0x9E37_79B9_u32;
+    let mut block = |kind: u32, tree: &[u8], last: u32| {
+        // Each stream's bytes, then its mark, alone in the last byte.
+        let streams: Vec<Vec<u8>> = (0..4)
+            .map(|_| {
+                let mut stream: Vec<u8> = (0..1025)
+                    .map(|_| {
+                        seed ^= seed << 13;
+                        seed ^= seed >> 17;
+                        seed ^= seed << 5;
+                        seed as u8
+                    })
+                    .collect();
+                stream.push(0x01);
+                stream
+            })
+            .collect();
+        let (regenerated, size) = (16_400_u64, (tree.len() + 6 + 4 * 1026) as u64);
+        let header = u64::from(kind) | 3 << 2 | regenerated << 4 | size << 22;
+        let mut content = header.to_le_bytes()[..5].to_vec();
+        content.extend_from_slice(tree);
+        for stream in &streams[..3] {
+            content.extend_from_slice(&(stream.len() as u16).to_le_bytes());
+        }
+        content.extend(streams.concat());
+        // No sequences.
+        content.push(0x00);
+        let header = (content.len() as u32) << 3 | 2 << 1 | last;
+        [&header.to_le_bytes()[..3], &content].concat()
+    };
+    // Weights of 1 for symbols 0 to 2, 3's implied.
+    let first = block(2, &[127 + 3, 0x11, 0x10], 0);
+    let second = block(3, &[], 1);
+    let frame = [&[0x28, 0xB5, 0x2F, 0xFD, 0x00, 7 << 3][..], &first, &second].concat();
+    let data = decode(&frame).unwrap();
+    assert_eq!(data.len(), 32_800);
+    assert!(data.iter().all(|&byte| byte < 4));
+}
+
 /// A decoder by default is a new one, which says where it is; and its
 /// errors say what they mean.
 #[test]
