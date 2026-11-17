@@ -32,7 +32,9 @@ fn decode_lzma2(stream: &[u8], property: u8) -> common::Decoded {
 
 /// `numbers.lzma` is by `xz --format=lzma -6`: a header, of the
 /// properties and an unknown size, then a raw stream with an end marker;
-/// `numbers.lzma2`, by `xz --format=raw --lzma2=preset=6`.
+/// `numbers.lzma2`, by `xz --format=raw --lzma2=preset=6`, and
+/// `repeated.lzma2` too, of it 200 times over, in two chunks, the second
+/// going on from the first with no reset.
 #[test]
 fn decodes_what_xz_writes() {
     let numbers = numbers();
@@ -47,7 +49,11 @@ fn decodes_what_xz_writes() {
     // A dictionary of 8 MiB.
     let lzma2 = include_bytes!("data/numbers.lzma2");
     let decoded = decode_lzma2(lzma2, 22).unwrap();
-    assert_eq!(decoded, (numbers, lzma2.len()));
+    assert_eq!(decoded, (numbers.clone(), lzma2.len()));
+    let repeated = include_bytes!("data/repeated.lzma2");
+    assert_eq!(repeated[1582], 0x8A);
+    let decoded = decode_lzma2(repeated, 22).unwrap();
+    assert!(decoded == (numbers.repeat(200), repeated.len()));
 }
 
 #[test]
@@ -135,8 +141,18 @@ fn consumes_no_byte_past_the_end() {
     let after = [&stream[..], b"after"].concat();
     assert_eq!(
         decode_lzma2(&after, property).unwrap(),
-        (data, stream.len())
+        (data.clone(), stream.len())
     );
+    // Followed by enough to decode its end straight from the input: an end
+    // marker, or the last byte of a known size.
+    let long = b"after".repeat(8);
+    for marker in [true, false] {
+        let Lzma { stream, properties } = lzma(&data, &options, marker);
+        let after = [&stream[..], &long].concat();
+        let size = (!marker).then_some(data.len() as u64);
+        let decoded = decode_lzma(&after, properties, size).unwrap();
+        assert_eq!(decoded, (data.clone(), stream.len()), "{marker}");
+    }
 }
 
 #[test]
@@ -157,9 +173,22 @@ fn refuses_malformed_streams() {
     let mut bad = stream.clone();
     bad[0] = 1;
     assert_eq!(decode_lzma(&bad, properties, None), Err(Error::Corrupt));
-    // A size short of the data, which then must end.
-    let short = Some(data.len() as u64 - 100);
-    assert_eq!(decode_lzma(&stream, properties, short), Err(Error::Corrupt));
+    // Sizes short of the data, which then must end, not go on with a
+    // literal or a match.
+    for less in (1..=64).chain([100]) {
+        let short = Some(data.len() as u64 - less);
+        let decoded = decode_lzma(&stream, properties, short);
+        assert_eq!(decoded, Err(Error::Corrupt), "{less}");
+    }
+    // The end marker followed by a range coder not finished.
+    let mut bad = stream.clone();
+    *bad.last_mut().unwrap() ^= 1;
+    assert_eq!(decode_lzma(&bad, properties, None), Err(Error::Corrupt));
+    // A repeat of the latest match's byte, before any byte: the range
+    // coder's first bits 1, 1, 0, 0, each of even odds at first.
+    let mut first = vec![0x00, 0xBF, 0xFF, 0xFC, 0x00];
+    first.resize(64, 0);
+    assert_eq!(decode_lzma(&first, properties, None), Err(Error::Corrupt));
     // An end marker before the size.
     let long = size.map(|size| size + 1);
     assert_eq!(decode_lzma(&stream, properties, long), Err(Error::Corrupt));
@@ -173,6 +202,22 @@ fn refuses_malformed_streams() {
     // 192 MiB, and 128 MiB.
     assert_eq!(Decoder::lzma2(31).unwrap_err(), Error::Unsupported);
     assert!(Decoder::lzma2(30).is_ok());
+}
+
+/// The input may not end while what it decoded waits to be produced. It
+/// says where it is, and its errors say what they mean.
+#[test]
+fn finishes_once_all_is_produced() {
+    let data = text(10_000, 13);
+    let Lzma { stream, properties } = lzma(&data, &options(6, 3, 0, 2, 1 << 16), true);
+    let mut decoder = Decoder::lzma(properties, None).unwrap();
+    let mut output = [0; 1];
+    let (consumed, produced) = decoder.decode(&stream, &mut output).unwrap();
+    assert_eq!((consumed, produced), (stream.len(), 1));
+    assert_eq!(decoder.finish(), Err(Error::Corrupt));
+    assert!(format!("{decoder:?}").starts_with("Decoder"));
+    assert_eq!(Error::Corrupt.to_string(), "corrupt LZMA stream");
+    assert_eq!(Error::Unsupported.to_string(), "unsupported LZMA stream");
 }
 
 #[test]
@@ -204,6 +249,22 @@ fn refuses_lzma2_chunks_out_of_order() {
     after.extend_from_slice(&stream);
     let decoded = decode_lzma2(&after, property).unwrap().0;
     assert!(decoded.starts_with(b"hi"));
+    // A chunk's unpacked size short of its data.
+    let mut bad = stream.clone();
+    let unpacked = u16::from_be_bytes([bad[1], bad[2]]) - 1;
+    [bad[1], bad[2]] = unpacked.to_be_bytes();
+    assert_eq!(decode_lzma2(&bad, property), Err(Error::Corrupt));
+    // An end marker, which LZMA2 has none of, in a chunk that says it goes
+    // on past it.
+    let data = text(5000, 12);
+    let Lzma { stream: coded, .. } = lzma(&data, &options(6, 3, 0, 2, 1 << 16), true);
+    let (unpacked, packed) = (data.len() as u32, coded.len() as u16 - 1);
+    let mut marked = vec![0xE0, (unpacked >> 8) as u8, unpacked as u8];
+    marked.extend_from_slice(&packed.to_be_bytes());
+    marked.push(0x5D);
+    marked.extend_from_slice(&coded);
+    marked.push(0);
+    assert_eq!(decode_lzma2(&marked, property), Err(Error::Corrupt));
     // A chunk's packed size larger or smaller than its data.
     for delta in [1_i32, -1] {
         let mut bad = stream.clone();

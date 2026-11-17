@@ -655,7 +655,11 @@ crate's name until its first code, which moves it to `lib/`.
   gives `step` or `need`. `decode-lzo`, whose untaken ones cannot be:
   slices bounded just before, a file ending in a call that consumes
   nothing, and output pending between files, as it reads past a block
-  only once all is produced. Done when a
+  only once all is produced. `decode-lzma`, whose untaken ones cannot
+  be: a format or chunk state other than the step's own, slices bounded
+  just before, a packet more than `REQUIRED` bytes hold, the window
+  full before it grows to its largest, a write it is not ready for, as
+  its callers check, and a mask of 32 bits. Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse
