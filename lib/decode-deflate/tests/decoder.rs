@@ -475,6 +475,41 @@ fn copies_stored_blocks_straight() {
     assert_eq!(zlib(&stream), Some((expected, stream.len())));
 }
 
+/// A stored block of more than a window, begun into little room, which a
+/// first chunk's buffer holds, then copied straight into ample room until
+/// the input runs out: the window keeps the latest of it, growing the
+/// buffer first, which a match a window back then copies from.
+#[test]
+fn keeps_a_window_of_stored_blocks_cut_short() {
+    let long: Vec<u8> = (0..60_000_u32).map(|n| (n * 7 % 251) as u8).collect();
+    let block = stored(Bits::default(), false, &long, !60_000 & 0xFFFF);
+    let stream = block
+        .field(1, 1)
+        .field(1, 2)
+        .code(1, 7)
+        .code(29, 5)
+        .field(8191, 13)
+        .code(0, 7)
+        .bytes;
+    let far = 60_000 - 32_768;
+    let expected = [&long[..], &long[far..far + 3]].concat();
+    let mut decoder = Decoder::new();
+    let mut output = vec![0; expected.len()];
+    let (mut at, mut end) = decoder.decode(&stream, &mut output[..1000]).unwrap();
+    let cut = &stream[at..at + 40_000];
+    let (consumed, produced) = decoder.decode(cut, &mut output[end..]).unwrap();
+    (at, end) = (at + consumed, end + produced);
+    while end < output.len() {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut output[end..]).unwrap();
+        assert!(consumed + produced > 0, "stuck at {at}");
+        (at, end) = (at + consumed, end + produced);
+    }
+    assert_eq!(at, stream.len());
+    decoder.finish().unwrap();
+    assert!(output == expected);
+    assert_eq!(zlib(&stream), Some((expected, stream.len())));
+}
+
 /// A stream cut short, decoded into ample room, where codes go straight
 /// to the output once it holds a window: the input ends within a block,
 /// and `finish` finds it cut short. And one whole in a byte of room: it
