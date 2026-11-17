@@ -648,7 +648,11 @@ crate's name until its first code, which moves it to `lib/`.
   nothing, as a block ends on writing its last byte, the input's room
   run out, as a block past it is refused first, and a count still to
   repeat after a run of four, as one resets the run; `SPANNED` is built
-  at compile time. Done when a
+  at compile time. `decode-lz4`, whose untaken ones cannot be: a header
+  of another length than its flags give, as it is gathered by them, and
+  a content size without its flag; slices bounded just before; a frame
+  ending in a call that does nothing; and states that `decode` never
+  gives `step` or `need`. Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse

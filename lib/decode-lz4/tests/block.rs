@@ -115,6 +115,8 @@ fn refuses_malformed_blocks() {
         // An offset cut short, and a length.
         &[0x10, b'a', 1],
         &[0x1F, b'a', 1, 0, 255],
+        // A match past the room for the block.
+        &[0x1F, b'a', 1, 0, 255, 0],
     ] {
         assert_eq!(decode(block, 100).unwrap_err(), Error::Corrupt, "{block:?}");
     }

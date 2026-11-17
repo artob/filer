@@ -89,6 +89,13 @@ fn decodes_frames_built_by_hand() {
     let stream = frame(0x00, &linked, b"");
     assert_eq!(decode(&stream).unwrap(), b"abcdefghabcdefgh");
     assert_eq!(error(&frame(0x20, &linked, b"")), Error::Corrupt);
+    // Blocks of up to 256 KiB, 1 MiB, and 4 MiB.
+    for bd in [0x50, 0x60, 0x70] {
+        let mut stream = frame(0x20, &blocks, content);
+        stream[5] = bd;
+        stream[6] = (common::xxh32(&stream[4..6]) >> 8) as u8;
+        assert_eq!(decode(&stream).unwrap(), content, "{bd:#x}");
+    }
 }
 
 #[test]
@@ -104,9 +111,16 @@ fn checks_frames() {
         bad[byte] ^= 0x01;
         assert_eq!(error(&bad), Error::Corrupt, "{byte}");
     }
-    // A content size that is not the content's.
+    // A content size that is not the content's, less or more.
     let short = frame(0x28, &blocks, &content[1..]);
     assert_eq!(error(&short), Error::Corrupt);
+    let long = frame(0x28, &blocks, &[&content[..], b"!"].concat());
+    assert_eq!(error(&long), Error::Corrupt);
+    // The descriptor's reserved bit.
+    let mut reserved = frame(0x20, &[], b"");
+    reserved[4] |= 0x02;
+    reserved[6] = (common::xxh32(&reserved[4..6]) >> 8) as u8;
+    assert_eq!(error(&reserved), Error::Corrupt);
     // A dictionary, which this decoder is not given.
     let mut dictionary = frame(0x21, &[], b"");
     dictionary.splice(6..6, [1, 2, 3, 4]);
@@ -127,6 +141,22 @@ fn checks_frames() {
         bad[6] = (common::xxh32(&bad[4..6]) >> 8) as u8;
         assert_eq!(error(&bad), Error::Corrupt, "{version:#x}");
     }
+}
+
+/// A decoder by default is a new one, which says where it is. The input
+/// may not end while what a legacy block decoded waits to be produced.
+/// Its errors say what they mean.
+#[test]
+fn defaults_to_a_new_decoder() {
+    let stream = include_bytes!("data/legacy.lz4");
+    let mut decoder = Decoder::default();
+    let mut output = [0; 16];
+    let (consumed, produced) = decoder.decode(stream, &mut output).unwrap();
+    assert!(consumed > 0 && produced == 16);
+    assert_eq!(decoder.finish(), Err(Error::Corrupt));
+    assert!(format!("{decoder:?}").starts_with("Decoder"));
+    assert_eq!(Error::Corrupt.to_string(), "corrupt LZ4 data");
+    assert_eq!(Error::Unsupported.to_string(), "unsupported LZ4 stream");
 }
 
 #[test]
