@@ -213,6 +213,43 @@ fn refuses_a_block_that_ends_on_a_run_of_four() {
     assert_eq!(kind(&one_byte(4, 2, true)), Error::Corrupt);
 }
 
+/// Blocks built by hand, which it decodes or refuses as bzip2 does: one
+/// of more selectors than bzip2 keeps, the rest ignored, and one that
+/// uses no byte.
+#[test]
+fn decodes_blocks_built_by_hand() {
+    assert_eq!(decode(&one_byte(1, 18_010, true)).unwrap(), b"a");
+    assert_eq!(kind(&one_byte(1, 2, false)), Error::Corrupt);
+}
+
+/// A decoder by default is a new one. The input may not end while a block
+/// has bytes left to write, and a checkpoint is offered neither there nor
+/// past the last stream. Its errors say what they mean, and it says where
+/// it is.
+#[test]
+fn defaults_to_a_new_decoder() {
+    let stream = [&include_bytes!("data/numbers.bz2")[..], b"garbage"].concat();
+    let mut decoder = Decoder::default();
+    let mut output = vec![0; 1 << 20];
+    let (mut at, mut end) = decoder.decode(&stream, &mut output[..1]).unwrap();
+    assert_eq!(end, 1);
+    assert_eq!(decoder.finish(), Err(Error::Corrupt));
+    assert!(decoder.checkpoint().is_none());
+    loop {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut output[end..]).unwrap();
+        if (consumed, produced) == (0, 0) {
+            break;
+        }
+        (at, end) = (at + consumed, end + produced);
+    }
+    decoder.finish().unwrap();
+    assert_eq!(output[..end], numbers());
+    assert!(decoder.checkpoint().is_none());
+    assert!(format!("{decoder:?}").starts_with("Decoder"));
+    assert_eq!(Error::Corrupt.to_string(), "corrupt bzip2 stream");
+    assert_eq!(Error::Unsupported.to_string(), "unsupported bzip2 stream");
+}
+
 /// It gathers at most 4 MiB toward a block, more than any takes, and
 /// refuses one that needs more rather than gather without bound.
 #[test]

@@ -641,7 +641,14 @@ crate's name until its first code, which moves it to `lib/`.
   slot past its length, gzip's byte step in states that `step` takes
   itself, and zlib's step that changes state while it consumes and
   produces nothing, as the Deflate stream only ends in a call that does
-  either (tried over every first room up to 2,100 bytes). Done when a
+  either (tried over every first room up to 2,100 bytes). `decode-bzip2`
+  (its blocks built by hand found one bzip2 refuses, which it now does
+  too), whose untaken ones cannot be: slots past arrays that the
+  alphabet and the 256 bytes bound, a block ending in a call that does
+  nothing, as a block ends on writing its last byte, the input's room
+  run out, as a block past it is refused first, and a count still to
+  repeat after a run of four, as one resets the run; `SPANNED` is built
+  at compile time. Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse
