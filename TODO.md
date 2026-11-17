@@ -709,13 +709,17 @@ crate's name until its first code, which moves it to `lib/`.
   over real ones, 0.74 at worst (Granite Rapids' `sum`); its fast loop
   executes more instructions and branches than libdeflate's, bounds
   checks among them, and changes to it move its registers, which costs
-  Granite Rapids most. By a quick timer's best of runs (2026-11-15), it
-  decodes faster than zlib-ng and `zlib-rs` in pieces of 4 and 64 KiB,
-  and in small streams of 64 B to 16 KiB, but for synthetic inputs in
-  pieces: `zeros` and `pattern` at 0.66 to 0.84 on x86-64, decoded into
-  its window and then copied out, and stored blocks at 0.83 to 0.88,
-  which its window's buffer moves more than zlib-ng's window does, a
-  window that goes round its buffer being the cure.
+  Granite Rapids most. In pieces of 64 KiB, by the harness
+  (2026-11-17), it decodes real inputs 1.15 to 1.41 times as fast as
+  zlib-ng and `zlib-rs`, each at least 1.03 times, and stored blocks as
+  fast, but `zeros` and `pattern` at 0.64 to 0.84 of their speed on
+  x86-64 and 0.67 to 0.81 at level 1 on Neoverse V3, decoded into its
+  window and then copied out. By a quick timer's best of runs
+  (2026-11-15), in pieces of 4 KiB and in small streams of 64 B to 16
+  KiB it is faster too, but for those inputs, and stored blocks at 0.83
+  to 0.88 in pieces of 4 KiB, which its window's buffer moves more than
+  zlib-ng's window does, a window that goes round its buffer being the
+  cure.
   Tried and lost: the bits two places up, so that loads take an entry by
   its place in bytes (3.1% faster on Zen 5, 3.1% slower on Granite
   Rapids); literal indexes of 9 or 11 bits, and distance ones of 9 or 10;
