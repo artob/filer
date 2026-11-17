@@ -354,6 +354,53 @@ fn offers_checkpoints_anywhere() {
     }
 }
 
+/// Runs, for which decoding goes round its buffer rather than move the
+/// window: matches that then reach past the buffer's start, wholly or in
+/// part, copied from the window left at its end; and checkpoints taken
+/// there, which resume.
+#[test]
+fn goes_round_for_runs() {
+    let period: Vec<u8> = (0..1000_u32).map(|n| (n * 7 % 251) as u8).collect();
+    let data = period.repeat(200);
+    let stream = miniz_oxide::deflate::compress_to_vec(&data, 6);
+    for piece in [100, 4096] {
+        let (decoded, consumed) = agree(&stream, piece).unwrap();
+        assert!(decoded == data, "in pieces of {piece}");
+        assert_eq!(consumed, stream.len());
+    }
+    assert_eq!(zlib(&stream), Some((data.clone(), stream.len())));
+    let mut decoder = Decoder::new();
+    let mut output = [0; 100];
+    let (mut at, mut decoded, mut resumed) = (0, 0, Vec::new());
+    loop {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut output).unwrap();
+        if (consumed, produced) == (0, 0) {
+            break;
+        }
+        at += consumed;
+        if decoded / 9973 != (decoded + produced) / 9973 {
+            let checkpoint = decoder.checkpoint().unwrap();
+            resumed.push((at - decoder.buffered(), decoded + produced, checkpoint));
+        }
+        decoded += produced;
+    }
+    decoder.finish().unwrap();
+    assert_eq!(decoded, data.len());
+    for (from, len, mut checkpoint) in resumed {
+        let (mut at, mut rest) = (from, Vec::new());
+        loop {
+            let (consumed, produced) = checkpoint.decode(&stream[at..], &mut output).unwrap();
+            if (consumed, produced) == (0, 0) {
+                break;
+            }
+            at += consumed;
+            rest.extend_from_slice(&output[..produced]);
+        }
+        checkpoint.finish().unwrap();
+        assert!(rest == data[len..], "from {from}");
+    }
+}
+
 /// Writes the header of a dynamic block, last or not, whose codes'
 /// lengths, of 0 or 1 alone, are `literals` and `distances`: in the code
 /// length code, 0 as `0`, 1 as `10`, and 18, a run of zeros, as `11`.

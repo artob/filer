@@ -665,11 +665,13 @@ crate's name until its first code, which moves it to `lib/`.
   (2026-11-17), it decodes real inputs 1.46 to 1.85 times as fast, each
   at least 1.07 times, but stored blocks at 0.70 of their speed on
   Neoverse V3 and 0.78 to 0.87 on Zen 5, and `zeros` and `pattern` at
-  0.74 and 0.81 on Granite Rapids, 0.84 or more elsewhere: its window's
-  buffer moves more than zlib-ng's window does, a window that goes round
-  its buffer being the cure. By a quick timer's best of runs
-  (2026-11-15), in small streams of 64 B to 16 KiB it is faster too, but
-  for those inputs.
+  0.74 and 0.81 on Granite Rapids, 0.84 or more elsewhere. For those,
+  its window's buffer goes round since (2026-11-17), rather than move the
+  window: 9 to 18% faster in pieces on Granite Rapids. What remains is
+  copying out of the window, which zlib-ng spares by decoding into the
+  output, as tried and lost below for every input. By a quick timer's
+  best of runs (2026-11-15), in small streams of 64 B to 16 KiB it is
+  faster too, but for those inputs.
   Tried and lost: the bits two places up, so that loads take an entry by
   its place in bytes (3.1% faster on Zen 5, 3.1% slower on Granite
   Rapids); literal indexes of 9 or 11 bits, and distance ones of 9 or 10;

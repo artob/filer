@@ -174,6 +174,12 @@ so any release may break compatibility.
   and grows those up to five times, however many blocks it holds, not
   three or four times a dynamic block (Canterbury's `bible.txt`: 9 for
   379). A checkpoint keeps neither.
+- `decode-deflate`: where its codes decode 64 times the input they take
+  or more, as runs do, or stored blocks fill its window, decoding goes
+  round the window's buffer rather than move the window to its start,
+  and copies a match that reaches past the start from the window left
+  at its end: on Granite Rapids, stored blocks in pieces of 4 KiB decode
+  15 to 18% faster, and runs in pieces 9 to 17%.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd

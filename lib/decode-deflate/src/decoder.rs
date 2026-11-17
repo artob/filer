@@ -65,18 +65,20 @@ impl Format {
         }
     }
 
-    /// What a window's buffer holds at most: the window, and room to
-    /// decode three chunks before it must move the window to its start,
-    /// or two and the longest match, if that is more, as it is for
-    /// Deflate64, whose longest match is longer than a chunk.
+    /// What a window's buffer holds at most: the window, room to decode a
+    /// chunk, with the longest match and the `SLACK` past it, and room for
+    /// two chunks more, or that room again, if it is more, as it is for
+    /// Deflate64, whose longest match is longer than a chunk. Decoding goes
+    /// round to the buffer's start where a chunk would not fit, leaving the
+    /// window where it is, clear of what it then writes until it goes
+    /// round again. Smaller, 97 KiB for Deflate, glibc places it so that
+    /// copying text out in pieces of 4 KiB misses the L1 cache 18% more on
+    /// Granite Rapids, and decoding goes round more often.
     const fn buffer(self) -> usize {
-        let longest = self.longest();
-        let more = if longest > CHUNK { longest } else { CHUNK };
-        self.window()
-            .saturating_add(CHUNK.saturating_mul(2))
-            .saturating_add(more)
-            .saturating_add(longest)
-            .saturating_add(SLACK)
+        let need = CHUNK.saturating_add(self.longest()).saturating_add(SLACK);
+        let two = CHUNK.saturating_mul(2);
+        let more = if need > two { need } else { two };
+        self.window().saturating_add(need).saturating_add(more)
     }
 
     /// Returns what literal/length symbol `symbol` means, as its table
@@ -304,7 +306,7 @@ impl Bits {
 
 /// What a stream has decoded: at least the window of the latest bytes,
 /// which matches copy from, and those not yet produced, `end` of them, in
-/// a buffer with room past them.
+/// a buffer with room past them, which decoding goes round.
 #[derive(Clone, Debug, Default)]
 struct Window {
     format: Format,
@@ -315,6 +317,13 @@ struct Window {
     /// How much it decodes before it produces it, which `prepare` makes
     /// room for: `CHUNK`, or less for its first.
     chunk: usize,
+    /// Where decoding last went round to the buffer's start, which the
+    /// window's bytes before it end at, for matches that reach past the
+    /// start; or 0, before it first does.
+    wrap: usize,
+    /// The input that codes took to decode into it since it last went
+    /// round or moved, by which `prepare` judges how far matches reach.
+    coded: usize,
 }
 
 impl Window {
@@ -335,9 +344,10 @@ impl Window {
     }
 
     /// Makes room to decode a chunk, the first as large as `room`, what the
-    /// caller has room for, within bounds: moves the latest window, and
-    /// what is not yet produced, to the buffer's start, if the buffer has
-    /// no room past them; or grows the buffer, doubling.
+    /// caller has room for, within bounds, while it holds none not yet
+    /// produced: goes round to the buffer's start, or moves the latest
+    /// window there, if the buffer has no room past the latest bytes; or
+    /// grows the buffer, doubling.
     fn prepare(&mut self, room: usize) {
         self.chunk = match self.buf.is_empty() {
             true => CHUNK.min(FIRST_CHUNK.max(room)),
@@ -349,7 +359,20 @@ impl Window {
             .saturating_add(SLACK);
         let buffer = self.format.buffer();
         if self.end.saturating_add(need) > buffer {
-            self.compact();
+            // Where codes took a 64th of what it decoded or less, as runs do,
+            // or none, as stored blocks do, few matches reach past the start,
+            // and it goes round, leaving the window where it is. Where they
+            // took more, matches reach far back, as text's do, or may, as in
+            // Silesia's `mozilla`, which an eighth let go round 14% slower in
+            // pieces of 4 KiB on Granite Rapids: it moves the window, which
+            // costs less than they would (`far`).
+            if self.coded.saturating_mul(64) <= self.end {
+                self.wrap = self.end;
+                (self.end, self.produced) = (0, 0);
+            } else {
+                self.compact();
+            }
+            self.coded = 0;
         }
         let want = self.end.saturating_add(need);
         if self.buf.len() < want {
@@ -373,7 +396,7 @@ impl Window {
                     return;
                 };
                 to.copy_from_slice(from);
-                (self.end, self.produced) = (window, window);
+                (self.end, self.produced, self.wrap, self.coded) = (window, window, 0, 0);
             },
             None => {
                 self.prepare(bytes.len());
@@ -388,12 +411,27 @@ impl Window {
     }
 
     /// Moves the latest window, and what is not yet produced, to the
-    /// buffer's start, dropping what is before them.
+    /// buffer's start, those of the window left before `wrap` first, and
+    /// drops the rest.
     fn compact(&mut self) {
-        let keep = self
-            .end
-            .saturating_sub(self.format.window())
-            .min(self.produced);
+        let window = self.format.window();
+        let before = match self.wrap {
+            0 => 0,
+            _ => window.saturating_sub(self.end),
+        };
+        let from = self.wrap.saturating_sub(before)..self.wrap;
+        if let (1.., Some(before), Some(after)) =
+            (from.len(), self.buf.get(from), self.buf.get(..self.end))
+        {
+            let mut buf = Vec::with_capacity(before.len().saturating_add(after.len()));
+            buf.extend_from_slice(before);
+            buf.extend_from_slice(after);
+            self.end = buf.len();
+            self.produced = self.produced.saturating_add(before.len());
+            self.buf = buf;
+        }
+        self.wrap = 0;
+        let keep = self.end.saturating_sub(window).min(self.produced);
         self.buf.copy_within(keep..self.end, 0);
         self.end = self.end.saturating_sub(keep);
         self.produced = self.produced.saturating_sub(keep);
@@ -672,8 +710,9 @@ enum Flow {
 ///
 /// It consumes the stream to its end and no further, so that a container
 /// reads on from what follows. It holds, of what it decodes, the 32 KiB
-/// window and twice as much again at most; and of its input, at most the
-/// bits of a code that its input has not yet given it whole.
+/// window and three times as much again at most, and the room for a
+/// match; and of its input, at most the bits of a code that its input has
+/// not yet given it whole.
 ///
 /// # Examples
 ///
@@ -1047,7 +1086,7 @@ impl Decoder {
         let left = input.bytes.len().saturating_sub(input.taken);
         let limit = self.pairing(output.len().saturating_sub(reach), produced, left);
         let tables = (&self.literals, &self.distances);
-        let (stop, at) = codes(at, tables, output, limit, input.bytes);
+        let (stop, at) = codes(at, tables, output, limit, input.bytes, 0);
         self.unpaired = self
             .unpaired
             .saturating_add(at.end.saturating_sub(produced));
@@ -1075,6 +1114,7 @@ impl Decoder {
             _ => None,
         };
         let begun = self.window.end;
+        let taken = input.taken;
         let chunk = self.window.chunk;
         let left = input.bytes.len().saturating_sub(input.taken);
         let limit = self.pairing(self.window.produced.saturating_add(chunk), begun, left);
@@ -1086,8 +1126,11 @@ impl Decoder {
             length,
         };
         let tables = (&self.literals, &self.distances);
-        let (stop, at) = codes(at, tables, &mut window.buf, limit, input.bytes);
+        let (stop, at) = codes(at, tables, &mut window.buf, limit, input.bytes, window.wrap);
         (self.bits, window.end, input.taken) = (at.bits, at.end, at.taken);
+        window.coded = window
+            .coded
+            .saturating_add(input.taken.saturating_sub(taken));
         self.unpaired = self.unpaired.saturating_add(at.end.saturating_sub(begun));
         length = at.length;
         self.state = length.map_or(State::Literal, State::Distance);
@@ -1244,13 +1287,14 @@ struct Cursor {
 /// Decodes literal/length and distance codes with `tables`, from `at`'s
 /// bits, refilled from `input`, onto `buf`, until it reaches `limit`, the
 /// block ends, or it needs more input; and returns why it stopped, and
-/// where.
+/// where. The window's bytes before the buffer's start end at `wrap`.
 fn codes(
     mut at: Cursor,
     (literals, distances): (&Table, &Table),
     buf: &mut [u8],
     limit: usize,
     input: &[u8],
+    wrap: usize,
 ) -> (Result<Stop, Error>, Cursor) {
     // The last place a write may begin, as `fast` finds it: the buffer
     // holds a chunk's room and `SLACK` bytes more.
@@ -1259,15 +1303,19 @@ fn codes(
     };
     // Fast, once no length waits for its distance, as one may from input
     // given before; and once only, as it stops short only where the input
-    // runs short.
+    // runs short, but for a match that reaches past the buffer's start,
+    // which it refuses, as it does a malformed stream: from where it began,
+    // what it decoded is decoded again here, where such a match is copied
+    // and an error found again, and then fast again.
     let mut tried = false;
     let stop = loop {
         if !tried && at.length.is_none() {
             tried = true;
+            let begun = at;
             match fast(&mut at, (literals, distances), buf, limit, input) {
                 Ok(None) => {},
                 Ok(Some(stop)) => break Ok(stop),
-                Err(error) => break Err(error),
+                Err(_) => at = begun,
             }
         }
         if at.end >= limit {
@@ -1322,7 +1370,14 @@ fn codes(
         let (Ok(distance), Ok(len)) = (usize::try_from(distance), usize::try_from(len)) else {
             break Err(corrupt());
         };
-        match copy(buf, at.end, distance, len, edge, false) {
+        let copied = match distance > at.end {
+            true => {
+                tried = false;
+                far(buf, at.end, distance, len, edge, wrap)
+            },
+            false => copy(buf, at.end, distance, len, edge, false),
+        };
+        match copied {
             Ok(end) => at.end = end,
             Err(error) => break Err(error),
         }
@@ -1564,6 +1619,40 @@ fn copy(
     Ok(stop)
 }
 
+/// Copies to `buf` past `end` a match that reaches past the buffer's
+/// start, into the window's bytes before `wrap`, where decoding last went
+/// round to the start: what lies there, then the rest as `copy` does. The
+/// window before `wrap` lies clear of what a match writes, as decoding
+/// goes round only past a window and the room for a chunk, which it
+/// writes no further than (`buffer`). Before decoding first goes round,
+/// nothing lies before the start. Out of line, as few matches take it.
+#[cold]
+#[inline(never)]
+fn far(
+    buf: &mut [u8],
+    end: usize,
+    distance: usize,
+    length: usize,
+    edge: usize,
+    wrap: usize,
+) -> Result<usize, Error> {
+    let back = distance.wrapping_sub(end);
+    let from = match wrap {
+        0 => return Err(corrupt()),
+        _ => wrap.checked_sub(back).ok_or_else(corrupt)?,
+    };
+    let n = back.min(length);
+    let (low, high) = buf.split_at_mut_checked(from).ok_or_else(corrupt)?;
+    let to = low
+        .get_mut(end..end.saturating_add(n))
+        .ok_or_else(corrupt)?;
+    to.copy_from_slice(high.get(..n).ok_or_else(corrupt)?);
+    match length.checked_sub(n) {
+        Some(rest @ 1..) => copy(buf, distance, distance, rest, edge, false),
+        _ => Ok(end.saturating_add(n)),
+    }
+}
+
 /// Copies to `buf` from `from` to `to`, until `stop`, in chunks of `N`
 /// bytes, up to `N` past it, one at least: chunks that do not overlap what
 /// they copy, as `to` is at least `N` past `from`, each after the last has
@@ -1735,8 +1824,10 @@ mod tests {
         assert_eq!(distances.primary::<DISTANCE_SIZE>(), Some(&FIXED_DISTANCES));
     }
 
-    /// The most a run decodes past the window, once compacted: a chunk
-    /// and the longest match, less one; and then room for as much again.
+    /// Decoding goes round to the buffer's start once a chunk, the longest
+    /// match, and the slack past it would not fit, so past the window and
+    /// as much room again: what it then writes, until it goes round again,
+    /// is clear of the window it left at the end.
     #[test]
     fn bounds_the_buffer() {
         let formats = [
@@ -1745,9 +1836,9 @@ mod tests {
             Format::Deflate64,
         ];
         for format in formats {
-            let held = CHUNK + format.longest() - 1;
-            let want = format.window() + held + CHUNK + format.longest() + SLACK;
-            assert!(want <= format.buffer(), "{format:?}");
+            let need = CHUNK + format.longest() + SLACK;
+            let least = format.buffer() - need + 1;
+            assert!(least >= format.window() + need, "{format:?}");
         }
     }
 }
