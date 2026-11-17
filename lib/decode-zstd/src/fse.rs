@@ -475,6 +475,8 @@ mod tests {
         // Counts that do not add up.
         assert!(Distribution::new(&[5, 2], 3).is_err());
         assert!(Distribution::new(&[-2, 10], 3).is_err());
+        // Finer than any table.
+        assert!(Distribution::new(&[1 << 10], 10).is_err());
         // Too fine for a table of weights.
         let fine = Distribution::new(&[100, 28], 7).unwrap();
         assert!(Table::new(&fine).is_err());

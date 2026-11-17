@@ -671,7 +671,14 @@ crate's name until its first code, which moves it to `lib/`.
   the loop stops at, pairing a table other than a literal table of its
   own, the careful path's checks of extra bits, which lookups count
   first, and whole bytes in the bits of a stored block, which are given
-  back after its length. Done when a
+  back after its length. `decode-zstd`, whose untaken ones cannot be:
+  slices bounded just before, a header of another length than its
+  descriptor gives, a single segment with no size, a reserved block
+  type, refused by its header, states `decode` never gives `step` or
+  `need`, offset codes past the alphabet's 31, runs past their limit, a
+  lap begun before all is produced, and tables built at compile time;
+  and two it could, which take sequences coded by hand: an offset past
+  the window, and more extra bits than a container holds. Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse

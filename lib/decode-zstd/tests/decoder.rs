@@ -190,6 +190,58 @@ fn refuses_what_it_cannot_decode() {
     assert_eq!(kind(&dictionary), Error::Unsupported);
 }
 
+/// Returns a frame of a compressed block, last, of `content`: no literals,
+/// then a sequences section, as built by hand.
+fn compressed(content: &[u8]) -> Vec<u8> {
+    let mut frame = vec![0x28, 0xB5, 0x2F, 0xFD, 0x00, 7 << 3];
+    let header = ((content.len() as u32 + 1) << 3) | 2 << 1 | 1;
+    frame.extend_from_slice(&header.to_le_bytes()[..3]);
+    frame.push(0x00);
+    frame.extend_from_slice(content);
+    frame
+}
+
+/// Frame headers and sequence sections built by hand: dictionary
+/// identifiers of two and four bytes, of zero, which name none; and a
+/// sequence's codes repeated from a block before the first, a single
+/// symbol past its alphabet, and a description cut short.
+#[test]
+fn reads_headers_and_sections_built_by_hand() {
+    for (descriptor, len) in [(0x02, 2), (0x03, 4)] {
+        let mut stream = zstd(&[Block::Raw(b"x")]);
+        stream[4] = descriptor;
+        stream.splice(6..6, vec![0; len]);
+        assert_eq!(decode(&stream).unwrap(), b"x", "{len}");
+    }
+    for content in [
+        &[0x01, 0xFC, 0x80][..],
+        &[0x01, 0x40, 200, 0x80],
+        &[0x01, 0x80, 0x00],
+    ] {
+        assert_eq!(kind(&compressed(content)), Error::Corrupt, "{content:?}");
+    }
+}
+
+/// A decoder by default is a new one, which says where it is; and its
+/// errors say what they mean.
+#[test]
+fn defaults_to_a_new_decoder() {
+    let stream = zstd(&[Block::Raw(b"data")]);
+    let mut decoder = Decoder::default();
+    let mut output = [0; 8];
+    let (mut at, mut end) = (0, 0);
+    while at < stream.len() {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut output[end..]).unwrap();
+        assert!(consumed + produced > 0, "stuck at {at}");
+        (at, end) = (at + consumed, end + produced);
+    }
+    decoder.finish().unwrap();
+    assert_eq!(&output[..end], b"data");
+    assert!(format!("{decoder:?}").starts_with("Decoder"));
+    assert_eq!(Error::Corrupt.to_string(), "corrupt zstd stream");
+    assert_eq!(Error::Unsupported.to_string(), "unsupported zstd stream");
+}
+
 /// Decodes `stream` from each checkpoint that a decoder given `piece`
 /// bytes at a time and room for 16 offers, every `every` calls, and
 /// checks that each decodes on to the same end; returns how many it took.
