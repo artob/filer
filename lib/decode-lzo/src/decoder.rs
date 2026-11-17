@@ -318,6 +318,8 @@ impl Decoder {
             State::Padding => true,
             State::Block => false,
         };
+        // Nothing is pending between files, as `decode` reads past a block
+        // only once all of it is produced.
         if between && self.unit.is_empty() && !self.window.pending() {
             Ok(())
         } else {

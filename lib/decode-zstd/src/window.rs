@@ -165,9 +165,10 @@ impl Window {
             }
             return Ok(need);
         }
-        // A lap starts over only once all is produced; the last ended past
-        // the window, a block, and its slack, so that the window is left
-        // whole, even by a short copy past a block's end.
+        // A lap starts over only once all is produced, which callers of
+        // `prepare` wait for; the last ended past the window, a block, and
+        // its slack, so that the window is left whole, even by a short
+        // copy past a block's end.
         if self.pending() {
             return Err(corrupt());
         }

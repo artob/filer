@@ -358,7 +358,7 @@ impl Model {
     }
 }
 
-/// Returns the low `bits` bits set.
+/// Returns the low `bits` bits set: up to 4, as properties give them.
 const fn mask(bits: u32) -> u32 {
     match 1_u32.checked_shl(bits) {
         Some(bit) => bit.wrapping_sub(1),

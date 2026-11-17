@@ -190,6 +190,7 @@ impl Stage {
 
     /// Returns whether it has converted all it will, and passed it on.
     fn drained(&self) -> bool {
+        // Once ended, `convert` has converted all it holds.
         self.ended && self.done == self.len && self.start == self.done
     }
 }
@@ -235,6 +236,8 @@ impl Block {
         self.check.update(decoded);
         self.uncompressed = self.uncompressed.saturating_add(to_u64(produced));
         let (compressed, uncompressed) = self.declared;
+        // `limit` cuts the input where the compressed data's declared size
+        // ends, so that only the uncompressed size may be passed.
         if compressed.is_some_and(|size| self.compressed > size)
             || uncompressed.is_some_and(|size| self.uncompressed > size)
         {
@@ -308,6 +311,8 @@ impl Block {
                 .stages
                 .last()
                 .is_some_and(|last| !last.pending().is_empty() || last.ended);
+            // What was ready went out at the loop's top: nothing is anew
+            // unless pulled or moved.
             if pulled == 0 && !moved && !ready {
                 // It needs more input, or LZMA2 more room, which a stage
                 // that converts nothing yet cannot give.
@@ -501,6 +506,8 @@ impl Decoder {
     ///
     /// [`Corrupt`](Error::Corrupt) if it has not.
     pub fn finish(&self) -> Result<(), Error> {
+        // Padding follows a stream; before any, it is only what `step`
+        // leaves after an error.
         match self.state {
             State::Padding(padding) if self.streams > 0 && padding % 4 == 0 => Ok(()),
             _ => Err(corrupt()),

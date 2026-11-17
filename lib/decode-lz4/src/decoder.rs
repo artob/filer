@@ -80,6 +80,7 @@ impl Header {
         if flags & 0x01 != 0 {
             return Err(unsupported());
         }
+        // Without the flag, the length checked leaves `rest` empty.
         let size = match rest.first_chunk() {
             Some(&size) if flags & 0x08 != 0 => Some(u64::from_le_bytes(size)),
             _ => None,

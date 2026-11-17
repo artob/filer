@@ -71,7 +71,8 @@ impl Distribution {
             let more = !small & (ahead & high != 0);
             let value = low.wrapping_add(if more { high.wrapping_sub(short) } else { 0 });
             bits.skip(width.wrapping_sub(u32::from(small)));
-            // A probability of -1, "less than 1", takes a point too.
+            // A probability of -1, "less than 1", takes a point too. The
+            // points left bound it, far below `i16::MAX`.
             let count = i16::try_from(value)
                 .map_err(|_| corrupt())?
                 .saturating_sub(1);
@@ -171,7 +172,8 @@ impl Distribution {
                 }
             }
         }
-        // The row takes every state below the last ones.
+        // The row takes every state below the last ones, as the counts
+        // take every state.
         let high = size.checked_sub(low).ok_or_else(corrupt)?;
         if laid != high {
             return Err(corrupt());

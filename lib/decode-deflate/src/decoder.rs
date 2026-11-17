@@ -90,6 +90,7 @@ impl Format {
             #[cfg(feature = "deflate64")]
             (Self::Deflate64, 285, _) => (3, 16),
             (_, _, Some(code)) => LENGTHS.get(code).copied().unwrap_or((0, NEVER)),
+            // Never: each symbol past 256 is a length's.
             _ => (0, NEVER),
         }
     }
@@ -444,6 +445,7 @@ impl Dynamic {
     ) -> Result<usize, Error> {
         let (symbol, len) = match code.lookup(bits.value, bits.count) {
             Code::Symbol { value, bits, .. } => (value, bits),
+            // Never: the bits hold it whole, and the code is complete.
             _ => return Err(corrupt()),
         };
         bits.consume(len);
@@ -575,6 +577,7 @@ impl Dynamic {
             let (symbol, len) = match code.lookup(bits.value, bits.count) {
                 Code::Symbol { value, bits, .. } => (value, bits),
                 Code::Short => return Ok(false),
+                // Never: the code length code must be complete.
                 Code::Invalid => return Err(corrupt()),
             };
             // A length, or a length repeated: the last, or zeros.
@@ -615,7 +618,8 @@ impl Dynamic {
         if literal_lengths.get(256).is_none_or(|&length| length == 0) {
             return Err(corrupt());
         }
-        // The tally less the distances' lengths, which are few.
+        // The tally less the distances' lengths, which are few, and 15 at
+        // most, as each is read.
         let mut literal_counts = self.tally;
         for &length in distance_lengths {
             if let Some(count) = literal_counts.get_mut(usize::from(length)) {
@@ -851,6 +855,9 @@ impl Decoder {
             return 0;
         };
         let few = output.len() < self.window.format.window();
+        // Only `few` is ever so: the bits give back a stored block's bytes
+        // once they have read its length, and `decode` produces what the
+        // window holds first.
         if few || self.bits.count > 0 || self.window.held() > 0 {
             return 0;
         }
@@ -954,7 +961,9 @@ impl Decoder {
                     let room = self.window.chunk.saturating_sub(self.window.held());
                     let want = usize::try_from(*left).unwrap_or_default().min(room);
                     let window = &mut self.window;
-                    // What the bits hold first, whole bytes as they are.
+                    // What the bits hold first, whole bytes as they are:
+                    // none, as they give them back once they have read the
+                    // block's length.
                     let n = if self.bits.count >= 8 {
                         let n = want.min(usize::try_from(self.bits.count / 8).unwrap_or_default());
                         for _ in 0..n {
@@ -1243,7 +1252,8 @@ fn codes(
     limit: usize,
     input: &[u8],
 ) -> (Result<Stop, Error>, Cursor) {
-    // The last place a write may begin, as `fast` finds it.
+    // The last place a write may begin, as `fast` finds it: the buffer
+    // holds a chunk's room and `SLACK` bytes more.
     let Some(edge) = buf.len().checked_sub(SLACK) else {
         return (Err(corrupt()), at);
     };
@@ -1285,6 +1295,8 @@ fn codes(
                     at.bits.consume(n);
                     break Ok(Stop::End);
                 }
+                // Never short, here or for the distance: a lookup gives a
+                // symbol only once the bits hold its extra bits too.
                 if at.bits.count < n.saturating_add(kind) {
                     break Ok(Stop::More);
                 }
@@ -1661,7 +1673,8 @@ fn fill<const N: usize>(
 /// Returns the `N` bytes of `buf` at `at`, `SLACK` at most, if `at` is no
 /// further than `edge`, the last place a write may begin, which `buf`
 /// holds `SLACK` bytes past: one comparison, so that taking them takes no
-/// other check.
+/// other check. Its callers stop at the edge first, so that it never
+/// gives `None`.
 #[inline(always)]
 fn chunk<const N: usize>(buf: &[u8], at: usize, edge: usize) -> Option<&[u8; N]> {
     match at <= edge {

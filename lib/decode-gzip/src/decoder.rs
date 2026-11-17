@@ -277,6 +277,7 @@ impl Decoder {
                     None => State::Trailer(seen.saturating_add(1)),
                 };
             },
+            // `step` takes these itself, never a byte at a time.
             State::Extra(_) | State::Name | State::Comment | State::Body | State::Ended => {
                 return Err(corrupt());
             },

@@ -354,6 +354,7 @@ impl Block {
     /// on a run of four, with no count, is corrupt, as bzip2 reads one past
     /// its end and refuses it.
     fn settle(&mut self) -> Result<(), Error> {
+        // `repeat` is above 0 only once a count has reset the run.
         if self.run != 4 || self.repeat > 0 {
             return Ok(());
         }
@@ -599,7 +600,8 @@ impl Decoder {
             // Parsing takes input only once the last block is written, and
             // only as it needs it, a step at a time, so that it holds little
             // more than the next block's, up to the most one takes, and none
-            // past the last stream.
+            // past the last stream. Once it holds the most, parsing takes
+            // what it holds or refuses it, so that `room` never runs out.
             let room = MAX_PACKED.saturating_sub(self.input.len()).min(STEP);
             if self.state == State::Ended || consumed >= input.len() || room == 0 {
                 return Ok((consumed, produced));

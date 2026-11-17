@@ -499,7 +499,8 @@ impl Decoder {
                 at: 0,
             };
             if self.model.packet(&mut dry, context).is_none() {
-                // Too few: hold them all, for more to follow.
+                // Too few: hold them all, for more to follow. Never as many
+                // as `REQUIRED`, which no packet takes more of.
                 if all >= REQUIRED {
                     return Err(corrupt());
                 }

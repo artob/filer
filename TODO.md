@@ -633,42 +633,6 @@ crate's name until its first code, which moves it to `lib/`.
   images, SquashFS blocks, archives of large projects), `decode-lzo`'s
   over what `lzop` writes on comet, and findings are fixed or recorded
   here.
-- [ ] **DEC-14: Coverage of the decoders.** By `cargo llvm-cov --branch` over
-  each crate's tests on comet, at `9042b0d` (2026-11-17), the `decode-*` crates'
-  lines were 89 to 96% covered, their branches 83 to 98%; at `aa3364c`, with
-  tests for what they missed, 95.6 to 99.1%, and 88 to 98%, and the branches
-  tested since reached, as a panic put there showed. Their blocks built by hand
-  found one that bzip2 refuses and `decode-bzip2` decoded, which it now refuses
-  too. What no test reaches cannot be reached, in each crate: slices bounded
-  just before, fields split at the lengths they were gathered to, states that
-  `decode` never gives a step, a unit ending in a call that does nothing, as one
-  ends on what it consumes or produces, and tables built at compile time. And:
-  `decode-gzip`'s byte step in states `step` takes itself; `decode-zlib`'s step
-  that changes state with nothing consumed or produced (tried over every first
-  room up to 2,100 bytes); `decode-bzip2`'s room run out, as a block past it is
-  refused first, and a count still to repeat after a run of four, as one resets
-  the run; `decode-lz4`'s content size without its flag; `decode-lzo`'s output
-  pending between files, as it reads past a block only once all is produced;
-  `decode-lzma`'s packet more than `REQUIRED` bytes hold, its window full before
-  it grows to its largest, a write it is not ready for, a mask of 32 bits, and
-  conditions that those before them imply; `decode-xz`'s padding before any
-  stream, a stage drained before what it holds is taken, or ready when nothing
-  moved, as the loop takes out what is ready first, and compressed data past its
-  declared size, as the input is cut there; `decode-deflate`'s symbol past 256
-  with no length, invalid code length code, which must be complete, counts past
-  15, conversions from `u32`, `chunk` past the edge the loop stops at, pairing a
-  table other than a literal table of its own, careful checks of extra bits and
-  writes, which lookups and its bound make first, bits or output held in a
-  stored block, given back after its length or produced first, and window kept
-  into a buffer smaller than it, as each call prepares a chunk first; and
-  `decode-zstd`'s single segment with no size, reserved block type, refused by
-  its header, offset codes past the alphabet's 31, runs past their limit, lap
-  begun before all is produced, FSE values past an `i16` and spreads that miss a
-  state, which the counts bound, the forward load's other side, as comet's Zen 1
-  is AMD's, and the unit tests' own branches. Done when a line and branch report
-  of each, by `cargo llvm-cov` on Linux over its tests, is read, and each
-  uncovered branch gets a test, most of all the paths that refuse malformed
-  input, or a note here of why it cannot be reached.
 - [ ] **DEC-23: `decode-deflate`'s allocations, timed.** Each dynamic
   block boxed its state anew, built its code length code's table anew,
   and gathered each table's codes longer than its index in a new vector:

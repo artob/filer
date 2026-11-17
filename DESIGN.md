@@ -227,7 +227,17 @@ windows; this section holds the rationale.
   its reason: a builder's on invalid arguments, a check evaluated at
   compile time, a driver breaking its contract, or ids running out.
   `filer-spec` is exempt, as its assertions are how it reports failures,
-  and so are tests, binaries, and examples.
+  and so are tests, binaries, and examples. Checked access leaves
+  branches that no input takes: by `cargo llvm-cov --branch` on Linux,
+  the `decode-*` crates' tests run 95.8 to 99.1% of their lines and take
+  88.5 to 97.8% of their branches (2026-11-17), and what they miss cannot
+  be reached: a slice bounded just before, a field split at the length
+  it was gathered to, a conversion from `u32`, a condition that those
+  before it imply, a state that no step is given, a unit ending in a
+  call that consumes and produces nothing, as each ends on what it
+  consumes or produces, a table built at compile time, a test of the CPU
+  that one machine answers one way, or a unit test's own assertion.
+  Rarer ones say why where they stand.
 - Builders (fixtures such as `HeapBuilder`, and later configuration
   builders) maximize developer usability: path arguments take
   `P: TryInto<RelPathBuf>` so plain strings work besides `rel!` literals,

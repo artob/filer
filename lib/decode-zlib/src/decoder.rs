@@ -96,6 +96,9 @@ impl Decoder {
             let (c, p) = self.step(input, output)?;
             consumed = consumed.saturating_add(c);
             produced = produced.saturating_add(p);
+            // No step was found to change state with nothing consumed or
+            // produced, over every first room up to 2,100 bytes; after one
+            // that did, the loop would go on.
             if c == 0 && p == 0 && self.state == state {
                 return Ok((consumed, produced));
             }

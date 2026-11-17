@@ -255,6 +255,7 @@ fn take(
     limit: usize,
     end: usize,
 ) -> Option<usize> {
+    // Never past it: the rounds are counted to end within their limits.
     if end > limit {
         return None;
     }

@@ -99,6 +99,7 @@ impl Header {
             },
             // A single segment's window is its size.
             (None, Some(size)) => size,
+            // Never: a single segment always gives its size.
             (None, None) => return Err(corrupt()),
         };
         if window > MAX_WINDOW {
@@ -190,6 +191,7 @@ impl<'a> Block<'a> {
                 output.fill(byte, self.size)
             },
             2 => block::decode(self.content, tables, scratch, output, max),
+            // The reserved type, which `block_len` refuses first.
             _ => Err(corrupt()),
         }
     }

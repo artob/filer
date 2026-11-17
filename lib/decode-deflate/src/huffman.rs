@@ -438,6 +438,8 @@ impl Table {
     /// Pairs its literals, as `pair` does, which pays once a block has
     /// decoded enough of them.
     pub(crate) fn pair(&mut self) {
+        // Only a literal table of its own is paired here, of `MAX_INDEX`
+        // bits, as the fixed one is paired already.
         self.paired = true;
         let Cow::Owned(entries) = &mut self.entries else {
             return;
