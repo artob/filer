@@ -304,16 +304,20 @@ impl Table {
             _ => None,
         };
         let mut shorts = 0_usize;
-        // Each length's codes in turn, from the first of that length, past
-        // the `skip` shortest lengths, each with its symbol.
-        let codes = |skip: usize| {
-            let groups = (1_u32..).zip(next.iter().zip(&counts).skip(1)).skip(skip);
-            let start = starts.get(skip.saturating_add(1)).copied();
-            let symbols = sorted.get(start.unwrap_or(sorted.len())..);
-            let codes = groups.flat_map(|(len, (&first, &count))| {
-                (first..first.saturating_add(count)).map(move |code| (len, code))
-            });
-            symbols.unwrap_or_default().iter().zip(codes)
+        // The codes of length `len` in turn, from the first of that length,
+        // each with its symbol: a loop over each length's, unlike one over
+        // all, is kept inline.
+        let codes = |len: u32| {
+            let at = usize::try_from(len).unwrap_or(LENGTHS);
+            let start = starts.get(at).copied().unwrap_or_default();
+            let count = counts.get(at).copied().unwrap_or_default();
+            let end = start.saturating_add(usize::try_from(count).unwrap_or_default());
+            let first = next.get(at).copied().unwrap_or_default();
+            sorted
+                .get(start..end)
+                .unwrap_or_default()
+                .iter()
+                .zip(first..)
         };
         // What fills each entry of a code: of `END` and `NEVER`, the length
         // byte alone; of the rest, the code's length and the extra bits' as
@@ -329,28 +333,29 @@ impl Table {
                 },
             })
         };
-        for (&symbol, (len, code)) in codes(0) {
-            // Longer ones come last.
-            if len > bits {
-                break;
-            }
-            // Read from the stream first bit first, so reversed.
-            let reversed = reverse(code, len);
-            let meant = meant(symbol, len)?;
-            if let (Ok(byte), Some(slot)) = (
-                u8::try_from(symbol),
-                short.as_mut().and_then(|short| short.get_mut(shorts)),
-            ) {
-                let at = u32::try_from(reversed).unwrap_or_default();
-                *slot = u32::from(byte).wrapping_shl(24) | len.wrapping_shl(16) | at;
-                shorts = shorts.saturating_add(1);
-            }
+        // The longest of the codes, past which no length has any.
+        let longest = counts.iter().rposition(|&count| count > 0);
+        let longest = u32::try_from(longest.unwrap_or_default()).map_err(|_| corrupt())?;
+        for len in 1..=bits.min(longest) {
             let wide = 1_usize.wrapping_shl(len);
             while width < wide {
                 entries.copy_within(..width, width);
                 width = width.saturating_mul(2);
             }
-            *entries.get_mut(reversed).ok_or_else(corrupt)? = meant;
+            for (&symbol, code) in codes(len) {
+                // Read from the stream first bit first, so reversed.
+                let reversed = reverse(code, len);
+                let meant = meant(symbol, len)?;
+                if let (Ok(byte), Some(slot)) = (
+                    u8::try_from(symbol),
+                    short.as_mut().and_then(|short| short.get_mut(shorts)),
+                ) {
+                    let at = u32::try_from(reversed).unwrap_or_default();
+                    *slot = u32::from(byte).wrapping_shl(24) | len.wrapping_shl(16) | at;
+                    shorts = shorts.saturating_add(1);
+                }
+                *entries.get_mut(reversed).ok_or_else(corrupt)? = meant;
+            }
         }
         while width < size {
             entries.copy_within(..width, width);
@@ -358,37 +363,44 @@ impl Table {
         }
         // Longer ones, a table under their prefix, as long as the longest
         // code under it, past the prefix, needs.
-        let index = usize::try_from(bits).map_err(|_| corrupt())?;
+        let longer = bits.saturating_add(1)..=longest;
         let mut links = [0_u8; 1 << MAX_INDEX];
-        for (_, (len, code)) in codes(index) {
-            let link = links
-                .get_mut(reverse(code, len) & mask)
-                .ok_or_else(corrupt)?;
-            *link = (*link).max(u8::try_from(len.saturating_sub(bits)).map_err(|_| corrupt())?);
-        }
-        for (_, (len, code)) in codes(index) {
-            let prefix = reverse(code, len) & mask;
-            let link = u32::from(links.get(prefix).copied().unwrap_or_default());
-            let slot = entries.get(prefix).copied().ok_or_else(corrupt)?;
-            if slot & LINK == 0 {
-                let offset = u16::try_from(entries.len()).map_err(|_| corrupt())?;
-                *entries.get_mut(prefix).ok_or_else(corrupt)? = entry(offset, 0, LINK | link);
-                let sub = 1_usize.wrapping_shl(link);
-                entries.resize(entries.len().saturating_add(sub), INVALID);
+        for len in longer.clone() {
+            let past = u8::try_from(len.saturating_sub(bits)).map_err(|_| corrupt())?;
+            for (_, code) in codes(len) {
+                let link = links
+                    .get_mut(reverse(code, len) & mask)
+                    .ok_or_else(corrupt)?;
+                *link = (*link).max(past);
             }
         }
-        for (&symbol, (len, code)) in codes(index) {
-            let reversed = reverse(code, len);
-            let meant = meant(symbol, len)?;
-            let link = u32::from(links.get(reversed & mask).copied().unwrap_or_default());
-            let at = entries.get(reversed & mask).copied().ok_or_else(corrupt)?;
-            let offset = usize::try_from(at >> 16).map_err(|_| corrupt())?;
-            let start = offset.saturating_add(reversed >> bits);
-            let end = offset.saturating_add(1_usize.wrapping_shl(link));
+        for len in longer.clone() {
+            for (_, code) in codes(len) {
+                let prefix = reverse(code, len) & mask;
+                let link = u32::from(links.get(prefix).copied().unwrap_or_default());
+                let slot = entries.get(prefix).copied().ok_or_else(corrupt)?;
+                if slot & LINK == 0 {
+                    let offset = u16::try_from(entries.len()).map_err(|_| corrupt())?;
+                    *entries.get_mut(prefix).ok_or_else(corrupt)? = entry(offset, 0, LINK | link);
+                    let sub = 1_usize.wrapping_shl(link);
+                    entries.resize(entries.len().saturating_add(sub), INVALID);
+                }
+            }
+        }
+        for len in longer {
             let step = 1_usize.wrapping_shl(len.saturating_sub(bits));
-            let sub = entries.get_mut(start..end).unwrap_or_default();
-            for slot in sub.iter_mut().step_by(step) {
-                *slot = meant;
+            for (&symbol, code) in codes(len) {
+                let reversed = reverse(code, len);
+                let meant = meant(symbol, len)?;
+                let link = u32::from(links.get(reversed & mask).copied().unwrap_or_default());
+                let at = entries.get(reversed & mask).copied().ok_or_else(corrupt)?;
+                let offset = usize::try_from(at >> 16).map_err(|_| corrupt())?;
+                let start = offset.saturating_add(reversed >> bits);
+                let end = offset.saturating_add(1_usize.wrapping_shl(link));
+                let sub = entries.get_mut(start..end).unwrap_or_default();
+                for slot in sub.iter_mut().step_by(step) {
+                    *slot = meant;
+                }
             }
         }
         self.bits = bits;
