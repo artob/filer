@@ -103,6 +103,27 @@ fn leaves_what_follows_unread() {
     decoder.finish().unwrap();
 }
 
+/// A decoder by default is a new one; and its errors say what they mean.
+#[test]
+fn defaults_to_a_new_decoder() {
+    let stream = zlib_at(b"data", 6);
+    let mut decoder = Decoder::default();
+    let mut output = [0; 16];
+    let (mut at, mut end) = (0, 0);
+    while at < stream.len() {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut output[end..]).unwrap();
+        assert!(consumed + produced > 0, "stuck at {at}");
+        (at, end) = (at + consumed, end + produced);
+    }
+    decoder.finish().unwrap();
+    assert_eq!(&output[..end], b"data");
+    assert_eq!(Error::Corrupt.to_string(), "corrupt zlib stream");
+    assert_eq!(
+        Error::Unsupported.to_string(),
+        "zlib stream needing a preset dictionary"
+    );
+}
+
 #[test]
 fn refuses_streams_cut_short() {
     let stream = include_bytes!("data/numbers.zz");

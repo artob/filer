@@ -127,6 +127,23 @@ fn refuses_malformed_streams() {
     assert_eq!(error(&stream), Error::Corrupt);
 }
 
+/// A decoder by default is a new one; and its error says what it means.
+#[test]
+fn defaults_to_a_new_decoder() {
+    let stream = Member::default().gzip(b"data");
+    let mut decoder = Decoder::default();
+    let mut output = [0; 16];
+    let (mut at, mut end) = (0, 0);
+    while at < stream.len() {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut output[end..]).unwrap();
+        assert!(consumed + produced > 0, "stuck at {at}");
+        (at, end) = (at + consumed, end + produced);
+    }
+    decoder.finish().unwrap();
+    assert_eq!(&output[..end], b"data");
+    assert_eq!(Error::Corrupt.to_string(), "corrupt gzip stream");
+}
+
 #[test]
 fn offers_checkpoints_anywhere() {
     let data: Vec<u8> = (0..200_000_u32).map(|n| (n * 7 % 251) as u8).collect();

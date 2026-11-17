@@ -633,8 +633,16 @@ crate's name until its first code, which moves it to `lib/`.
   images, SquashFS blocks, archives of large projects), `decode-lzo`'s
   over what `lzop` writes on comet, and findings are fixed or recorded
   here.
-- [ ] **DEC-14: Coverage of the decoders.** No coverage report of the
-  `decode-*` crates has been read. Done when a line and branch report
+- [ ] **DEC-14: Coverage of the decoders.** By `cargo llvm-cov --branch`
+  over each crate's tests on comet, at `9042b0d` (2026-11-17), the
+  `decode-*` crates' lines are 89 to 96% covered, their branches 83 to
+  98%. Read, and tested where they missed: `decode-gzip` and
+  `decode-zlib`, whose untaken branches cannot be reached: a field's
+  slot past its length, gzip's byte step in states that `step` takes
+  itself, and zlib's step that changes state while it consumes and
+  produces nothing, as the Deflate stream only ends in a call that does
+  either (tried over every first room up to 2,100 bytes). Done when a
+  line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse
   malformed input, or a note here of why it cannot be reached.
