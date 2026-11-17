@@ -669,19 +669,15 @@ crate's name until its first code, which moves it to `lib/`.
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and each
   uncovered branch gets a test, most of all the paths that refuse malformed
   input, or a note here of why it cannot be reached.
-- [ ] **DEC-23: `decode-deflate`'s allocations.** Each dynamic block
-  boxed its state anew, built its code length code's table anew, and
-  gathered each table's codes longer than its index in a new vector:
-  Silesia's `dickens` took 448 to 1,172 allocations a stream, where zlib
-  takes one, and ours holds 32 to 140 KiB at most whole and 42 to 161 in
-  pieces, where zlib holds 7 and 39 (`BENCH.md`, 2026-11-16). A stream
-  now keeps them from block to block (`CHANGES.md`): six allocations at
-  most, its window, its description, and its tables' room, grown up to
-  five times, however many blocks it holds, by a counting allocator over
-  Canterbury (2026-11-16); not yet counted by the harness, nor timed on
-  the default machines, which a campaign holds.
-  Done when a stream allocates once, its block state and tables reused
-  from block to block, its speed timed before and after.
+- [ ] **DEC-23: `decode-deflate`'s allocations, timed.** Each dynamic
+  block boxed its state anew, built its code length code's table anew,
+  and gathered each table's codes longer than its index in a new vector:
+  Silesia's `dickens` took 448 to 1,172 allocations a stream
+  (`BENCH.md`, 2026-11-16). A stream now keeps them from block to block
+  (`CHANGES.md`): six allocations at most, grown up to five times,
+  however many blocks it holds, by a counting allocator over Canterbury
+  (2026-11-16), the rest left to DEC-25. Done when the harness counts
+  them, and its speed is timed before and after on the default machines.
 - [ ] **DEC-24: `decode-deflate`'s speed.** Reworked since it trailed
   libdeflate, `zlib-rs`, zlib-ng, `zune-inflate`, and `yazi`
   (`CHANGES.md`). Whole, by the harness at `d73cac4` (`BENCH.md`,
@@ -723,6 +719,17 @@ crate's name until its first code, which moves it to `lib/`.
   ones alone (2% slower). Done when it decodes faster than zlib-ng and
   `zlib-rs` on each default machine, every input, whole, in pieces, and
   in small streams, and at 0.95 of libdeflate's speed at least, whole.
+- [ ] **DEC-25: One allocation a stream.** Low priority. A
+  `decode-deflate` stream allocates six times at most, and grows those up
+  to five times (DEC-23): its window's buffer, doubled as it fills; its
+  dynamic blocks' description, with its code length code's table; its
+  literal and distance tables' room, grown for the tables of longer
+  codes; and the literals its index pairs. zlib allocates once, its
+  window and its tables in one block of fixed size, where ours held 32
+  to 140 KiB at most whole, and zlib 7 (`BENCH.md`, 2026-11-16, before
+  DEC-23). DEC-24's tables in one block of fixed size lost speed. Done
+  when a stream allocates once, no slower, or the crate's docs say why
+  not.
 
 ## Virtual drivers
 
