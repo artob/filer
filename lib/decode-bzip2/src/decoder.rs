@@ -344,27 +344,28 @@ impl Block {
             written = written.saturating_add(1);
         }
         self.crc.update(output.get(..written).unwrap_or_default());
-        self.settle();
+        self.settle()?;
         Ok(written)
     }
 
     /// Reads past the count that follows a run of four, if it adds none
     /// more, as it produces nothing: so that a block whose last byte fills
-    /// the room is done, though that count follows it.
-    fn settle(&mut self) {
+    /// the room is done, though that count follows it. A block that ends
+    /// on a run of four, with no count, is corrupt, as bzip2 reads one past
+    /// its end and refuses it.
+    fn settle(&mut self) -> Result<(), Error> {
         if self.run != 4 || self.repeat > 0 {
-            return;
+            return Ok(());
         }
-        let Some(left) = self.left.checked_sub(1) else {
-            return;
-        };
+        let left = self.left.checked_sub(1).ok_or_else(corrupt)?;
         let place = usize::try_from(self.next).ok();
         let Some(&link) = place.and_then(|place| self.links.get(place)) else {
-            return;
+            return Ok(());
         };
         if let [.., 0] = link.to_be_bytes() {
             (self.left, self.next, self.run) = (left, link.wrapping_shr(8), 0);
         }
+        Ok(())
     }
 
     /// Returns whether every byte has been written.

@@ -367,6 +367,9 @@ so any release may break compatibility.
   time its input doubled, until the block was whole, so that in pieces of
   1 KiB it decoded random bytes 40% slower; it now waits for the magic
   number that follows the block, which it scans for at 5 GB/s.
+- `decode-bzip2`: a block that ended on a run of four bytes, with no
+  count after it, decoded as the four, where bzip2 reads a count past
+  the block's end and refuses it; it is now corrupt, as there.
 - `decode-xz`: through a filter chain, each call moved a stage's whole
   buffer and zeroed it again, so that a caller giving or taking a byte at
   a time decoded ten times slower; each now happens once a stage fills.

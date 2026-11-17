@@ -162,6 +162,57 @@ fn endless_lengths(len: usize) -> Vec<u8> {
     stream
 }
 
+/// Returns a stream of a block built by hand, of `a` alone: `run` of it,
+/// 1, or 4 with no count after them, which bzip2 never writes; its codes,
+/// two tables', chosen by `selectors` selectors of the first. Unless
+/// `used`, the block says it uses no byte at all.
+fn one_byte(run: usize, selectors: u64, used: bool) -> Vec<u8> {
+    let crc = compute_crc::crc32_bzip2(&b"a".repeat(run));
+    let mut bits = Bits(Vec::new(), 0);
+    bits.push(u64::from_be_bytes(*b"\0\0\0\0BZh1"), 32);
+    bits.push(0x3141_5926_5359, 48);
+    // The CRC, no randomization, the origin, and the bytes in use: of the
+    // seventh range of sixteen, the second, `a`.
+    bits.push(u64::from(crc), 32);
+    bits.push(0, 1);
+    bits.push(0, 24);
+    if used {
+        bits.push(0x0200, 16);
+        bits.push(0x4000, 16);
+    } else {
+        bits.push(0, 16);
+    }
+    bits.push(2, 3);
+    bits.push(selectors, 15);
+    for _ in 0..selectors {
+        bits.push(0, 1);
+    }
+    // Each table's lengths of the symbols: runs of one, of two, and the
+    // end: 1, then up a step to 2, and 2, so that their codes are 0, 10,
+    // and 11.
+    for _ in 0..2 {
+        bits.push(1, 5);
+        bits.push(0b01000, 5);
+    }
+    // A run of `run` as runs of one and of two by place, and the end.
+    match run {
+        1 => bits.push(0b0, 1),
+        _ => bits.push(0b100, 3),
+    }
+    bits.push(0b11, 2);
+    bits.push(0x1772_4538_5090, 48);
+    bits.push(u64::from(crc), 32);
+    bits.0
+}
+
+/// A block that ends on a run of four, with no count after it, which
+/// bzip2 refuses as it reads one past the block's end.
+#[test]
+fn refuses_a_block_that_ends_on_a_run_of_four() {
+    assert_eq!(decode(&one_byte(1, 2, true)).unwrap(), b"a");
+    assert_eq!(kind(&one_byte(4, 2, true)), Error::Corrupt);
+}
+
 /// It gathers at most 4 MiB toward a block, more than any takes, and
 /// refuses one that needs more rather than gather without bound.
 #[test]
