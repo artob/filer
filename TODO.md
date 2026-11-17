@@ -659,7 +659,12 @@ crate's name until its first code, which moves it to `lib/`.
   be: a format or chunk state other than the step's own, slices bounded
   just before, a packet more than `REQUIRED` bytes hold, the window
   full before it grows to its largest, a write it is not ready for, as
-  its callers check, and a mask of 32 bits. Done when a
+  its callers check, and a mask of 32 bits. `decode-xz`, whose untaken
+  ones cannot be: slices bounded just before, fields split at the
+  lengths they were gathered to, stages the chain surely has, a block
+  ending in a call that does nothing, padding before any stream, a
+  stage drained before what it holds is taken, and compressed data past
+  its declared size, as the input is cut there. Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse

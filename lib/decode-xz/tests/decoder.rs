@@ -244,6 +244,221 @@ fn offers_checkpoints_between_blocks() {
     }
 }
 
+/// Returns `stream`, a single block's, with its block header made of
+/// `fields`, its flags and what follows them, zeros after them to its
+/// size, and its CRC32.
+fn with_header(stream: &[u8], fields: &[u8]) -> Vec<u8> {
+    let old = (usize::from(stream[12]) + 1) * 4;
+    let len = (1 + fields.len() + 4).next_multiple_of(4);
+    let mut header = vec![(len / 4 - 1) as u8];
+    header.extend_from_slice(fields);
+    header.resize(len - 4, 0);
+    header.extend_from_slice(&crc32(&header).to_le_bytes());
+    [&stream[..12], &header, &stream[12 + old..]].concat()
+}
+
+/// Returns `stream` with its stream header's flags and its footer's set to
+/// `header` and `footer`, and their CRC32s made to match.
+fn with_flags(stream: &[u8], header: [u8; 2], footer: [u8; 2]) -> Vec<u8> {
+    let mut stream = stream.to_vec();
+    let end = stream.len();
+    stream[6..8].copy_from_slice(&header);
+    let crc = crc32(&stream[6..8]);
+    stream[8..12].copy_from_slice(&crc.to_le_bytes());
+    stream[end - 4..end - 2].copy_from_slice(&footer);
+    let crc = crc32(&stream[end - 8..end - 2]);
+    stream[end - 12..end - 8].copy_from_slice(&crc.to_le_bytes());
+    stream
+}
+
+/// Returns where `stream`'s index begins, by its footer.
+fn index(stream: &[u8]) -> usize {
+    let end = stream.len();
+    let backward = u32::from_le_bytes(stream[end - 8..end - 4].try_into().unwrap());
+    end - 12 - (backward as usize + 1) * 4
+}
+
+#[test]
+fn refuses_malformed_block_headers() {
+    let stream = xz(b"data", None, CheckType::Crc64, None);
+    assert_eq!(stream[14], 0x21, "LZMA2's ID");
+    let property = stream[16];
+    // The block's sizes, by the index: its unpadded size less its header
+    // and its CRC-64.
+    let at = index(&stream);
+    assert_eq!(stream[at..at + 2], [0, 1]);
+    let compressed = stream[at + 2] - stream[12] * 4 - 4 - 8;
+    let lzma2 = [0x21, 1, property];
+    let sized = |flags: u8, size: u8| [&[flags, size][..], &lzma2].concat();
+    let good = with_header(&stream, &sized(0x40, compressed));
+    assert_eq!(decode(&good).unwrap().0, b"data");
+    let good = with_header(&stream, &sized(0x80, 4));
+    assert_eq!(decode(&good).unwrap().0, b"data");
+    for (fields, expected) in [
+        // A reserved flag.
+        (vec![0x04, 0x21, 1, property], Error::Corrupt),
+        // A compressed size of none, or not the block's, and an
+        // uncompressed size that is not either, less or more.
+        (sized(0x40, 0), Error::Corrupt),
+        (sized(0x40, compressed - 1), Error::Corrupt),
+        (sized(0x40, compressed + 1), Error::Corrupt),
+        (sized(0x80, 3), Error::Corrupt),
+        (sized(0x80, 5), Error::Corrupt),
+        // LZMA2's property of two bytes, or with reserved bits.
+        (vec![0x00, 0x21, 2, property, 0], Error::Corrupt),
+        (vec![0x00, 0x21, 1, property | 0x40], Error::Corrupt),
+        // Delta alone, and Delta's distance of two bytes.
+        (vec![0x00, 0x03, 1, 0], Error::Unsupported),
+        (vec![0x01, 0x03, 2, 0, 0, 0x21, 1, property], Error::Corrupt),
+        // ARM's start offset of two bytes, or not a multiple of four.
+        (vec![0x01, 0x07, 2, 0, 0, 0x21, 1, property], Error::Corrupt),
+        (
+            vec![0x01, 0x07, 4, 2, 0, 0, 0, 0x21, 1, property],
+            Error::Corrupt,
+        ),
+        // Padding other than zeros.
+        (vec![0x00, 0x21, 1, property, 0, 1], Error::Corrupt),
+    ] {
+        let bad = with_header(&stream, &fields);
+        assert_eq!(decode(&bad), Err(expected), "{fields:?}");
+    }
+}
+
+#[test]
+fn checks_stream_flags_and_the_index() {
+    let stream = xz(b"data", None, CheckType::Crc32, None);
+    assert_eq!(stream[6..8], [0, 1], "CRC-32");
+    // A check of a type it does not know, of four bytes, is skipped.
+    let unknown = with_flags(&stream, [0, 2], [0, 2]);
+    assert_eq!(decode(&unknown).unwrap(), (b"data".to_vec(), stream.len()));
+    // Reserved flags, and a footer's flags not the header's.
+    for (header, footer) in [([1, 1], [1, 1]), ([0, 0x11], [0, 0x11]), ([0, 1], [0, 4])] {
+        let bad = with_flags(&stream, header, footer);
+        assert_eq!(decode(&bad), Err(Error::Corrupt), "{header:?} {footer:?}");
+    }
+    // The footer's size of the index not the index's.
+    let mut bad = stream.clone();
+    let end = bad.len();
+    bad[end - 8] += 1;
+    let crc = crc32(&bad[end - 8..end - 2]);
+    bad[end - 12..end - 8].copy_from_slice(&crc.to_le_bytes());
+    assert_eq!(decode(&bad), Err(Error::Corrupt));
+    // An index whose record is not the block's, its CRC32 made to match.
+    let at = index(&stream);
+    let mut bad = stream.clone();
+    bad[at + 3] += 1;
+    let crc = crc32(&bad[at..end - 16]);
+    bad[end - 16..end - 12].copy_from_slice(&crc.to_le_bytes());
+    assert_eq!(decode(&bad), Err(Error::Corrupt));
+    // A count of records past nine bytes.
+    let long = [&stream[..at + 1], &[0xFF; 10], &stream[at + 2..]].concat();
+    assert_eq!(decode(&long), Err(Error::Corrupt));
+    // No block, and 200 blocks, whose count takes two bytes.
+    let empty = xz(b"", None, CheckType::Crc32, None);
+    assert_eq!(decode(&empty).unwrap(), (vec![], empty.len()));
+    let data = seq(5000);
+    let many = xz(
+        &data,
+        None,
+        CheckType::Crc32,
+        Some(data.len() as u64 / 200 + 1),
+    );
+    assert_eq!(decode(&many).unwrap(), (data, many.len()));
+}
+
+/// Returns `len` bytes of `xorshift` from `seed`, as `pick` makes them.
+fn generated(len: usize, seed: u64, pick: impl Fn(u64) -> u8) -> Vec<u8> {
+    let mut state = seed;
+    (0..len)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            pick(state)
+        })
+        .collect()
+}
+
+/// Code the branch converters change most: calls and jumps close on each
+/// other, their offsets' high bytes all zeros or ones, for x86; and for
+/// RISC-V, each `auipc` with the instruction after it that takes its
+/// register, of x0, x2, or another.
+#[test]
+fn converts_dense_branches() {
+    let x86 = generated(100_000, 1, |n| match n % 8 {
+        0 | 1 => 0xE8,
+        2 => 0xE9,
+        3 | 4 => 0x00,
+        5 => 0xFF,
+        _ => (n >> 8) as u8,
+    });
+    let words = generated(100_000, 2, |n| n as u8);
+    let riscv: Vec<u8> = words
+        .chunks(8)
+        .flat_map(|chunk| {
+            let n = u64::from_le_bytes(chunk.try_into().unwrap());
+            let rd = [0, 2, (n >> 8) as u32 & 31][(n % 3) as usize];
+            let auipc = 0x17 | rd << 7 | (n >> 16) as u32 & 0xFFFF_F000;
+            let opcode = [0x03, 0x13, 0x67][(n >> 20) as usize % 3];
+            let next = opcode | ((n >> 24) as u32 & 31) << 7 | rd << 15 | ((n >> 40) as u32) << 20;
+            [auipc.to_le_bytes(), next.to_le_bytes()].concat()
+        })
+        .collect();
+    for (filter, data) in [(FilterType::BcjX86, x86), (FilterType::BcjRiscv, riscv)] {
+        let stream = xz(&data, Some((filter, 0)), CheckType::Crc32, None);
+        let (decoded, consumed) = agree(&stream, 4093).unwrap();
+        assert!(decoded == data, "{filter:?}");
+        assert_eq!(consumed, stream.len());
+        assert!(theirs(&stream).as_ref() == Some(&data), "{filter:?}");
+    }
+}
+
+/// Chains of two filters whose first stage fills as LZMA2 ends, so that
+/// the rest moves on after it; and of three.
+#[test]
+fn drains_chains_after_lzma2_ends() {
+    let code = include_bytes!("data/code.bin");
+    let data: Vec<u8> = (0..60)
+        .flat_map(|n| [&code[n * 61..], &code[..n * 61]].concat())
+        .collect();
+    let chains: [&[(FilterType, u32)]; 3] = [
+        &[(FilterType::Delta, 1), (FilterType::BcjX86, 0)],
+        &[(FilterType::BcjX86, 0), (FilterType::Delta, 1)],
+        &[
+            (FilterType::Delta, 1),
+            (FilterType::BcjX86, 0),
+            (FilterType::Delta, 2),
+        ],
+    ];
+    for filters in chains {
+        for len in (2 << 16) - 6..(2 << 16) + 3 {
+            let data = &data[..len];
+            let stream = chained(data, filters, CheckType::Crc32, None);
+            let (decoded, consumed) = agree(&stream, stream.len()).unwrap();
+            assert!(decoded == data, "{filters:?} {len}");
+            assert_eq!(consumed, stream.len());
+        }
+    }
+}
+
+/// A decoder by default is a new one, and its errors say what they mean.
+#[test]
+fn defaults_to_a_new_decoder() {
+    let stream = xz(b"data", None, CheckType::Crc32, None);
+    let mut decoder = Decoder::default();
+    let mut output = [0; 8];
+    let (mut at, mut end) = (0, 0);
+    while at < stream.len() {
+        let (consumed, produced) = decoder.decode(&stream[at..], &mut output[end..]).unwrap();
+        assert!(consumed + produced > 0, "stuck at {at}");
+        (at, end) = (at + consumed, end + produced);
+    }
+    decoder.finish().unwrap();
+    assert_eq!(&output[..end], b"data");
+    assert_eq!(Error::Corrupt.to_string(), "corrupt xz stream");
+    assert_eq!(Error::Unsupported.to_string(), "unsupported xz stream");
+}
+
 /// Decodes each `.xz` file in the directory `DECODE_XZ_CORPUS`, and
 /// times it against `lzma-rust2`, in a release build.
 #[test]
