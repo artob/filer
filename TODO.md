@@ -677,8 +677,9 @@ crate's name until its first code, which moves it to `lib/`.
   type, refused by its header, states `decode` never gives `step` or
   `need`, offset codes past the alphabet's 31, runs past their limit, a
   lap begun before all is produced, and tables built at compile time;
-  and two it could, which take sequences coded by hand: an offset past
-  the window, and more extra bits than a container holds. Done when a
+  and one it could, untested: more extra bits than a container holds,
+  on the batched path that one sequence coded by hand does not take.
+  Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
   each uncovered branch gets a test, most of all the paths that refuse

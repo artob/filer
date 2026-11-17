@@ -202,9 +202,13 @@ fn compressed(content: &[u8]) -> Vec<u8> {
 }
 
 /// Frame headers and sequence sections built by hand: dictionary
-/// identifiers of two and four bytes, of zero, which name none; and a
+/// identifiers of two and four bytes, of zero, which name none; a
 /// sequence's codes repeated from a block before the first, a single
-/// symbol past its alphabet, and a description cut short.
+/// symbol past its alphabet, and a description cut short; and sequences
+/// of the predefined codes, their states and bits set by hand, as RFC
+/// 8878 deals the states: a match from 1,021 bytes back, before the
+/// start; one from 2,045, past a window of 1 KiB; and one of 65,536
+/// literals, where the block has none.
 #[test]
 fn reads_headers_and_sections_built_by_hand() {
     for (descriptor, len) in [(0x02, 2), (0x03, 4)] {
@@ -213,13 +217,20 @@ fn reads_headers_and_sections_built_by_hand() {
         stream.splice(6..6, vec![0; len]);
         assert_eq!(decode(&stream).unwrap(), b"x", "{len}");
     }
+    let early = [0x01, 0x00, 0x00, 0x00, 0x19, 0x08];
+    let many = [0x01, 0x00, 0, 0, 0, 0, 0, 0, 0, 0x90, 0x6F, 0x3E];
     for content in [
         &[0x01, 0xFC, 0x80][..],
         &[0x01, 0x40, 200, 0x80],
         &[0x01, 0x80, 0x00],
+        &early,
+        &many,
     ] {
         assert_eq!(kind(&compressed(content)), Error::Corrupt, "{content:?}");
     }
+    let mut far = compressed(&[0x01, 0x00, 0x00, 0x00, 0x20, 0x10]);
+    far[5] = 0;
+    assert_eq!(kind(&far), Error::Corrupt);
 }
 
 /// A decoder by default is a new one, which says where it is; and its
