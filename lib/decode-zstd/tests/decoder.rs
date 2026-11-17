@@ -207,8 +207,9 @@ fn compressed(content: &[u8]) -> Vec<u8> {
 /// symbol past its alphabet, and a description cut short; and sequences
 /// of the predefined codes, their states and bits set by hand, as RFC
 /// 8878 deals the states: a match from 1,021 bytes back, before the
-/// start; one from 2,045, past a window of 1 KiB; and one of 65,536
-/// literals, where the block has none.
+/// start; one from 2,045, past a window of 1 KiB; one of 65,536
+/// literals, where the block has none; and two, the first of codes whose
+/// extra bits, 60, overrun what a read of several holds.
 #[test]
 fn reads_headers_and_sections_built_by_hand() {
     for (descriptor, len) in [(0x02, 2), (0x03, 4)] {
@@ -219,12 +220,14 @@ fn reads_headers_and_sections_built_by_hand() {
     }
     let early = [0x01, 0x00, 0x00, 0x00, 0x19, 0x08];
     let many = [0x01, 0x00, 0, 0, 0, 0, 0, 0, 0, 0x90, 0x6F, 0x3E];
+    let overrun = [0x02, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x20, 0xDF, 0x7C];
     for content in [
         &[0x01, 0xFC, 0x80][..],
         &[0x01, 0x40, 200, 0x80],
         &[0x01, 0x80, 0x00],
         &early,
         &many,
+        &overrun,
     ] {
         assert_eq!(kind(&compressed(content)), Error::Corrupt, "{content:?}");
     }

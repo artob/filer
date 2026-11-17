@@ -676,9 +676,7 @@ crate's name until its first code, which moves it to `lib/`.
   descriptor gives, a single segment with no size, a reserved block
   type, refused by its header, states `decode` never gives `step` or
   `need`, offset codes past the alphabet's 31, runs past their limit, a
-  lap begun before all is produced, and tables built at compile time;
-  and one it could, untested: more extra bits than a container holds,
-  on the batched path that one sequence coded by hand does not take.
+  lap begun before all is produced, and tables built at compile time.
   Done when a
   line and branch report
   of each, by `cargo llvm-cov` on Linux over its tests, is read, and
