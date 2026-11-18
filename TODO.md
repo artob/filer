@@ -623,15 +623,6 @@ crate's name until its first code, which moves it to `lib/`.
   tested only against blocks built by hand (2026-11-07). Done when it
   decodes blocks that the Linux kernel's `lzo-rle` writes, through F2FS
   with `compress_algorithm=lzo-rle` on comet, to what was written.
-- [ ] **DEC-23: `decode-deflate`'s allocations, timed.** Each dynamic
-  block boxed its state anew, built its code length code's table anew,
-  and gathered each table's codes longer than its index in a new vector:
-  Silesia's `dickens` took 448 to 1,172 allocations a stream
-  (`BENCH.md`, 2026-11-16). A stream now keeps them from block to block
-  (`CHANGES.md`): six allocations at most, grown up to five times,
-  however many blocks it holds, by a counting allocator over Canterbury
-  (2026-11-16), the rest left to DEC-25. Done when the harness counts
-  them, and its speed is timed before and after on the default machines.
 - [ ] **DEC-24: `decode-deflate`'s speed.** Reworked since it trailed
   libdeflate, `zlib-rs`, zlib-ng, `zune-inflate`, and `yazi`
   (`CHANGES.md`). Whole, by the harness at `d73cac4` (`BENCH.md`,
