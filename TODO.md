@@ -545,10 +545,6 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **BENCH-09: Streaming and small streams.** Pieces of 4 and of 64
-  KiB in one run, and the time per stream of packed streams of about 64
-  B, 1 KiB, and 16 KiB, construction included (items 2 and 3). Done
-  when the raw data holds each.
 - [ ] **BENCH-10: Checkpoints and counters.** The time to take and to
   resume from a checkpoint and the bytes each holds; and `perf stat`'s
   counters per output byte on Linux (items 5 and 6). Done when the raw
