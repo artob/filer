@@ -231,13 +231,13 @@ fn refuses_malformed_streams() {
     // Properties past their range, and dictionaries too large.
     let lzma = |properties, size| Decoder::lzma(properties, size).unwrap_err();
     assert_eq!(lzma([225, 0, 0, 1, 0], None), Error::Corrupt);
-    assert_eq!(lzma([0x5D, 0, 0, 0, 0x10], None), Error::Unsupported);
-    assert!(Decoder::lzma([0x5D, 0, 0, 0, 0x10], Some(1 << 20)).is_ok());
+    assert_eq!(lzma([0x5D, 1, 0, 0, 0x10], None), Error::Unsupported);
+    assert!(Decoder::lzma([0x5D, 1, 0, 0, 0x10], Some(1 << 20)).is_ok());
     assert_eq!(Decoder::lzma2(41).unwrap_err(), Error::Corrupt);
     assert_eq!(Decoder::lzma2(40).unwrap_err(), Error::Unsupported);
-    // 192 MiB, and 128 MiB.
-    assert_eq!(Decoder::lzma2(31).unwrap_err(), Error::Unsupported);
-    assert!(Decoder::lzma2(30).is_ok());
+    // 384 MiB, and 256 MiB.
+    assert_eq!(Decoder::lzma2(33).unwrap_err(), Error::Unsupported);
+    assert!(Decoder::lzma2(32).is_ok());
 }
 
 /// The input may not end while what it decoded waits to be produced. It

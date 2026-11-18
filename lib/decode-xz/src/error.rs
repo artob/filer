@@ -8,7 +8,7 @@ pub enum Error {
     /// headers, data, checks, and index disagree.
     Corrupt,
     /// The stream is well formed, but needs what this decoder does not
-    /// do: a filter it does not know, or a dictionary over 128 MiB.
+    /// do: a filter it does not know, or a dictionary over 256 MiB.
     Unsupported,
 }
 

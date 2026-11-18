@@ -401,7 +401,7 @@ impl Records {
 /// or SHA-256 as it ends, and each stream against its index.
 ///
 /// A block whose filters are other than those, or that needs a dictionary
-/// over 128 MiB, is [`Unsupported`](Error::Unsupported); a check of a
+/// over 256 MiB, is [`Unsupported`](Error::Unsupported); a check of a
 /// type that xz reserves is read past without checking, as xz does. What
 /// follows the last stream must be another, or padding, as xz requires.
 /// Between blocks, it offers a [`checkpoint`](Self::checkpoint), as each

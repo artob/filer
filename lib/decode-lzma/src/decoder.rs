@@ -8,9 +8,9 @@ use crate::{
     window::Window,
 };
 
-/// The largest dictionary a decoder takes: twice that of `xz -9`, and as
-/// large as zstd's window may be by default.
-const MAX_DICTIONARY: u32 = 128 << 20;
+/// The largest dictionary a decoder takes: the largest that 7-Zip's top
+/// level, `-mx=9`, gives, four times that of `xz -9`.
+const MAX_DICTIONARY: u32 = 256 << 20;
 
 /// The smallest dictionary, which a smaller one is taken as.
 const MIN_DICTIONARY: u32 = 4096;
@@ -133,7 +133,7 @@ impl Decoder {
     /// # Errors
     ///
     /// [`Corrupt`](Error::Corrupt) for invalid properties, and
-    /// [`Unsupported`](Error::Unsupported) for a dictionary over 128 MiB
+    /// [`Unsupported`](Error::Unsupported) for a dictionary over 256 MiB
     /// that the size does not bound.
     pub fn lzma(properties: [u8; 5], size: Option<u64>) -> Result<Self, Error> {
         let [byte, dictionary @ ..] = properties;
@@ -162,7 +162,7 @@ impl Decoder {
     /// # Errors
     ///
     /// [`Corrupt`](Error::Corrupt) for a property past 40, and
-    /// [`Unsupported`](Error::Unsupported) for a dictionary over 128 MiB.
+    /// [`Unsupported`](Error::Unsupported) for a dictionary over 256 MiB.
     pub fn lzma2(property: u8) -> Result<Self, Error> {
         // Two or three, shifted by half the property and 11; at 40, all.
         let dictionary = match property {

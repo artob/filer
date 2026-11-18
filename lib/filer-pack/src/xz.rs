@@ -11,7 +11,7 @@ use filer_api::{Error, ErrorKind, OpKind};
 /// stream against its index.
 ///
 /// A block's filters may be Delta and the branch converters, then LZMA2;
-/// a block with another filter, or needing a dictionary over 128 MiB, is
+/// a block with another filter, or needing a dictionary over 256 MiB, is
 /// [`Unsupported`](ErrorKind::Unsupported). What follows the last stream
 /// must be another, or padding, as xz requires. Between blocks, which
 /// decode alone, it offers a [`checkpoint`](Decoder::checkpoint).

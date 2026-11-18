@@ -8,7 +8,7 @@ pub enum Error {
     /// or its properties are invalid.
     Corrupt,
     /// The stream is well formed, but needs a dictionary larger than this
-    /// decoder takes, 128 MiB.
+    /// decoder takes, 256 MiB.
     Unsupported,
 }
 

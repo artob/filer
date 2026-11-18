@@ -22,7 +22,7 @@
 //! Streams are untrusted input. Nothing in this crate may panic, loop
 //! without end, or allocate without bound on any input, which its root
 //! denies by lint: its dictionary grows only as the stream does, up to
-//! its size, and a dictionary over 128 MiB, which `xz -9` doubled reaches,
+//! its size, and a dictionary over 256 MiB, the most 7-Zip's `-mx=9` uses,
 //! is [`Unsupported`](Error::Unsupported). What the LZMA SDK refuses, it
 //! refuses as [`Corrupt`](Error::Corrupt): matches past the dictionary or
 //! the start of the stream, data that ends otherwise than its size or

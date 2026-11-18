@@ -43,7 +43,7 @@ impl Lzma {
     /// # Errors
     ///
     /// [`Corrupt`](ErrorKind::Corrupt) for invalid properties, and
-    /// [`Unsupported`](ErrorKind::Unsupported) for a dictionary over 128
+    /// [`Unsupported`](ErrorKind::Unsupported) for a dictionary over 256
     /// MiB that the size does not bound.
     pub fn new(properties: [u8; 5], size: Option<u64>) -> Result<Self, Error> {
         let decoder = decode_lzma::Decoder::lzma(properties, size).map_err(error)?;
@@ -90,7 +90,7 @@ impl Lzma2 {
     /// # Errors
     ///
     /// [`Corrupt`](ErrorKind::Corrupt) for a property past 40, and
-    /// [`Unsupported`](ErrorKind::Unsupported) for a dictionary over 128
+    /// [`Unsupported`](ErrorKind::Unsupported) for a dictionary over 256
     /// MiB.
     pub fn new(property: u8) -> Result<Self, Error> {
         let decoder = decode_lzma::Decoder::lzma2(property).map_err(error)?;

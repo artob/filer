@@ -24,7 +24,7 @@
 //! without end, or allocate without bound on any input, which its root
 //! denies by lint. What the specification says a decoder must refuse, it
 //! refuses as [`Corrupt`](Error::Corrupt); filters it does not know, and
-//! dictionaries over 128 MiB, are [`Unsupported`](Error::Unsupported).
+//! dictionaries over 256 MiB, are [`Unsupported`](Error::Unsupported).
 //!
 //! Its sources are the `.xz` file format specification and the LZMA SDK's
 //! branch converters; xz's own code is not copied, nor any other

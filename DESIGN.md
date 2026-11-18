@@ -2433,8 +2433,8 @@ What moves in, in this order (TODO PACK-01 to PACK-10):
   LZMA done, 2026-11-03: `Lzma` and `Lzma2`, behind `lzma`, for raw
   streams with the properties their container gives, and `Xz`, behind
   `xz`, over `lzma-rust2`'s sans-I/O streams, each told that the input
-  is exhausted by an empty slice; dictionaries over 128 MiB, as zstd's
-  windows, are `Unsupported`; checkpoints done, 2026-11-04 (PACK-16):
+  is exhausted by an empty slice; dictionaries over 256 MiB (7-Zip's
+  `-mx=9`, DEC-26) are `Unsupported`; checkpoints done, 2026-11-04 (PACK-16):
   `Decoder::checkpoint` offers a decoder that goes on from where one is,
   which a `Stream` records at most every 4 MiB it decodes, and which
   `Streams` resumes a read from when it lies nearer than any kept

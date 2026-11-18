@@ -64,19 +64,19 @@ fn decodes_raw_streams() {
 #[test]
 fn refuses_what_it_cannot_decode() {
     // Properties past `lc` 8, `lp` 4, and `pb` 4, and dictionaries over
-    // 128 MiB, unless the size bounds them.
+    // 256 MiB, unless the size bounds them.
     let lzma = |properties, size| Lzma::new(properties, size).unwrap_err().kind();
     assert_eq!(lzma([225, 0, 0, 1, 0], None), ErrorKind::Corrupt);
-    let large = [0x5D, 0, 0, 0, 0x10];
+    let large = [0x5D, 1, 0, 0, 0x10];
     assert_eq!(lzma(large, None), ErrorKind::Unsupported);
     assert!(Lzma::new(large, Some(1 << 20)).is_ok());
     let lzma2 = |property| Lzma2::new(property).unwrap_err().kind();
     assert_eq!(lzma2(41), ErrorKind::Corrupt);
-    assert_eq!(lzma2(31), ErrorKind::Unsupported);
-    assert!(Lzma2::new(30).is_ok());
-    // A block whose dictionary is 256 MiB, its header resealed.
+    assert_eq!(lzma2(33), ErrorKind::Unsupported);
+    assert!(Lzma2::new(32).is_ok());
+    // A block whose dictionary is 384 MiB, its header resealed.
     let mut large = HELLO;
-    large[18] = 32;
+    large[18] = 33;
     let crc = crc32(&large[12..24]);
     large[24..28].copy_from_slice(&crc.to_le_bytes());
     assert_eq!(

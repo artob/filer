@@ -678,15 +678,6 @@ crate's name until its first code, which moves it to `lib/`.
   ones alone (2% slower). Done when it decodes faster than zlib-ng and
   `zlib-rs` on each default machine, every input, whole, in pieces, and
   in small streams, and at 0.95 of libdeflate's speed at least, whole.
-- [ ] **DEC-26: Dictionaries over 128 MiB.** `decode-lzma`, and so
-  `decode-xz`, refuses them as `Unsupported`, as `decode-zstd` does
-  windows over 128 MiB, the most zstd decodes by default. 7-Zip 26's
-  `.xz` at `-mx=9`, of 200 MB of libraries, took 192 MiB, which
-  `lzma-rust2` decodes, and so does `decode-xz` with the limit raised
-  to 256 MiB; every other real file of every decoder's corpus decodes
-  (DEC-13, 2026-11-18). Done when it decodes such streams, its
-  dictionary still growing only as a stream does, or its docs say why
-  not.
 - [ ] **DEC-25: One allocation a stream.** Low priority. A
   `decode-deflate` stream allocates six times at most, and grows those up
   to five times (DEC-23): its window's buffer, doubled as it fills; its
