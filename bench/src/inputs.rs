@@ -134,6 +134,16 @@ impl Codec {
         }
     }
 
+    /// The level its reference encoder takes by default: bzip2's 9, zlib's
+    /// 6, and zstd's 3.
+    pub fn default_level(self) -> Level {
+        match self {
+            Self::Bzip2 => Level::new(9),
+            Self::Deflate => Level::new(6),
+            Self::Zstd => Level::new(3),
+        }
+    }
+
     /// The extension of its files.
     pub fn extension(self) -> &'static str {
         match self {

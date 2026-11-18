@@ -39,7 +39,7 @@ const ROUNDS: usize = 10;
 
 /// The fewest bytes a round computes over, and the least time it takes.
 const BATCH: usize = 64 << 10;
-const ROUND: Duration = Duration::from_millis(5);
+pub const ROUND: Duration = Duration::from_millis(5);
 
 /// What a `hash-sample` process prints, a line of JSON each: a round's
 /// time and its computations, or why an implementation failed.

@@ -30,9 +30,9 @@ use std::{
 
 /// How long each decoder warms up in a process, the least it is timed for,
 /// and the fewest iterations.
-const WARM_UP: Duration = Duration::from_secs(1);
-const TIMED: Duration = Duration::from_millis(500);
-const ITERATIONS: usize = 10;
+pub const WARM_UP: Duration = Duration::from_secs(1);
+pub const TIMED: Duration = Duration::from_millis(500);
+pub const ITERATIONS: usize = 10;
 
 /// The fewest processes per input and level, and the most.
 pub const PROCESSES: usize = 5;

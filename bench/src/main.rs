@@ -10,14 +10,17 @@
 //! `procedure`, checking every output against the original; and counts
 //! what each allocates, by `memory`; and generates each decoder's
 //! `BENCH.md` tables from the results, by `tables`; and measures the code
-//! each decoder and algorithm adds to a minimal program, by `size`. The
-//! other measures are to follow (`TODO.md`, BENCH-09 and 10).
+//! each decoder and algorithm adds to a minimal program, by `size`; and
+//! times small streams, by `small`. The other measures are to follow
+//! (`TODO.md`, BENCH-10).
 //!
 //! From `bench/`, `cargo run --release --`, then:
 //!
 //! - `fetch`: fetches the corpus into `bench/corpus/`, and verifies it.
-//! - `encode [<codec>...] [--only <prefix>]`: encodes the inputs, or those
-//!   whose names begin with the prefix, such as `synthetic` or `silesia`.
+//! - `encode [<codec>...] [--only <prefix>]`: encodes the inputs, and cuts
+//!   and encodes the sets of small streams, `small/<size>`, or those whose
+//!   names begin with the prefix, such as `synthetic`, `silesia`, or
+//!   `small`.
 //! - `check [<codec>...] [--only <prefix>] [--piece <bytes>]`: decodes
 //!   them once each with every decoder, whole unless a piece size is
 //!   given, checking every output, and prints how fast each went.
@@ -28,6 +31,8 @@
 //!   them once each with every decoder, counting the heap each allocates,
 //!   by `memory`, with a Markdown table, and its results written to
 //!   `bench/results/`.
+//! - `small [<codec>...] [--cpu <n>]`: the procedure over the sets of small
+//!   streams, by `small`, its samples written to `bench/results/`.
 //! - `tables [<codec>...]`: writes the tables of each codec's
 //!   `lib/decode-<codec>/BENCH.md` from `bench/results/`, by `tables`, and
 //!   the code size of every decoder's and `compute-*` crate's.
@@ -55,6 +60,7 @@ mod measure;
 mod memory;
 mod procedure;
 mod size;
+mod small;
 mod tables;
 mod throughput;
 
@@ -88,6 +94,14 @@ fn main() -> Result<()> {
         let level = Level::parse(&next()?).ok_or("sample: no such level")?;
         let (piece, seed) = (next()?.parse()?, next()?.parse()?);
         return procedure::sample(codec, &input, level, piece, seed);
+    }
+    if command == "small-sample" {
+        // `small-sample <codec> <level> <size> <seed>`, from `small`.
+        let mut next = || args.next().ok_or("small-sample: too few arguments");
+        let codec = codec(&next()?)?;
+        let level = Level::parse(&next()?).ok_or("small-sample: no such level")?;
+        let (size, seed) = (next()?.parse()?, next()?.parse()?);
+        return small::sample(codec, level, size, seed);
     }
     let algorithm = |name: &str| {
         Algorithm::ALL
@@ -142,14 +156,16 @@ fn main() -> Result<()> {
             let inputs = corpus::inputs(&options.only)?;
             for codec in options.codecs {
                 corpus::encode(codec, &inputs)?;
+                small::encode(codec, &options.only)?;
             }
             Ok(())
         },
         "check" => check(&options),
         "run" => procedure::run(&options, corpus::bench()),
         "memory" => memory::run(&options, corpus::bench()),
+        "small" => small::run(&options, corpus::bench()),
         "tables" => tables::run(&options.codecs, corpus::bench()),
-        _ => Err("commands: fetch, encode, check, run, memory, tables, hash, size".into()),
+        _ => Err("commands: fetch, encode, check, run, memory, small, tables, hash, size".into()),
     }
 }
 

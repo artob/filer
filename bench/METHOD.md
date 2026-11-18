@@ -8,8 +8,8 @@ inputs, machines, and builds. A figure is reported with its machine, its
 build, and its confidence interval, or not at all.
 
 The harness that applies this protocol lives beside this file (see
-"Harness"), and so far applies only part of it (`TODO.md`, BENCH-09 and
-10): each `BENCH.md` holds what it measures so far.
+"Harness"), and so far applies only part of it (`TODO.md`, BENCH-10):
+each `BENCH.md` holds what it measures so far.
 
 ## What is measured
 
@@ -60,6 +60,12 @@ against the SHA-256 that `bench/corpus.toml` records for each file:
 And synthetic edge cases, generated from a fixed seed: bytes that do not
 compress (stored blocks); zeros (runs); a short pattern repeated
 (overlapping matches); and repeats farther apart than small windows reach.
+
+Small streams are cut from the inputs above, not the synthetic ones: at 8
+places spread over each, the shortest slice that its codec's reference
+encoder, at its default level, packs into 64 B, 1 KiB, or 16 KiB or more.
+The same slices are encoded at each level, and each size's streams, a
+few hundred, are timed together.
 
 Each is encoded by its codec's reference encoder, at a pinned version, at
 levels spanning its range (each `BENCH.md` names them). Encoding happens

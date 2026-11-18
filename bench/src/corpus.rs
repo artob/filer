@@ -157,6 +157,10 @@ pub struct Input {
 }
 
 impl Input {
+    pub fn synthetic(&self) -> bool {
+        self.synthetic.is_some()
+    }
+
     pub fn bytes(&self) -> Result<Vec<u8>> {
         match &self.synthetic {
             Some(bytes) => Ok(bytes.clone()),
@@ -277,4 +281,46 @@ impl Input {
             false => Err(format!("{}: not as recorded at {level}", self.name).into()),
         }
     }
+}
+
+/// Where a set of streams that `small` makes, `name`, is, as `codec`
+/// encodes it at `level`.
+fn set_path(codec: Codec, level: Level, name: &str) -> PathBuf {
+    let directory = format!("{}-{}", codec.name(), level.label());
+    corpus()
+        .join("packed")
+        .join(directory)
+        .join(format!("{name}.set"))
+}
+
+/// The set `name` as `codec` encodes it at `level`, if it is here as
+/// `packed.toml` records it.
+pub fn set(codec: Codec, level: Level, name: &str) -> Result<Vec<u8>> {
+    let bytes = fs::read(set_path(codec, level, name))?;
+    let key = format!("{}-{}", codec.name(), level.label());
+    let packed = packed()?;
+    let sha256 = packed.get(&key).and_then(|inputs| inputs.get(name));
+    match sha256 == Some(&self::sha256(&bytes)) {
+        true => Ok(bytes),
+        false => Err(format!("{name}: not as recorded at {level}").into()),
+    }
+}
+
+/// Writes `bytes`, the set `name` as `codec` encodes it at `level`, and
+/// records it in `packed.toml` if new, or checks it against the record.
+pub fn record_set(codec: Codec, level: Level, name: &str, bytes: &[u8]) -> Result<()> {
+    let mut packed = packed()?;
+    let key = format!("{}-{}", codec.name(), level.label());
+    let hash = self::sha256(bytes);
+    match packed.get(&key).and_then(|inputs| inputs.get(name)) {
+        Some(sha256) if *sha256 != hash => {
+            return Err(format!("{name}: encoded otherwise than recorded at {level}").into());
+        },
+        _ => {},
+    }
+    let path = set_path(codec, level, name);
+    fs::create_dir_all(path.parent().ok_or("no directory")?)?;
+    fs::write(&path, bytes)?;
+    packed.entry(key).or_default().insert(name.to_owned(), hash);
+    write_packed(&packed)
 }
