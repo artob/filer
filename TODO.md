@@ -623,17 +623,6 @@ crate's name until its first code, which moves it to `lib/`.
   tested only against blocks built by hand (2026-11-07). Done when it
   decodes blocks that the Linux kernel's `lzo-rle` writes, through F2FS
   with `compress_algorithm=lzo-rle` on comet, to what was written.
-- [ ] **DEC-13: Corpora of real files.** Each decoder has an ignored
-  `decodes_a_corpus` test over the directory `DECODE_<CODEC>_CORPUS`
-  names, never run in CI, checked against a reference decoder, or for
-  `decode-lzo` against the file beside each `.lzo`. On Apple M4, all
-  but `decode-lzo`'s passed over Canterbury, packed by each codec's own
-  tool at several levels, and `decode-gzip`'s over 3,813 `.crate` files
-  of the cargo registry, 3.4 GB (2026-11-08). Done when each has run
-  over real-world files on Linux (a distribution's packages, initramfs
-  images, SquashFS blocks, archives of large projects), `decode-lzo`'s
-  over what `lzop` writes on comet, and findings are fixed or recorded
-  here.
 - [ ] **DEC-23: `decode-deflate`'s allocations, timed.** Each dynamic
   block boxed its state anew, built its code length code's table anew,
   and gathered each table's codes longer than its index in a new vector:
@@ -689,6 +678,15 @@ crate's name until its first code, which moves it to `lib/`.
   ones alone (2% slower). Done when it decodes faster than zlib-ng and
   `zlib-rs` on each default machine, every input, whole, in pieces, and
   in small streams, and at 0.95 of libdeflate's speed at least, whole.
+- [ ] **DEC-26: Dictionaries over 128 MiB.** `decode-lzma`, and so
+  `decode-xz`, refuses them as `Unsupported`, as `decode-zstd` does
+  windows over 128 MiB, the most zstd decodes by default. 7-Zip 26's
+  `.xz` at `-mx=9`, of 200 MB of libraries, took 192 MiB, which
+  `lzma-rust2` decodes, and so does `decode-xz` with the limit raised
+  to 256 MiB; every other real file of every decoder's corpus decodes
+  (DEC-13, 2026-11-18). Done when it decodes such streams, its
+  dictionary still growing only as a stream does, or its docs say why
+  not.
 - [ ] **DEC-25: One allocation a stream.** Low priority. A
   `decode-deflate` stream allocates six times at most, and grows those up
   to five times (DEC-23): its window's buffer, doubled as it fills; its
