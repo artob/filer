@@ -997,33 +997,27 @@ impl Decoder {
                 },
                 State::Stored(_) if owed => return Ok(Flow::Done),
                 State::Stored(left) => {
+                    // Never: the bits give back the block's bytes once they
+                    // have read its length, which takes first those they
+                    // held from earlier calls: each ends holding fewer than
+                    // the 32 bits it takes.
+                    if self.bits.count > 0 {
+                        return Err(corrupt());
+                    }
                     let room = self.window.chunk.saturating_sub(self.window.held());
                     let want = usize::try_from(*left).unwrap_or_default().min(room);
                     let window = &mut self.window;
-                    // What the bits hold first, whole bytes as they are:
-                    // none, as they give them back once they have read the
-                    // block's length.
-                    let n = if self.bits.count >= 8 {
-                        let n = want.min(usize::try_from(self.bits.count / 8).unwrap_or_default());
-                        for _ in 0..n {
-                            let byte = u8::try_from(self.bits.take(8)).unwrap_or_default();
-                            *window.buf.get_mut(window.end).ok_or_else(corrupt)? = byte;
-                            window.end = window.end.saturating_add(1);
-                        }
-                        n
-                    } else {
-                        let rest = input.bytes.get(input.taken..).unwrap_or_default();
-                        let bytes = rest.get(..want.min(rest.len())).unwrap_or_default();
-                        let to = window.end..window.end.saturating_add(bytes.len());
-                        window
-                            .buf
-                            .get_mut(to)
-                            .ok_or_else(corrupt)?
-                            .copy_from_slice(bytes);
-                        window.end = window.end.saturating_add(bytes.len());
-                        input.taken = input.taken.saturating_add(bytes.len());
-                        bytes.len()
-                    };
+                    let rest = input.bytes.get(input.taken..).unwrap_or_default();
+                    let bytes = rest.get(..want.min(rest.len())).unwrap_or_default();
+                    let to = window.end..window.end.saturating_add(bytes.len());
+                    window
+                        .buf
+                        .get_mut(to)
+                        .ok_or_else(corrupt)?
+                        .copy_from_slice(bytes);
+                    window.end = window.end.saturating_add(bytes.len());
+                    input.taken = input.taken.saturating_add(bytes.len());
+                    let n = bytes.len();
                     if n == 0 {
                         return Ok(Flow::More);
                     }
