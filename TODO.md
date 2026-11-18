@@ -570,10 +570,11 @@ crate's name until its first code, which moves it to `lib/`.
   `decode-zstd`'s and `decode-bzip2`'s streams, whole and in pieces of
   64 KiB and of 4 KiB, by the baseline build and by the build for the
   CPU. The harness drives `decode-deflate` too, since `e35879b`: a
-  campaign of it, at `9e96979`, filled its memory and its whole streams
-  by the baseline build (2026-11-15), and was stopped for DEC-24, whose
-  rework its tables precede. The other `decode-*` crates' `BENCH.md`
-  hold their code size alone. Zen 1's
+  campaign of it at `d73cac4`, after DEC-24's rework (2026-11-16 to 18),
+  filled its memory, its streams by the baseline build, whole and in
+  pieces, and its whole streams by the build for the CPU; its streams in
+  pieces by that build are to come. The other `decode-*` crates'
+  `BENCH.md` hold their code size alone. Zen 1's
   speed tables are older, of `9c5f5fc`, before DEC-19's work. Done when
   each `BENCH.md` of a written decoder holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
