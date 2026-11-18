@@ -644,9 +644,11 @@ crate's name until its first code, which moves it to `lib/`.
   its window's buffer goes round since (2026-11-17), rather than move the
   window: 9 to 18% faster in pieces on Granite Rapids. What remains is
   copying out of the window, which zlib-ng spares by decoding into the
-  output, as tried and lost below for every input. By a quick timer's
-  best of runs (2026-11-15), in small streams of 64 B to 16 KiB it is
-  faster too, but for those inputs.
+  output, as tried and lost below for every input. In small streams, by
+  the harness at `8c35e19` (2026-11-18), it decodes every size and level
+  on each default machine at least 1.05 times as fast as zlib-ng and
+  1.03 times as fast as `zlib-rs`, and 2.9 to 4.2 times as fast as
+  libdeflate at 64 B, but at 0.81 to 0.93 of its speed at 1 and 16 KiB.
   Tried and lost: the bits two places up, so that loads take an entry by
   its place in bytes (3.1% faster on Zen 5, 3.1% slower on Granite
   Rapids); literal indexes of 9 or 11 bits, and distance ones of 9 or 10;
