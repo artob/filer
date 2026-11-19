@@ -7,8 +7,8 @@ and builds for every decoder, each figure a median with its 95%
 confidence interval, and every output checked against the original.
 
 The harness's `tables` command generates the figures below from its raw
-data, which stays on the machines that measured it; small streams,
-checkpoints, and code size are not measured yet.
+data, which stays on the machines that measured it; checkpoints are not
+measured yet.
 
 ## Counterparts
 
@@ -2195,7 +2195,131 @@ level, a column per decoder, and the reference's time relative to ours.
 
 <!-- filer-bench: small -->
 
-Not measured yet.
+### AMD EPYC 9R45 (1 vCPU under EC2 Nitro)
+
+Measured 2026-11-18, at `8c35e19`, `decode-bzip2` 0.0.4.
+
+| Size | Level | Streams | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | libbzip2 ÷ ours |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 B | 1 | 248 | 2.87 | 1.802 ± 0.4% | 2.401 ± 0.6% | 4.052 ± 0.9% | 2.402 ± 0.4% | 1.33x |
+| 64 B | 9 | 248 | 2.87 | 1.802 ± 0.8% | 2.400 ± 0.1% | 35.533 ± 0.3% | 2.407 ± 0.3% | 1.33x |
+| 1 KiB | 1 | 230 | 3.23 | 49.536 ± 0.2% | 58.005 ± 0.2% | 54.318 ± 0.3% | 51.050 ± 0.3% | 1.17x |
+| 1 KiB | 9 | 230 | 3.23 | 49.508 ± 0.1% | 58.062 ± 0.1% | 85.538 ± 0.9% | 50.945 ± 0.1% | 1.17x |
+| 16 KiB | 1 | 189 | 4.88 | 963.239 ± 0.2% | 1088.641 ± 0.2% | 961.559 ± 0.3% | 914.636 ± 0.2% | 1.13x |
+| 16 KiB | 9 | 189 | 5.00 | 1005.769 ± 0.6% | 1133.210 ± 0.6% | 1041.899 ± 0.5% | 956.990 ± 0.5% | 1.12x |
+
+Each counterpart's time over ours, the geometric mean over levels:
+
+| Size | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| ---: | ---: | ---: | ---: |
+| 64 B | 1.33x | 6.66x | 1.33x |
+| 1 KiB | 1.17x | 1.38x | 1.03x |
+| 16 KiB | 1.13x | 1.02x | 0.95x |
+
+### AMD EPYC 9R45 (1 vCPU under EC2 Nitro), built for it alone
+
+Measured 2026-11-18, at `8c35e19`, `decode-bzip2` 0.0.4.
+
+| Size | Level | Streams | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | libbzip2 ÷ ours |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 B | 1 | 248 | 2.87 | 1.732 ± 0.9% | 2.406 ± 0.4% | 3.970 ± 0.3% | 2.366 ± 0.6% | 1.39x |
+| 64 B | 9 | 248 | 2.87 | 1.737 ± 0.7% | 2.404 ± 0.4% | 35.513 ± 0.2% | 2.368 ± 0.7% | 1.38x |
+| 1 KiB | 1 | 230 | 3.23 | 48.010 ± 0.2% | 52.877 ± 0.1% | 52.824 ± 0.4% | 50.372 ± 0.2% | 1.10x |
+| 1 KiB | 9 | 230 | 3.23 | 47.992 ± 0.4% | 52.894 ± 0.2% | 84.282 ± 0.3% | 50.277 ± 0.2% | 1.10x |
+| 16 KiB | 1 | 189 | 4.88 | 938.319 ± 0.1% | 995.574 ± 0.2% | 936.335 ± 0.2% | 897.097 ± 0.4% | 1.06x |
+| 16 KiB | 9 | 189 | 5.00 | 984.853 ± 0.2% | 1040.489 ± 0.3% | 1015.553 ± 0.4% | 940.589 ± 0.3% | 1.06x |
+
+Each counterpart's time over ours, the geometric mean over levels:
+
+| Size | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| ---: | ---: | ---: | ---: |
+| 64 B | 1.39x | 6.83x | 1.36x |
+| 1 KiB | 1.10x | 1.39x | 1.05x |
+| 16 KiB | 1.06x | 1.01x | 0.96x |
+
+### ARM Neoverse-V3 (1 vCPU under EC2 Nitro)
+
+Measured 2026-11-18, at `8c35e19`, `decode-bzip2` 0.0.4.
+
+| Size | Level | Streams | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | libbzip2 ÷ ours |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 B | 1 | 248 | 2.87 | 1.795 ± 0.3% | 2.341 ± 0.1% | 5.312 ± 0.2% | 3.094 ± 0.2% | 1.30x |
+| 64 B | 9 | 248 | 2.87 | 1.791 ± 0.1% | 2.337 ± 0.3% | 23.169 ± 0.9% | 3.089 ± 0.1% | 1.30x |
+| 1 KiB | 1 | 230 | 3.23 | 48.963 ± 0.0% | 52.081 ± 0.0% | 53.811 ± 0.4% | 52.634 ± 0.1% | 1.06x |
+| 1 KiB | 9 | 230 | 3.23 | 48.979 ± 0.0% | 52.100 ± 0.0% | 74.964 ± 0.5% | 52.624 ± 0.2% | 1.06x |
+| 16 KiB | 1 | 189 | 4.88 | 989.758 ± 0.0% | 1015.213 ± 0.0% | 974.435 ± 0.1% | 930.579 ± 0.1% | 1.03x |
+| 16 KiB | 9 | 189 | 5.00 | 1007.247 ± 0.1% | 1028.904 ± 0.0% | 1012.600 ± 0.5% | 944.733 ± 0.1% | 1.02x |
+
+Each counterpart's time over ours, the geometric mean over levels:
+
+| Size | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| ---: | ---: | ---: | ---: |
+| 64 B | 1.30x | 6.18x | 1.72x |
+| 1 KiB | 1.06x | 1.30x | 1.07x |
+| 16 KiB | 1.02x | 0.99x | 0.94x |
+
+### ARM Neoverse-V3 (1 vCPU under EC2 Nitro), built for it alone
+
+Measured 2026-11-18, at `8c35e19`, `decode-bzip2` 0.0.4.
+
+| Size | Level | Streams | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | libbzip2 ÷ ours |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 B | 1 | 248 | 2.87 | 1.732 ± 0.2% | 2.344 ± 0.4% | 4.979 ± 0.4% | 2.941 ± 0.0% | 1.35x |
+| 64 B | 9 | 248 | 2.87 | 1.730 ± 0.4% | 2.338 ± 0.1% | 23.065 ± 0.2% | 2.933 ± 0.2% | 1.35x |
+| 1 KiB | 1 | 230 | 3.23 | 48.799 ± 0.2% | 51.935 ± 0.0% | 52.786 ± 0.2% | 52.465 ± 0.1% | 1.06x |
+| 1 KiB | 9 | 230 | 3.23 | 48.776 ± 0.0% | 51.953 ± 0.0% | 73.998 ± 0.2% | 52.476 ± 0.1% | 1.07x |
+| 16 KiB | 1 | 189 | 4.88 | 991.075 ± 0.0% | 1012.019 ± 0.0% | 957.568 ± 0.1% | 934.210 ± 0.2% | 1.02x |
+| 16 KiB | 9 | 189 | 5.00 | 1009.107 ± 0.0% | 1025.689 ± 0.1% | 994.493 ± 0.1% | 947.037 ± 0.2% | 1.02x |
+
+Each counterpart's time over ours, the geometric mean over levels:
+
+| Size | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| ---: | ---: | ---: | ---: |
+| 64 B | 1.35x | 6.18x | 1.70x |
+| 1 KiB | 1.06x | 1.28x | 1.08x |
+| 16 KiB | 1.02x | 0.98x | 0.94x |
+
+### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro)
+
+Measured 2026-11-18, at `8c35e19`, `decode-bzip2` 0.0.4.
+
+| Size | Level | Streams | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | libbzip2 ÷ ours |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 B | 1 | 248 | 2.87 | 2.446 ± 0.1% | 2.913 ± 0.1% | 10.505 ± 0.2% | 3.091 ± 0.2% | 1.19x |
+| 64 B | 9 | 248 | 2.87 | 2.451 ± 0.4% | 2.920 ± 0.2% | 124.923 ± 0.3% | 3.095 ± 0.2% | 1.19x |
+| 1 KiB | 1 | 230 | 3.23 | 60.635 ± 0.2% | 68.661 ± 0.2% | 75.373 ± 0.3% | 63.598 ± 0.3% | 1.13x |
+| 1 KiB | 9 | 230 | 3.23 | 60.623 ± 0.1% | 68.587 ± 0.2% | 187.981 ± 0.9% | 63.421 ± 0.2% | 1.13x |
+| 16 KiB | 1 | 189 | 4.88 | 1235.300 ± 0.2% | 1330.731 ± 0.1% | 1281.682 ± 0.2% | 1173.654 ± 0.5% | 1.08x |
+| 16 KiB | 9 | 189 | 5.00 | 1302.306 ± 0.2% | 1389.454 ± 0.2% | 1460.248 ± 0.2% | 1235.238 ± 0.4% | 1.07x |
+
+Each counterpart's time over ours, the geometric mean over levels:
+
+| Size | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| ---: | ---: | ---: | ---: |
+| 64 B | 1.19x | 14.78x | 1.26x |
+| 1 KiB | 1.13x | 1.96x | 1.05x |
+| 16 KiB | 1.07x | 1.08x | 0.95x |
+
+### Intel Xeon 6975P-C (1 vCPU under EC2 Nitro), built for it alone
+
+Measured 2026-11-18, at `8c35e19`, `decode-bzip2` 0.0.4.
+
+| Size | Level | Streams | Ratio | ours | libbzip2 | libbz2-rs-sys | bzip2-rs | libbzip2 ÷ ours |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 B | 1 | 248 | 2.87 | 2.310 ± 0.3% | 3.100 ± 0.1% | 10.354 ± 0.2% | 2.926 ± 0.8% | 1.34x |
+| 64 B | 9 | 248 | 2.87 | 2.319 ± 0.1% | 3.098 ± 0.2% | 124.960 ± 0.4% | 2.933 ± 0.3% | 1.34x |
+| 1 KiB | 1 | 230 | 3.23 | 60.804 ± 0.2% | 67.885 ± 0.2% | 72.311 ± 0.3% | 63.481 ± 0.1% | 1.11x |
+| 1 KiB | 9 | 230 | 3.23 | 60.717 ± 0.1% | 67.871 ± 0.2% | 186.387 ± 0.5% | 63.407 ± 0.3% | 1.12x |
+| 16 KiB | 1 | 189 | 4.88 | 1233.448 ± 0.1% | 1328.450 ± 0.2% | 1238.867 ± 0.2% | 1173.380 ± 0.3% | 1.08x |
+| 16 KiB | 9 | 189 | 5.00 | 1292.736 ± 0.4% | 1381.986 ± 0.4% | 1415.986 ± 0.3% | 1227.614 ± 0.7% | 1.07x |
+
+Each counterpart's time over ours, the geometric mean over levels:
+
+| Size | libbzip2 | libbz2-rs-sys | bzip2-rs |
+| ---: | ---: | ---: | ---: |
+| 64 B | 1.34x | 15.53x | 1.26x |
+| 1 KiB | 1.12x | 1.91x | 1.04x |
+| 16 KiB | 1.07x | 1.05x | 0.95x |
 
 <!-- filer-bench: end -->
 
