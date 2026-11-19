@@ -1334,12 +1334,8 @@ fn over(places: &[Place], time: impl Fn(&Place) -> Interval) -> Interval {
 /// interval's half-width, relative to it.
 fn timed((median, low, high): Interval) -> String {
     let micros = median / 1e3;
-    let places = match micros {
-        _ if micros >= 100.0 => 0,
-        _ if micros >= 10.0 => 1,
-        _ if micros >= 1.0 => 2,
-        _ => 3,
-    };
+    // Two places after the first significant one, down to picoseconds.
+    let places = (2.0 - micros.log10().floor()).clamp(0.0, 6.0) as usize;
     let width = (high - low) / 2.0 / median * 100.0;
     format!("{micros:.places$} ± {width:.1}%")
 }
