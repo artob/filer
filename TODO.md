@@ -545,10 +545,11 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **BENCH-10: Checkpoints and counters.** The time to take and to
-  resume from a checkpoint and the bytes each holds; and `perf stat`'s
-  counters per output byte on Linux (items 5 and 6). Done when the raw
-  data holds each.
+- [ ] **BENCH-11: Checkpoint tables.** The harness measures checkpoints
+  (`bench/METHOD.md`, item 5), and the default machines' raw data holds
+  them, by either build, since `a77d79c` (2026-11-19), but `tables`
+  reads none of it yet. Done when each `BENCH.md` of a written decoder
+  holds them.
 - [ ] **BENCH-07: Tables on Apple M4.** The harness generates each
   `BENCH.md`'s tables from `bench/results/`, never edited by hand; it
   filled `decode-zstd`'s and `decode-bzip2`'s on Zen 1, whole and in

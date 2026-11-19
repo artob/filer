@@ -8,7 +8,7 @@ confidence interval, and every output checked against the original.
 
 The harness's `tables` command generates the figures below from its raw
 data, which stays on the machines that measured it; checkpoints are not
-measured yet.
+tabulated yet.
 
 ## Counterparts
 

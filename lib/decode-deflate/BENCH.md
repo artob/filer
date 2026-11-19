@@ -7,8 +7,8 @@ and builds for every decoder, each figure a median with its 95%
 confidence interval, and every output checked against the original.
 
 The harness's `tables` command generates the figures below from its raw
-data, which stays on the machines that measured it; checkpoints and
-Deflate64 are not measured yet.
+data, which stays on the machines that measured it; checkpoints are not
+tabulated yet, and Deflate64 is not measured.
 
 ## Counterparts
 
