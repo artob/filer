@@ -32,7 +32,11 @@ each `BENCH.md` holds what it measures so far.
    and to resume from one, and the bytes each holds.
 6. **Hardware counters** on Linux: cycles, instructions, IPC, branch
    misses, and L1 data cache misses per output byte, by `perf stat`, to
-   explain differences, never to rank.
+   explain differences, never to rank. They are counted in user space,
+   once each decoder has warmed up, over passes of about 200 ms, two
+   events at a time, as a virtual machine's counters are few; on AMD's
+   cores, L1 data cache misses as the data cache's requests to L2, as
+   EC2's hypervisor hides the events `perf` counts them by otherwise.
 7. **Code size**: the bytes of `.text` the decoder adds to a minimal
    `#![no_std]` program, at `opt-level` 3 and `"s"`: `bench/probe/`, a
    static library whose one function decodes a stream, built with fat

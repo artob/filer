@@ -11,8 +11,8 @@
 //! what each allocates, by `memory`; and generates each decoder's
 //! `BENCH.md` tables from the results, by `tables`; and measures the code
 //! each decoder and algorithm adds to a minimal program, by `size`; and
-//! times small streams, by `small`. The other measures are to follow
-//! (`TODO.md`, BENCH-10).
+//! times small streams, by `small`; and counts what the CPU does, by
+//! `counters`. Checkpoints are to follow (`TODO.md`, BENCH-10).
 //!
 //! From `bench/`, `cargo run --release --`, then:
 //!
@@ -33,6 +33,11 @@
 //!   `bench/results/`.
 //! - `small [<codec>...] [--cpu <n>]`: the procedure over the sets of small
 //!   streams, by `small`, its samples written to `bench/results/`.
+//! - `counters [<codec>...] [--only <prefix>] [--piece <bytes>] [--cpu
+//!   <n>]`: on Linux, counts each decoder's cycles, instructions, branch
+//!   misses, and L1 data cache misses by `perf stat`, by `counters`, with
+//!   a table of each per byte, and its results written to
+//!   `bench/results/`.
 //! - `tables [<codec>...]`: writes the tables of each codec's
 //!   `lib/decode-<codec>/BENCH.md` from `bench/results/`, by `tables`, and
 //!   the code size of every decoder's and `compute-*` crate's.
@@ -52,6 +57,7 @@
 //! file so.
 
 mod corpus;
+mod counters;
 mod decoders;
 mod hashes;
 mod inputs;
@@ -102,6 +108,15 @@ fn main() -> Result<()> {
         let level = Level::parse(&next()?).ok_or("small-sample: no such level")?;
         let (size, seed) = (next()?.parse()?, next()?.parse()?);
         return small::sample(codec, level, size, seed);
+    }
+    if command == "counters-sample" {
+        // `counters-sample <codec> <input> <level> <piece> <decoder> <fifos>`,
+        // from `counters`.
+        let mut next = || args.next().ok_or("counters-sample: too few arguments");
+        let (codec, input) = (codec(&next()?)?, next()?);
+        let level = Level::parse(&next()?).ok_or("counters-sample: no such level")?;
+        let (piece, decoder, fifos) = (next()?.parse()?, next()?, next()?);
+        return counters::sample(codec, &input, level, piece, &decoder, fifos.as_ref());
     }
     let algorithm = |name: &str| {
         Algorithm::ALL
@@ -164,8 +179,12 @@ fn main() -> Result<()> {
         "run" => procedure::run(&options, corpus::bench()),
         "memory" => memory::run(&options, corpus::bench()),
         "small" => small::run(&options, corpus::bench()),
+        "counters" => counters::run(&options, corpus::bench()),
         "tables" => tables::run(&options.codecs, corpus::bench()),
-        _ => Err("commands: fetch, encode, check, run, memory, small, tables, hash, size".into()),
+        _ => Err(
+            "commands: fetch, encode, check, run, memory, small, counters, tables, hash, size"
+                .into(),
+        ),
     }
 }
 
