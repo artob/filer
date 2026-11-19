@@ -102,8 +102,9 @@ enum Record {
         bytes: i64,
     },
     /// A checkpoint taken at a place: the heap it held and its
-    /// allocations, if counted, and each time taken to take it and to
-    /// resume from it, in nanoseconds.
+    /// allocations, if counted, and each time taken to take it, `takes`
+    /// times, and to resume from it, `resumes` times, in nanoseconds; one
+    /// at a time, in runs before `checkpoints` timed several.
     Checkpoint {
         codec: String,
         input: String,
@@ -113,13 +114,22 @@ enum Record {
         held: Option<u64>,
         allocations: Option<u64>,
         take: Vec<u64>,
+        #[serde(default = "one")]
+        takes: usize,
         resume: Vec<u64>,
+        #[serde(default = "one")]
+        resumes: usize,
     },
     /// What `counters` counted, which no table holds, known so that its
     /// runs' failures are not taken for those of the runs that time.
     Counter {},
     #[serde(other)]
     Other,
+}
+
+/// One, of each time of a checkpoint's, as runs timed them at first.
+fn one() -> usize {
+    1
 }
 
 /// What a run measured, as its first figure tells: what its failures are
@@ -472,14 +482,16 @@ fn read(results: &Path) -> Result<Data> {
                     held,
                     allocations,
                     take,
+                    takes,
                     resume,
+                    resumes,
                 } => {
                     let taken = taken
                         .entry(key(codec, input, level, Some(piece)))
                         .or_default();
                     let place = Place {
-                        take: interval(&take),
-                        resume: interval(&resume),
+                        take: interval(&take, takes),
+                        resume: interval(&resume, resumes),
                         held: held.zip(allocations),
                     };
                     if let Ok(places) = taken.entry(decoder).or_insert_with(|| Ok(Vec::new())) {
@@ -508,10 +520,10 @@ fn read(results: &Path) -> Result<Data> {
     Ok(data)
 }
 
-/// The median of `times`, in nanoseconds, and its interval at `DEVIATE`,
-/// between the order statistics that bound it.
-fn interval(times: &[u64]) -> Interval {
-    let mut times: Vec<f64> = times.iter().map(|&ns| ns as f64).collect();
+/// The median of `times`, in nanoseconds, each of `each`, and its interval
+/// at `DEVIATE`, between the order statistics that bound it.
+fn interval(times: &[u64], each: usize) -> Interval {
+    let mut times: Vec<f64> = times.iter().map(|&ns| ns as f64 / each as f64).collect();
     if times.is_empty() {
         return (f64::NAN, f64::NAN, f64::NAN);
     }
@@ -1264,11 +1276,9 @@ fn checkpoints(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
         if decoders.len() < 2 {
             continue;
         }
-        writeln!(
-            text,
-            "Each counterpart's times over ours, to take one and to resume \
-             from one, the geometric mean over inputs:\n"
-        )?;
+        let summary = "Each counterpart's times over ours, to take one and to resume \
+                       from one, the geometric mean over inputs:";
+        writeln!(text, "{}\n", wrap(summary, 0))?;
         write!(text, "| Level |")?;
         for decoder in &decoders[1..] {
             write!(text, " {} |", decoder.name)?;

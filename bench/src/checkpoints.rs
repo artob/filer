@@ -8,13 +8,13 @@
 //! taken in pieces of `PIECE` bytes, as `filer-pack` reads, and at `PLACES`
 //! places spread over what it decodes, at the first call that reaches each
 //! where the decoder offers one, takes a checkpoint, as `filer-pack` does
-//! every few MiB: timed, taken again and again, each dropped untimed, for
-//! `TIMED` and `ITERATIONS` times at least; and counted, the heap it holds
-//! and its allocations, as `memory` counts. Then it resumes from it, as
-//! `filer-pack` does to read there: a copy of it, given the input from
-//! where it had consumed to, less what it held of it, decodes its first
-//! piece of output, timed likewise, and checked. Its figures are each
-//! place's median times.
+//! every few MiB: timed, taken again and again, as many at a time as take
+//! `BATCH`, each dropped untimed, for `TIMED` and `ITERATIONS` times at
+//! least; and counted, the heap it holds and its allocations, as `memory`
+//! counts. Then it resumes from it, as `filer-pack` does to read there: a
+//! copy of it, given the input from where it had consumed to, less what
+//! it held of it, decodes its first piece of output, timed likewise, and
+//! checked. Its figures are each place's median times.
 
 use crate::{
     Options, Result, corpus,
@@ -39,6 +39,10 @@ pub const PLACES: usize = 3;
 const TIMED: Duration = Duration::from_millis(50);
 const ITERATIONS: usize = 10;
 
+/// The least a time lasts: as many are timed at a time as last that long,
+/// as one may last less than the timer resolves, or than reading it costs.
+const BATCH: Duration = Duration::from_micros(20);
+
 /// A line of the results' file, after the machine's.
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
@@ -60,10 +64,12 @@ enum Record<'a> {
         /// The heap it holds and its allocations, if counted.
         held: Option<u64>,
         allocations: Option<u64>,
-        /// Each time taken to take it, and to resume from it, in
-        /// nanoseconds.
+        /// Each time taken to take it, `takes` times, and to resume from
+        /// it, `resumes` times, in nanoseconds.
         take: Vec<u64>,
+        takes: usize,
         resume: Vec<u64>,
+        resumes: usize,
     },
     Failure {
         codec: &'a str,
@@ -76,14 +82,21 @@ enum Record<'a> {
 }
 
 /// What was measured at a place: the decoder's position, as `Record`
-/// gives it, the checkpoint's heap and allocations, and the times.
+/// gives it, the checkpoint's heap and allocations, and the times, each of
+/// as many as `Timed` gives.
 struct Place {
     at: usize,
     from: usize,
     held: u64,
     allocations: u64,
-    take: Vec<u64>,
-    resume: Vec<u64>,
+    take: Timed,
+    resume: Timed,
+}
+
+/// Each time taken, in nanoseconds, of how many at a time.
+struct Timed {
+    times: Vec<u64>,
+    each: usize,
 }
 
 /// The `checkpoints` command: measures the checkpoints of every decoder
@@ -152,8 +165,10 @@ pub fn run(options: &Options, bench: &Path) -> Result<()> {
                             from: place.from,
                             held: counted.then_some(place.held),
                             allocations: counted.then_some(place.allocations),
-                            take: place.take.clone(),
-                            resume: place.resume.clone(),
+                            take: place.take.times.clone(),
+                            takes: place.take.each,
+                            resume: place.resume.times.clone(),
+                            resumes: place.resume.each,
                         })?;
                     }
                     summarize(&places, counted);
@@ -172,11 +187,13 @@ fn summarize(places: &[Place], counted: bool) {
         println!(" (none taken)");
         return;
     }
-    let median = |times: &dyn Fn(&Place) -> &Vec<u64>| {
+    let median = |timed: &dyn Fn(&Place) -> &Timed| {
         let mut medians: Vec<f64> = places
             .iter()
             .map(|place| {
-                let mut times: Vec<f64> = times(place).iter().map(|&ns| ns as f64).collect();
+                let Timed { times, each } = timed(place);
+                let mut times: Vec<f64> =
+                    times.iter().map(|&ns| ns as f64 / *each as f64).collect();
                 procedure::median(&mut times)
             })
             .collect();
@@ -245,9 +262,14 @@ fn place(
     let from = read
         .checked_sub(decoding.buffered())
         .ok_or("buffered more than it consumed")?;
-    let take = timed(|| {
+    // Each batch's checkpoints, and resumed decoders, are kept until it is
+    // timed, and dropped untimed.
+    let take = timed(|each| {
+        let mut taken = Vec::with_capacity(each);
         let start = Instant::now();
-        let taken = decoding.checkpoint();
+        for _ in 0..each {
+            taken.push(decoding.checkpoint());
+        }
         let elapsed = start.elapsed();
         drop(taken);
         Ok(elapsed)
@@ -255,18 +277,23 @@ fn place(
     // Its first piece of output, or what is left.
     let first = &original[written..original.len().min(written + PIECE)];
     let mut output = vec![0; first.len()];
-    let resume = timed(|| {
+    let resume = timed(|each| {
         output.fill(0);
+        let mut resumed = Vec::with_capacity(each);
         let start = Instant::now();
-        let mut resumed = kept.checkpoint().ok_or("offered no copy of itself")?;
-        let (mut read, mut produced) = (from, 0);
-        while produced < output.len() {
-            let into = packed.len().min(read + PIECE);
-            let (consumed, more) = resumed.decode(&packed[read..into], &mut output[produced..])?;
-            (read, produced) = (read + consumed, produced + more);
-            if (consumed, more) == (0, 0) {
-                break;
+        for _ in 0..each {
+            let mut decoding = kept.checkpoint().ok_or("offered no copy of itself")?;
+            let (mut read, mut produced) = (from, 0);
+            while produced < output.len() {
+                let into = packed.len().min(read + PIECE);
+                let (consumed, more) =
+                    decoding.decode(&packed[read..into], &mut output[produced..])?;
+                (read, produced) = (read + consumed, produced + more);
+                if (consumed, more) == (0, 0) {
+                    break;
+                }
             }
+            resumed.push(decoding);
         }
         let elapsed = start.elapsed();
         drop(resumed);
@@ -285,16 +312,23 @@ fn place(
     }))
 }
 
-/// Each time `once` takes, run until `TIMED` and `ITERATIONS` times at
-/// least, in nanoseconds.
+/// Each time `batch` takes to do as many at a time as last `BATCH`, by
+/// the least time one took of a few, run until `TIMED` and `ITERATIONS`
+/// times at least.
 fn timed(
-    mut once: impl FnMut() -> std::result::Result<Duration, Failure>,
-) -> std::result::Result<Vec<u64>, Failure> {
+    mut batch: impl FnMut(usize) -> std::result::Result<Duration, Failure>,
+) -> std::result::Result<Timed, Failure> {
+    let mut once = Duration::MAX;
+    for _ in 0..3 {
+        once = once.min(batch(1)?);
+    }
+    let once = once.as_nanos().max(1);
+    let each = usize::try_from(BATCH.as_nanos().div_ceil(once)).unwrap_or(1);
     let (mut times, mut total) = (Vec::new(), Duration::ZERO);
     while times.len() < ITERATIONS || total < TIMED {
-        let elapsed = once()?;
+        let elapsed = batch(each)?;
         total += elapsed;
         times.push(elapsed.as_nanos() as u64);
     }
-    Ok(times)
+    Ok(Timed { times, each })
 }
