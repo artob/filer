@@ -14,6 +14,26 @@ pub type Failure = String;
 /// it wrote.
 pub type Decode = fn(&[u8], &mut [u8], usize) -> Result<usize, Failure>;
 
+/// A decoder of a stream given and taken in pieces that offers
+/// checkpoints, as `checkpoints` measures them: one of ours, or a
+/// counterpart's that copies its state.
+pub trait Resumable {
+    /// Decodes what it can of `input` into `output`, and returns how much
+    /// it consumed and produced: neither once it has ended.
+    fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Failure>;
+
+    /// Returns a decoder that goes on from where this one is, if it offers
+    /// one here.
+    fn checkpoint(&self) -> Option<Box<dyn Resumable>>;
+
+    /// Returns how many of the bytes it consumed its checkpoint must be
+    /// given again.
+    fn buffered(&self) -> usize;
+}
+
+/// Makes a decoder that offers checkpoints.
+pub type Resume = fn() -> Result<Box<dyn Resumable>, Failure>;
+
 /// A decoder, ours or a counterpart.
 pub struct Decoder {
     /// Its name in tables.
@@ -28,6 +48,8 @@ pub struct Decoder {
     /// Whether it decodes only whole streams, held in memory, and so is
     /// left out where they are given and taken in pieces.
     pub whole: bool,
+    /// It as a decoder that offers checkpoints, if it does.
+    pub resumable: Option<Resume>,
 }
 
 /// A codec, and its decoders, ours first, then the reference.
@@ -76,6 +98,7 @@ const BZIP2: [Decoder; 4] = [
         decode: ours_bzip2,
         value: size_of::<decode_bzip2::Decoder>(),
         whole: false,
+        resumable: Some(ours_bzip2_resumable),
     },
     Decoder {
         name: "libbzip2",
@@ -84,6 +107,7 @@ const BZIP2: [Decoder; 4] = [
         decode: libbzip2,
         value: size_of::<bzip2_c::Decompress>(),
         whole: false,
+        resumable: None,
     },
     Decoder {
         name: "libbz2-rs-sys",
@@ -92,6 +116,7 @@ const BZIP2: [Decoder; 4] = [
         decode: libbz2_rs,
         value: size_of::<libbz2_rs::Decompress>(),
         whole: false,
+        resumable: None,
     },
     Decoder {
         name: "bzip2-rs",
@@ -100,6 +125,7 @@ const BZIP2: [Decoder; 4] = [
         decode: bzip2_rs,
         value: size_of::<bzip2_rs::decoder::Decoder>(),
         whole: false,
+        resumable: None,
     },
 ];
 
@@ -111,6 +137,7 @@ const DEFLATE: [Decoder; 8] = [
         decode: ours_deflate,
         value: size_of::<decode_deflate::Decoder>(),
         whole: false,
+        resumable: Some(ours_deflate_resumable),
     },
     Decoder {
         name: "zlib",
@@ -119,6 +146,7 @@ const DEFLATE: [Decoder; 8] = [
         decode: zlib::inflate,
         value: size_of::<libz_sys::z_stream>(),
         whole: false,
+        resumable: Some(zlib::resumable),
     },
     Decoder {
         name: "zlib-ng",
@@ -127,6 +155,7 @@ const DEFLATE: [Decoder; 8] = [
         decode: zlib_ng::inflate,
         value: size_of::<libz_ng_sys::z_stream>(),
         whole: false,
+        resumable: Some(zlib_ng::resumable),
     },
     Decoder {
         name: "libdeflate",
@@ -135,6 +164,7 @@ const DEFLATE: [Decoder; 8] = [
         decode: libdeflate,
         value: size_of::<libdeflater::Decompressor>(),
         whole: true,
+        resumable: None,
     },
     Decoder {
         name: "zlib-rs",
@@ -143,6 +173,7 @@ const DEFLATE: [Decoder; 8] = [
         decode: zlib_rs,
         value: size_of::<zlib_rs::Inflate>(),
         whole: false,
+        resumable: None,
     },
     Decoder {
         name: "miniz_oxide",
@@ -151,6 +182,7 @@ const DEFLATE: [Decoder; 8] = [
         decode: miniz_oxide,
         value: size_of::<Box<miniz_oxide::inflate::stream::InflateState>>(),
         whole: false,
+        resumable: Some(miniz_oxide_resumable),
     },
     Decoder {
         name: "zune-inflate",
@@ -159,6 +191,7 @@ const DEFLATE: [Decoder; 8] = [
         decode: zune_inflate,
         value: size_of::<zune_inflate::DeflateDecoder<'static>>(),
         whole: true,
+        resumable: None,
     },
     Decoder {
         name: "yazi",
@@ -167,6 +200,7 @@ const DEFLATE: [Decoder; 8] = [
         decode: yazi,
         value: size_of::<yazi::Decoder>(),
         whole: false,
+        resumable: None,
     },
 ];
 
@@ -178,6 +212,7 @@ const ZSTD: [Decoder; 3] = [
         decode: ours_zstd,
         value: size_of::<decode_zstd::Decoder>(),
         whole: false,
+        resumable: Some(ours_zstd_resumable),
     },
     Decoder {
         name: "libzstd",
@@ -186,6 +221,7 @@ const ZSTD: [Decoder; 3] = [
         decode: libzstd,
         value: size_of::<zstd::stream::raw::Decoder<'static>>(),
         whole: false,
+        resumable: None,
     },
     Decoder {
         name: "ruzstd",
@@ -194,6 +230,7 @@ const ZSTD: [Decoder; 3] = [
         decode: ruzstd,
         value: size_of::<ruzstd::decoding::FrameDecoder>(),
         whole: false,
+        resumable: None,
     },
 ];
 
@@ -238,6 +275,39 @@ fn ours_deflate(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, 
     decoder.finish().map_err(|error| error.to_string())?;
     Ok(written)
 }
+
+/// One of our decoders as `Resumable`, by its own `checkpoint` and
+/// `buffered`; and `$new`, which makes one.
+macro_rules! ours_resumable {
+    ($new:ident, $decoder:ty) => {
+        fn $new() -> Result<Box<dyn Resumable>, Failure> {
+            Ok(Box::new(<$decoder>::new()))
+        }
+
+        impl Resumable for $decoder {
+            fn decode(
+                &mut self,
+                input: &[u8],
+                output: &mut [u8],
+            ) -> Result<(usize, usize), Failure> {
+                <$decoder>::decode(self, input, output).map_err(|error| format!("{error:?}"))
+            }
+
+            fn checkpoint(&self) -> Option<Box<dyn Resumable>> {
+                let resumed = <$decoder>::checkpoint(self)?;
+                Some(Box::new(resumed))
+            }
+
+            fn buffered(&self) -> usize {
+                <$decoder>::buffered(self)
+            }
+        }
+    };
+}
+
+ours_resumable!(ours_bzip2_resumable, decode_bzip2::Decoder);
+ours_resumable!(ours_deflate_resumable, decode_deflate::Decoder);
+ours_resumable!(ours_zstd_resumable, decode_zstd::Decoder);
 
 // C's own allocator, which zlib's streams are given, as the bindings ask
 // for one: on Linux with glibc, `memory`'s, which counts.
@@ -321,6 +391,63 @@ macro_rules! zlib_interface {
                 unsafe { z::inflateEnd(&mut stream) };
                 result
             }
+
+            /// A stream of raw Deflate decoded in pieces, boxed, as its
+            /// state points back at it, which offers checkpoints as copies
+            /// of its state, by `inflateCopy`.
+            pub struct Inflate(Box<z::z_stream>);
+
+            impl Drop for Inflate {
+                fn drop(&mut self) {
+                    unsafe { z::inflateEnd(&mut *self.0) };
+                }
+            }
+
+            pub fn resumable() -> Result<Box<dyn super::Resumable>, Failure> {
+                let mut stream = Box::new(stream());
+                let size = size_of::<z::z_stream>() as std::ffi::c_int;
+                let status = unsafe { z::inflateInit2_(&mut *stream, -15, z::zlibVersion(), size) };
+                match status {
+                    z::Z_OK => Ok(Box::new(Inflate(stream))),
+                    status => Err(format!("began with {status}")),
+                }
+            }
+
+            impl super::Resumable for Inflate {
+                fn decode(
+                    &mut self,
+                    input: &[u8],
+                    output: &mut [u8],
+                ) -> Result<(usize, usize), Failure> {
+                    let stream = &mut *self.0;
+                    stream.next_in = input.as_ptr().cast_mut();
+                    stream.avail_in = z::uInt::try_from(input.len()).map_err(|e| e.to_string())?;
+                    stream.next_out = output.as_mut_ptr();
+                    stream.avail_out =
+                        z::uInt::try_from(output.len()).map_err(|e| e.to_string())?;
+                    let status = unsafe { z::inflate(stream, z::Z_NO_FLUSH) };
+                    let consumed = input.len() - stream.avail_in as usize;
+                    let produced = output.len() - stream.avail_out as usize;
+                    match status {
+                        z::Z_OK | z::Z_STREAM_END | z::Z_BUF_ERROR => Ok((consumed, produced)),
+                        status => Err(format!("failed with {status}")),
+                    }
+                }
+
+                fn checkpoint(&self) -> Option<Box<dyn super::Resumable>> {
+                    let mut copy = Box::new(stream());
+                    let source = std::ptr::from_ref(&*self.0).cast_mut();
+                    let status = unsafe { z::inflateCopy(&mut *copy, source) };
+                    match status {
+                        z::Z_OK => Some(Box::new(Inflate(copy))),
+                        _ => None,
+                    }
+                }
+
+                fn buffered(&self) -> usize {
+                    0
+                }
+            }
         }
     };
 }
@@ -394,6 +521,35 @@ fn miniz_oxide(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, F
             Ok(_) => return Err("cut short".into()),
             Err(error) => return Err(format!("{error:?}")),
         }
+    }
+}
+
+/// `miniz_oxide`'s state, boxed, which offers checkpoints as clones.
+struct MinizOxide(Box<miniz_oxide::inflate::stream::InflateState>);
+
+fn miniz_oxide_resumable() -> Result<Box<dyn Resumable>, Failure> {
+    use miniz_oxide::{DataFormat, inflate::stream::InflateState};
+    Ok(Box::new(MinizOxide(InflateState::new_boxed(
+        DataFormat::Raw,
+    ))))
+}
+
+impl Resumable for MinizOxide {
+    fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Failure> {
+        use miniz_oxide::{MZError, MZFlush, inflate::stream::inflate};
+        let result = inflate(&mut self.0, input, output, MZFlush::None);
+        match result.status {
+            Ok(_) | Err(MZError::Buf) => Ok((result.bytes_consumed, result.bytes_written)),
+            Err(error) => Err(format!("{error:?}")),
+        }
+    }
+
+    fn checkpoint(&self) -> Option<Box<dyn Resumable>> {
+        Some(Box::new(Self(self.0.clone())))
+    }
+
+    fn buffered(&self) -> usize {
+        0
     }
 }
 

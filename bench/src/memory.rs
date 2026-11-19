@@ -60,6 +60,13 @@ fn counted<T>(f: impl FnOnce() -> T) -> (T, u64, u64) {
     (value, peak, ALLOCATIONS.load(Relaxed))
 }
 
+/// Runs `f`, and returns what it returns, the bytes of heap it left held,
+/// and how many times it allocated.
+pub fn held<T>(f: impl FnOnce() -> T) -> (T, u64, u64) {
+    let (value, _, allocations) = counted(f);
+    (value, HELD.load(Relaxed).max(0) as u64, allocations)
+}
+
 /// glibc's `malloc` and its kin, replaced: each delegates to glibc's own,
 /// which it exports as `__libc_*`, and counts the bytes `malloc` reserves.
 /// `valloc` and `pvalloc`, which none of the decoders calls, are left as
@@ -207,7 +214,7 @@ enum Record<'a> {
 }
 
 /// Whether `decoder`'s allocations are counted here.
-fn counts(decoder: &Decoder) -> bool {
+pub fn counts(decoder: &Decoder) -> bool {
     ALL || decoder.language != "C"
 }
 

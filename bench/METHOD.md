@@ -29,7 +29,12 @@ each `BENCH.md` holds what it measures so far.
    `malloc`, so that the C counterparts are counted as ours are, by the
    bytes `malloc` reserves; elsewhere, only Rust's allocations are.
 5. **Checkpoints**, for decoders that offer them: the time to take one
-   and to resume from one, and the bytes each holds.
+   and to resume from one, and the bytes each holds. Each stream is
+   decoded in pieces of 32 KiB, as `filer-pack` reads, a checkpoint taken
+   at three places spread over it; to resume is to copy one and decode
+   its first piece of output, as a read there does. Counterparts offer
+   them as copies of their state: zlib's and zlib-ng's by `inflateCopy`,
+   and `miniz_oxide`'s by `Clone`.
 6. **Hardware counters** on Linux: cycles, instructions, IPC, branch
    misses, and L1 data cache misses per output byte, by `perf stat`, to
    explain differences, never to rank. They are counted in user space,

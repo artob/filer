@@ -12,7 +12,7 @@
 //! `BENCH.md` tables from the results, by `tables`; and measures the code
 //! each decoder and algorithm adds to a minimal program, by `size`; and
 //! times small streams, by `small`; and counts what the CPU does, by
-//! `counters`. Checkpoints are to follow (`TODO.md`, BENCH-10).
+//! `counters`; and measures checkpoints, by `checkpoints`.
 //!
 //! From `bench/`, `cargo run --release --`, then:
 //!
@@ -38,6 +38,10 @@
 //!   misses, and L1 data cache misses by `perf stat`, by `counters`, with
 //!   a table of each per byte, and its results written to
 //!   `bench/results/`.
+//! - `checkpoints [<codec>...] [--only <prefix>]`: measures the
+//!   checkpoints of each decoder that offers them, by `checkpoints`, with
+//!   a table of the times to take and to resume from one, and the heap
+//!   one holds, and its results written to `bench/results/`.
 //! - `tables [<codec>...]`: writes the tables of each codec's
 //!   `lib/decode-<codec>/BENCH.md` from `bench/results/`, by `tables`, and
 //!   the code size of every decoder's and `compute-*` crate's.
@@ -56,6 +60,7 @@
 //! default, takes them (D66): the results record either, and name their
 //! file so.
 
+mod checkpoints;
 mod corpus;
 mod counters;
 mod decoders;
@@ -180,9 +185,11 @@ fn main() -> Result<()> {
         "memory" => memory::run(&options, corpus::bench()),
         "small" => small::run(&options, corpus::bench()),
         "counters" => counters::run(&options, corpus::bench()),
+        "checkpoints" => checkpoints::run(&options, corpus::bench()),
         "tables" => tables::run(&options.codecs, corpus::bench()),
         _ => Err(
-            "commands: fetch, encode, check, run, memory, small, counters, tables, hash, size"
+            "commands: fetch, encode, check, run, memory, small, counters, checkpoints, tables, \
+             hash, size"
                 .into(),
         ),
     }
