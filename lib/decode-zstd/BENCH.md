@@ -7257,7 +7257,16 @@ Ours relative to libzstd's peak: 0.95x at the median, and at most 1.08x.
 ## Checkpoints
 
 The time to take a checkpoint and to resume from one, and the bytes each
-holds.
+holds, in streams decoded in pieces of 32 KiB, per machine: a row per
+input and level, with our decoder's µs to take one and to resume from
+one, each the median over the places they were taken at, and the most
+heap one held and its allocations. No counterpart offers them.
+
+<!-- filer-bench: checkpoints -->
+
+Not measured yet.
+
+<!-- filer-bench: end -->
 
 ## Code size
 

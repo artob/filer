@@ -14,9 +14,16 @@
 //! that the same data always makes the same tables. It writes them between the `BENCH.md`'s markers,
 //! `<!-- filer-bench: <section> -->` and `<!-- filer-bench: end -->`,
 //! leaving the rest as it is.
+//!
+//! A checkpoint's times, to take one and to resume from one, are, as
+//! `checkpoints` prints them, the median over its places of each's
+//! median; their interval is distribution-free: each place's median's, by
+//! the order statistics that bound it, at a confidence at which all of
+//! them hold together at 95% at least, and of those, the median of their
+//! bounds.
 
 use crate::{
-    Result, corpus,
+    Result, checkpoints, corpus,
     decoders::{Codec, Decoder},
     inputs::{Level, SplitMix},
     machine::Machine,
@@ -32,8 +39,8 @@ use std::{
     path::Path,
 };
 
-/// A line of a results' file, as `procedure`, `memory`, `size`, and
-/// `small` write it.
+/// A line of a results' file, as `procedure`, `memory`, `size`, `small`,
+/// `checkpoints`, and `counters` write it.
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 enum Record {
@@ -94,8 +101,35 @@ enum Record {
         level: String,
         bytes: i64,
     },
+    /// A checkpoint taken at a place: the heap it held and its
+    /// allocations, if counted, and each time taken to take it and to
+    /// resume from it, in nanoseconds.
+    Checkpoint {
+        codec: String,
+        input: String,
+        level: String,
+        piece: usize,
+        decoder: String,
+        held: Option<u64>,
+        allocations: Option<u64>,
+        take: Vec<u64>,
+        resume: Vec<u64>,
+    },
+    /// What `counters` counted, which no table holds, known so that its
+    /// runs' failures are not taken for those of the runs that time.
+    Counter {},
     #[serde(other)]
     Other,
+}
+
+/// What a run measured, as its first figure tells: what its failures are
+/// failures of.
+#[derive(Clone, Copy)]
+enum Measured {
+    Times,
+    Memory,
+    Checkpoints,
+    Counters,
 }
 
 /// What a figure is of: the machine, whether the build was for it alone,
@@ -126,6 +160,28 @@ struct Timed {
 /// peak and allocations, if counted, or why it failed.
 type Counted = BTreeMap<String, std::result::Result<(usize, Option<(u64, u64)>), String>>;
 
+/// What a run measured of a key's checkpoints, by decoder: each place's,
+/// or why it failed.
+type Taken = BTreeMap<String, std::result::Result<Vec<Place>, String>>;
+
+/// A median and its interval's bounds, in nanoseconds.
+type Interval = (f64, f64, f64);
+
+/// A checkpoint taken at a place: the median time to take it and to
+/// resume from it, each with its interval, and the heap it held and its
+/// allocations, if counted.
+struct Place {
+    take: Interval,
+    resume: Interval,
+    held: Option<(u64, u64)>,
+}
+
+/// The normal deviate at which each place's interval is drawn, of 1 -
+/// 0.05 / (2 * `checkpoints::PLACES`), so that the intervals of all of a
+/// stream's places hold together at 95% at least.
+const DEVIATE: f64 = 2.394;
+const _: () = assert!(checkpoints::PLACES == 3);
+
 /// What a size is of: the target, the crate, the subject, and the
 /// `opt-level`.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -144,6 +200,7 @@ struct Data {
     timed: BTreeMap<Key, (usize, Timed)>,
     small: BTreeMap<Key, (usize, Timed)>,
     counted: BTreeMap<Key, (usize, Counted)>,
+    taken: BTreeMap<Key, (usize, Taken)>,
     sized: BTreeMap<Sized, (usize, i64)>,
 }
 
@@ -169,6 +226,7 @@ pub fn run(codecs: &[Codec], bench: &Path) -> Result<()> {
             ("streaming", timing(&data, codec, &order, &PIECES)),
             ("small", streams(&data, codec)),
             ("memory", memory(&data, codec, &order)),
+            ("checkpoints", checkpoints(&data, codec, &order)),
         ];
         for (name, body) in sections {
             text = replace(&text, name, &body?)?;
@@ -292,11 +350,20 @@ fn read(results: &Path) -> Result<Data> {
             level,
         };
         // The checksums' runs, whose lines are `throughput`'s, hold none of
-        // these. A run either times or counts, and its failures are of that.
-        let counts = records(&path)?.any(|record| matches!(record, Record::Memory { .. }));
+        // these. A run measures one thing, and its failures are of that.
+        let measured = records(&path)?
+            .find_map(|record| match record {
+                Record::Memory { .. } => Some(Measured::Memory),
+                Record::Checkpoint { .. } => Some(Measured::Checkpoints),
+                Record::Counter {} => Some(Measured::Counters),
+                Record::Sample { .. } | Record::Small { .. } => Some(Measured::Times),
+                _ => None,
+            })
+            .unwrap_or(Measured::Times);
         let mut timed: BTreeMap<Key, Timed> = BTreeMap::new();
         let mut small_timed: BTreeMap<Key, Timed> = BTreeMap::new();
         let mut counted: BTreeMap<Key, Counted> = BTreeMap::new();
+        let mut taken: BTreeMap<Key, Taken> = BTreeMap::new();
         for record in records(&path)? {
             match record {
                 Record::Sample {
@@ -345,15 +412,20 @@ fn read(results: &Path) -> Result<Data> {
                 } => match (input, size) {
                     (Some(input), _) => {
                         let key = key(codec, input, level, piece);
-                        match counts {
-                            true => {
-                                let counted = counted.entry(key).or_default();
-                                counted.insert(decoder, Err(failure));
-                            },
-                            false => {
+                        match measured {
+                            Measured::Times => {
                                 let timed = timed.entry(key).or_default();
                                 timed.failures.insert(decoder, failure);
                             },
+                            Measured::Memory => {
+                                let counted = counted.entry(key).or_default();
+                                counted.insert(decoder, Err(failure));
+                            },
+                            Measured::Checkpoints => {
+                                let taken = taken.entry(key).or_default();
+                                taken.insert(decoder, Err(failure));
+                            },
+                            Measured::Counters => {},
                         }
                     },
                     (None, Some(size)) => {
@@ -391,7 +463,30 @@ fn read(results: &Path) -> Result<Data> {
                     };
                     data.sized.insert(key, (run, bytes));
                 },
-                Record::Machine(_) | Record::Other => {},
+                Record::Checkpoint {
+                    codec,
+                    input,
+                    level,
+                    piece,
+                    decoder,
+                    held,
+                    allocations,
+                    take,
+                    resume,
+                } => {
+                    let taken = taken
+                        .entry(key(codec, input, level, Some(piece)))
+                        .or_default();
+                    let place = Place {
+                        take: interval(&take),
+                        resume: interval(&resume),
+                        held: held.zip(allocations),
+                    };
+                    if let Ok(places) = taken.entry(decoder).or_insert_with(|| Ok(Vec::new())) {
+                        places.push(place);
+                    }
+                },
+                Record::Machine(_) | Record::Counter {} | Record::Other => {},
             }
         }
         for (key, timed) in timed {
@@ -405,9 +500,29 @@ fn read(results: &Path) -> Result<Data> {
         for (key, counted) in counted {
             data.counted.insert(key, (run, counted));
         }
+        for (key, taken) in taken {
+            data.taken.insert(key, (run, taken));
+        }
         data.runs.push(machine);
     }
     Ok(data)
+}
+
+/// The median of `times`, in nanoseconds, and its interval at `DEVIATE`,
+/// between the order statistics that bound it.
+fn interval(times: &[u64]) -> Interval {
+    let mut times: Vec<f64> = times.iter().map(|&ns| ns as f64).collect();
+    if times.is_empty() {
+        return (f64::NAN, f64::NAN, f64::NAN);
+    }
+    let median = procedure::median(&mut times);
+    let n = times.len() as f64;
+    let spread = DEVIATE * n.sqrt() / 2.0;
+    // The time of a rank, counted from 1, within the times' own.
+    let rank = |rank: f64| times[(rank.clamp(1.0, n) as usize) - 1];
+    let low = rank((n / 2.0 - spread).floor());
+    let high = rank((1.0 + n / 2.0 + spread).ceil());
+    (median, low, high)
 }
 
 /// A machine's name in tables: its CPU, without the marks that Intel's
@@ -483,9 +598,11 @@ fn machines(data: &Data, codec: Codec) -> Result<String> {
     let timed = data.timed.iter().map(|(key, (run, _))| (key, *run));
     let counted = data.counted.iter().map(|(key, (run, _))| (key, *run));
     let small = data.small.iter().map(|(key, (run, _))| (key, *run));
+    let taken = data.taken.iter().map(|(key, (run, _))| (key, *run));
     for (_, run) in timed
         .chain(counted)
         .chain(small)
+        .chain(taken)
         .filter(|(key, _)| key.codec == codec.name())
     {
         let machine = &data.runs[run];
@@ -998,6 +1115,223 @@ fn memory(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
         true => Ok("Not measured yet.".into()),
         false => Ok(text.trim_end().into()),
     }
+}
+
+/// A table of each decoder's time to take a checkpoint and to resume from
+/// one, in microseconds, each with its interval, and the most heap one
+/// held and its allocations, per machine, build, and way of feeding, a
+/// table per set of inputs; then each counterpart's times relative to
+/// ours, per level.
+fn checkpoints(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
+    let mut text = String::new();
+    let mut groups: Vec<(String, bool, Option<usize>)> = data
+        .taken
+        .keys()
+        .filter(|key| key.codec == codec.name())
+        .map(|key| (key.machine.clone(), key.native, key.piece))
+        .collect();
+    groups.sort();
+    groups.dedup();
+    let decoders: Vec<&Decoder> = codec
+        .decoders()
+        .iter()
+        .filter(|decoder| decoder.resumable.is_some())
+        .collect();
+    let reference = decoders.get(1);
+    for (machine, native, piece) in groups {
+        let of = |key: &&Key| {
+            key.codec == codec.name()
+                && key.machine == machine
+                && key.native == native
+                && key.piece == piece
+        };
+        let keys: Vec<&Key> = data.taken.keys().filter(of).collect();
+        let build = match native {
+            true => ", built for it alone",
+            false => "",
+        };
+        writeln!(text, "### {machine}{build}, {}\n", fed(piece))?;
+        let runs = keys.iter().map(|key| data.taken[*key].0);
+        writeln!(
+            text,
+            "{}\n",
+            wrap(
+                &format!(
+                    "Measured {}.",
+                    provenance(data, codec.decoders()[0].krate, runs)
+                ),
+                0
+            )
+        )?;
+        // Each counterpart's times relative to ours, to take one and to
+        // resume from one, by level, over every input.
+        let mut ratios: Vec<(String, usize, f64, f64)> = Vec::new();
+        let levels = levels(keys.iter().copied());
+        for (title, inputs) in sets(order, keys.iter().copied()) {
+            writeln!(text, "#### {title}\n")?;
+            write!(text, "| Input | Level |")?;
+            for decoder in &decoders {
+                write!(text, " {} |", decoder.name)?;
+            }
+            if let Some(reference) = reference {
+                write!(text, " {} ÷ ours |", reference.name)?;
+            }
+            writeln!(text)?;
+            write!(text, "| --- | ---: |")?;
+            for _ in decoders.iter().chain(reference) {
+                write!(text, " ---: |")?;
+            }
+            writeln!(text)?;
+            for input in &inputs {
+                for level in &levels {
+                    let key = Key {
+                        machine: machine.clone(),
+                        native,
+                        codec: codec.name().into(),
+                        piece,
+                        input: input.clone(),
+                        level: level.clone(),
+                    };
+                    let Some((_, taken)) = data.taken.get(&key) else {
+                        continue;
+                    };
+                    let name = input
+                        .split_once('/')
+                        .map_or(input.as_str(), |(_, name)| name);
+                    write!(text, "| {name} | {level} |")?;
+                    let all: Vec<Option<(Interval, Interval)>> = decoders
+                        .iter()
+                        .map(|decoder| match taken.get(decoder.name) {
+                            Some(Ok(places)) if !places.is_empty() => Some((
+                                over(places, |place| place.take),
+                                over(places, |place| place.resume),
+                            )),
+                            _ => None,
+                        })
+                        .collect();
+                    for (i, decoder) in decoders.iter().enumerate() {
+                        let places = match taken.get(decoder.name) {
+                            None => {
+                                write!(text, " |")?;
+                                continue;
+                            },
+                            Some(Err(failure)) => {
+                                write!(text, " ({}) |", failure.replace('|', "/"))?;
+                                continue;
+                            },
+                            Some(Ok(places)) => places,
+                        };
+                        let (Some(Some((take, resume))), Some(Some((ours_take, ours_resume)))) =
+                            (all.get(i), all.first())
+                        else {
+                            write!(text, " |")?;
+                            continue;
+                        };
+                        write!(text, " {}, {}", timed(*take), timed(*resume))?;
+                        let held = places.iter().filter_map(|place| place.held).max();
+                        match held {
+                            Some((held, allocations)) => {
+                                write!(text, "; {:.1} KiB, {allocations} |", held as f64 / 1024.0)?
+                            },
+                            None => write!(text, "; not counted |")?,
+                        }
+                        if i > 0 {
+                            ratios.push((
+                                level.clone(),
+                                i,
+                                take.0 / ours_take.0,
+                                resume.0 / ours_resume.0,
+                            ));
+                        }
+                    }
+                    if reference.is_some() {
+                        match (all.first(), all.get(1)) {
+                            (Some(Some(ours)), Some(Some(theirs))) => writeln!(
+                                text,
+                                " {:.2}x, {:.2}x |",
+                                theirs.0.0 / ours.0.0,
+                                theirs.1.0 / ours.1.0
+                            )?,
+                            _ => writeln!(text, " |")?,
+                        }
+                    } else {
+                        writeln!(text)?;
+                    }
+                }
+            }
+            writeln!(text)?;
+        }
+        if decoders.len() < 2 {
+            continue;
+        }
+        writeln!(
+            text,
+            "Each counterpart's times over ours, to take one and to resume \
+             from one, the geometric mean over inputs:\n"
+        )?;
+        write!(text, "| Level |")?;
+        for decoder in &decoders[1..] {
+            write!(text, " {} |", decoder.name)?;
+        }
+        writeln!(text)?;
+        write!(text, "| ---: |")?;
+        for _ in &decoders[1..] {
+            write!(text, " ---: |")?;
+        }
+        writeln!(text)?;
+        for level in &levels {
+            write!(text, "| {level} |")?;
+            for i in 1..decoders.len() {
+                let of: Vec<(f64, f64)> = ratios
+                    .iter()
+                    .filter(|(l, d, ..)| l == level && *d == i)
+                    .map(|&(.., take, resume)| (take.ln(), resume.ln()))
+                    .collect();
+                match of.is_empty() {
+                    true => write!(text, " |")?,
+                    false => {
+                        let mean = |logs: f64| (logs / of.len() as f64).exp();
+                        let take = mean(of.iter().map(|&(take, _)| take).sum());
+                        let resume = mean(of.iter().map(|&(_, resume)| resume).sum());
+                        write!(text, " {take:.2}x, {resume:.2}x |")?;
+                    },
+                }
+            }
+            writeln!(text)?;
+        }
+        writeln!(text)?;
+    }
+    match text.is_empty() {
+        true => Ok("Not measured yet.".into()),
+        false => Ok(text.trim_end().into()),
+    }
+}
+
+/// Of `places`, a time's median over them of each's, and its interval,
+/// the median of their bounds.
+fn over(places: &[Place], time: impl Fn(&Place) -> Interval) -> Interval {
+    let mut medians: Vec<f64> = places.iter().map(|place| time(place).0).collect();
+    let mut lows: Vec<f64> = places.iter().map(|place| time(place).1).collect();
+    let mut highs: Vec<f64> = places.iter().map(|place| time(place).2).collect();
+    (
+        procedure::median(&mut medians),
+        procedure::median(&mut lows),
+        procedure::median(&mut highs),
+    )
+}
+
+/// A time in microseconds, to three significant digits at least, and its
+/// interval's half-width, relative to it.
+fn timed((median, low, high): Interval) -> String {
+    let micros = median / 1e3;
+    let places = match micros {
+        _ if micros >= 100.0 => 0,
+        _ if micros >= 10.0 => 1,
+        _ if micros >= 1.0 => 2,
+        _ => 3,
+    };
+    let width = (high - low) / 2.0 / median * 100.0;
+    format!("{micros:.places$} ± {width:.1}%")
 }
 
 /// A table of the bytes of `.text` each of `krate`'s subjects adds, per

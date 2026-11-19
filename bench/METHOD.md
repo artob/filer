@@ -34,7 +34,8 @@ The harness that applies this protocol lives beside this file (see
    at three places spread over it; to resume is to copy one and decode
    its first piece of output, as a read there does. Counterparts offer
    them as copies of their state: zlib's and zlib-ng's by `inflateCopy`,
-   and `miniz_oxide`'s by `Clone`.
+   and `miniz_oxide`'s by `Clone`. Each time is the median over the
+   places of each's median, with a distribution-free 95% interval.
 6. **Hardware counters** on Linux: cycles, instructions, IPC, branch
    misses, and L1 data cache misses per output byte, by `perf stat`, to
    explain differences, never to rank. They are counted in user space,

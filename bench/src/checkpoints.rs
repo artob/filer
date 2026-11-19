@@ -33,7 +33,7 @@ use std::{
 const PIECE: usize = 32 << 10;
 
 /// The places a checkpoint is taken at, spread over what a stream decodes.
-const PLACES: usize = 3;
+pub const PLACES: usize = 3;
 
 /// The least each is timed for, and the fewest times.
 const TIMED: Duration = Duration::from_millis(50);
