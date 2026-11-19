@@ -545,11 +545,6 @@ Our own clean-room, public-domain decoders, each a crate of its own
 (D61), from the sources `LEGAL.md` names. Stubs in `tmp/` reserve each
 crate's name until its first code, which moves it to `lib/`.
 
-- [ ] **BENCH-11: Checkpoint tables.** The harness measures checkpoints
-  (`bench/METHOD.md`, item 5), and the default machines' raw data holds
-  them, by either build, since `a77d79c` (2026-11-19), but `tables`
-  reads none of it yet. Done when each `BENCH.md` of a written decoder
-  holds them.
 - [ ] **BENCH-07: Tables on Apple M4.** The harness generates each
   `BENCH.md`'s tables from `bench/results/`, never edited by hand; it
   filled `decode-zstd`'s and `decode-bzip2`'s on Zen 1, whole and in
@@ -569,9 +564,11 @@ crate's name until its first code, which moves it to `lib/`.
   CPU. The harness drives `decode-deflate` too, since `e35879b`: a
   campaign of it at `d73cac4`, after DEC-24's rework (2026-11-16 to 18),
   filled its memory and its streams by either build, whole and in
-  pieces. The other `decode-*` crates' `BENCH.md` hold their code size
-  alone. Zen 1's speed tables are older, of `9c5f5fc`, before DEC-19's
-  work. Done when each `BENCH.md` of a written decoder holds them all.
+  pieces. Small streams, at `8c35e19`, and checkpoints, at `27a0840`,
+  followed for all three (2026-11-18 to 19). The other `decode-*`
+  crates' `BENCH.md` hold their code size alone. Zen 1's speed tables
+  are older, of `9c5f5fc`, before DEC-19's work. Done when each
+  `BENCH.md` of a written decoder holds them all.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
   `intrinsics` takes ARMv8.2's SHA-512 instructions, but not x86-64's,
   which only Intel's newest CPUs have, from Arrow Lake and Lunar Lake on,

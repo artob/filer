@@ -8,8 +8,7 @@ inputs, machines, and builds. A figure is reported with its machine, its
 build, and its confidence interval, or not at all.
 
 The harness that applies this protocol lives beside this file (see
-"Harness"), and applies all of it, but for tables of checkpoints
-(`TODO.md`, BENCH-11).
+"Harness").
 
 ## What is measured
 
