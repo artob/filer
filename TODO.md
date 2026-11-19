@@ -675,6 +675,26 @@ crate's name until its first code, which moves it to `lib/`.
   DEC-23). DEC-24's tables in one block of fixed size lost speed. Done
   when a stream allocates once, no slower, or the crate's docs say why
   not.
+- [ ] **DEC-27: Resuming from checkpoints.** From one,
+  `decode-deflate` decodes its first piece of 32 KiB of stored blocks,
+  as zlib writes at levels 1 to 9, at 0.51 to 0.72 of zlib-ng's speed on
+  each default machine, and runs (`zeros`, `pattern`) at 0.79 to 0.94 on
+  Zen 5 and Neoverse V3 (`BENCH.md`, 2026-11-19), though it takes one
+  1.24 to 1.74 times as fast. A checkpoint's buffer holds the window
+  alone. Of zlib's stored blocks of 16 KiB, 32 KiB of input fills the
+  piece but 10 bytes: `keep` appends them to the window, preparing a
+  chunk's room, which grows the buffer, and the window's `prepare` grows
+  it again, each a copy and zeroes; the next call, with room for the 10
+  bytes, copies a chunk of the block into the window to produce them, as
+  runs decode a chunk ahead once the output is full. Tried: returning
+  before `prepare` where a stored block has no input, faster only at
+  level 12, as it moved `fast` in the binary, which cost Granite Rapids
+  1 to 3% on real inputs, whole and in pieces; a stored block straight to
+  any room, stopping where it has none, a quarter faster on the M4. Left:
+  `keep` going round a buffer of the window alone, and `prepare`
+  compacting before it grows one that went round. Done when stored blocks
+  and runs resume as fast as zlib-ng's, decoding, whole and in pieces,
+  no slower.
 
 ## Virtual drivers
 
