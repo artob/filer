@@ -437,9 +437,19 @@ impl Table {
         self.shorts = 0;
     }
 
-    /// Drops the room it keeps for its next table of its own.
-    pub(crate) fn trim(&mut self) {
-        self.spare = Vec::new();
+    /// Returns a copy of it without the room it keeps for its next table of
+    /// its own, nor, once its literals are paired, their list, which the
+    /// next makes again.
+    pub(crate) fn checkpoint(&self) -> Self {
+        Self {
+            entries: self.entries.clone(),
+            spare: Vec::new(),
+            short: match self.paired {
+                true => None,
+                false => self.short.clone(),
+            },
+            ..*self
+        }
     }
 
     /// Whether its literals are paired, or need not be.

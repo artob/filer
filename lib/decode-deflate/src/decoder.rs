@@ -410,31 +410,64 @@ impl Window {
         }
     }
 
-    /// Moves the latest window, and what is not yet produced, to the
-    /// buffer's start, those of the window left before `wrap` first, and
-    /// drops the rest.
-    fn compact(&mut self) {
+    /// Returns what `compact` keeps: the bytes of the window left before
+    /// `wrap`, if it went round less than a window ago, and where those it
+    /// keeps of the buffer's start, up to `end`, begin: at the latest
+    /// window's start, or the first byte not yet produced, if earlier.
+    fn kept(&self) -> (&[u8], usize) {
         let window = self.format.window();
         let before = match self.wrap {
             0 => 0,
             _ => window.saturating_sub(self.end),
         };
-        let from = self.wrap.saturating_sub(before)..self.wrap;
-        if let (1.., Some(before), Some(after)) =
-            (from.len(), self.buf.get(from), self.buf.get(..self.end))
-        {
-            let mut buf = Vec::with_capacity(before.len().saturating_add(after.len()));
-            buf.extend_from_slice(before);
+        let older = self.wrap.saturating_sub(before)..self.wrap;
+        let older = self.buf.get(older).unwrap_or_default();
+        // With those, all to `end` is less than a window.
+        let keep = match older.is_empty() {
+            true => self.end.saturating_sub(window).min(self.produced),
+            false => 0,
+        };
+        (older, keep)
+    }
+
+    /// Moves the latest window, and what is not yet produced, to the
+    /// buffer's start, those of the window left before `wrap` first, and
+    /// drops the rest.
+    fn compact(&mut self) {
+        let (older, keep) = self.kept();
+        let moved = older.len();
+        if moved > 0 {
+            let after = self.buf.get(..self.end).unwrap_or_default();
+            let mut buf = Vec::with_capacity(moved.saturating_add(after.len()));
+            buf.extend_from_slice(older);
             buf.extend_from_slice(after);
-            self.end = buf.len();
-            self.produced = self.produced.saturating_add(before.len());
             self.buf = buf;
+        } else {
+            self.buf.copy_within(keep..self.end, 0);
         }
+        self.end = self.end.saturating_add(moved).saturating_sub(keep);
+        self.produced = self.produced.saturating_add(moved).saturating_sub(keep);
         self.wrap = 0;
-        let keep = self.end.saturating_sub(window).min(self.produced);
-        self.buf.copy_within(keep..self.end, 0);
-        self.end = self.end.saturating_sub(keep);
-        self.produced = self.produced.saturating_sub(keep);
+    }
+
+    /// Returns a copy of it as `compact` leaves it, in a buffer of only
+    /// what it keeps, copied once.
+    fn checkpoint(&self) -> Self {
+        let (older, keep) = self.kept();
+        let after = self.buf.get(keep..self.end).unwrap_or_default();
+        let mut buf = Vec::with_capacity(older.len().saturating_add(after.len()));
+        buf.extend_from_slice(older);
+        buf.extend_from_slice(after);
+        Self {
+            end: buf.len(),
+            produced: self
+                .produced
+                .saturating_add(older.len())
+                .saturating_sub(keep),
+            wrap: 0,
+            buf,
+            ..*self
+        }
     }
 }
 
@@ -863,16 +896,21 @@ impl Decoder {
     /// of the room it keeps for blocks to come.
     #[must_use]
     pub fn checkpoint(&self) -> Option<Self> {
-        let mut copy = self.clone();
-        copy.window.compact();
-        copy.window.buf.truncate(copy.window.end);
-        copy.window.buf.shrink_to_fit();
-        if !matches!(copy.state, State::Dynamic) {
-            copy.dynamic = None;
-        }
-        copy.literals.trim();
-        copy.distances.trim();
-        Some(copy)
+        // Each part copied as kept, rather than all of it and then trimmed:
+        // the window's buffer alone is four times what it keeps.
+        Some(Self {
+            bits: self.bits,
+            state: self.state.clone(),
+            last: self.last,
+            window: self.window.checkpoint(),
+            literals: self.literals.checkpoint(),
+            distances: self.distances.checkpoint(),
+            dynamic: match self.state {
+                State::Dynamic => self.dynamic.clone(),
+                _ => None,
+            },
+            unpaired: self.unpaired,
+        })
     }
 
     /// Returns how many of the bytes it has consumed a

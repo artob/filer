@@ -180,6 +180,12 @@ so any release may break compatibility.
   and copies a match that reaches past the start from the window left
   at its end: on Granite Rapids, stored blocks in pieces of 4 KiB decode
   15 to 18% faster, and runs in pieces 9 to 17%.
+- `decode-deflate`: a checkpoint copies only what it keeps, the latest
+  window and what is not yet produced, and its tables without the room
+  kept for the next, rather than all of the decoder, trimmed after: on
+  Zen 5 one is taken 3.2 times as fast, in 0.48 to 0.59 µs, 1.2 to 1.6
+  times as fast as zlib, zlib-ng, and `miniz_oxide` take theirs, in one
+  allocation or three, not two or seven.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
