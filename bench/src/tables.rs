@@ -7,11 +7,11 @@
 //! `tables` reads every run there, as written, `.jsonl`, or packed by
 //! `zstd`, `.jsonl.zst`, and keeps those made at a commit from a clean
 //! tree, as only of those can it be told what they measured. Of each
-//! machine, build, codec, way of feeding, input, and level, and of each
-//! target, crate, subject, and `opt-level` sized, it takes the newest run
-//! that measured it, and computes its figures as `run` does,
-//! with the same bootstrap from the same seed, so that the same data always
-//! makes the same tables. It writes them between the `BENCH.md`'s markers,
+//! machine, build, codec, way of feeding, input or set of small streams,
+//! and level, and of each target, crate, subject, and `opt-level` sized,
+//! it takes the newest run that measured it, and computes its figures as
+//! `run` and `small` do, with the same bootstrap from the same seed, so
+//! that the same data always makes the same tables. It writes them between the `BENCH.md`'s markers,
 //! `<!-- filer-bench: <section> -->` and `<!-- filer-bench: end -->`,
 //! leaving the rest as it is.
 
@@ -21,7 +21,7 @@ use crate::{
     inputs::{Level, SplitMix},
     machine::Machine,
     procedure::{self, Figures},
-    size,
+    size, small,
 };
 use serde::Deserialize;
 use std::{
@@ -32,8 +32,8 @@ use std::{
     path::Path,
 };
 
-/// A line of a results' file, as `procedure`, `memory`, and `size` write
-/// it.
+/// A line of a results' file, as `procedure`, `memory`, `size`, and
+/// `small` write it.
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 enum Record {
@@ -50,12 +50,29 @@ enum Record {
         decoder: String,
         ns: u64,
     },
+    Small {
+        codec: String,
+        level: String,
+        size: usize,
+        streams: usize,
+        bytes: usize,
+        packed: usize,
+        process: usize,
+        decoder: String,
+        passes: usize,
+        ns: u64,
+    },
+    /// Why a decoder failed an input, or, as `small` writes it, the set of
+    /// small streams of `size`.
     Failure {
         codec: String,
-        input: String,
+        #[serde(default)]
+        input: Option<String>,
         level: String,
         #[serde(default)]
         piece: Option<usize>,
+        #[serde(default)]
+        size: Option<usize>,
         decoder: String,
         failure: String,
     },
@@ -94,11 +111,13 @@ struct Key {
 }
 
 /// What a run timed of a key: the input's size, packed and not, each
-/// decoder's samples by process, and why any failed.
+/// decoder's samples by process, and why any failed; and, of a set of
+/// small streams, how many it holds, its samples being per stream.
 #[derive(Default)]
 struct Timed {
     bytes: usize,
     packed: Option<usize>,
+    streams: usize,
     samples: BTreeMap<String, BTreeMap<usize, Vec<f64>>>,
     failures: BTreeMap<String, String>,
 }
@@ -117,11 +136,13 @@ struct Sized {
     level: String,
 }
 
-/// The figures kept, each with the run it came from.
+/// The figures kept, each with the run it came from; those of small
+/// streams keyed by their set's name, whole.
 #[derive(Default)]
 struct Data {
     runs: Vec<Machine>,
     timed: BTreeMap<Key, (usize, Timed)>,
+    small: BTreeMap<Key, (usize, Timed)>,
     counted: BTreeMap<Key, (usize, Counted)>,
     sized: BTreeMap<Sized, (usize, i64)>,
 }
@@ -146,6 +167,7 @@ pub fn run(codecs: &[Codec], bench: &Path) -> Result<()> {
             ("machines", machines(&data, codec)),
             ("whole", timing(&data, codec, &order, &[None])),
             ("streaming", timing(&data, codec, &order, &PIECES)),
+            ("small", streams(&data, codec)),
             ("memory", memory(&data, codec, &order)),
         ];
         for (name, body) in sections {
@@ -273,6 +295,7 @@ fn read(results: &Path) -> Result<Data> {
         // these. A run either times or counts, and its failures are of that.
         let counts = records(&path)?.any(|record| matches!(record, Record::Memory { .. }));
         let mut timed: BTreeMap<Key, Timed> = BTreeMap::new();
+        let mut small_timed: BTreeMap<Key, Timed> = BTreeMap::new();
         let mut counted: BTreeMap<Key, Counted> = BTreeMap::new();
         for record in records(&path)? {
             match record {
@@ -292,25 +315,53 @@ fn read(results: &Path) -> Result<Data> {
                     let processes = timed.samples.entry(decoder).or_default();
                     processes.entry(process).or_default().push(ns as f64);
                 },
+                Record::Small {
+                    codec,
+                    level,
+                    size,
+                    streams,
+                    bytes,
+                    packed,
+                    process,
+                    decoder,
+                    passes,
+                    ns,
+                } => {
+                    let key = key(codec, small::name(size), level, None);
+                    let timed = small_timed.entry(key).or_default();
+                    (timed.bytes, timed.packed, timed.streams) = (bytes, Some(packed), streams);
+                    let processes = timed.samples.entry(decoder).or_default();
+                    let ns = ns as f64 / (passes * streams) as f64;
+                    processes.entry(process).or_default().push(ns);
+                },
                 Record::Failure {
                     codec,
                     input,
                     level,
                     piece,
+                    size,
                     decoder,
                     failure,
-                } => {
-                    let key = key(codec, input, level, piece);
-                    match counts {
-                        true => {
-                            let counted = counted.entry(key).or_default();
-                            counted.insert(decoder, Err(failure));
-                        },
-                        false => {
-                            let timed = timed.entry(key).or_default();
-                            timed.failures.insert(decoder, failure);
-                        },
-                    }
+                } => match (input, size) {
+                    (Some(input), _) => {
+                        let key = key(codec, input, level, piece);
+                        match counts {
+                            true => {
+                                let counted = counted.entry(key).or_default();
+                                counted.insert(decoder, Err(failure));
+                            },
+                            false => {
+                                let timed = timed.entry(key).or_default();
+                                timed.failures.insert(decoder, failure);
+                            },
+                        }
+                    },
+                    (None, Some(size)) => {
+                        let key = key(codec, small::name(size), level, None);
+                        let timed = small_timed.entry(key).or_default();
+                        timed.failures.insert(decoder, failure);
+                    },
+                    (None, None) => {},
                 },
                 Record::Memory {
                     codec,
@@ -347,6 +398,9 @@ fn read(results: &Path) -> Result<Data> {
             if !timed.samples.is_empty() || !timed.failures.is_empty() {
                 data.timed.insert(key, (run, timed));
             }
+        }
+        for (key, timed) in small_timed {
+            data.small.insert(key, (run, timed));
         }
         for (key, counted) in counted {
             data.counted.insert(key, (run, counted));
@@ -428,8 +482,10 @@ fn machines(data: &Data, codec: Codec) -> Result<String> {
     let mut seen: BTreeMap<String, String> = BTreeMap::new();
     let timed = data.timed.iter().map(|(key, (run, _))| (key, *run));
     let counted = data.counted.iter().map(|(key, (run, _))| (key, *run));
+    let small = data.small.iter().map(|(key, (run, _))| (key, *run));
     for (_, run) in timed
         .chain(counted)
+        .chain(small)
         .filter(|(key, _)| key.codec == codec.name())
     {
         let machine = &data.runs[run];
@@ -660,6 +716,152 @@ fn timing(data: &Data, codec: Codec, order: &[String], pieces: &[Option<usize>])
     match text.is_empty() {
         true => Ok("Not measured yet.".into()),
         false => Ok(text.trim_end().into()),
+    }
+}
+
+/// A table of each decoder's microseconds per stream, its interval, and
+/// the reference's time relative to ours, per machine and build, a row per
+/// size of small streams and level; then each counterpart's relative to
+/// ours, per size.
+fn streams(data: &Data, codec: Codec) -> Result<String> {
+    let mut text = String::new();
+    let mut groups: Vec<(String, bool)> = data
+        .small
+        .keys()
+        .filter(|key| key.codec == codec.name())
+        .map(|key| (key.machine.clone(), key.native))
+        .collect();
+    groups.sort();
+    groups.dedup();
+    let decoders = codec.fed(usize::MAX);
+    let reference = decoders[1];
+    for (machine, native) in groups {
+        let of = |key: &&Key| {
+            key.codec == codec.name() && key.machine == machine && key.native == native
+        };
+        let keys: Vec<&Key> = data.small.keys().filter(of).collect();
+        let build = match native {
+            true => ", built for it alone",
+            false => "",
+        };
+        writeln!(text, "### {machine}{build}\n")?;
+        let runs = keys.iter().map(|key| data.small[*key].0);
+        writeln!(
+            text,
+            "{}\n",
+            wrap(
+                &format!(
+                    "Measured {}.",
+                    provenance(data, codec.decoders()[0].krate, runs)
+                ),
+                0
+            )
+        )?;
+        write!(text, "| Size | Level | Streams | Ratio |")?;
+        for decoder in &decoders {
+            write!(text, " {} |", decoder.name)?;
+        }
+        writeln!(text, " {} ÷ ours |", reference.name)?;
+        write!(text, "| ---: | ---: | ---: | ---: |")?;
+        for _ in &decoders {
+            write!(text, " ---: |")?;
+        }
+        writeln!(text, " ---: |")?;
+        // Each counterpart's time relative to ours, by size, over every
+        // level.
+        let mut ratios: Vec<(usize, usize, f64)> = Vec::new();
+        let levels = levels(keys.iter().copied());
+        for size in small::SIZES {
+            for level in &levels {
+                let key = Key {
+                    machine: machine.clone(),
+                    native,
+                    codec: codec.name().into(),
+                    piece: None,
+                    input: small::name(size),
+                    level: level.clone(),
+                };
+                let Some((_, timed)) = data.small.get(&key) else {
+                    continue;
+                };
+                let ratio = match timed.packed {
+                    Some(packed) => format!("{:.2}", timed.bytes as f64 / packed as f64),
+                    None => "?".into(),
+                };
+                let streams = timed.streams;
+                write!(text, "| {} | {level} | {streams} | {ratio} |", amount(size))?;
+                let all: Vec<Figures> = decoders.iter().map(|d| figures(timed, d)).collect();
+                for (i, figures) in all.iter().enumerate() {
+                    if let Some(failure) = &figures.failure {
+                        write!(text, " ({}) |", failure.replace('|', "/"))?;
+                        continue;
+                    }
+                    if figures.medians.is_empty() {
+                        write!(text, " |")?;
+                        continue;
+                    }
+                    let mut random = SplitMix(0x5EED);
+                    let (median, low, high) = procedure::bootstrap(&figures.medians, &mut random);
+                    let width = (high - low) / 2.0 / median * 100.0;
+                    write!(text, " {:.3} ± {width:.1}% |", median / 1e3)?;
+                    // Their time relative to ours, their speed's inverse.
+                    if let Some(theirs) = procedure::paired(&all[0], figures).filter(|_| i > 0) {
+                        ratios.push((size, i, 1.0 / theirs));
+                    }
+                }
+                match procedure::paired(&all[0], &all[1]) {
+                    Some(theirs) => writeln!(text, " {:.2}x |", 1.0 / theirs)?,
+                    None => writeln!(text, " |")?,
+                }
+            }
+        }
+        writeln!(text)?;
+        writeln!(
+            text,
+            "Each counterpart's time over ours, the geometric mean over levels:\n"
+        )?;
+        write!(text, "| Size |")?;
+        for decoder in &decoders[1..] {
+            write!(text, " {} |", decoder.name)?;
+        }
+        writeln!(text)?;
+        write!(text, "| ---: |")?;
+        for _ in &decoders[1..] {
+            write!(text, " ---: |")?;
+        }
+        writeln!(text)?;
+        for size in small::SIZES {
+            write!(text, "| {} |", amount(size))?;
+            for i in 1..decoders.len() {
+                let logs: Vec<f64> = ratios
+                    .iter()
+                    .filter(|&&(s, d, _)| s == size && d == i)
+                    .map(|&(.., ratio)| ratio.ln())
+                    .collect();
+                match logs.is_empty() {
+                    true => write!(text, " |")?,
+                    false => {
+                        let mean = (logs.iter().sum::<f64>() / logs.len() as f64).exp();
+                        write!(text, " {mean:.2}x |")?;
+                    },
+                }
+            }
+            writeln!(text)?;
+        }
+        writeln!(text)?;
+    }
+    match text.is_empty() {
+        true => Ok("Not measured yet.".into()),
+        false => Ok(text.trim_end().into()),
+    }
+}
+
+/// A size of small streams as the tables give it: in bytes, or in KiB
+/// from 1 KiB on.
+fn amount(size: usize) -> String {
+    match size >> 10 {
+        0 => format!("{size} B"),
+        kib => format!("{kib} KiB"),
     }
 }
 

@@ -43,7 +43,7 @@ pub const SIZES: [usize; 3] = [64, 1 << 10, 16 << 10];
 const PLACES: usize = 8;
 
 /// The name of the set of streams of about `size` bytes.
-fn name(size: usize) -> String {
+pub fn name(size: usize) -> String {
     format!("small/{size}")
 }
 

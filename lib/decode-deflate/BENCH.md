@@ -3277,7 +3277,14 @@ Ours relative to each counterpart, the geometric mean over inputs:
 ## Small streams
 
 The time per stream of about 64 B, 1 KiB, and 16 KiB packed, the
-decoder's construction included.
+decoder's construction included, in µs, per machine: a row per size and
+level, a column per decoder, and the reference's time relative to ours.
+
+<!-- filer-bench: small -->
+
+Not measured yet.
+
+<!-- filer-bench: end -->
 
 ## Memory
 

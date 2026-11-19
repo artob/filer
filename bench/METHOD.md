@@ -203,8 +203,8 @@ instructions at run time either way. Their table is in GB/s.
   by hand, between the markers each `BENCH.md` holds. Only runs made at
   a commit, with no tracked file changed, are used, as only of those can
   it be told what they measured; of each machine, build, way of feeding,
-  input, and level, and of each target, subject, and `opt-level` sized,
-  the newest. Each table names its runs' dates, commits, and versions,
+  input or set of small streams, and level, and of each target, subject,
+  and `opt-level` sized, the newest. Each table names its runs' dates, commits, and versions,
   and results older than the release they describe are marked so.
 
 ## Regressions
