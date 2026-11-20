@@ -16,11 +16,13 @@
 //! leaving the rest as it is.
 //!
 //! A checkpoint's times, to take one and to resume from one, are, as
-//! `checkpoints` prints them, the median over its places of each's
-//! median; their interval is distribution-free: each place's median's, by
-//! the order statistics that bound it, at a confidence at which all of
-//! them hold together at 95% at least, and of those, the median of their
-//! bounds.
+//! `checkpoints` prints them, of each process the median over its places
+//! of each's median, and across processes the median of those, with the
+//! same bootstrap as `run`'s. Of runs before it started processes, one
+//! each, they are the median over its places of each's median, and their
+//! interval distribution-free: each place's median's, by the order
+//! statistics that bound it, at a confidence at which all of them hold
+//! together at 95% at least, and of those, the median of their bounds.
 
 use crate::{
     Result, checkpoints, corpus,
@@ -104,12 +106,15 @@ enum Record {
     /// A checkpoint taken at a place: the heap it held and its
     /// allocations, if counted, and each time taken to take it, `takes`
     /// times, and to resume from it, `resumes` times, in nanoseconds; one
-    /// at a time, in runs before `checkpoints` timed several.
+    /// at a time, in runs before `checkpoints` timed several, and all in
+    /// one process, in runs before it started processes.
     Checkpoint {
         codec: String,
         input: String,
         level: String,
         piece: usize,
+        #[serde(default)]
+        process: usize,
         decoder: String,
         held: Option<u64>,
         allocations: Option<u64>,
@@ -171,8 +176,11 @@ struct Timed {
 type Counted = BTreeMap<String, std::result::Result<(usize, Option<(u64, u64)>), String>>;
 
 /// What a run measured of a key's checkpoints, by decoder: each place's,
-/// or why it failed.
-type Taken = BTreeMap<String, std::result::Result<Vec<Place>, String>>;
+/// by process, or why it failed.
+type Taken = BTreeMap<String, std::result::Result<Processes, String>>;
+
+/// A decoder's places, by process.
+type Processes = BTreeMap<usize, Vec<Place>>;
 
 /// A median and its interval's bounds, in nanoseconds.
 type Interval = (f64, f64, f64);
@@ -478,6 +486,7 @@ fn read(results: &Path) -> Result<Data> {
                     input,
                     level,
                     piece,
+                    process,
                     decoder,
                     held,
                     allocations,
@@ -494,8 +503,9 @@ fn read(results: &Path) -> Result<Data> {
                         resume: interval(&resume, resumes),
                         held: held.zip(allocations),
                     };
-                    if let Ok(places) = taken.entry(decoder).or_insert_with(|| Ok(Vec::new())) {
-                        places.push(place);
+                    let places = taken.entry(decoder).or_insert_with(|| Ok(Processes::new()));
+                    if let Ok(processes) = places {
+                        processes.entry(process).or_default().push(place);
                     }
                 },
                 Record::Machine(_) | Record::Counter {} | Record::Other => {},
@@ -1214,15 +1224,15 @@ fn checkpoints(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
                     let all: Vec<Option<(Interval, Interval)>> = decoders
                         .iter()
                         .map(|decoder| match taken.get(decoder.name) {
-                            Some(Ok(places)) if !places.is_empty() => Some((
-                                over(places, |place| place.take),
-                                over(places, |place| place.resume),
+                            Some(Ok(processes)) if !processes.is_empty() => Some((
+                                over(processes, |place| place.take),
+                                over(processes, |place| place.resume),
                             )),
                             _ => None,
                         })
                         .collect();
                     for (i, decoder) in decoders.iter().enumerate() {
-                        let places = match taken.get(decoder.name) {
+                        let processes = match taken.get(decoder.name) {
                             None => {
                                 write!(text, " |")?;
                                 continue;
@@ -1231,7 +1241,7 @@ fn checkpoints(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
                                 write!(text, " ({}) |", failure.replace('|', "/"))?;
                                 continue;
                             },
-                            Some(Ok(places)) => places,
+                            Some(Ok(processes)) => processes,
                         };
                         let (Some(Some((take, resume))), Some(Some((ours_take, ours_resume)))) =
                             (all.get(i), all.first())
@@ -1240,7 +1250,8 @@ fn checkpoints(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
                             continue;
                         };
                         write!(text, " {}, {}", timed(*take), timed(*resume))?;
-                        let held = places.iter().filter_map(|place| place.held).max();
+                        let places = processes.values().flatten();
+                        let held = places.filter_map(|place| place.held).max();
                         match held {
                             Some((held, allocations)) => {
                                 write!(text, "; {:.1} KiB, {allocations} |", held as f64 / 1024.0)?
@@ -1317,9 +1328,26 @@ fn checkpoints(data: &Data, codec: Codec, order: &[String]) -> Result<String> {
     }
 }
 
+/// Of `processes`, a time's median over them of each's over its places,
+/// and its interval, by the same bootstrap as `run`'s; or, of one, as of
+/// runs before `checkpoints` started processes, its own over its places.
+fn over(processes: &Processes, time: impl Fn(&Place) -> Interval) -> Interval {
+    let each: Vec<Interval> = processes
+        .values()
+        .map(|places| within(places, &time))
+        .collect();
+    match each.as_slice() {
+        [one] => *one,
+        _ => {
+            let medians: Vec<f64> = each.iter().map(|&(median, ..)| median).collect();
+            procedure::bootstrap(&medians, &mut SplitMix(0x5EED))
+        },
+    }
+}
+
 /// Of `places`, a time's median over them of each's, and its interval,
 /// the median of their bounds.
-fn over(places: &[Place], time: impl Fn(&Place) -> Interval) -> Interval {
+fn within(places: &[Place], time: impl Fn(&Place) -> Interval) -> Interval {
     let mut medians: Vec<f64> = places.iter().map(|place| time(place).0).collect();
     let mut lows: Vec<f64> = places.iter().map(|place| time(place).1).collect();
     let mut highs: Vec<f64> = places.iter().map(|place| time(place).2).collect();

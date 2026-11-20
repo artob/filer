@@ -38,10 +38,11 @@
 //!   misses, and L1 data cache misses by `perf stat`, by `counters`, with
 //!   a table of each per byte, and its results written to
 //!   `bench/results/`.
-//! - `checkpoints [<codec>...] [--only <prefix>]`: measures the
-//!   checkpoints of each decoder that offers them, by `checkpoints`, with
-//!   a table of the times to take and to resume from one, and the heap
-//!   one holds, and its results written to `bench/results/`.
+//! - `checkpoints [<codec>...] [--only <prefix>] [--cpu <n>]`: the
+//!   procedure over the checkpoints of each decoder that offers them, by
+//!   `checkpoints`, with a table of the times to take and to resume from
+//!   one, and the heap one holds, and its results written to
+//!   `bench/results/`.
 //! - `tables [<codec>...]`: writes the tables of each codec's
 //!   `lib/decode-<codec>/BENCH.md` from `bench/results/`, by `tables`, and
 //!   the code size of every decoder's and `compute-*` crate's.
@@ -122,6 +123,15 @@ fn main() -> Result<()> {
         let level = Level::parse(&next()?).ok_or("counters-sample: no such level")?;
         let (piece, decoder, fifos) = (next()?.parse()?, next()?, next()?);
         return counters::sample(codec, &input, level, piece, &decoder, fifos.as_ref());
+    }
+    if command == "checkpoints-sample" {
+        // `checkpoints-sample <codec> <input> <level> <seed>`, from
+        // `checkpoints`.
+        let mut next = || args.next().ok_or("checkpoints-sample: too few arguments");
+        let (codec, input) = (codec(&next()?)?, next()?);
+        let level = Level::parse(&next()?).ok_or("checkpoints-sample: no such level")?;
+        let seed = next()?.parse()?;
+        return checkpoints::sample(codec, &input, level, seed);
     }
     let algorithm = |name: &str| {
         Algorithm::ALL

@@ -34,9 +34,12 @@ The harness that applies this protocol lives beside this file (see
    its first piece of output, as a read there does. Counterparts offer
    them as copies of their state: zlib's and zlib-ng's by `inflateCopy`,
    and `miniz_oxide`'s by `Clone`. A sample times as many as last 20 µs
-   or more, as one may last less than the timer resolves; each time is
-   the median over the places of each's median, with a distribution-free
-   95% interval.
+   or more, as one may last less than the timer resolves. A decoder's
+   times vary more from one process to the next than within one, so they
+   are measured in independent processes, as streams are (see
+   "Procedure"): each time is the median across processes of each's
+   median over the places of each's median, with a 95% bootstrap
+   confidence interval.
 6. **Hardware counters** on Linux: cycles, instructions, IPC, branch
    misses, and L1 data cache misses per output byte, by `perf stat`, to
    explain differences, never to rank. They are counted in user space,
