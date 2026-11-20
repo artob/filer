@@ -198,11 +198,12 @@ so any release may break compatibility.
   where the buffer is whole; and until it is, they decode as much as the
   caller has room for, not a chunk of 32 KiB: from a checkpoint, runs
   (`zeros`, `pattern`) resume 1.13 to 1.42 times as fast on the default
-  machines, at least as fast as zlib-ng, 1.00 to 1.44 times its speed on
-  Zen 5; and short streams, which no longer grow the buffer by chunks
-  they do not fill, decode up to 16% faster on Granite Rapids, whole and
-  in pieces (the Canterbury corpus's `sum`), up to 4% on Zen 5, and up to
-  6% on Neoverse V3.
+  machines, at 1.09 times zlib-ng's speed or more on Granite Rapids and
+  Neoverse V3, and on Zen 5, where their times vary by run of the
+  harness, at 0.86 to 1.33 times; and short streams, which no longer
+  grow the buffer by chunks they do not fill, decode up to 16% faster on
+  Granite Rapids, whole and in pieces (the Canterbury corpus's `sum`),
+  up to 4% on Zen 5, and up to 6% on Neoverse V3.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
