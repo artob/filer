@@ -10,8 +10,9 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 
 /// The most a call decodes before it produces what it decoded; and the
-/// least of a decoder's first, which is as large as its caller has room
-/// for, so that a small stream takes little.
+/// least of what it decodes so until its buffer is whole, as much as its
+/// caller has room for, so that a small stream takes little, and a
+/// checkpoint's buffer, the window alone, grows little.
 const CHUNK: usize = 32 * 1024;
 const FIRST_CHUNK: usize = 1024;
 
@@ -325,7 +326,7 @@ struct Window {
     /// How many of the bytes have been produced.
     produced: usize,
     /// How much it decodes before it produces it, which `prepare` makes
-    /// room for: `CHUNK`, or less for its first.
+    /// room for: `CHUNK`, or less until the buffer is whole.
     chunk: usize,
     /// Where decoding last went round to the buffer's start, which the
     /// window's bytes before it end at, for matches that reach past the
@@ -353,13 +354,13 @@ impl Window {
         n
     }
 
-    /// Makes room to decode a chunk, the first as large as `room`, what the
-    /// caller has room for, within bounds, while it holds none not yet
-    /// produced: goes round to the buffer's start, or moves the latest
-    /// window there, if the buffer has no room past the latest bytes; or
-    /// grows the buffer, doubling.
+    /// Makes room to decode a chunk, as large as `room`, what the caller
+    /// has room for, within bounds, until the buffer is whole, while it
+    /// holds none not yet produced: goes round to the buffer's start, or
+    /// moves the latest window there, if the buffer has no room past the
+    /// latest bytes; or grows the buffer, doubling.
     fn prepare(&mut self, room: usize) {
-        self.chunk = match self.buf.is_empty() {
+        self.chunk = match self.buf.len() < self.format.buffer() {
             true => CHUNK.min(FIRST_CHUNK.max(room)),
             false => CHUNK,
         };
@@ -760,6 +761,8 @@ enum State {
 enum Flow {
     /// It needs more input.
     More,
+    /// It needs room to decode codes into, its output full.
+    Room,
     /// It holds as much as it decodes at once, or it has ended.
     Done,
 }
@@ -888,15 +891,27 @@ impl Decoder {
                 self.settle(output, produced, owed);
                 return Ok((input.taken, produced));
             }
+            // Its output full, codes decode ahead only once its buffer is
+            // whole: a checkpoint's, the window alone, then grows only once
+            // given room, after giving out what it held.
             let room = output.len().saturating_sub(produced);
-            self.window.prepare(room);
-            if let Flow::More = self.run(&mut input, owed > 0)? {
-                self.settle(output, produced, owed);
-                // Every bit it holds is part of what it needs next; what it
-                // decoded before it ran short goes out all the same.
-                let room = output.get_mut(produced..).unwrap_or_default();
-                produced = produced.saturating_add(self.window.produce(room));
-                return Ok((input.taken, produced));
+            let whole = self.window.buf.len() >= self.window.format.buffer();
+            let ahead = room > 0 || produced == 0 || whole;
+            match self.run(&mut input, owed > 0, ahead.then_some(room))? {
+                Flow::Done => {},
+                Flow::More => {
+                    self.settle(output, produced, owed);
+                    // Every bit it holds is part of what it needs next; what
+                    // it decoded before it ran short goes out all the same.
+                    let room = output.get_mut(produced..).unwrap_or_default();
+                    produced = produced.saturating_add(self.window.produce(room));
+                    return Ok((input.taken, produced));
+                },
+                Flow::Room => {
+                    self.settle(output, produced, owed);
+                    self.bits.give_back(&mut input);
+                    return Ok((input.taken, produced));
+                },
             }
         }
     }
@@ -1008,11 +1023,18 @@ impl Decoder {
 
     /// Decodes until it holds a chunk to produce, the stream ends, or it
     /// needs more input; or until a stored block begins, which goes
-    /// straight to the output; or until it would take bytes into the
-    /// window, if it is `owed` bytes produced straight.
-    fn run(&mut self, input: &mut Input<'_>, owed: bool) -> Result<Flow, Error> {
+    /// straight to the output; or until codes would decode into the
+    /// window, if it is `owed` bytes produced straight, or has no `room`
+    /// to prepare it with, which it does before codes first do.
+    fn run(
+        &mut self,
+        input: &mut Input<'_>,
+        owed: bool,
+        room: Option<usize>,
+    ) -> Result<Flow, Error> {
+        let mut prepared = false;
         loop {
-            if self.window.held() >= self.window.chunk {
+            if prepared && self.window.held() >= self.window.chunk {
                 return Ok(Flow::Done);
             }
             match &mut self.state {
@@ -1074,6 +1096,13 @@ impl Decoder {
                 },
                 State::Literal | State::Distance(_) if owed => return Ok(Flow::Done),
                 State::Literal | State::Distance(_) => {
+                    if !prepared {
+                        let Some(room) = room else {
+                            return Ok(Flow::Room);
+                        };
+                        self.window.prepare(room);
+                        prepared = true;
+                    }
                     if !self.codes(input)? {
                         return Ok(Flow::More);
                     }
