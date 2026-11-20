@@ -632,9 +632,10 @@ crate's name until its first code, which moves it to `lib/`.
   checks among them, and changes to it move its registers, which costs
   Granite Rapids most; changes elsewhere move it in the binary, and at
   32 bytes past a line of 64 rather than 48 it decodes long inputs 2 to
-  3% slower there at equal instructions, which Rust 1.99 cannot pin, as
-  it aligns no function. In pieces of 64 KiB, by the harness
-  (2026-11-17), it decodes real inputs 1.15 to 1.41 times as fast as
+  3% slower there at equal instructions, and on Neoverse V3 at 20 rather
+  than 8 `zeros` and `pattern` at level 1 15 to 17% slower, which Rust
+  1.99 cannot pin, as it aligns no function. In pieces of 64 KiB, by the
+  harness (2026-11-17), it decodes real inputs 1.15 to 1.41 times as fast as
   zlib-ng and `zlib-rs`, each at least 1.03 times, and stored blocks as
   fast, but `zeros` and `pattern` at 0.64 to 0.84 of their speed on
   x86-64 and 0.67 to 0.81 at level 1 on Neoverse V3, decoded into its
@@ -662,7 +663,12 @@ crate's name until its first code, which moves it to `lib/`.
   matches copied flat, the rest out of line or not (2 to 3% slower);
   direct decoding from any call, copying from the window what reaches
   before it (synthetic inputs in pieces 40% faster, real ones 4 to 20%
-  slower); runs of one byte by AVX2 out of line (`zeros` 19% faster,
+  slower); direct decoding into an output of 32 KiB or more while the
+  buffer holds little more than the window, a match that reaches up to
+  258 bytes before it copied from the window, stopping at one that
+  reaches further (`zeros` and `pattern` at levels 6 and 9 in pieces of
+  64 KiB 14 to 27% faster on x86-64, but resumed 7 to 53% slower,
+  DEC-27); runs of one byte by AVX2 out of line (`zeros` 19% faster,
   `sum` 15% slower); far matches by 32 bytes on Neoverse V3, or long
   ones alone (2% slower). Done when it decodes faster than zlib-ng and
   `zlib-rs` on each default machine, every input, whole, in pieces, and
@@ -683,13 +689,17 @@ crate's name until its first code, which moves it to `lib/`.
   levels 1 to 9 at 0.86 to 0.99 of zlib-ng's speed on Zen 5, by either
   build, in 8 rows of 12 (`BENCH.md`, 2026-11-20), though stored blocks
   resume there 1.21 to 1.34 times as fast, and both 1.09 times or more
-  on Granite Rapids and Neoverse V3. An A/B of `6f2f57a` before it timed
-  those runs at 1.00 to 1.16 on Zen 5: its timings move by build. What
-  is left is the window's buffer: a checkpoint keeps the window alone,
-  into which codes decode, so it grows, a copy and zeroes, before the
-  first chunk, which zlib-ng decodes into the output, as DEC-24 tried
-  for every call and lost. Done when runs resume as fast as zlib-ng's on
-  Zen 5 too, decoding, whole and in pieces, no slower.
+  on Granite Rapids and Neoverse V3. Those runs' times vary from one run
+  of the harness to the next, not within one: that recording's binary,
+  run again (2026-11-20), resumed `zeros` at level 1 in 1.42 and 1.63
+  µs, not 1.74, and zlib-ng in 1.44 to 1.49 throughout. Tried and lost:
+  codes decoded straight into an output of 32 KiB or more while the
+  buffer holds little more than the window, as a checkpoint's does
+  (DEC-24): its checkpoints then hold nothing decoded ahead, and runs at
+  levels 6 to 12 resume 7 to 53% slower on Zen 5 and Granite Rapids;
+  limited to a checkpoint's buffer, as fast on Granite Rapids. Done when
+  runs resume as fast as zlib-ng's on Zen 5 too, over several runs of
+  the harness, decoding, whole and in pieces, no slower.
 
 ## Virtual drivers
 
