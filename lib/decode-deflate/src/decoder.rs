@@ -56,6 +56,16 @@ impl Format {
         }
     }
 
+    /// How far past the buffer's start decoding must have reached to go
+    /// round to it: a window, and a match with the `SLACK` past it, so that
+    /// what a match copies from before the start lies clear of what it
+    /// writes.
+    const fn clear(self) -> usize {
+        self.window()
+            .saturating_add(self.longest())
+            .saturating_add(SLACK)
+    }
+
     /// How many distance codes may occur, and a dynamic block describe.
     const fn distances(self) -> usize {
         match self {
@@ -373,6 +383,11 @@ impl Window {
                 self.compact();
             }
             self.coded = 0;
+        } else if (1..self.format.clear()).contains(&self.wrap) {
+            // Where `keep` went round in a buffer of little more than the
+            // window, as a checkpoint's is, it moves the window, so that
+            // matches write clear of it, as they do where it goes round here.
+            self.compact();
         }
         let want = self.end.saturating_add(need);
         if self.buf.len() < want {
@@ -383,7 +398,10 @@ impl Window {
 
     /// Takes `bytes`, produced straight from the input, as the latest it
     /// decoded, while it holds none not yet produced: as many of the last
-    /// of them as matches may copy from.
+    /// of them as matches may copy from. Fewer than a window go past the
+    /// latest bytes where they fit; else to the buffer's start, going round,
+    /// where all of the window lies before `end`, so that a checkpoint's
+    /// buffer, the window alone, takes them as it is; else it makes room.
     fn keep(&mut self, bytes: &[u8]) {
         let window = self.format.window();
         match bytes.len().checked_sub(window) {
@@ -399,7 +417,15 @@ impl Window {
                 (self.end, self.produced, self.wrap, self.coded) = (window, window, 0, 0);
             },
             None => {
-                self.prepare(bytes.len());
+                if self.end.saturating_add(bytes.len()) > self.buf.len() {
+                    match self.end >= window {
+                        true => {
+                            self.wrap = self.end;
+                            (self.end, self.coded) = (0, 0);
+                        },
+                        false => self.prepare(bytes.len()),
+                    }
+                }
                 let to = self.end..self.end.saturating_add(bytes.len());
                 if let Some(to) = self.buf.get_mut(to) {
                     to.copy_from_slice(bytes);
@@ -851,22 +877,20 @@ impl Decoder {
                 }
                 continue;
             }
-            // The window keeps the latest bytes before it takes more, of a
-            // stored block's or of codes, which copy from it.
-            let takes = match self.state {
-                State::Stored(left) => left > 0,
-                State::Literal | State::Distance(_) => true,
-                _ => false,
-            };
-            if takes {
+            // The window keeps the latest bytes before codes, which copy from
+            // it, decode more into it.
+            if let State::Literal | State::Distance(_) = self.state {
                 self.settle(output, produced, owed);
                 owed = 0;
             }
-            // Whether a stored block may go straight to the output.
+            // A stored block that went no further has no room, or no input.
+            if let State::Stored(1..) = self.state {
+                self.settle(output, produced, owed);
+                return Ok((input.taken, produced));
+            }
             let room = output.len().saturating_sub(produced);
-            let straight = room >= self.window.format.window() && input.taken < input.bytes.len();
             self.window.prepare(room);
-            if let Flow::More = self.run(&mut input, straight, owed > 0)? {
+            if let Flow::More = self.run(&mut input, owed > 0)? {
                 self.settle(output, produced, owed);
                 // Every bit it holds is part of what it needs next; what it
                 // decoded before it ran short goes out all the same.
@@ -922,20 +946,21 @@ impl Decoder {
     }
 
     /// Takes what it can of a stored block straight from `input` to
-    /// `output`, once it holds nothing not yet produced, the bits hold none
-    /// of the block's bytes, and `output` has room for a window at least:
-    /// copied once, the window keeping the latest of them only once codes
-    /// may copy from them, or the call returns; and returns how many. With
-    /// less room, copying them through the window costs no more.
+    /// `output`, once it holds nothing not yet produced, and the bits hold
+    /// none of the block's bytes: copied once, whatever the room, the
+    /// window keeping the latest of them only once codes may copy from
+    /// them, or the call returns; and returns how many. Through the window,
+    /// a block given little room took a chunk of it there, and a window
+    /// alone, as a checkpoint keeps, grew to hold it.
     fn straight(&mut self, input: &mut Input<'_>, output: &mut [u8]) -> usize {
         let State::Stored(left) = &mut self.state else {
             return 0;
         };
-        let few = output.len() < self.window.format.window();
-        // Only `few` is ever so: the bits give back a stored block's bytes
-        // once they have read its length, and `decode` produces what the
-        // window holds first.
-        if few || self.bits.count > 0 || self.window.held() > 0 {
+        // Never: the bits give back the block's bytes once they have read
+        // its length, which takes first those they held from earlier calls,
+        // each ending with fewer than the 32 bits it takes; and `decode`
+        // produces what the window holds first.
+        if self.bits.count > 0 || self.window.held() > 0 {
             return 0;
         }
         let mut went = 0_usize;
@@ -982,10 +1007,10 @@ impl Decoder {
     }
 
     /// Decodes until it holds a chunk to produce, the stream ends, or it
-    /// needs more input; or until a stored block may go `straight` to the
-    /// output, the caller having room for it and input; or until it would
-    /// take bytes into the window, if it is `owed` bytes produced straight.
-    fn run(&mut self, input: &mut Input<'_>, straight: bool, owed: bool) -> Result<Flow, Error> {
+    /// needs more input; or until a stored block begins, which goes
+    /// straight to the output; or until it would take bytes into the
+    /// window, if it is `owed` bytes produced straight.
+    fn run(&mut self, input: &mut Input<'_>, owed: bool) -> Result<Flow, Error> {
         loop {
             if self.window.held() >= self.window.chunk {
                 return Ok(Flow::Done);
@@ -1030,37 +1055,8 @@ impl Decoder {
                     self.state = State::Stored(len);
                 },
                 State::Stored(0) => self.ended(),
-                State::Stored(_) if straight && self.bits.count == 0 && self.window.held() == 0 => {
-                    return Ok(Flow::Done);
-                },
-                State::Stored(_) if owed => return Ok(Flow::Done),
-                State::Stored(left) => {
-                    // Never: the bits give back the block's bytes once they
-                    // have read its length, which takes first those they
-                    // held from earlier calls: each ends holding fewer than
-                    // the 32 bits it takes.
-                    if self.bits.count > 0 {
-                        return Err(corrupt());
-                    }
-                    let room = self.window.chunk.saturating_sub(self.window.held());
-                    let want = usize::try_from(*left).unwrap_or_default().min(room);
-                    let window = &mut self.window;
-                    let rest = input.bytes.get(input.taken..).unwrap_or_default();
-                    let bytes = rest.get(..want.min(rest.len())).unwrap_or_default();
-                    let to = window.end..window.end.saturating_add(bytes.len());
-                    window
-                        .buf
-                        .get_mut(to)
-                        .ok_or_else(corrupt)?
-                        .copy_from_slice(bytes);
-                    window.end = window.end.saturating_add(bytes.len());
-                    input.taken = input.taken.saturating_add(bytes.len());
-                    let n = bytes.len();
-                    if n == 0 {
-                        return Ok(Flow::More);
-                    }
-                    *left = left.saturating_sub(u32::try_from(n).unwrap_or(u32::MAX));
-                },
+                // Straight to the output, after what it decoded first.
+                State::Stored(_) => return Ok(Flow::Done),
                 State::Dynamic => {
                     let dynamic = self.dynamic.get_or_insert_with(|| Box::new(Dynamic::new()));
                     let tables = (&mut self.literals, &mut self.distances);
@@ -1656,8 +1652,10 @@ fn copy(
 /// round to the start: what lies there, then the rest as `copy` does. The
 /// window before `wrap` lies clear of what a match writes, as decoding
 /// goes round only past a window and the room for a chunk, which it
-/// writes no further than (`buffer`). Before decoding first goes round,
-/// nothing lies before the start. Out of line, as few matches take it.
+/// writes no further than (`buffer`); and where `keep` went round sooner,
+/// `prepare` moves the window before codes decode (`clear`). Before
+/// decoding first goes round, nothing lies before the start. Out of line,
+/// as few matches take it.
 #[cold]
 #[inline(never)]
 fn far(

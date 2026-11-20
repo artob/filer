@@ -186,6 +186,13 @@ so any release may break compatibility.
   Zen 5 one is taken 3.2 times as fast, in 0.48 to 0.59 µs, 1.2 to 1.6
   times as fast as zlib, zlib-ng, and `miniz_oxide` take theirs, in one
   allocation or three, not two or seven.
+- `decode-deflate`: a stored block goes straight to the output whatever
+  its room, not through the window where it has less than a window, and
+  the window keeps the latest of its bytes by going round its buffer,
+  where they do not fit past the latest, rather than growing it: from a
+  checkpoint, whose buffer is the window alone, stored blocks resume 1.8
+  to 2.7 times as fast at levels 1 to 9 on the default machines, 1.1 to
+  1.6 times at level 12, at 1.19 to 1.34 times zlib-ng's speed.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
