@@ -686,20 +686,22 @@ crate's name until its first code, which moves it to `lib/`.
   not.
 - [ ] **DEC-27: Resuming from checkpoints.** From one, `decode-deflate`
   decodes its first piece of 32 KiB of runs (`zeros`, `pattern`) at
-  levels 1 to 9 at 0.86 to 0.99 of zlib-ng's speed on Zen 5, by either
-  build, in 8 rows of 12 (`BENCH.md`, 2026-11-20), though stored blocks
-  resume there 1.21 to 1.34 times as fast, and both 1.09 times or more
-  on Granite Rapids and Neoverse V3. Those runs' times vary from one run
-  of the harness to the next, not within one: that recording's binary,
-  run again (2026-11-20), resumed `zeros` at level 1 in 1.42 and 1.63
-  µs, not 1.74, and zlib-ng in 1.44 to 1.49 throughout. Tried and lost:
-  codes decoded straight into an output of 32 KiB or more while the
-  buffer holds little more than the window, as a checkpoint's does
-  (DEC-24): its checkpoints then hold nothing decoded ahead, and runs at
-  levels 6 to 12 resume 7 to 53% slower on Zen 5 and Granite Rapids;
-  limited to a checkpoint's buffer, as fast on Granite Rapids. Done when
-  runs resume as fast as zlib-ng's on Zen 5 too, over several runs of
-  the harness, decoding, whole and in pieces, no slower.
+  levels 1 to 9 at 0.88 to 0.96 of zlib-ng's speed on Zen 5, by either
+  build, in 8 rows of 12, each the median over 20 processes (`BENCH.md`,
+  at `d7cf917`, 2026-11-20), though stored blocks resume there 1.23 to
+  1.26 times as fast, and both 1.05 times or more on Granite Rapids and
+  Neoverse V3. At level 1, at 0.88 to 0.91, it is slower than zlib-ng's
+  median in every process. At levels 6 and 9 its times vary from one
+  process to the next, and zlib-ng's hardly: it resumed `zeros` at level
+  6 in 1.47 to 1.87 µs, zlib-ng in 1.66 to 1.74, though within a process
+  the times hold within 0.2%; what differs between processes is not
+  known yet. Tried and lost: codes decoded straight into an output of
+  32 KiB or more while the buffer holds little more than the window, as
+  a checkpoint's does (DEC-24): its checkpoints then hold nothing
+  decoded ahead, and runs at levels 6 to 12 resume 7 to 53% slower on
+  Zen 5 and Granite Rapids; limited to a checkpoint's buffer, as fast on
+  Granite Rapids. Done when runs resume as fast as zlib-ng's on Zen 5
+  too, by the harness, decoding, whole and in pieces, no slower.
 
 ## Virtual drivers
 
