@@ -565,8 +565,8 @@ crate's name until its first code, which moves it to `lib/`.
   campaign of it at `d73cac4`, after DEC-24's rework (2026-11-16 to 18),
   filled its memory and its streams by either build, whole and in
   pieces. Small streams, at `8c35e19`, and checkpoints, at `27a0840`,
-  `decode-deflate`'s again at `1501f70`, followed for all three
-  (2026-11-18 to 19). The other `decode-*` crates' `BENCH.md` hold their
+  `decode-deflate`'s again at `6f2f57a`, followed for all three
+  (2026-11-18 to 20). The other `decode-*` crates' `BENCH.md` hold their
   code size alone. Zen 1's speed tables are older, of `9c5f5fc`, before
   DEC-19's work. Done when each `BENCH.md` of a written decoder holds
   them all.
