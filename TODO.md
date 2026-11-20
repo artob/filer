@@ -630,7 +630,10 @@ crate's name until its first code, which moves it to `lib/`.
   over real ones, 0.74 at worst (Granite Rapids' `sum`); its fast loop
   executes more instructions and branches than libdeflate's, bounds
   checks among them, and changes to it move its registers, which costs
-  Granite Rapids most. In pieces of 64 KiB, by the harness
+  Granite Rapids most; changes elsewhere move it in the binary, and at
+  32 bytes past a line of 64 rather than 48 it decodes long inputs 2 to
+  3% slower there at equal instructions, which Rust 1.99 cannot pin, as
+  it aligns no function. In pieces of 64 KiB, by the harness
   (2026-11-17), it decodes real inputs 1.15 to 1.41 times as fast as
   zlib-ng and `zlib-rs`, each at least 1.03 times, and stored blocks as
   fast, but `zeros` and `pattern` at 0.64 to 0.84 of their speed on
@@ -675,26 +678,18 @@ crate's name until its first code, which moves it to `lib/`.
   DEC-23). DEC-24's tables in one block of fixed size lost speed. Done
   when a stream allocates once, no slower, or the crate's docs say why
   not.
-- [ ] **DEC-27: Resuming from checkpoints.** From one,
-  `decode-deflate` decodes its first piece of 32 KiB of stored blocks,
-  as zlib writes at levels 1 to 9, at 0.51 to 0.72 of zlib-ng's speed on
-  each default machine, and runs (`zeros`, `pattern`) at 0.79 to 0.94 on
-  Zen 5 and Neoverse V3 (`BENCH.md`, 2026-11-19), though it takes one
-  1.24 to 1.74 times as fast. A checkpoint's buffer holds the window
-  alone. Of zlib's stored blocks of 16 KiB, 32 KiB of input fills the
-  piece but 10 bytes: `keep` appends them to the window, preparing a
-  chunk's room, which grows the buffer, and the window's `prepare` grows
-  it again, each a copy and zeroes; the next call, with room for the 10
-  bytes, copies a chunk of the block into the window to produce them, as
-  runs decode a chunk ahead once the output is full. Tried: returning
-  before `prepare` where a stored block has no input, faster only at
-  level 12, as it moved `fast` in the binary, which cost Granite Rapids
-  1 to 3% on real inputs, whole and in pieces; a stored block straight to
-  any room, stopping where it has none, a quarter faster on the M4. Left:
-  `keep` going round a buffer of the window alone, and `prepare`
-  compacting before it grows one that went round. Done when stored blocks
-  and runs resume as fast as zlib-ng's, decoding, whole and in pieces,
-  no slower.
+- [ ] **DEC-27: Resuming from checkpoints.** From one, `decode-deflate`
+  decodes its first piece of 32 KiB of runs (`zeros`, `pattern`) at
+  levels 1 to 9 at 0.86 to 0.99 of zlib-ng's speed on Zen 5, by either
+  build, in 8 rows of 12 (`BENCH.md`, 2026-11-20), though stored blocks
+  resume there 1.21 to 1.34 times as fast, and both 1.09 times or more
+  on Granite Rapids and Neoverse V3. An A/B of `6f2f57a` before it timed
+  those runs at 1.00 to 1.16 on Zen 5: its timings move by build. What
+  is left is the window's buffer: a checkpoint keeps the window alone,
+  into which codes decode, so it grows, a copy and zeroes, before the
+  first chunk, which zlib-ng decodes into the output, as DEC-24 tried
+  for every call and lost. Done when runs resume as fast as zlib-ng's on
+  Zen 5 too, decoding, whole and in pieces, no slower.
 
 ## Virtual drivers
 
