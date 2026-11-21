@@ -830,6 +830,10 @@ fn lzma_rust2_xz(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize,
 /// Drives one of `lzma-rust2`'s sans-I/O decoders, `process`, over
 /// `input` into `output`, in pieces of at most `piece` bytes each way,
 /// saying so once it has all the input.
+///
+/// Version 0.25 says that a stream of `.lzma` has ended only given room
+/// for more output, even with none to come: once the output is full, it
+/// decodes into a byte of its own, which must stay empty.
 fn lzma_rust2<E, P>(
     mut process: P,
     input: &[u8],
@@ -841,7 +845,7 @@ where
     P: FnMut(&[u8], &mut [u8], lzma_rust2::Action) -> Result<lzma_rust2::StreamResult, E>,
 {
     use lzma_rust2::{Action, Status};
-    let (mut read, mut written) = (0_usize, 0_usize);
+    let (mut read, mut written, mut past) = (0_usize, 0_usize, [0]);
     loop {
         let into = input.len().min(read.saturating_add(piece));
         let room = output.len().min(written.saturating_add(piece));
@@ -849,9 +853,17 @@ where
             true => Action::Finish,
             false => Action::Run,
         };
-        let result = process(&input[read..into], &mut output[written..room], action)
-            .map_err(|error| format!("{error:?}"))?;
+        let full = room == written;
+        let room = match full {
+            false => &mut output[written..room],
+            true => &mut past[..],
+        };
+        let result =
+            process(&input[read..into], room, action).map_err(|error| format!("{error:?}"))?;
         let (consumed, produced) = (result.bytes_consumed, result.bytes_produced);
+        if full && produced > 0 {
+            return Err("decoded past its output".into());
+        }
         (read, written) = (read + consumed, written + produced);
         if let Status::StreamEnd = result.status {
             return Ok(written);
