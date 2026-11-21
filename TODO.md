@@ -552,24 +552,20 @@ crate's name until its first code, which moves it to `lib/`.
   for time. Done when it fills them on Apple M4 too. Mind code placement
   there: a probe timed `compute-crc`'s tables' CRC-32 at 1.3 GB/s from
   one call site and 5.1 from another, the same loop (2026-11-06).
-- [ ] **BENCH-02: Every machine.** The protocol's machines are all at
-  hand, the default ones (`bench/METHOD.md`) each an EC2 instance with a
-  core of its own: the current AMD and Intel cores, Zen 5 and Granite
-  Rapids, and the Neoverse server's, Neoverse V3 (Graviton5). A
-  campaign of every measure the harness takes, at `de4f027`, filled all
-  three's tables (2026-11-13 to 14, `~/campaign.sh <cpu>` on each host):
-  memory, every crate's code size, the `compute-*` crates' hashes, and
-  `decode-zstd`'s and `decode-bzip2`'s streams, whole and in pieces of
-  64 KiB and of 4 KiB, by the baseline build and by the build for the
-  CPU. The harness drives `decode-deflate` too, since `e35879b`: a
-  campaign of it at `d73cac4`, after DEC-24's rework (2026-11-16 to 18),
-  filled its memory and its streams by either build, whole and in
-  pieces. Small streams, at `8c35e19`, and checkpoints, at `27a0840`,
-  again at `d7cf917`, timed over several processes, and `decode-deflate`'s
-  at `dba82ad`, followed for all three (2026-11-18 to 21). The other
-  `decode-*` crates' `BENCH.md` hold their code size alone. Zen 1's speed
-  tables are older, of `9c5f5fc`, before DEC-19's work. Done when each
-  `BENCH.md` of a written decoder holds them all.
+- [ ] **BENCH-12: xz and LZMA in the harness.** Campaigns of every
+  measure the harness takes filled `decode-zstd`'s, `decode-bzip2`'s, and
+  `decode-deflate`'s `BENCH.md` on the default machines (`bench/METHOD.md`)
+  by either build: whole and in pieces, small streams, memory, and
+  checkpoints (2026-11-13 to 21, `~/campaign.sh <cpu>` on each host). The
+  other `decode-*` crates' `BENCH.md` hold their code size alone. Done when
+  the harness drives `decode-xz` and `decode-lzma` beside the counterparts
+  their `BENCH.md` name, and a campaign on the default machines fills both.
+- [ ] **BENCH-13: LZ4 in the harness.** Likewise `decode-lz4`, beside
+  liblz4 and `lz4_flex`.
+- [ ] **BENCH-14: LZO in the harness.** Likewise `decode-lzo`, beside
+  miniLZO, `rust-lzo`, `lzokay-native`, and `lzo1x`.
+- [ ] **BENCH-15: gzip and zlib in the harness.** Likewise `decode-gzip`
+  and `decode-zlib`, beside `decode-deflate`'s counterparts.
 - [ ] **COMP-01: x86-64's SHA-512 extension.** `compute-sha512`'s
   `intrinsics` takes ARMv8.2's SHA-512 instructions, but not x86-64's,
   which only Intel's newest CPUs have, from Arrow Lake and Lunar Lake on,
