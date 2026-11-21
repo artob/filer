@@ -684,6 +684,17 @@ crate's name until its first code, which moves it to `lib/`.
   DEC-23). DEC-24's tables in one block of fixed size lost speed. Done
   when a stream allocates once, no slower, or the crate's docs say why
   not.
+- [ ] **DEC-28: Resuming on Granite Rapids.** Since `dba82ad`, by the
+  harness's baseline build on Granite Rapids, `decode-deflate` resumes
+  Silesia's `ooffice` 13 to 38% slower than before, and Canterbury's
+  `E.coli` at level 1 11% slower (`BENCH.md`, 2026-11-21), though still
+  at least 1.22 times as fast as zlib-ng; by the native build, and on
+  Zen 5 and Neoverse V3, as fast as before. It decodes them as fast as
+  before without a checkpoint, and its decoding loop lies 144 bytes
+  further on in that build: a variant giving every copy room, built on
+  `d7cf917`, resumed as fast as before, and the same given to
+  `dba82ad`'s as slowly. Done when they resume as fast as before by
+  either build, or the loop's placement alone is shown to cost it.
 
 ## Virtual drivers
 
