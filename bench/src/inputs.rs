@@ -13,48 +13,67 @@ pub struct Input {
     pub data: Vec<u8>,
 }
 
-/// A level of a codec's reference encoder, and for zstd, whether it
-/// matches across a 128 MiB window (`--long=27`).
+/// A level of a codec's reference encoder, and what it takes beside its
+/// number.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Level {
     pub number: u32,
-    pub long: bool,
+    pub mode: Mode,
+}
+
+/// What a level takes beside its number: for zstd, matches across a 128
+/// MiB window (`--long=27`); for xz, its extreme mode (`-e`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Mode {
+    Plain,
+    Long,
+    Extreme,
 }
 
 impl Level {
     const fn new(number: u32) -> Self {
         Self {
             number,
-            long: false,
+            mode: Mode::Plain,
         }
     }
 
     /// Reads what [`label`](Self::label) writes.
     pub fn parse(label: &str) -> Option<Self> {
-        let (number, long) = match label.strip_suffix("-long") {
-            Some(number) => (number, true),
-            None => (label, false),
+        let (number, mode) = match (label.strip_suffix("-long"), label.strip_suffix('e')) {
+            (Some(number), _) => (number, Mode::Long),
+            (None, Some(number)) => (number, Mode::Extreme),
+            (None, None) => (label, Mode::Plain),
         };
         Some(Self {
             number: number.parse().ok()?,
-            long,
+            mode,
         })
     }
 
     /// Its name in paths and in `packed.toml`.
     pub fn label(self) -> String {
-        match self.long {
-            true => format!("{}-long", self.number),
-            false => self.number.to_string(),
+        match self.mode {
+            Mode::Plain => self.number.to_string(),
+            Mode::Long => format!("{}-long", self.number),
+            Mode::Extreme => format!("{}e", self.number),
+        }
+    }
+
+    /// Its preset, as liblzma takes it.
+    fn preset(self) -> u32 {
+        match self.mode {
+            Mode::Extreme => self.number | liblzma::stream::PRESET_EXTREME,
+            _ => self.number,
         }
     }
 }
 
 impl std::fmt::Display for Level {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.long {
-            true => write!(f, "{} --long=27", self.number),
-            false => write!(f, "{}", self.number),
+        match self.mode {
+            Mode::Long => write!(f, "{} --long=27", self.number),
+            _ => write!(f, "{}", self.label()),
         }
     }
 }
@@ -121,12 +140,20 @@ impl Codec {
             Self::Bzip2 => vec![Level::new(1), Level::new(9)],
             // zlib's, and libdeflate's slowest, which zlib has not.
             Self::Deflate => [1, 6, 9, 12].map(Level::new).to_vec(),
+            Self::Lzma | Self::Xz => vec![
+                Level::new(0),
+                Level::new(6),
+                Level {
+                    number: 9,
+                    mode: Mode::Extreme,
+                },
+            ],
             Self::Zstd => {
                 let mut levels = [1, 3, 9, 19, 22].map(Level::new).to_vec();
                 if size >= LARGE {
                     levels.push(Level {
                         number: 19,
-                        long: true,
+                        mode: Mode::Long,
                     });
                 }
                 levels
@@ -135,11 +162,11 @@ impl Codec {
     }
 
     /// The level its reference encoder takes by default: bzip2's 9, zlib's
-    /// 6, and zstd's 3.
+    /// and xz's 6, and zstd's 3.
     pub fn default_level(self) -> Level {
         match self {
             Self::Bzip2 => Level::new(9),
-            Self::Deflate => Level::new(6),
+            Self::Deflate | Self::Lzma | Self::Xz => Level::new(6),
             Self::Zstd => Level::new(3),
         }
     }
@@ -149,13 +176,16 @@ impl Codec {
         match self {
             Self::Bzip2 => "bz2",
             Self::Deflate => "deflate",
+            Self::Lzma => "lzma",
+            Self::Xz => "xz",
             Self::Zstd => "zst",
         }
     }
 
     /// Encodes `data` at `level` with the reference encoder: bzip2 1.0.8,
-    /// zstd 1.5.7, or raw Deflate by zlib at its levels and by libdeflate
-    /// at 12, as their crates build them, on one thread.
+    /// zstd 1.5.7, raw Deflate by zlib at its levels and by libdeflate at
+    /// 12, or `.lzma` and `.xz` files by liblzma 5.8.4, as their crates
+    /// build them, on one thread.
     pub fn encode(self, data: &[u8], level: Level) -> std::io::Result<Vec<u8>> {
         match self {
             Self::Bzip2 => {
@@ -177,15 +207,54 @@ impl Codec {
                 packed.truncate(len);
                 Ok(packed)
             },
+            Self::Lzma => {
+                use liblzma::stream::{LzmaOptions, Stream};
+                let options = LzmaOptions::new_preset(level.preset()).map_err(liblzma_failed)?;
+                let encoder = Stream::new_lzma_encoder(&options).map_err(liblzma_failed)?;
+                liblzma_encode(encoder, data)
+            },
+            // As xz writes them by default since 5.6, in its multithreaded
+            // mode, in blocks of its default size, the same on any number
+            // of threads, with CRC-64.
+            Self::Xz => {
+                use liblzma::stream::{Check, MtStreamBuilder};
+                let mut builder = MtStreamBuilder::new();
+                builder
+                    .threads(1)
+                    .preset(level.preset())
+                    .check(Check::Crc64);
+                liblzma_encode(builder.encoder().map_err(liblzma_failed)?, data)
+            },
             Self::Zstd => {
                 use zstd::zstd_safe::CParameter;
                 let mut encoder = zstd::bulk::Compressor::new(level.number as i32)?;
-                if level.long {
+                if level.mode == Mode::Long {
                     encoder.set_parameter(CParameter::WindowLog(27))?;
                     encoder.set_parameter(CParameter::EnableLongDistanceMatching(true))?;
                 }
                 encoder.compress(data)
             },
+        }
+    }
+}
+
+/// liblzma's `error` as I/O's.
+fn liblzma_failed(error: liblzma::stream::Error) -> std::io::Error {
+    std::io::Error::other(error)
+}
+
+/// Encodes `data` by liblzma's encoder `stream`, whole.
+fn liblzma_encode(mut stream: liblzma::stream::Stream, data: &[u8]) -> std::io::Result<Vec<u8>> {
+    use liblzma::stream::{Action, Status};
+    let mut packed = Vec::with_capacity(data.len() / 4 + 4096);
+    loop {
+        packed.reserve(4096);
+        let read = stream.total_in() as usize;
+        let status = stream
+            .process_vec(&data[read..], &mut packed, Action::Finish)
+            .map_err(liblzma_failed)?;
+        if let Status::StreamEnd = status {
+            return Ok(packed);
         }
     }
 }

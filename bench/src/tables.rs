@@ -679,7 +679,7 @@ fn sets<'a>(
 /// The levels of `keys`, in order.
 fn levels<'a>(keys: impl Iterator<Item = &'a Key>) -> Vec<String> {
     let mut levels: Vec<Level> = keys.filter_map(|key| Level::parse(&key.level)).collect();
-    levels.sort_by_key(|level| (level.number, level.long));
+    levels.sort_by_key(|level| (level.number, level.mode));
     levels.dedup();
     levels.iter().map(|level| level.label()).collect()
 }

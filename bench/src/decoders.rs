@@ -57,16 +57,20 @@ pub struct Decoder {
 pub enum Codec {
     Bzip2,
     Deflate,
+    Lzma,
+    Xz,
     Zstd,
 }
 
 impl Codec {
-    pub const ALL: [Self; 3] = [Self::Bzip2, Self::Deflate, Self::Zstd];
+    pub const ALL: [Self; 5] = [Self::Bzip2, Self::Deflate, Self::Lzma, Self::Xz, Self::Zstd];
 
     pub fn name(self) -> &'static str {
         match self {
             Self::Bzip2 => "bzip2",
             Self::Deflate => "deflate",
+            Self::Lzma => "lzma",
+            Self::Xz => "xz",
             Self::Zstd => "zstd",
         }
     }
@@ -75,6 +79,8 @@ impl Codec {
         match self {
             Self::Bzip2 => &BZIP2,
             Self::Deflate => &DEFLATE,
+            Self::Lzma => &LZMA,
+            Self::Xz => &XZ,
             Self::Zstd => &ZSTD,
         }
     }
@@ -204,6 +210,94 @@ const DEFLATE: [Decoder; 8] = [
     },
 ];
 
+const LZMA: [Decoder; 4] = [
+    Decoder {
+        name: "ours",
+        krate: "decode-lzma",
+        language: "Rust",
+        decode: ours_lzma,
+        value: size_of::<decode_lzma::Decoder>(),
+        whole: false,
+        resumable: Some(ours_lzma_resumable),
+    },
+    Decoder {
+        name: "liblzma",
+        krate: "liblzma",
+        language: "C",
+        decode: liblzma_lzma,
+        value: size_of::<liblzma::stream::Stream>(),
+        whole: false,
+        resumable: None,
+    },
+    Decoder {
+        name: "lzma-rust2",
+        krate: "lzma-rust2",
+        language: "Rust",
+        decode: lzma_rust2_lzma,
+        value: size_of::<lzma_rust2::LzmaStream>(),
+        whole: false,
+        resumable: None,
+    },
+    Decoder {
+        name: "lzma-rs",
+        krate: "lzma-rs",
+        language: "Rust",
+        decode: lzma_rs_lzma,
+        value: size_of::<lzma_rs::decompress::Stream<Room<'static>>>(),
+        whole: false,
+        resumable: None,
+    },
+];
+
+const XZ: [Decoder; 5] = [
+    Decoder {
+        name: "ours",
+        krate: "decode-xz",
+        language: "Rust",
+        decode: ours_xz,
+        value: size_of::<decode_xz::Decoder>(),
+        whole: false,
+        resumable: Some(ours_xz_resumable),
+    },
+    Decoder {
+        name: "liblzma",
+        krate: "liblzma",
+        language: "C",
+        decode: liblzma_xz,
+        value: size_of::<liblzma::stream::Stream>(),
+        whole: false,
+        resumable: None,
+    },
+    Decoder {
+        name: "lzma-rust2",
+        krate: "lzma-rust2",
+        language: "Rust",
+        decode: lzma_rust2_xz,
+        value: size_of::<lzma_rust2::XzStream>(),
+        whole: false,
+        resumable: None,
+    },
+    Decoder {
+        name: "lzma-rs",
+        krate: "lzma-rs",
+        language: "Rust",
+        decode: lzma_rs_xz,
+        // A function, whose state is its own.
+        value: 0,
+        whole: false,
+        resumable: None,
+    },
+    Decoder {
+        name: "xz4rust",
+        krate: "xz4rust",
+        language: "Rust",
+        decode: xz4rust,
+        value: size_of::<Box<xz4rust::XzDecoder<'static>>>(),
+        whole: false,
+        resumable: None,
+    },
+];
+
 const ZSTD: [Decoder; 3] = [
     Decoder {
         name: "ours",
@@ -276,6 +370,77 @@ fn ours_deflate(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, 
     Ok(written)
 }
 
+fn ours_xz(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let mut decoder = decode_xz::Decoder::new();
+    let written = sans_io(|i, o| decoder.decode(i, o), input, output, piece)?;
+    decoder.finish().map_err(|error| error.to_string())?;
+    Ok(written)
+}
+
+/// The length of a `.lzma` file's header: its properties, then the size
+/// it decodes to, little-endian, all ones if unknown.
+const LZMA_HEADER: usize = 13;
+
+/// Our decoder of the stream that follows `header`.
+fn ours_lzma_after(header: &[u8; LZMA_HEADER]) -> Result<decode_lzma::Decoder, Failure> {
+    let (properties, size) = header.split_first_chunk::<5>().ok_or("no properties")?;
+    let size = u64::from_le_bytes(size.try_into().map_err(|_| "no size")?);
+    let size = (size != u64::MAX).then_some(size);
+    decode_lzma::Decoder::lzma(*properties, size).map_err(|error| error.to_string())
+}
+
+fn ours_lzma(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let (header, input) = input.split_first_chunk().ok_or("no header")?;
+    let mut decoder = ours_lzma_after(header)?;
+    let written = sans_io(|i, o| decoder.decode(i, o), input, output, piece)?;
+    decoder.finish().map_err(|error| error.to_string())?;
+    Ok(written)
+}
+
+/// Our decoder of a `.lzma` file as `Resumable`, which takes its header
+/// first: callers read it, as it is not LZMA's own.
+struct OursLzma {
+    header: Vec<u8>,
+    decoder: Option<decode_lzma::Decoder>,
+}
+
+fn ours_lzma_resumable() -> Result<Box<dyn Resumable>, Failure> {
+    Ok(Box::new(OursLzma {
+        header: Vec::with_capacity(LZMA_HEADER),
+        decoder: None,
+    }))
+}
+
+impl Resumable for OursLzma {
+    fn decode(&mut self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), Failure> {
+        if let Some(decoder) = &mut self.decoder {
+            return decoder
+                .decode(input, output)
+                .map_err(|error| format!("{error:?}"));
+        }
+        let len = input.len().min(LZMA_HEADER - self.header.len());
+        self.header.extend_from_slice(&input[..len]);
+        if let Some(header) = self.header.first_chunk() {
+            self.decoder = Some(ours_lzma_after(header)?);
+        }
+        Ok((len, 0))
+    }
+
+    fn checkpoint(&self) -> Option<Box<dyn Resumable>> {
+        let decoder = self.decoder.as_ref()?.checkpoint()?;
+        Some(Box::new(Self {
+            header: Vec::new(),
+            decoder: Some(decoder),
+        }))
+    }
+
+    fn buffered(&self) -> usize {
+        self.decoder
+            .as_ref()
+            .map_or(0, decode_lzma::Decoder::buffered)
+    }
+}
+
 /// One of our decoders as `Resumable`, by its own `checkpoint` and
 /// `buffered`; and `$new`, which makes one.
 macro_rules! ours_resumable {
@@ -307,6 +472,7 @@ macro_rules! ours_resumable {
 
 ours_resumable!(ours_bzip2_resumable, decode_bzip2::Decoder);
 ours_resumable!(ours_deflate_resumable, decode_deflate::Decoder);
+ours_resumable!(ours_xz_resumable, decode_xz::Decoder);
 ours_resumable!(ours_zstd_resumable, decode_zstd::Decoder);
 
 // C's own allocator, which zlib's streams are given, as the bindings ask
@@ -609,6 +775,155 @@ fn yazi(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure>
         stream.write(given).map_err(failed)?;
     }
     Ok(stream.finish().map_err(failed)?.0 as usize)
+}
+
+fn liblzma_lzma(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let stream = liblzma::stream::Stream::new_lzma_decoder(u64::MAX);
+    liblzma(stream, input, output, piece)
+}
+
+fn liblzma_xz(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let stream = liblzma::stream::Stream::new_stream_decoder(u64::MAX, 0);
+    liblzma(stream, input, output, piece)
+}
+
+/// Drives liblzma's decoder `stream`, whole in one call that may finish
+/// it, as it decodes fastest, or in pieces.
+fn liblzma(
+    stream: Result<liblzma::stream::Stream, liblzma::stream::Error>,
+    input: &[u8],
+    output: &mut [u8],
+    piece: usize,
+) -> Result<usize, Failure> {
+    use liblzma::stream::{Action, Status};
+    let mut stream = stream.map_err(|error| error.to_string())?;
+    let action = match piece {
+        usize::MAX => Action::Finish,
+        _ => Action::Run,
+    };
+    loop {
+        let (read, written) = (stream.total_in() as usize, stream.total_out() as usize);
+        let into = input.len().min(read.saturating_add(piece));
+        let room = output.len().min(written.saturating_add(piece));
+        let status = stream
+            .process(&input[read..into], &mut output[written..room], action)
+            .map_err(|error| error.to_string())?;
+        if let Status::StreamEnd = status {
+            return Ok(stream.total_out() as usize);
+        }
+        if (stream.total_in() as usize, stream.total_out() as usize) == (read, written) {
+            return Err("cut short".into());
+        }
+    }
+}
+
+fn lzma_rust2_lzma(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let mut stream = lzma_rust2::LzmaStream::new_mem_limit(u32::MAX, None);
+    lzma_rust2(|i, o, a| stream.process(i, o, a), input, output, piece)
+}
+
+fn lzma_rust2_xz(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let mut stream = lzma_rust2::XzStream::new(false);
+    lzma_rust2(|i, o, a| stream.process(i, o, a), input, output, piece)
+}
+
+/// Drives one of `lzma-rust2`'s sans-I/O decoders, `process`, over
+/// `input` into `output`, in pieces of at most `piece` bytes each way,
+/// saying so once it has all the input.
+fn lzma_rust2<E, P>(
+    mut process: P,
+    input: &[u8],
+    output: &mut [u8],
+    piece: usize,
+) -> Result<usize, Failure>
+where
+    E: std::fmt::Debug,
+    P: FnMut(&[u8], &mut [u8], lzma_rust2::Action) -> Result<lzma_rust2::StreamResult, E>,
+{
+    use lzma_rust2::{Action, Status};
+    let (mut read, mut written) = (0_usize, 0_usize);
+    loop {
+        let into = input.len().min(read.saturating_add(piece));
+        let room = output.len().min(written.saturating_add(piece));
+        let action = match into == input.len() {
+            true => Action::Finish,
+            false => Action::Run,
+        };
+        let result = process(&input[read..into], &mut output[written..room], action)
+            .map_err(|error| format!("{error:?}"))?;
+        let (consumed, produced) = (result.bytes_consumed, result.bytes_produced);
+        (read, written) = (read + consumed, written + produced);
+        if let Status::StreamEnd = result.status {
+            return Ok(written);
+        }
+        if (consumed, produced) == (0, 0) {
+            return Err("cut short".into());
+        }
+    }
+}
+
+/// Whole, from the input into the output, as `Read` and `Write`; in
+/// pieces, by its streaming decoder, written to in pieces.
+fn lzma_rs_lzma(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    use std::io::Write as _;
+    let len = output.len();
+    if piece == usize::MAX {
+        let mut room = output;
+        lzma_rs::lzma_decompress(&mut &input[..], &mut room).map_err(|e| e.to_string())?;
+        return Ok(len - room.len());
+    }
+    let mut stream = lzma_rs::decompress::Stream::new(Room { output, piece });
+    for given in input.chunks(piece) {
+        stream.write_all(given).map_err(|error| error.to_string())?;
+    }
+    let room = stream.finish().map_err(|error| error.to_string())?;
+    Ok(len - room.output.len())
+}
+
+/// Whole, from the input into the output, as `Read` and `Write`; in
+/// pieces, read and written in pieces, as it has no streaming decoder of
+/// xz.
+fn lzma_rs_xz(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    let len = output.len();
+    if piece == usize::MAX {
+        let mut room = output;
+        lzma_rs::xz_decompress(&mut &input[..], &mut room).map_err(|e| e.to_string())?;
+        return Ok(len - room.len());
+    }
+    let source = Pieces {
+        bytes: input,
+        piece,
+    };
+    let mut source = std::io::BufReader::with_capacity(piece, source);
+    let mut room = Room { output, piece };
+    lzma_rs::xz_decompress(&mut source, &mut room).map_err(|error| error.to_string())?;
+    Ok(len - room.output.len())
+}
+
+/// Its dictionary grows as the stream asks, as ours does, rather than
+/// taking 8 MiB from the start.
+fn xz4rust(input: &[u8], output: &mut [u8], piece: usize) -> Result<usize, Failure> {
+    use xz4rust::{DICT_SIZE_MAX, DICT_SIZE_MIN, XzDecoder, XzNextBlockResult};
+    let mut decoder = XzDecoder::in_heap_with_alloc_dict_size(DICT_SIZE_MIN, DICT_SIZE_MAX);
+    let (mut read, mut written) = (0_usize, 0_usize);
+    loop {
+        let into = input.len().min(read.saturating_add(piece));
+        let room = output.len().min(written.saturating_add(piece));
+        let result = decoder
+            .decode(&input[read..into], &mut output[written..room])
+            .map_err(|error| format!("{error:?}"))?;
+        let (consumed, produced, ended) = match result {
+            XzNextBlockResult::NeedMoreData(consumed, produced) => (consumed, produced, false),
+            XzNextBlockResult::EndOfStream(consumed, produced) => (consumed, produced, true),
+        };
+        (read, written) = (read + consumed, written + produced);
+        if ended {
+            return Ok(written);
+        }
+        if (consumed, produced) == (0, 0) {
+            return Err("cut short".into());
+        }
+    }
 }
 
 /// Drives a `bzip2` crate's `Decompress`, of either version, as libbzip2's

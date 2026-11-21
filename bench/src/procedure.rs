@@ -359,7 +359,7 @@ fn summarize(codec: Codec, decoders: &[&Decoder], ratios: &[(Level, usize, f64)]
         codec.name()
     );
     let mut levels: Vec<Level> = ratios.iter().map(|&(level, ..)| level).collect();
-    levels.sort_by_key(|level| (level.number, level.long));
+    levels.sort_by_key(|level| (level.number, level.mode));
     levels.dedup();
     for level in levels {
         print!("{:<26} {:>8}", "", level.label());

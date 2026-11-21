@@ -53,13 +53,13 @@
 //!   and algorithms, by `size`, with a Markdown table of the code each
 //!   adds, and its results written to `bench/results/`.
 //!
-//! Every codec, `bzip2`, `deflate`, and `zstd`, or every algorithm, such
-//! as `crc32` or `sha256`, unless some are named. For the ceiling, build with
-//! `RUSTFLAGS="-C target-cpu=native"` into another `--target-dir`; and for
-//! ours without the CPU's instructions, as they build without
-//! dependencies, with `--no-default-features`, as `intrinsics`, on by
-//! default, takes them (D66): the results record either, and name their
-//! file so.
+//! Every codec, `bzip2`, `deflate`, `lzma`, `xz`, and `zstd`, or every
+//! algorithm, such as `crc32` or `sha256`, unless some are named. For the
+//! ceiling, build with `RUSTFLAGS="-C target-cpu=native"` into another
+//! `--target-dir`; and for ours without the CPU's instructions, as they
+//! build without dependencies, with `--no-default-features`, as
+//! `intrinsics`, on by default, takes them (D66): the results record
+//! either, and name their file so.
 
 mod checkpoints;
 mod corpus;
