@@ -357,7 +357,7 @@ fn offers_checkpoints_anywhere() {
 /// Runs, for which decoding goes round its buffer rather than move the
 /// window: matches that then reach past the buffer's start, wholly or in
 /// part, copied from the window left at its end; and checkpoints taken
-/// there, which resume.
+/// there, which resume, as copies of them do, as one resumes from.
 #[test]
 fn goes_round_for_runs() {
     let period: Vec<u8> = (0..1000_u32).map(|n| (n * 7 % 251) as u8).collect();
@@ -386,18 +386,20 @@ fn goes_round_for_runs() {
     }
     decoder.finish().unwrap();
     assert_eq!(decoded, data.len());
-    for (from, len, mut checkpoint) in resumed {
-        let (mut at, mut rest) = (from, Vec::new());
-        loop {
-            let (consumed, produced) = checkpoint.decode(&stream[at..], &mut output).unwrap();
-            if (consumed, produced) == (0, 0) {
-                break;
+    for (from, len, held) in resumed {
+        for mut checkpoint in [held.checkpoint().unwrap(), held] {
+            let (mut at, mut rest) = (from, Vec::new());
+            loop {
+                let (consumed, produced) = checkpoint.decode(&stream[at..], &mut output).unwrap();
+                if (consumed, produced) == (0, 0) {
+                    break;
+                }
+                at += consumed;
+                rest.extend_from_slice(&output[..produced]);
             }
-            at += consumed;
-            rest.extend_from_slice(&output[..produced]);
+            checkpoint.finish().unwrap();
+            assert!(rest == data[len..], "from {from}");
         }
-        checkpoint.finish().unwrap();
-        assert!(rest == data[len..], "from {from}");
     }
 }
 

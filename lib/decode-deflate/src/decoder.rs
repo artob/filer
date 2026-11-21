@@ -16,6 +16,10 @@ use alloc::{boxed::Box, vec::Vec};
 const CHUNK: usize = 32 * 1024;
 const FIRST_CHUNK: usize = 1024;
 
+/// What a window's `chunk` is, until `prepare` sets it, where it is a
+/// checkpoint's, held, to be resumed from by copies of it.
+const TAKEN: usize = usize::MAX;
+
 /// How much input left at a block's start has a decoder pair the block's
 /// literals at once, as a block likely long enough for pairing them to
 /// pay; and how much of a block it decodes before it pairs them, if it
@@ -326,7 +330,11 @@ struct Window {
     /// How many of the bytes have been produced.
     produced: usize,
     /// How much it decodes before it produces it, which `prepare` makes
-    /// room for: `CHUNK`, or less until the buffer is whole.
+    /// room for: `CHUNK`, or less until the buffer is whole. Read only
+    /// once `prepare` has set it, so that until then it marks a
+    /// checkpoint's, `TAKEN`, at no cost to decoding: a mark of its own,
+    /// stored as it decoded, made Neoverse V3 decode runs at level 1 18%
+    /// slower, or Granite Rapids short streams 12%.
     chunk: usize,
     /// Where decoding last went round to the buffer's start, which the
     /// window's bytes before it end at, for matches that reach past the
@@ -478,11 +486,27 @@ impl Window {
     }
 
     /// Returns a copy of it as `compact` leaves it, in a buffer of only
-    /// what it keeps, copied once.
+    /// what it keeps, copied once: a checkpoint's, `TAKEN`; or, of a
+    /// checkpoint's, the copy one resumes from, with room past that to
+    /// decode a chunk, as `prepare` makes, so that the buffer need not
+    /// grow then. Growing, glibc moves it, copying it, or not, by where the
+    /// heap's free chunks lie, which differs from one process to the next:
+    /// runs resumed 8 to 25% slower on Zen 5, 5 to 15% on Granite Rapids,
+    /// and 2 to 19% on Neoverse V3.
     fn checkpoint(&self) -> Self {
         let (older, keep) = self.kept();
         let after = self.buf.get(keep..self.end).unwrap_or_default();
-        let mut buf = Vec::with_capacity(older.len().saturating_add(after.len()));
+        let (room, chunk) = match self.chunk {
+            TAKEN => {
+                let room = CHUNK
+                    .saturating_add(self.format.longest())
+                    .saturating_add(SLACK);
+                (room, 0)
+            },
+            _ => (0, TAKEN),
+        };
+        let len = older.len().saturating_add(after.len());
+        let mut buf = Vec::with_capacity(len.saturating_add(room));
         buf.extend_from_slice(older);
         buf.extend_from_slice(after);
         Self {
@@ -491,6 +515,7 @@ impl Window {
                 .produced
                 .saturating_add(older.len())
                 .saturating_sub(keep),
+            chunk,
             wrap: 0,
             buf,
             ..*self
@@ -932,7 +957,9 @@ impl Decoder {
 
     /// Returns a decoder that goes on from where this one is: a copy of
     /// it, with no more of its window than matches may copy from, and none
-    /// of the room it keeps for blocks to come.
+    /// of the room it keeps for blocks to come; or, of a checkpoint that
+    /// has decoded no codes since, as one resumes from, with room to
+    /// decode them at once.
     #[must_use]
     pub fn checkpoint(&self) -> Option<Self> {
         // Each part copied as kept, rather than all of it and then trimmed:
@@ -1899,5 +1926,32 @@ mod tests {
             let least = format.buffer() - need + 1;
             assert!(least >= format.window() + need, "{format:?}");
         }
+    }
+
+    /// A checkpoint's buffer holds its window alone, and a copy of it, as
+    /// one resumes from, room past that to decode a chunk without growing,
+    /// though a checkpoint of that copy holds the window alone again.
+    #[test]
+    fn resumes_without_growing() {
+        let stream = include_bytes!("../tests/data/zeros-9.deflate");
+        let mut decoder = Decoder::new();
+        let mut output = alloc::vec![0; 40 << 10];
+        let (mut at, mut produced) = (0, 0);
+        while produced < output.len() {
+            let (consumed, more) = decoder
+                .decode(&stream[at..], &mut output[produced..])
+                .unwrap();
+            (at, produced) = (at + consumed, produced + more);
+        }
+        let held = decoder.checkpoint().unwrap();
+        let window = &held.window.buf;
+        assert_eq!((window.len(), window.capacity()), (32 << 10, 32 << 10));
+        let mut resumed = held.checkpoint().unwrap();
+        let again = resumed.checkpoint().unwrap().window.buf;
+        assert_eq!((again.len(), again.capacity()), (32 << 10, 32 << 10));
+        let room = resumed.window.buf.capacity();
+        let (_, more) = resumed.decode(&stream[at..], &mut output[..CHUNK]).unwrap();
+        assert_eq!(more, CHUNK);
+        assert!(resumed.window.buf.len() <= room);
     }
 }
