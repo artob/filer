@@ -203,6 +203,15 @@ so any release may break compatibility.
   which no longer grow the buffer by chunks they do not fill, decode up
   to 16% faster on Granite Rapids, whole and in pieces (the Canterbury
   corpus's `sum`), up to 4% on Zen 5, and up to 6% on Neoverse V3.
+- `decode-deflate`: the copy of a checkpoint that one resumes from takes
+  room to decode a chunk at once, rather than grow its buffer then,
+  which glibc did by moving it, or not, by where the heap's free chunks
+  lay: from a checkpoint, runs resume 1.03 to 1.26 times as fast on the
+  default machines, in times that no longer differ from one process to
+  the next, at 1.08 to 4.0 times zlib-ng's speed, and every input faster
+  than with every counterpart; though by the baseline build on Granite
+  Rapids, Silesia's `ooffice` resumes 13 to 38% slower, and Canterbury's
+  `E.coli` at level 1 11%.
 - `decode-zstd`: its window is a buffer of the window and two blocks,
   which decoding goes round, copying few bytes at once; and its tables
   are arrays, allocated once a frame: in pieces it holds what libzstd
