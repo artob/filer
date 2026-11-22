@@ -677,10 +677,11 @@ crate's name until its first code, which moves it to `lib/`.
   speed on Zen 5, 0.81 to 0.85 on Granite Rapids, and 0.93 to 0.98 on
   Neoverse V3, though 1.12 to 1.22 times `lzma-rust2`'s. Neoverse V3 has
   the worst cases: Canterbury's smallest files, of 4 to 11 KB, decode at
-  0.39 to 0.71 of liblzma's speed, as if making a decoder cost it more,
-  and `kennedy.xls` at 0.53 to 0.75. Done when it decodes each default
-  machine's real inputs at least as fast as `lzma-rust2`, and at 0.95 of
-  liblzma's speed at least, or its docs say why not.
+  0.39 to 0.71 of liblzma's speed, though making a decoder costs it at
+  most 0.3 µs more than liblzma (small streams of 64 B), and `kennedy.xls`
+  at 0.53 to 0.75. Done when it decodes each default machine's real
+  inputs at least as fast as `lzma-rust2`, and at 0.95 of liblzma's speed
+  at least, or its docs say why not.
 - [ ] **DEC-25: One allocation a stream.** Low priority. A
   `decode-deflate` stream allocates six times at most, and grows those up
   to five times (DEC-23): its window's buffer, doubled as it fills; its
