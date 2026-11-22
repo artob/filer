@@ -669,6 +669,18 @@ crate's name until its first code, which moves it to `lib/`.
   ones alone (2% slower). Done when it decodes faster than zlib-ng and
   `zlib-rs` on each default machine, every input, whole, in pieces, and
   in small streams, and at 0.95 of libdeflate's speed at least, whole.
+- [ ] **DEC-29: `decode-lzma`'s speed.** By the harness's baseline build
+  at `b66411c` (`BENCH.md`, 2026-11-21), over the default machines' real
+  inputs, by the geometric mean per level, it decodes `.lzma` files at
+  0.75 to 0.86 of liblzma's speed and 0.93 to 0.97 of `lzma-rust2`'s; and
+  `decode-xz`, over it, decodes `.xz` files at 0.83 to 0.88 of liblzma's
+  speed on Zen 5, 0.81 to 0.85 on Granite Rapids, and 0.93 to 0.98 on
+  Neoverse V3, though 1.12 to 1.22 times `lzma-rust2`'s. Neoverse V3 has
+  the worst cases: Canterbury's smallest files, of 4 to 11 KB, decode at
+  0.39 to 0.71 of liblzma's speed, as if making a decoder cost it more,
+  and `kennedy.xls` at 0.53 to 0.75. Done when it decodes each default
+  machine's real inputs at least as fast as `lzma-rust2`, and at 0.95 of
+  liblzma's speed at least, or its docs say why not.
 - [ ] **DEC-25: One allocation a stream.** Low priority. A
   `decode-deflate` stream allocates six times at most, and grows those up
   to five times (DEC-23): its window's buffer, doubled as it fills; its
