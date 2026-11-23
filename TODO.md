@@ -552,16 +552,15 @@ crate's name until its first code, which moves it to `lib/`.
   for time. Done when it fills them on Apple M4 too. Mind code placement
   there: a probe timed `compute-crc`'s tables' CRC-32 at 1.3 GB/s from
   one call site and 5.1 from another, the same loop (2026-11-06).
-- [ ] **BENCH-12: xz and LZMA in the harness.** Campaigns of every
-  measure the harness takes filled `decode-zstd`'s, `decode-bzip2`'s, and
-  `decode-deflate`'s `BENCH.md` on the default machines (`bench/METHOD.md`)
-  by either build: whole and in pieces, small streams, memory, and
-  checkpoints (2026-11-13 to 21, `~/campaign.sh <cpu>` on each host). The
-  other `decode-*` crates' `BENCH.md` hold their code size alone. Done when
-  the harness drives `decode-xz` and `decode-lzma` beside the counterparts
-  their `BENCH.md` name, and a campaign on the default machines fills both.
-- [ ] **BENCH-13: LZ4 in the harness.** Likewise `decode-lz4`, beside
-  liblz4 and `lz4_flex`.
+- [ ] **BENCH-13: LZ4 in the harness.** Campaigns of every measure the
+  harness takes filled `decode-zstd`'s, `decode-bzip2`'s,
+  `decode-deflate`'s, `decode-xz`'s, and `decode-lzma`'s `BENCH.md` on
+  the default machines (`bench/METHOD.md`) by either build: whole and in
+  pieces, small streams, memory, and checkpoints (2026-11-13 to 23,
+  `~/campaign.sh <cpu>` on each host). The other `decode-*` crates'
+  `BENCH.md` hold their code size alone. Done when the harness drives
+  `decode-lz4` beside liblz4 and `lz4_flex`, and a campaign on the
+  default machines fills its `BENCH.md`.
 - [ ] **BENCH-14: LZO in the harness.** Likewise `decode-lzo`, beside
   miniLZO, `rust-lzo`, `lzokay-native`, and `lzo1x`.
 - [ ] **BENCH-15: gzip and zlib in the harness.** Likewise `decode-gzip`
