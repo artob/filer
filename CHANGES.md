@@ -329,6 +329,12 @@ so any release may break compatibility.
   decodes at 1.40 times liblzo2's speed at LZO1X-1, not 0.60, and 1.54
   times at LZO1X-999, not 0.69. `decode_block` may overwrite up to 16
   bytes of its output past what it decodes to.
+- `decode-lzma`: each bit of a tree or a literal loads both
+  probabilities the next may take before it is decoded, so that the next
+  waits on no load, and a literal's bits, without a match, unroll: by a
+  timer's best of runs over Silesia and Canterbury at levels 0, 6, and
+  9e, `.lzma` files decode 12% faster on Zen 5, 14% on Granite Rapids,
+  and 23% on Neoverse V3, and `.xz` files, through `decode-xz`, alike.
 - `decode-deflate`: three literals decode per refill, not two, the bit
   count falls by wrapping subtraction, which every caller's check keeps
   from wrapping, and matches copy inline, not by a call: on Apple M4, 5%

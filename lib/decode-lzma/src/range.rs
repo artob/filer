@@ -59,6 +59,16 @@ pub(crate) trait Coder {
         self.bit(probability)
     }
 
+    /// Decodes a bit as `even_bit` does, of a probability given by value,
+    /// and returns it with the probability updated, for a caller that
+    /// loaded it before it knew it would need it.
+    #[inline(always)]
+    fn even_value(&mut self, probability: u16) -> Option<(u32, u16)> {
+        let mut probability = probability;
+        let bit = self.even_bit(&mut probability)?;
+        Some((bit, probability))
+    }
+
     /// Decodes `count` bits, up to 26, directly, the first highest.
     fn direct(&mut self, count: u32) -> Option<u32>;
 }
@@ -121,19 +131,20 @@ impl Coder for Real<'_> {
 
     #[inline(always)]
     fn even_bit(&mut self, probability: &mut u16) -> Option<u32> {
-        let p = *probability;
-        let bound = bound(self.range, p);
+        let bound = bound(self.range, *probability);
+        // In 32 bits, which a probability, at most `1 << 11`, never leaves,
+        // so as to take no partial register.
+        let p = u32::from(*probability);
         // All ones for a 1, which takes the upper part of the range.
         let bit = u32::from(self.range.code >= bound);
         let mask = bit.wrapping_neg();
         let upper = self.range.range.wrapping_sub(bound);
         self.range.range = (bound & !mask) | (upper & mask);
         self.range.code = self.range.code.wrapping_sub(bound & mask);
-        let rise = p.wrapping_add((1_u16 << PROBABILITY_BITS).wrapping_sub(p) >> ADAPT_BITS);
+        let rise = p.wrapping_add((1_u32 << PROBABILITY_BITS).wrapping_sub(p) >> ADAPT_BITS);
         let fall = p.wrapping_sub(p >> ADAPT_BITS);
-        let [low, ..] = mask.to_le_bytes();
-        let mask = u16::from_le_bytes([low, low]);
-        *probability = (rise & !mask) | (fall & mask);
+        let [low, high, ..] = ((rise & !mask) | (fall & mask)).to_le_bytes();
+        *probability = u16::from_le_bytes([low, high]);
         normalize(&mut self.range, self.input, &mut self.at)?;
         Some(bit)
     }

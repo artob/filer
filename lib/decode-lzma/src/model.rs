@@ -116,24 +116,48 @@ impl Lengths {
 /// first highest.
 #[inline(always)]
 fn tree<C: Coder, const N: usize>(coder: &mut C, probabilities: &mut [u16; N]) -> Option<u32> {
-    // Each node is below `N`, which the mask shows.
+    // Each node is below `N`, which the mask shows. Each bit but the last
+    // loads both probabilities the next may take, which lie side by side,
+    // before it is decoded, so that the next waits for no load.
+    let mask = N.wrapping_sub(1);
+    let bits = N.trailing_zeros();
     let mut node = 1_usize;
-    while node < N {
-        let probability = probabilities.get_mut(node & N.wrapping_sub(1))?;
-        node = node.wrapping_shl(1) | usize::try_from(coder.even_bit(probability)?).ok()?;
+    let mut p = *probabilities.get(node & mask)?;
+    for _ in 1..bits {
+        let child = node.wrapping_shl(1);
+        let p0 = *probabilities.get(child & mask)?;
+        let p1 = *probabilities.get((child | 1) & mask)?;
+        let (decoded, updated) = coder.even_value(p)?;
+        *probabilities.get_mut(node & mask)? = updated;
+        node = child | usize::try_from(decoded).ok()?;
+        p = if decoded == 0 { p0 } else { p1 };
     }
+    let (decoded, updated) = coder.even_value(p)?;
+    *probabilities.get_mut(node & mask)? = updated;
+    node = node.wrapping_shl(1) | usize::try_from(decoded).ok()?;
     u32::try_from(node.wrapping_sub(N)).ok()
 }
 
-/// Decodes `bits` bits by a tree of probabilities, the first lowest.
+/// Decodes `bits` bits by a tree of probabilities, the first lowest,
+/// loading both probabilities each next bit may take before it is decoded.
 #[inline(always)]
 fn reverse<C: Coder>(coder: &mut C, probabilities: &mut [u16], bits: u32) -> Option<u32> {
-    let (mut node, mut value) = (1_u32, 0_u32);
+    let (mut node, mut value) = (1_usize, 0_u32);
+    let mut p = *probabilities.get(node)?;
     for bit in 0..bits {
-        let probability = probabilities.get_mut(usize::try_from(node).ok()?)?;
-        let decoded = coder.even_bit(probability)?;
-        node = node.wrapping_shl(1) | decoded;
+        let child = node.wrapping_shl(1);
+        let last = bit.wrapping_add(1) == bits;
+        // Past the last bit, its children are not wanted, and may not be.
+        let (p0, p1) = if last {
+            (0, 0)
+        } else {
+            (*probabilities.get(child)?, *probabilities.get(child | 1)?)
+        };
+        let (decoded, updated) = coder.even_value(p)?;
+        *probabilities.get_mut(node)? = updated;
+        node = child | usize::try_from(decoded).ok()?;
         value |= decoded.wrapping_shl(bit);
+        p = if decoded == 0 { p0 } else { p1 };
     }
     Some(value)
 }
@@ -280,21 +304,67 @@ impl Model {
         let probabilities = self.literals.get_mut(start..start.checked_add(LITERAL)?)?;
         let probabilities: &mut [u16; LITERAL] = probabilities.try_into().ok()?;
         let mut symbol = 1_usize;
-        if let Some(mut matched) = context.matched {
-            while symbol < 0x100 {
-                let bit = usize::try_from((matched >> 7) & 1).ok()?;
+        let mut p;
+        if let Some(matched) = context.matched {
+            // While its bits are those of the byte at the latest match's
+            // distance, each is coded by probabilities past 0x100, by that
+            // byte's bit; from the first that differs, by those of plain
+            // literals. Each bit loads both probabilities the next may
+            // take, the one if it matches, the other if not, before it is
+            // decoded, so that the next waits for no load.
+            let mut matched = usize::try_from(matched).ok()?.wrapping_shl(1);
+            let mut at = (matched & 0x100).wrapping_add(0x100) | symbol;
+            p = *probabilities.get(at)?;
+            loop {
+                let bit = (matched >> 8) & 1;
                 matched <<= 1;
-                let at = bit.wrapping_add(1).wrapping_shl(8).wrapping_add(symbol);
-                let decoded = coder.even_bit(probabilities.get_mut(at)?)?;
-                symbol = symbol.wrapping_shl(1) | usize::try_from(decoded).ok()?;
-                if usize::try_from(decoded).ok()? != bit {
+                let child = symbol.wrapping_shl(1);
+                let same = (matched & 0x100)
+                    .wrapping_add(0x100)
+                    .wrapping_add(child | bit);
+                let other = (child | (bit ^ 1)) & 0xFF;
+                // Past the last bit, neither is wanted, and `same` may lie
+                // past the probabilities.
+                let p_same = probabilities.get(same).copied().unwrap_or_default();
+                let p_other = *probabilities.get(other)?;
+                let (decoded, updated) = coder.even_value(p)?;
+                *probabilities.get_mut(at)? = updated;
+                let decoded = usize::try_from(decoded).ok()?;
+                symbol = child | decoded;
+                if symbol >= 0x100 {
                     break;
                 }
+                if decoded != bit {
+                    p = p_other;
+                    break;
+                }
+                p = p_same;
+                at = same;
+            }
+        } else {
+            // Of a fixed count, which unrolls.
+            p = *probabilities.get(1)?;
+            for _ in 0..8 {
+                let child = symbol.wrapping_shl(1);
+                let p0 = *probabilities.get(child & 0xFF)?;
+                let p1 = *probabilities.get((child | 1) & 0xFF)?;
+                let (decoded, updated) = coder.even_value(p)?;
+                *probabilities.get_mut(symbol & 0xFF)? = updated;
+                symbol = child | usize::try_from(decoded).ok()?;
+                p = if decoded == 0 { p0 } else { p1 };
             }
         }
+        // Plain: each bit loads both probabilities the next may take, side
+        // by side, before it is decoded; past the last, those it loads are
+        // not wanted.
         while symbol < 0x100 {
-            let decoded = coder.even_bit(probabilities.get_mut(symbol)?)?;
-            symbol = symbol.wrapping_shl(1) | usize::try_from(decoded).ok()?;
+            let child = symbol.wrapping_shl(1);
+            let p0 = *probabilities.get(child & 0xFF)?;
+            let p1 = *probabilities.get((child | 1) & 0xFF)?;
+            let (decoded, updated) = coder.even_value(p)?;
+            *probabilities.get_mut(symbol & 0xFF)? = updated;
+            symbol = child | usize::try_from(decoded).ok()?;
+            p = if decoded == 0 { p0 } else { p1 };
         }
         let [byte, ..] = symbol.to_le_bytes();
         Some(byte)
