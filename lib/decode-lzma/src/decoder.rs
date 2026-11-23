@@ -2,7 +2,10 @@
 
 use crate::{
     Error, corrupt,
-    model::{Context, END, Model, Packet, Properties},
+    model::{
+        Context, END, LONGEST, Model, Packet, Properties, after_literal, after_match, after_rep,
+        after_short_rep, matched, with_match, with_rep,
+    },
     range::{Dry, INIT, Range, Real},
     unsupported,
     window::Window,
@@ -459,20 +462,17 @@ impl Decoder {
                     input,
                     at: *at,
                 };
-                let mut ended = false;
                 // Past this, the input may not hold a packet.
                 let limit = input.len().saturating_sub(REQUIRED);
-                loop {
-                    let context = self.context()?;
-                    let packet = self.model.packet(&mut coder, context);
-                    if self.apply(packet.ok_or_else(corrupt)?, left)? {
-                        ended = true;
-                        break;
-                    }
-                    if coder.at > limit || *left == Some(0) || !self.window.ready() {
-                        break;
-                    }
-                }
+                let ended = match self.fast(&mut coder, limit, left)? {
+                    Some(ended) => ended,
+                    // A packet at a time where the window wraps around.
+                    None => {
+                        let context = self.context()?;
+                        let packet = self.model.packet(&mut coder, self.model.state, context);
+                        self.apply(packet.ok_or_else(corrupt)?, left)?
+                    },
+                };
                 (range, *at) = (coder.range, coder.at);
                 if ended {
                     break self.marked(range, *left, marker)?;
@@ -498,7 +498,11 @@ impl Decoder {
                 input: bytes,
                 at: 0,
             };
-            if self.model.packet(&mut dry, context).is_none() {
+            if self
+                .model
+                .packet(&mut dry, self.model.state, context)
+                .is_none()
+            {
                 // Too few: hold them all, for more to follow. Never as many
                 // as `REQUIRED`, which no packet takes more of.
                 if all >= REQUIRED {
@@ -513,7 +517,10 @@ impl Decoder {
                 input: bytes,
                 at: 0,
             };
-            let packet = self.model.packet(&mut coder, context).ok_or_else(corrupt)?;
+            let packet = self
+                .model
+                .packet(&mut coder, self.model.state, context)
+                .ok_or_else(corrupt)?;
             range = coder.range;
             // What it took past the bytes held came from the input.
             match held.checked_sub(coder.at) {
@@ -529,6 +536,87 @@ impl Decoder {
         };
         self.range = Some(range);
         Ok(coded)
+    }
+
+    /// Decodes packets straight from `coder`'s input, up to `limit`, past
+    /// which it may not hold one, into the window's buffer, while it has room
+    /// for one without wrapping around, with what each changes held in
+    /// locals, as registers hold them best; returns whether the data ended,
+    /// or `None` if the window has no such room.
+    #[inline(always)]
+    fn fast(
+        &mut self,
+        coder: &mut Real<'_>,
+        limit: usize,
+        left: &mut Option<u64>,
+    ) -> Result<Option<bool>, Error> {
+        let Self { model, window, .. } = self;
+        let Some(mut span) = window.lend() else {
+            return Ok(None);
+        };
+        let (mut state, mut reps) = (model.state, model.reps);
+        let mut budget = left.unwrap_or(u64::MAX);
+        let ended = loop {
+            let [rep0, ..] = reps;
+            let matched = if matched(state) {
+                Some(u32::from(span.byte(rep0).ok_or_else(corrupt)?))
+            } else {
+                None
+            };
+            let context = Context {
+                position: u32::try_from(span.processed & u64::from(u32::MAX)).unwrap_or_default(),
+                previous: u32::from(span.last),
+                matched,
+            };
+            match model.packet(coder, state, context).ok_or_else(corrupt)? {
+                Packet::Literal(byte) => {
+                    budget = budget.checked_sub(1).ok_or_else(corrupt)?;
+                    span.put(byte);
+                    state = after_literal(state);
+                },
+                Packet::ShortRep => {
+                    if span.processed == 0 {
+                        return Err(corrupt());
+                    }
+                    budget = budget.checked_sub(1).ok_or_else(corrupt)?;
+                    let byte = span.byte(rep0).ok_or_else(corrupt)?;
+                    span.put(byte);
+                    state = after_short_rep(state);
+                },
+                Packet::Rep { index, length } => {
+                    if span.processed == 0 {
+                        return Err(corrupt());
+                    }
+                    state = after_rep(state);
+                    reps = with_rep(reps, index);
+                    budget = budget.checked_sub(u64::from(length)).ok_or_else(corrupt)?;
+                    let [rep0, ..] = reps;
+                    span.copy(rep0, usize::try_from(length).map_err(|_| corrupt())?);
+                },
+                Packet::Match { length, distance } => {
+                    state = after_match(state);
+                    reps = with_match(reps, distance);
+                    if distance == END {
+                        break true;
+                    }
+                    if budget == 0 || !span.reaches(distance) {
+                        return Err(corrupt());
+                    }
+                    budget = budget.checked_sub(u64::from(length)).ok_or_else(corrupt)?;
+                    span.copy(distance, usize::try_from(length).map_err(|_| corrupt())?);
+                },
+            }
+            if coder.at > limit || budget == 0 || span.room < LONGEST {
+                break false;
+            }
+        };
+        let (pos, processed, last) = (span.pos, span.processed, span.last);
+        window.settle(pos, processed, last);
+        (model.state, model.reps) = (state, reps);
+        if left.is_some() {
+            *left = Some(budget);
+        }
+        Ok(Some(ended))
     }
 
     /// Returns the range decoder at the start of the data, from the bytes

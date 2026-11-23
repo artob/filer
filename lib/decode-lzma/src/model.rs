@@ -193,7 +193,7 @@ pub(crate) struct Context {
 #[derive(Clone, Debug)]
 pub(crate) struct Model {
     properties: Properties,
-    state: usize,
+    pub(crate) state: usize,
     /// The four latest distances, less one, the latest first.
     pub(crate) reps: [u32; 4],
     is_match: [u16; STATES * POSITIONS],
@@ -260,10 +260,15 @@ impl Model {
         self.state >= AFTER_MATCH
     }
 
-    /// Decodes a packet in `context`.
+    /// Decodes a packet in `context`, in `state`, which may be held apart
+    /// from the model's own while packets are decoded in a loop.
     #[inline(always)]
-    pub(crate) fn packet<C: Coder>(&mut self, coder: &mut C, context: Context) -> Option<Packet> {
-        let state = self.state;
+    pub(crate) fn packet<C: Coder>(
+        &mut self,
+        coder: &mut C,
+        state: usize,
+        context: Context,
+    ) -> Option<Packet> {
         let position = usize::try_from(context.position & mask(self.properties.pb)).ok()?;
         let at = state.wrapping_mul(POSITIONS).wrapping_add(position);
         if coder.bit(self.is_match.get_mut(at)?)? == 0 {
@@ -395,36 +400,73 @@ impl Model {
 
     /// Moves on past a literal.
     pub(crate) fn literal_done(&mut self) {
-        self.state = match self.state {
-            0..4 => 0,
-            4..10 => self.state.wrapping_sub(3),
-            _ => self.state.wrapping_sub(6),
-        };
+        self.state = after_literal(self.state);
     }
 
     /// Moves on past a match at a new distance, less one, `distance`.
     pub(crate) fn match_done(&mut self, distance: u32) {
-        self.state = if self.after_match() { 10 } else { 7 };
-        let [r0, r1, r2, _] = self.reps;
-        self.reps = [distance, r0, r1, r2];
+        self.state = after_match(self.state);
+        self.reps = with_match(self.reps, distance);
     }
 
     /// Moves on past a repeat of the match whose distance is at `index`,
     /// which becomes the latest.
     pub(crate) fn rep_done(&mut self, index: usize) {
-        self.state = if self.after_match() { 11 } else { 8 };
-        let [r0, r1, r2, r3] = self.reps;
-        self.reps = match index {
-            0 => [r0, r1, r2, r3],
-            1 => [r1, r0, r2, r3],
-            2 => [r2, r0, r1, r3],
-            _ => [r3, r0, r1, r2],
-        };
+        self.state = after_rep(self.state);
+        self.reps = with_rep(self.reps, index);
     }
 
     /// Moves on past a repeat of the latest match's byte.
     pub(crate) fn short_rep_done(&mut self) {
-        self.state = if self.after_match() { 11 } else { 9 };
+        self.state = after_short_rep(self.state);
+    }
+}
+
+/// Returns whether a literal in `state` is coded against the byte at the
+/// latest match's distance.
+pub(crate) const fn matched(state: usize) -> bool {
+    state >= AFTER_MATCH
+}
+
+/// Returns the state after a literal in `state`.
+pub(crate) const fn after_literal(state: usize) -> usize {
+    match state {
+        0..4 => 0,
+        4..10 => state.wrapping_sub(3),
+        _ => state.wrapping_sub(6),
+    }
+}
+
+/// Returns the state after a match at a new distance in `state`.
+pub(crate) const fn after_match(state: usize) -> usize {
+    if matched(state) { 10 } else { 7 }
+}
+
+/// Returns the state after a repeat of a match in `state`.
+pub(crate) const fn after_rep(state: usize) -> usize {
+    if matched(state) { 11 } else { 8 }
+}
+
+/// Returns the state after a repeat of the latest match's byte in `state`.
+pub(crate) const fn after_short_rep(state: usize) -> usize {
+    if matched(state) { 11 } else { 9 }
+}
+
+/// Returns the latest distances, `reps`, after a match at `distance`.
+pub(crate) const fn with_match(reps: [u32; 4], distance: u32) -> [u32; 4] {
+    let [r0, r1, r2, _] = reps;
+    [distance, r0, r1, r2]
+}
+
+/// Returns the latest distances, `reps`, after a repeat of the one at
+/// `index`, which becomes the latest.
+pub(crate) const fn with_rep(reps: [u32; 4], index: usize) -> [u32; 4] {
+    let [r0, r1, r2, r3] = reps;
+    match index {
+        0 => [r0, r1, r2, r3],
+        1 => [r1, r0, r2, r3],
+        2 => [r2, r0, r1, r3],
+        _ => [r3, r0, r1, r2],
     }
 }
 

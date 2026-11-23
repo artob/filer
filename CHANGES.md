@@ -335,6 +335,11 @@ so any release may break compatibility.
   timer's best of runs over Silesia and Canterbury at levels 0, 6, and
   9e, `.lzma` files decode 12% faster on Zen 5, 14% on Granite Rapids,
   and 23% on Neoverse V3, and `.xz` files, through `decode-xz`, alike.
+- `decode-lzma`: packets decode in a loop that holds the model's state
+  and where the dictionary is in locals, while the dictionary has room
+  for a packet without wrapping around, and a match copies from across
+  its end in one piece where it can: 1% faster on Granite Rapids, 3% on
+  Zen 5, and 4% on Neoverse V3.
 - `decode-deflate`: three literals decode per refill, not two, the bit
   count falls by wrapping subtraction, which every caller's check keeps
   from wrapping, and matches copy inline, not by a call: on Apple M4, 5%
