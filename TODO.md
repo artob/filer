@@ -668,19 +668,25 @@ crate's name until its first code, which moves it to `lib/`.
   ones alone (2% slower). Done when it decodes faster than zlib-ng and
   `zlib-rs` on each default machine, every input, whole, in pieces, and
   in small streams, and at 0.95 of libdeflate's speed at least, whole.
-- [ ] **DEC-29: `decode-lzma`'s speed.** By the harness's baseline build
-  at `b66411c` (`BENCH.md`, 2026-11-21), over the default machines' real
-  inputs, by the geometric mean per level, it decodes `.lzma` files at
-  0.75 to 0.86 of liblzma's speed and 0.93 to 0.97 of `lzma-rust2`'s; and
-  `decode-xz`, over it, decodes `.xz` files at 0.83 to 0.88 of liblzma's
-  speed on Zen 5, 0.81 to 0.85 on Granite Rapids, and 0.93 to 0.98 on
-  Neoverse V3, though 1.12 to 1.22 times `lzma-rust2`'s. Neoverse V3 has
-  the worst cases: Canterbury's smallest files, of 4 to 11 KB, decode at
-  0.39 to 0.71 of liblzma's speed, though making a decoder costs it at
-  most 0.3 µs more than liblzma (small streams of 64 B), and `kennedy.xls`
-  at 0.53 to 0.75. Done when it decodes each default machine's real
-  inputs at least as fast as `lzma-rust2`, and at 0.95 of liblzma's speed
-  at least, or its docs say why not.
+- [ ] **DEC-29: `decode-lzma`'s speed.** Since `6f6e65c`, timed whole
+  in one process, best of runs, over the default machines' real inputs,
+  by the geometric mean per level, it decodes `.lzma` files at 0.85 to
+  0.90 of liblzma's speed on Zen 5 and Granite Rapids, and 0.98 to 1.04
+  on Neoverse V3, 1.10 to 1.21 times `lzma-rust2`'s; and `decode-xz`,
+  over it, `.xz` files at 0.94 to 1.00 of liblzma's speed on x86, 1.10
+  to 1.18 on Neoverse V3, 1.31 to 1.57 times `lzma-rust2`'s (`BENCH.md`,
+  at `b66411c`, predates both). On x86 it runs about 1.5 times
+  liblzma's instructions a byte, at an IPC of 2.8 to its 2.2, and
+  mispredicts as often: each bit loads both probabilities the next may
+  take, and updates without a branch, which a branch lost 4 to 12% to.
+  Copying short matches byte by byte lost 4 to 6%, and direct bits by
+  a mask nothing. Neoverse V3's small Canterbury files decode slower as
+  a benchmark loops over them: liblzma's branches learn a file of 4 KB
+  by heart (16 mispredictions a pass of `fields.c`, ours 83), not a
+  large one (`dickens`: twice ours, and ours 1.27 times as fast). Done
+  when it decodes each default machine's real inputs at least as fast
+  as `lzma-rust2`, and at 0.95 of liblzma's speed at least, or its docs
+  say why not.
 - [ ] **DEC-25: One allocation a stream.** Low priority. A
   `decode-deflate` stream allocates six times at most, and grows those up
   to five times (DEC-23): its window's buffer, doubled as it fills; its
